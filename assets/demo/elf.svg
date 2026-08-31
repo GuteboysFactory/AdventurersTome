@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#496751"/><stop offset="1" stop-color="#101a14"/></linearGradient></defs>
+  <rect width="600" height="750" fill="url(#bg)"/>
+  <circle cx="300" cy="250" r="104" fill="#e0bd91"/>
+  <path d="M174 243 77 189l99 93Zm252 0 97-54-99 93Z" fill="#d7b384"/>
+  <path d="M170 205c54-130 244-122 273 1-71-39-183-52-273-1Z" fill="#d9c58e"/>
+  <path d="M136 750c34-200 92-316 164-316s130 116 164 316" fill="#244332"/>
+  <path d="M300 463l31 54 63 5-47 42 14 62-61-31-61 31 14-62-47-42 63-5Z" fill="none" stroke="#c8d8b8" stroke-width="6"/>
+  <text x="300" y="700" text-anchor="middle" fill="#dfe8c5" font-family="Georgia,serif" font-size="38">ELF</text>
+</svg>
