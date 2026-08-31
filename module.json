@@ -1,0 +1,36 @@
+{
+  "id": "adventurers-tome",
+  "title": "Adventurer's Tome",
+  "description": "A responsive, system-agnostic campaign landing page and living campaign archive for Foundry VTT, featuring Home Builder, Foundry-synced World content, a customizable private GM workspace, guided in-app manual, live-session tools, import/export, permissions, cross-links, search, and diagnostics.",
+  "version": "1.0.0-rc.1",
+  "authors": [
+    {
+      "name": "Per"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13.351",
+    "maximum": "13"
+  },
+  "esmodules": [
+    "scripts/adventurers-tome.js"
+  ],
+  "styles": [
+    "styles/adventurers-tome.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "sv",
+      "name": "Svenska",
+      "path": "lang/sv.json"
+    }
+  ],
+  "socket": true,
+  "readme": "README.md"
+}
