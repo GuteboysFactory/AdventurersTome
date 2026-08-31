@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#634335"/><stop offset="1" stop-color="#170e0b"/></linearGradient></defs>
+  <rect width="600" height="750" fill="url(#bg)"/>
+  <circle cx="300" cy="248" r="108" fill="#ad7954"/>
+  <path d="M158 208c52-123 235-127 286 5-73-44-207-49-286-5Z" fill="#5f311f"/>
+  <path d="M181 302c27 180 73 243 119 263 46-20 92-83 119-263-66 60-172 60-238 0Z" fill="#6a3824"/>
+  <path d="M132 750c22-174 83-292 168-292s146 118 168 292" fill="#3b2921"/>
+  <path d="M185 476h230l-23 88H208Z" fill="#50443a" stroke="#c1a06b" stroke-width="6"/>
+  <text x="300" y="700" text-anchor="middle" fill="#e1bd82" font-family="Georgia,serif" font-size="38">DWARF</text>
+</svg>
