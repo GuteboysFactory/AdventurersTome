@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#334135"/><stop offset="1" stop-color="#090b09"/></linearGradient></defs>
+  <rect width="600" height="750" fill="url(#bg)"/>
+  <circle cx="300" cy="242" r="104" fill="#b88a62"/>
+  <path d="M128 750c20-205 80-330 172-330s152 125 172 330" fill="#1e2921"/>
+  <path d="M167 198c29-117 237-139 281 17-51-35-102-49-150-48-47 1-90 13-131 31Z" fill="#1d1814"/>
+  <path d="M211 176c-1 122 34 203 89 225-92-18-137-93-89-225Zm178-7c12 115-22 198-85 232 97-24 136-106 85-232Z" fill="#2b231c" opacity=".96"/>
+  <path d="M250 319c31 18 69 18 100 0" stroke="#503526" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M300 475l24 48 53 8-39 37 9 52-47-25-47 25 9-52-39-37 53-8Z" fill="none" stroke="#c6ad73" stroke-width="7"/>
+  <text x="300" y="700" text-anchor="middle" fill="#e4c786" font-family="Georgia,serif" font-size="38">RANGER</text>
+</svg>

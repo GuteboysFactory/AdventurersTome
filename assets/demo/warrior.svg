@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#66533e"/><stop offset="1" stop-color="#17120e"/></linearGradient></defs>
+  <rect width="600" height="750" fill="url(#bg)"/>
+  <circle cx="300" cy="245" r="104" fill="#c18f68"/>
+  <path d="M164 205c39-117 231-118 274 3-82-38-189-42-274-3Z" fill="#6b4a32"/>
+  <path d="M125 750c32-201 91-319 175-319s143 118 175 319" fill="#3e3d3a"/>
+  <path d="M218 457h164l46 176H172Z" fill="#565b60" stroke="#b88e55" stroke-width="6"/>
+  <path d="M300 480v136M244 548h112" stroke="#d0b06d" stroke-width="10"/>
+  <text x="300" y="700" text-anchor="middle" fill="#e4c786" font-family="Georgia,serif" font-size="38">WARRIOR</text>
+</svg>

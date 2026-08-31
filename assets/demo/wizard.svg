@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#52545b"/><stop offset="1" stop-color="#111216"/></linearGradient></defs>
+  <rect width="600" height="750" fill="url(#bg)"/>
+  <path d="M146 224 300 48 454 224Z" fill="#6e717a"/>
+  <ellipse cx="300" cy="232" rx="178" ry="33" fill="#4d5057"/>
+  <circle cx="300" cy="286" r="98" fill="#bca98f"/>
+  <path d="M206 330c19 134 61 197 94 224 33-27 75-90 94-224-58 40-130 40-188 0Z" fill="#d6d0c3"/>
+  <path d="M122 750c24-167 85-281 178-281s154 114 178 281" fill="#676a72"/>
+  <circle cx="268" cy="278" r="8" fill="#17191c"/><circle cx="332" cy="278" r="8" fill="#17191c"/>
+  <path d="M452 478v214" stroke="#b38f52" stroke-width="15" stroke-linecap="round"/><circle cx="452" cy="456" r="26" fill="none" stroke="#d4b66f" stroke-width="10"/>
+  <text x="300" y="700" text-anchor="middle" fill="#eee0b0" font-family="Georgia,serif" font-size="38">WIZARD</text>
+</svg>

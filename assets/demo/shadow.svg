@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750">
+  <defs><radialGradient id="bg"><stop stop-color="#50352b"/><stop offset="1" stop-color="#050404"/></radialGradient></defs>
+  <rect width="600" height="750" fill="url(#bg)"/>
+  <path d="M154 750c18-236 75-375 146-375s128 139 146 375" fill="#0b0b0b"/>
+  <path d="M198 213c21-119 185-143 211 0-45-28-153-28-211 0Z" fill="#111"/>
+  <circle cx="300" cy="258" r="94" fill="#6d5c50" opacity=".65"/>
+  <circle cx="266" cy="254" r="10" fill="#ff8a4a"/><circle cx="334" cy="254" r="10" fill="#ff8a4a"/>
+  <path d="M210 381c58-43 122-43 180 0" stroke="#2a1915" stroke-width="18" fill="none"/>
+  <text x="300" y="700" text-anchor="middle" fill="#c49b6b" font-family="Georgia,serif" font-size="38">SHADOW</text>
+</svg>

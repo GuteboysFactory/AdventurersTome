@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5c466b"/><stop offset="1" stop-color="#15101a"/></linearGradient></defs>
+  <rect width="600" height="750" fill="url(#bg)"/>
+  <circle cx="300" cy="252" r="106" fill="#d1a47d"/>
+  <path d="M169 205c52-125 225-122 266 2-86-39-179-40-266-2Z" fill="#463129"/>
+  <path d="M130 750c34-207 95-321 170-321s136 114 170 321" fill="#4a314f"/>
+  <path d="M217 475h166l-22 95H239Z" fill="#765a7d" stroke="#d1b47a" stroke-width="6"/>
+  <path d="M239 167l28-56 33 34 33-34 28 56" fill="none" stroke="#d8bd77" stroke-width="8"/>
+  <text x="300" y="700" text-anchor="middle" fill="#ead5a2" font-family="Georgia,serif" font-size="38">NOBLE</text>
+</svg>

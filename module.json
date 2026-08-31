@@ -32,5 +32,8 @@
     }
   ],
   "socket": true,
-  "readme": "README.md"
+  "readme": "README.md",
+  "url": "https://github.com/GuteboysFactory/AdventurersTome",
+  "manifest": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.1/module.json",
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.1/adventurers-tome.zip"
 }
