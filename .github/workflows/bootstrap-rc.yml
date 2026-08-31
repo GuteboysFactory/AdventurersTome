@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: 1.0.0-rc.1
-      REPO_URL: https://github.com/GuteboysFactory/AdventurersTome
-      MANIFEST_URL: https://github.com/GuteboysFactory/AdventurersTome/releases/latest/download/module.json
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,7 +37,7 @@ jobs:
           rm -rf bootstrap
           rm -f .github/workflows/bootstrap-rc.yml
 
-      - name: Stamp repository metadata
+      - name: Stamp RC metadata and install permanent release workflow
         shell: bash
         run: |
           set -euo pipefail
@@ -47,12 +45,104 @@ jobs:
           const fs = require('fs');
           const path = 'module.json';
           const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+          manifest.version = '1.0.0-rc.1';
           manifest.url = 'https://github.com/GuteboysFactory/AdventurersTome';
-          manifest.manifest = 'https://github.com/GuteboysFactory/AdventurersTome/releases/latest/download/module.json';
+          manifest.manifest = 'https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.1/module.json';
           manifest.download = 'https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.1/adventurers-tome.zip';
           fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
           NODE
           sed -i 's#github.com/OWNER/REPO#github.com/GuteboysFactory/AdventurersTome#g' docs/GITHUB-RELEASE.md
+          mkdir -p .github/workflows
+          cat > .github/workflows/release.yml <<'YAML'
+          name: Release Adventurer's Tome
+
+          on:
+            workflow_dispatch:
+              inputs:
+                version:
+                  description: Release version, e.g. 1.0.0 or 1.0.1
+                  required: true
+                  type: string
+
+          permissions:
+            contents: write
+
+          jobs:
+            release:
+              runs-on: ubuntu-latest
+              env:
+                VERSION: ${{ inputs.version }}
+              steps:
+                - uses: actions/checkout@v4
+                  with:
+                    fetch-depth: 0
+
+                - name: Validate version
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]
+
+                - name: Stamp source manifest version
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    node <<'NODE'
+                    const fs = require('fs');
+                    const v = process.env.VERSION;
+                    const p = 'module.json';
+                    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+                    const base = 'https://github.com/GuteboysFactory/AdventurersTome/releases';
+                    m.version = v;
+                    m.url = 'https://github.com/GuteboysFactory/AdventurersTome';
+                    m.manifest = v.includes('-') ? `${base}/download/${v}/module.json` : `${base}/latest/download/module.json`;
+                    m.download = `${base}/download/${v}/adventurers-tome.zip`;
+                    fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
+                    NODE
+                    git config user.name "GuteboysFactory Release Bot"
+                    git config user.email "actions@users.noreply.github.com"
+                    git add module.json
+                    if ! git diff --cached --quiet; then
+                      git commit -m "Prepare Adventurer's Tome $VERSION"
+                      git push
+                    fi
+
+                - name: Build release artifacts
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    rm -rf dist
+                    mkdir -p dist/adventurers-tome
+                    rsync -a ./ dist/adventurers-tome/ \
+                      --exclude '.git/' \
+                      --exclude '.github/' \
+                      --exclude 'dist/' \
+                      --exclude 'bootstrap/' \
+                      --exclude 'assets/Bree.webp'
+                    cp module.json dist/module.json
+                    cd dist
+                    zip -qr adventurers-tome.zip adventurers-tome
+                    unzip -t adventurers-tome.zip
+
+                - name: Publish GitHub Release
+                  shell: bash
+                  env:
+                    GH_TOKEN: ${{ github.token }}
+                  run: |
+                    set -euo pipefail
+                    if gh release view "$VERSION" >/dev/null 2>&1; then
+                      gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
+                    elif [[ "$VERSION" == *-* ]]; then
+                      gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
+                        --title "Adventurer's Tome $VERSION" \
+                        --notes "Release candidate for Foundry VTT 13.351." \
+                        --prerelease
+                    else
+                      gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
+                        --title "Adventurer's Tome $VERSION" \
+                        --notes "Adventurer's Tome $VERSION for Foundry VTT 13.351."
+                    fi
+          YAML
 
       - name: Commit complete RC source tree
         shell: bash
@@ -64,7 +154,7 @@ jobs:
           git commit -m "Import Adventurer's Tome v1.0.0-rc.1 source and release pipeline"
           git push
 
-      - name: Build release artifacts
+      - name: Build RC release artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -76,17 +166,7 @@ jobs:
             --exclude 'dist/' \
             --exclude 'bootstrap/' \
             --exclude 'assets/Bree.webp'
-          node <<'NODE'
-          const fs = require('fs');
-          const path = 'dist/adventurers-tome/module.json';
-          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
-          manifest.version = '1.0.0-rc.1';
-          manifest.url = 'https://github.com/GuteboysFactory/AdventurersTome';
-          manifest.manifest = 'https://github.com/GuteboysFactory/AdventurersTome/releases/latest/download/module.json';
-          manifest.download = 'https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.1/adventurers-tome.zip';
-          fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
-          fs.copyFileSync(path, 'dist/module.json');
-          NODE
+          cp module.json dist/module.json
           cd dist
           zip -qr adventurers-tome.zip adventurers-tome
           unzip -t adventurers-tome.zip
