@@ -1,0 +1,35 @@
+name: Bootstrap RC source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rebuild RC archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat bootstrap/chunk_* > /tmp/adventurers-tome-rc.b64
+          base64 --decode /tmp/adventurers-tome-rc.b64 > /tmp/adventurers-tome-rc.zip
+          unzip -t /tmp/adventurers-tome-rc.zip
+          mkdir -p /tmp/atome-unpack
+          unzip -q /tmp/adventurers-tome-rc.zip -d /tmp/atome-unpack
+          cp -a /tmp/atome-unpack/adventurers-tome/. ./
+          rm -rf bootstrap
+      - name: Commit source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "GuteboysFactory RC Bootstrap"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Import Adventurer's Tome v1.0.0-rc.1 source"
+          git push
