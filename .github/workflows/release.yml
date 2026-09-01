@@ -1,0 +1,87 @@
+name: Release Adventurer's Tome
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "release/READY"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read and validate manifest
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./module.json').version")"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          node -e "JSON.parse(require('fs').readFileSync('module.json','utf8'))"
+          node --check scripts/adventurers-tome.js
+          node --check scripts/structured-journals.js
+          test -f styles/adventurers-tome.css
+          test -f styles/structured-journals.css
+          test -f templates/tome.hbs
+          test -f assets/default-hero.webp
+          test ! -f assets/Bree.webp
+
+      - name: Verify release URLs
+        shell: bash
+        env:
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('module.json','utf8'));
+          const base = `https://github.com/GuteboysFactory/AdventurersTome/releases/download/${m.version}`;
+          if (m.manifest !== `${base}/module.json`) throw new Error(`Manifest URL does not match ${m.version}`);
+          if (m.download !== `${base}/adventurers-tome.zip`) throw new Error(`Download URL does not match ${m.version}`);
+          NODE
+
+      - name: Build Foundry package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist /tmp/adventurers-tome-release
+          mkdir -p dist /tmp/adventurers-tome-release
+          rsync -a ./ /tmp/adventurers-tome-release/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'dist/' \
+            --exclude 'release/' \
+            --exclude 'assets/Bree.webp'
+          cp module.json dist/module.json
+          cd /tmp/adventurers-tome-release
+          zip -qr "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" .
+          unzip -t "$GITHUB_WORKSPACE/dist/adventurers-tome.zip"
+          FIRST="$(unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | head -n 1)"
+          unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'module.json'
+          echo "Foundry package root verified; first entry: $FIRST"
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          set -euo pipefail
+          PRERELEASE_ARGS=()
+          if [[ "$VERSION" == *-* ]]; then PRERELEASE_ARGS+=(--prerelease); fi
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
+          else
+            gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
+              --title "Adventurer's Tome $VERSION" \
+              --notes "Release candidate focused on structured Journal-backed Rules, Tome-native rule editing, rich World Journal rendering, and party-roster QA fixes for Foundry VTT 13.351." \
+              "${PRERELEASE_ARGS[@]}"
+          fi
