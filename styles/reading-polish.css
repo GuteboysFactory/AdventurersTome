@@ -1,0 +1,66 @@
+/* Adventurer's Tome — imported Journal readability polish */
+
+.at-readable-journal,
+.at-readable-journal p,
+.at-readable-journal li,
+.at-readable-journal dd,
+.at-readable-journal dt,
+.at-readable-journal td,
+.at-readable-journal span:not(.at-kicker),
+.at-readable-journal strong,
+.at-readable-journal em {
+  color: #e4d2aa !important;
+}
+
+.at-readable-journal strong,
+.at-readable-journal b {
+  color: #f1d79b !important;
+}
+
+.at-readable-journal h1,
+.at-readable-journal h2,
+.at-readable-journal h3,
+.at-readable-journal h4,
+.at-readable-journal h5,
+.at-readable-journal h6 {
+  color: #f2d08a !important;
+}
+
+.at-readable-journal a,
+.at-readable-journal a * {
+  color: #f0c66f !important;
+}
+
+.at-readable-journal code,
+.at-readable-journal pre {
+  color: #ead9b2 !important;
+  background: rgba(255,255,255,.045) !important;
+}
+
+.at-readable-journal blockquote,
+.at-readable-journal blockquote * {
+  color: #d8c49b !important;
+}
+
+.at-readable-journal table,
+.at-readable-journal tbody,
+.at-readable-journal thead,
+.at-readable-journal tr,
+.at-readable-journal td,
+.at-readable-journal th {
+  background-color: transparent !important;
+}
+
+.at-readable-journal th {
+  color: #f2d08a !important;
+  background: rgba(214,178,108,.07) !important;
+}
+
+.at-readable-journal hr {
+  border-color: rgba(214,178,108,.24) !important;
+}
+
+.at-readable-journal .secret,
+.at-readable-journal [data-secret="true"] {
+  color: inherit;
+}
