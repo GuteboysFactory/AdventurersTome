@@ -28,8 +28,10 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('module.json','utf8'))"
           node --check scripts/adventurers-tome.js
           node --check scripts/structured-journals.js
+          node --check scripts/content-importer.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
+          test -f styles/content-importer.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test ! -f assets/Bree.webp
@@ -82,6 +84,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "Release candidate focused on structured Journal-backed Rules, Tome-native rule editing, rich World Journal rendering, and party-roster QA fixes for Foundry VTT 13.351." \
+              --notes "Release candidate focused on a clear existing-Journal import browser for Rules and World, while preserving Journal-backed, Tome-rendered presentation and the RC2 structured Rules foundation." \
               "${PRERELEASE_ARGS[@]}"
           fi
