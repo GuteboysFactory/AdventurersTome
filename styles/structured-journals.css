@@ -1,0 +1,188 @@
+/* Adventurer's Tome v1.0 RC2 — Journal-backed, Tome-rendered content */
+
+.at-rule-reading[data-at-structured-journal] {
+  padding: 0;
+  overflow: hidden;
+}
+
+.at-journal-reader-header {
+  padding: 1.2rem 1.35rem 1rem;
+  border-bottom: 1px solid rgba(214,178,108,.22);
+  background: linear-gradient(180deg, rgba(44,31,18,.72), rgba(16,11,7,.42));
+}
+
+.at-journal-reader-header h1 {
+  margin: .18rem 0 .28rem;
+  color: #f1d79b;
+  font-weight: normal;
+}
+
+.at-journal-reader-header p {
+  margin: 0;
+  color: #a99064;
+  font-size: .78rem;
+}
+
+.at-journal-reader-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 245px) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.at-journal-toc {
+  border-right: 1px solid rgba(214,178,108,.2);
+  background: rgba(9,7,5,.56);
+  padding: 1rem .7rem 1.2rem;
+  max-height: calc(100cqh - 210px);
+  overflow: auto;
+}
+
+.at-journal-toc-title {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: 0 .45rem .7rem;
+  color: #d7b56f;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .72rem;
+  border-bottom: 1px solid rgba(214,178,108,.14);
+  margin-bottom: .55rem;
+}
+
+.at-journal-toc-group { margin-bottom: .35rem; }
+.at-journal-toc button {
+  width: 100%;
+  min-height: 0 !important;
+  height: auto !important;
+  border: 0;
+  background: transparent;
+  color: #cdbb91;
+  text-align: left;
+  padding: .42rem .45rem;
+  line-height: 1.25;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.at-journal-toc button:hover { background: rgba(214,178,108,.08); color: #ffe5a8; }
+.at-journal-toc-page { display: flex; gap: .45rem; align-items: flex-start; font-weight: 700; }
+.at-journal-toc-page i { margin-top: .12rem; color: #ad8748; }
+.at-journal-toc-children { padding-left: 1rem; border-left: 1px solid rgba(214,178,108,.14); margin-left: .72rem; }
+.at-journal-toc-children button { font-size: .75rem; color: #aa9872; }
+.at-journal-toc-level-3 { padding-left: 1rem !important; opacity: .9; }
+
+.at-journal-document {
+  padding: 0 1.5rem 2rem;
+  min-width: 0;
+  max-height: calc(100cqh - 210px);
+  overflow: auto;
+  scroll-behavior: smooth;
+}
+
+.at-journal-page {
+  padding: 1.25rem 0 1.4rem;
+  border-bottom: 1px solid rgba(214,178,108,.16);
+  scroll-margin-top: 1rem;
+}
+.at-journal-page:last-child { border-bottom: 0; }
+.at-journal-page-heading { margin-bottom: .7rem; }
+.at-journal-page-heading h2 { color: #f0d28e; margin: .2rem 0 0; font-weight: normal; font-size: 1.45rem; }
+
+.at-journal-page-content,
+.at-tome-richtext {
+  color: #d4c095;
+  line-height: 1.62;
+  font-size: .94rem;
+  overflow-wrap: anywhere;
+  user-select: text !important;
+}
+.at-journal-page-content p,
+.at-tome-richtext p { margin: .65rem 0; }
+.at-journal-page-content h1,
+.at-journal-page-content h2,
+.at-journal-page-content h3,
+.at-tome-richtext h1,
+.at-tome-richtext h2,
+.at-tome-richtext h3 {
+  color: #ecd094;
+  font-weight: normal;
+  line-height: 1.2;
+  scroll-margin-top: 1rem;
+}
+.at-journal-page-content h1 { font-size: 1.55rem; margin: 1.15rem 0 .6rem; }
+.at-journal-page-content h2 { font-size: 1.3rem; margin: 1rem 0 .5rem; }
+.at-journal-page-content h3 { font-size: 1.08rem; margin: .9rem 0 .45rem; color: #d9bd7d; }
+.at-journal-page-content ul,
+.at-journal-page-content ol,
+.at-tome-richtext ul,
+.at-tome-richtext ol { padding-left: 1.45rem; }
+.at-journal-page-content blockquote,
+.at-tome-richtext blockquote { border-left: 3px solid #a98243; margin: .9rem 0; padding: .45rem .85rem; background: rgba(214,178,108,.045); color: #cbb98d; }
+.at-journal-page-content table,
+.at-tome-richtext table { width: 100%; border-collapse: collapse; margin: .9rem 0; background: rgba(0,0,0,.12); }
+.at-journal-page-content th,
+.at-journal-page-content td,
+.at-tome-richtext th,
+.at-tome-richtext td { border: 1px solid rgba(214,178,108,.22); padding: .45rem .55rem; vertical-align: top; }
+.at-journal-page-content th,
+.at-tome-richtext th { color: #f0d28e; background: rgba(214,178,108,.07); }
+.at-journal-page-content img,
+.at-tome-richtext img,
+.at-journal-image img { max-width: 100%; height: auto; border: 1px solid rgba(214,178,108,.18); }
+.at-journal-page-content a,
+.at-tome-richtext a { color: #e8c879; }
+
+.at-journal-highlight { animation: at-journal-flash .9s ease; }
+@keyframes at-journal-flash { 0%,100% { background: transparent; } 35% { background: rgba(214,178,108,.12); } }
+
+.at-tome-editor-overlay {
+  position: absolute;
+  inset: var(--at-topbar-height) 0 0;
+  z-index: 80;
+  background: rgba(5,4,3,.84);
+  backdrop-filter: blur(5px);
+  display: grid;
+  place-items: stretch;
+  padding: 1rem;
+}
+.at-tome-editor-shell {
+  width: min(1050px, 100%);
+  height: 100%;
+  min-height: 0;
+  justify-self: center;
+  display: grid;
+  grid-template-rows: auto auto minmax(0,1fr) auto;
+  background: linear-gradient(180deg, rgba(29,21,14,.99), rgba(10,8,6,.995));
+  border: 1px solid rgba(214,178,108,.38);
+  box-shadow: 0 18px 60px rgba(0,0,0,.7), inset 0 0 35px rgba(0,0,0,.22);
+}
+.at-tome-editor-header,
+.at-tome-editor-footer,
+.at-tome-editor-meta { padding: .9rem 1rem; border-bottom: 1px solid rgba(214,178,108,.18); }
+.at-tome-editor-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.at-tome-editor-header h1 { margin: .15rem 0; color: #f0d28e; font-weight: normal; }
+.at-tome-editor-header p { margin: .2rem 0 0; color: #a99569; font-size: .8rem; }
+.at-tome-editor-header .at-icon-button { width: 38px; height: 38px !important; border: 1px solid rgba(214,178,108,.24); }
+.at-tome-editor-meta { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .8rem; align-items: end; }
+.at-tome-editor-meta label,
+.at-tome-editor-page-head label { display: grid; gap: .3rem; color: #bda676; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+.at-tome-editor-meta input,
+.at-tome-editor-page-head input { width: 100%; border: 1px solid rgba(214,178,108,.28); background: rgba(0,0,0,.22); color: #ecd6a3; padding: .5rem .6rem; }
+.at-tome-editor-pages { overflow: auto; padding: 1rem; display: grid; gap: .9rem; align-content: start; }
+.at-tome-editor-page { border: 1px solid rgba(214,178,108,.22); background: rgba(22,15,10,.74); }
+.at-tome-editor-page-head { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .65rem; align-items: end; padding: .65rem; border-bottom: 1px solid rgba(214,178,108,.14); }
+.at-tome-editor-toolbar { display: flex; gap: .25rem; padding: .4rem .6rem; border-bottom: 1px solid rgba(214,178,108,.12); background: rgba(0,0,0,.12); }
+.at-tome-editor-toolbar button { width: 30px; min-width: 30px; height: 28px !important; min-height: 28px !important; padding: 0; border: 1px solid rgba(214,178,108,.18); background: rgba(214,178,108,.03); color: #c9aa6a; }
+.at-tome-editor-content { min-height: 145px; padding: .8rem .9rem; outline: none; color: #d8c49a; line-height: 1.55; user-select: text !important; }
+.at-tome-editor-content:focus { box-shadow: inset 0 0 0 1px rgba(214,178,108,.4); background: rgba(214,178,108,.025); }
+.at-tome-editor-footer { border-top: 1px solid rgba(214,178,108,.18); border-bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; color: #a59068; font-size: .78rem; }
+.at-tome-editor-footer > div { display: flex; gap: .5rem; }
+
+.at-character-grid { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
+
+@container (max-width: 820px) {
+  .at-journal-reader-layout { grid-template-columns: 1fr; }
+  .at-journal-toc { border-right: 0; border-bottom: 1px solid rgba(214,178,108,.2); max-height: 180px; }
+  .at-journal-document { max-height: none; }
+  .at-tome-editor-meta { grid-template-columns: 1fr; }
+}
