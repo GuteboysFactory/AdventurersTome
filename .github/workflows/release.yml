@@ -32,12 +32,14 @@ jobs:
           node --check scripts/reading-polish.js
           node --check scripts/universal-sharing.js
           node --check scripts/world-journal-parity.js
+          node --check scripts/world-inline-editing.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
           test -f styles/reading-polish.css
           test -f styles/universal-sharing.css
           test -f styles/world-journal-parity.css
+          test -f styles/world-inline-editing.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test ! -f assets/Bree.webp
@@ -90,6 +92,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "Release candidate focused on World Journal parity: multi-page Tome rendering for Text, Image, Video and PDF Journal pages, preserved page order and permissions, and Tome-native page management. Carries forward RC5 universal sharing, RC4 readability, and RC3 import-browser improvements." \
+              --notes "Release candidate adding direct click-to-edit World content for GMs and selected Tome World Editors, while keeping GM Notes private. Carries forward RC6 World Journal parity, RC5 universal sharing, RC4 readability, and RC3 import-browser improvements." \
               "${PRERELEASE_ARGS[@]}"
           fi
