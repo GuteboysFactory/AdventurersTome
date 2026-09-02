@@ -2,7 +2,7 @@
   "id": "adventurers-tome",
   "title": "Adventurer's Tome",
   "description": "A responsive, system-agnostic campaign landing page and living campaign archive for Foundry VTT, featuring Home Builder, Foundry-synced World content, a customizable private GM workspace, guided in-app manual, live-session tools, import/export, permissions, cross-links, search, and diagnostics.",
-  "version": "1.0.0-rc.4",
+  "version": "1.0.0-rc.5",
   "authors": [
     {
       "name": "Per"
@@ -17,13 +17,15 @@
     "scripts/adventurers-tome.js",
     "scripts/structured-journals.js",
     "scripts/content-importer.js",
-    "scripts/reading-polish.js"
+    "scripts/reading-polish.js",
+    "scripts/universal-sharing.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
     "styles/structured-journals.css",
     "styles/content-importer.css",
-    "styles/reading-polish.css"
+    "styles/reading-polish.css",
+    "styles/universal-sharing.css"
   ],
   "languages": [
     {
@@ -40,6 +42,6 @@
   "socket": true,
   "readme": "README.md",
   "url": "https://github.com/GuteboysFactory/AdventurersTome",
-  "manifest": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.4/module.json",
-  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.4/adventurers-tome.zip"
+  "manifest": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.5/module.json",
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0-rc.5/adventurers-tome.zip"
 }
