@@ -30,10 +30,12 @@ jobs:
           node --check scripts/structured-journals.js
           node --check scripts/content-importer.js
           node --check scripts/reading-polish.js
+          node --check scripts/universal-sharing.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
           test -f styles/reading-polish.css
+          test -f styles/universal-sharing.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test ! -f assets/Bree.webp
@@ -86,6 +88,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "Release candidate focused on readable Tome-rendered Journal content, preserving the RC3 existing-Journal import browser and structured Rules foundation." \
+              --notes "Release candidate focused on universal Tome-to-chat sharing: selected text across Tome, public/whisper delivery, and player-safe current-entry snapshots without granting access to the source Journal. Carries forward RC4 Journal readability and RC3 import-browser improvements." \
               "${PRERELEASE_ARGS[@]}"
           fi
