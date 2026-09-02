@@ -42,6 +42,8 @@ jobs:
           test -f styles/world-inline-editing.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
+          test -f LICENSE
+          test -f README.md
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -76,6 +78,7 @@ jobs:
           unzip -t "$GITHUB_WORKSPACE/dist/adventurers-tome.zip"
           FIRST="$(unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | head -n 1)"
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'module.json'
+          unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'LICENSE'
           echo "Foundry package root verified; first entry: $FIRST"
 
       - name: Publish GitHub release
@@ -92,6 +95,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "Release candidate adding direct click-to-edit World content for GMs and selected Tome World Editors, while keeping GM Notes private. Carries forward RC6 World Journal parity, RC5 universal sharing, RC4 readability, and RC3 import-browser improvements." \
+              --notes "Adventurer's Tome 1.0.0 is the first stable public release. Verified on Foundry VTT 13.351 after clean/new-world and v0.20.8 upgrade testing. Highlights include the system-agnostic campaign workspace, Journal-backed Tome-rendered World and Rules content, multi-page World Journals, universal Tome-to-chat sharing, private GM workspace tools, inline World editing, and per-entry Tome World Editor permissions. Proprietary software — All Rights Reserved. See LICENSE for terms." \
               "${PRERELEASE_ARGS[@]}"
           fi
