@@ -1,0 +1,174 @@
+/* Adventurer's Tome RC7 — inline World editing + Tome World Editor role */
+
+.at-wie-editor-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem .55rem;
+  border: 1px solid rgba(214,178,108,.26);
+  background: rgba(214,178,108,.06);
+  color: #d9bd7d;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.at-wie-can-edit .at-wie-editable,
+.at-wie-can-edit .at-wie-rich-surface {
+  cursor: text;
+  position: relative;
+  transition: background .15s ease, box-shadow .15s ease, outline-color .15s ease;
+}
+
+.at-wie-can-edit .at-wie-editable:hover,
+.at-wie-can-edit .at-wie-rich-surface:hover {
+  background: rgba(214,178,108,.045);
+  box-shadow: inset 0 0 0 1px rgba(214,178,108,.14);
+}
+
+.at-wie-editable.is-editing {
+  outline: 1px solid rgba(230,194,115,.62);
+  background: rgba(255,226,163,.055) !important;
+  padding: .08em .18em;
+  min-width: 3ch;
+}
+
+.at-wie-rich-surface.is-editing {
+  cursor: default;
+  background: rgba(10,7,5,.65) !important;
+  box-shadow: inset 0 0 0 1px rgba(214,178,108,.3);
+  padding: .7rem;
+}
+
+.at-wie-rich-toolbar {
+  display: flex;
+  gap: .25rem;
+  margin-bottom: .55rem;
+  padding-bottom: .45rem;
+  border-bottom: 1px solid rgba(214,178,108,.16);
+}
+
+.at-wie-rich-toolbar button {
+  width: 30px;
+  min-width: 30px;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0;
+  border: 1px solid rgba(214,178,108,.2);
+  background: rgba(214,178,108,.035);
+  color: #d7b56f;
+}
+
+.at-wie-rich-editor {
+  min-height: 130px;
+  padding: .6rem .7rem;
+  border: 1px solid rgba(214,178,108,.18);
+  background: rgba(0,0,0,.18);
+  color: #e2cca0;
+  line-height: 1.6;
+  outline: none;
+  user-select: text !important;
+}
+
+.at-wie-rich-editor:focus {
+  border-color: rgba(230,194,115,.5);
+  background: rgba(214,178,108,.025);
+}
+
+.at-wie-rich-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-top: .55rem;
+}
+
+.at-wie-rich-actions > span {
+  color: #a58f63;
+  font-size: .72rem;
+}
+
+.at-wie-rich-actions > div,
+.at-wie-rich-actions button + button { margin-left: .35rem; }
+
+.at-wie-editor-card {
+  grid-column: 1 / -1;
+}
+
+.at-wie-editor-copy {
+  color: #b49e73;
+  margin: .3rem 0 .8rem;
+  line-height: 1.5;
+}
+
+.at-wie-user-list {
+  display: grid;
+  gap: .35rem;
+  margin-bottom: .75rem;
+}
+
+.at-wie-user-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: .55rem;
+  padding: .55rem .65rem;
+  border: 1px solid rgba(214,178,108,.16);
+  background: rgba(0,0,0,.12);
+  cursor: pointer;
+}
+
+.at-wie-user-row:hover {
+  background: rgba(214,178,108,.035);
+  border-color: rgba(214,178,108,.28);
+}
+
+.at-wie-user-row input { margin: 0; }
+.at-wie-user-row > span:nth-of-type(2) { display: grid; gap: .1rem; }
+.at-wie-user-row strong { color: #e2c77f; }
+.at-wie-user-row small { color: #8f8060; }
+
+.at-wie-user-state {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(160,145,112,.5);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.2);
+}
+
+.at-wie-user-state.is-active {
+  background: #91bd6c;
+}
+
+.at-wie-role {
+  padding: .22rem .45rem;
+  border: 1px solid rgba(214,178,108,.2);
+  color: #b89b5e;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.at-wie-can-edit .at-profile-intro h1,
+.at-wie-can-edit .at-profile-intro h2,
+.at-wie-can-edit .at-profile-intro p,
+.at-wie-can-edit .at-profile-facts .at-fact:not(.is-gm-only) span,
+.at-wie-can-edit .at-profile-facts .at-fact:not(.is-gm-only) strong {
+  border-radius: 3px;
+}
+
+.at-wie-can-edit .at-profile-intro h1:hover::after,
+.at-wie-can-edit .at-profile-intro h2:hover::after,
+.at-wie-can-edit .at-profile-intro p:hover::after,
+.at-wie-can-edit .at-profile-facts .at-fact:not(.is-gm-only) strong:hover::after {
+  content: "  ✎";
+  color: #a98545;
+  font-size: .65em;
+  opacity: .9;
+}
+
+@container (max-width: 720px) {
+  .at-wie-user-row { grid-template-columns: auto auto minmax(0,1fr); }
+  .at-wie-role { grid-column: 3; justify-self: start; }
+  .at-wie-rich-actions { align-items: flex-start; flex-direction: column; }
+}
