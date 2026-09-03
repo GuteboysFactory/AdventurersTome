@@ -14,7 +14,20 @@ For players it should answer, quickly and beautifully:
 
 For the GM it should provide deeper campaign memory, preparation and continuity tools without turning the player-facing Tome into a heavy campaign-management application.
 
-The long-term goal is not to replace Foundry VTT. Foundry remains the game table; Adventurer's Tome becomes the campaign's memory, chronicle and connective layer.
+Foundry remains the game table. Adventurer's Tome becomes the campaign's memory, chronicle, authoring surface and connective layer.
+
+## Architecture principle
+
+> **Foundry stores. Tome presents. Explorer organizes. Adapters translate. Private Vault protects GM truth. Campaign Brain connects memory.**
+
+Adventurer's Tome follows a **Journal-backed, Tome-rendered** architecture.
+
+- Foundry Documents remain the canonical storage layer wherever they are the natural source of truth.
+- Tome owns the campaign-facing presentation and authoring experience.
+- Campaign Explorer organizes real Foundry Journal folders rather than maintaining a parallel tree database.
+- System-specific behavior belongs behind adapters and compatibility helpers.
+- GM-private truth must not be mixed into player-visible campaign content when a private linked store is more appropriate.
+- No major feature should create a parallel data model for information already naturally represented by an existing Foundry Document.
 
 ## Design guardrails for all 1.x development
 
@@ -28,8 +41,12 @@ The long-term goal is not to replace Foundry VTT. Foundry remains the game table
 8. **Foundry V13 + V14 transition support.** V13.351 remains the verified baseline while V14 compatibility is added and hardened. Version-specific behavior should live behind compatibility helpers/adapters instead of being scattered through feature code.
 9. **Feature configuration.** Optional campaign layers such as Factions, Secrets/Clues, Timeline and Atlas should be hideable when a table does not use them.
 10. **Campaign memory, not GM autopilot.** Future intelligence features surface connections, continuity and forgotten threads; they do not write or run the campaign for the GM.
+11. **Existing campaign data is production data.** Migrations, permissions and destructive actions must be treated accordingly.
+12. **Stable means stable.** Feature work starts from the latest verified stable baseline and must not casually rewrite proven subsystems.
 
 ---
+
+# Completed foundations
 
 ## DONE — v0.x foundation
 
@@ -51,200 +68,308 @@ The long-term goal is not to replace Foundry VTT. Foundry remains the game table
 - Movable per-client launcher.
 - Stable window rollback: experimental ApplicationV2 minimize/restore retired.
 
-## CURRENT — v1.0.0-rc.1
+## DONE — v1.0.0 Stable Foundation
 
-Freeze features and perform final release regression in Foundry VTT 13.351.
+- Public stable baseline established.
+- Release packaging, manifest and licensing discipline established.
+- Existing campaign data treated as production data.
+- Experimental minimize/restore remained retired instead of being carried into stable.
 
-Exit gates:
+## DONE — v1.1.0 Tome Authoring & Journal Takeover
 
-1. Clean install of the exact RC artifact.
-2. Upgrade test from v0.20.8.
-3. GM/player permission regression.
-4. World/Journal sync and Rules chat/whisper regression.
-5. GM Workspace persistence/isolation regression.
-6. Import/Export/Undo/Health Check regression.
-7. Multiplayer Show to Players smoke if practical.
-8. No release-blocking console/runtime errors.
-9. Public repository metadata + software license before public distribution.
+### Goal achieved
 
-## v1.0.0 — Stable Foundation
+Make Tome the place users actually organize and author campaign Journals while Foundry remains the storage backend.
 
-Promote the approved RC line without adding new runtime features. Only release-blocking fixes may enter between RC and 1.0; material changes require another RC.
+### Shipped scope
 
-### v1.0.x maintenance lane — Foundry V14 compatibility & core hardening
+- Journal-backed authoring for World, Quests and Sessions.
+- Autosave and direct Tome editing for supported Journal text surfaces.
+- Journal-backed World summary synchronization.
+- Hero image management using Foundry-backed assets.
+- Full Journal Page Manager:
+  - Text / Image / Video / PDF pages
+  - rename
+  - reorder
+  - duplicate
+  - move
+  - delete
+  - page-level player access
+- Tome Page Navigator and primary-page awareness.
+- Persistent Campaign Explorer built from real Foundry folder structure.
+- Rich Tome catalog retained as presentation layer while Explorer acts as navigation/filter structure.
+- Folder drag/drop and Journal drag/drop with controlled structural refresh.
+- Folder management directly in Tome:
+  - create
+  - rename
+  - protected roots
+  - empty-only delete
+- Entry management directly in Tome:
+  - create
+  - rename
+  - move
+  - open in Tome
+  - open Foundry source
+  - guarded permanent delete
+- Delegated authoring roles:
+  - Section Editor
+  - Entry Editor
+- Validated GM socket broker for delegated structural writes.
+- Tome-managed ownership reconciliation without blindly removing pre-existing manual ownership.
+- Player read-only boundary preserved.
+- GM Notes/private GM workspace remain outside delegated authoring access.
+- Obsolete Explorer/tree prototypes removed and prevented from shipping again.
+- Hardened release CI validates manifest runtime files, language JSON, ZIP contents and retired-prototype exclusion.
 
-This lane may ship patch releases alongside feature planning.
+### Locked architecture outcome
+
+**Explorer organizes. Catalog presents. Foundry stores. Tome is what the user works in.**
+
+---
+
+# CURRENT — v1.1.x Maintenance / Foundry V14 Hardening
+
+This lane may ship patch releases while v1.2 feature work is planned and developed.
+
+### Scope
 
 - Audit Adventurer's Tome against Foundry V14 APIs and ApplicationV2 behavior.
-- Add a small compatibility layer for V13/V14 differences.
+- Add/expand a small compatibility layer for V13/V14 differences.
 - Keep V13.351 support during the transition where practical.
-- Start modularizing the large JS/CSS codebase without changing visible behavior.
-- Build a V13/V14 regression matrix covering startup, Tome rendering, Journals, Actors, permissions, sockets, imports/exports and GM Workspace persistence.
-- Do not gate V14 support behind unrelated feature work.
+- Harden permissions edge cases discovered in real multiplayer use.
+- Improve performance for large Journal trees and long-running campaigns.
+- Continue safe modularization of large JS/CSS surfaces without changing visible behavior.
+- Maintain migration safety and release packaging discipline.
+- Build/maintain a V13/V14 regression matrix covering startup, Tome rendering, Journals, Actors, permissions, sockets, imports/exports and GM Workspace persistence.
+- Do not gate V14 compatibility behind unrelated feature work.
 
-**Compatibility target:** no v1.x feature should be considered fully promoted until its supported Foundry versions pass the relevant regression gate.
+**Compatibility target:** no v1.x feature is fully promoted until its supported Foundry versions pass the relevant regression gate.
 
 ---
 
 # v1.x Feature Roadmap
 
-## v1.1 — Player Chronicle
+## NEXT — v1.2 Contextual GM Notes & Private Vault
 
 ### Goal
+
+Give the GM private campaign truth attached directly to the things they are working with, without contaminating player-visible Journal data.
+
+### Planned scope
+
+- Private GM notes linked to Tome/Foundry documents by UUID.
+- Notes available contextually from NPCs, Locations, Quests, Sessions and other supported campaign entries.
+- Separate private storage/vault semantics from player-visible Journal content.
+- Fast create/edit/open workflow from the current Tome detail page.
+- GM-only backlinks from a vault note to its linked campaign documents.
+- Clear handling of missing/deleted source UUIDs.
+- Preserve existing per-GM workspace privacy model.
+- Define migration path for any future shared-GM vault mode without weakening current privacy.
+
+### Guardrail
+
+GM truth must never become visible merely because a player gains Observer/Owner access to the linked public Journal.
+
+---
+
+## v1.3 Tome GM Dock
+
+### Goal
+
+Provide a compact always-available GM command surface without resizing or destabilizing the main ApplicationV2 Tome window.
+
+### Planned scope
+
+- Separate dock/minibar surface rather than reviving the retired window-minimize implementation.
+- Quick Capture.
+- Reveal Queue / Show to Players shortcuts.
+- Recently opened / active Tome entry access.
+- Fast navigation back into the full Tome.
+- Optional session-focused shortcuts when a session is active.
+- Per-GM/client placement and persistence where appropriate.
+
+### Guardrail
+
+The dock is a separate surface. It must not manipulate the geometry of the main Tome window to simulate minimization.
+
+---
+
+## v1.4 System Adapter Foundation + Quick NPC
+
+### Goal
+
+Create a clean bridge between system-agnostic Tome Core and system-specific actor/NPC context.
+
+### Planned scope
+
+- Formal adapter interface for system-specific actor/NPC data.
+- Compatibility helpers isolated from campaign presentation code.
+- Quick NPC creation workflow driven through the active system adapter.
+- Adapter-provided display fields for NPC summaries where useful.
+- Defensive capability detection when a system has no adapter.
+- Core fallback remains system-agnostic and functional.
+- Realm Guard / Torchbearer may serve as an early reference adapter without becoming a Core dependency.
+
+### Guardrail
+
+Core must never require a specific game system in order to render or function.
+
+---
+
+## v1.5 Session Command Center 2.0
+
+### Goal
+
+Turn the existing GM session tools into a compact live-session command surface built on the now-stable authoring, private-context and adapter foundations.
+
+### Planned scope
+
+- Pre-session summary of the previous session and unresolved threads.
+- Prepared NPCs, locations, reveals, private notes and likely active story threads in one place.
+- Quick Capture integrated directly into live session flow.
+- One-click event markers such as NPC encountered, clue revealed, location visited or important event occurred.
+- Existing Reveal Queue and Show to Players integrated rather than duplicated.
+- Contextual GM Vault notes available without leaving the session workflow.
+- Adapter-aware NPC shortcuts where available.
+- Post-session handoff that can create a structured draft for the Session Chronicle.
+- Optional and compact: a digital GM screen, not another workspace to administer.
+
+---
+
+## v1.6 Player Chronicle
+
+### Goal
+
 Give each player a personal campaign chronicle without replacing the shared campaign history.
 
 ### Planned scope
-- Personal Chronicle view tied to the current user/character context.
+
+- Personal Chronicle tied to the current user/character context.
 - Personal notes and remembered moments.
-- Relevant discovered NPCs, locations, sessions and campaign events.
+- Relevant discovered NPCs, Locations, Sessions and campaign events.
 - Bookmarks/favorites that feel like part of the character's own history.
-- Clear separation between shared party knowledge, player-private notes and GM-only truth.
-- Fast links back to the canonical Session, NPC, Location or World entry.
-- Chronicle should grow naturally from normal Tome use rather than demanding duplicate data entry.
+- Clear separation between:
+  - shared party knowledge
+  - player-private notes
+  - GM-only truth
+- Fast links back to canonical Session, NPC, Location or World entries.
+- Chronicle grows naturally from normal Tome use rather than demanding duplicate data entry.
 
 ### Guardrail
+
 This is a character-facing memory layer, not a second quest/task manager.
 
 ---
 
-## v1.2 — NPC & Faction Intelligence
+## v1.7 NPC & Faction Intelligence
 
 ### Goal
+
 Make people, groups and allegiances understandable across a long-running campaign while keeping player pages clean.
 
 ### Planned scope
+
 - Rich NPC pages with first/last appearance and related Sessions/Locations/Quests where known.
 - Faction pages with identity, goals, known members and relationships.
-- GM-only motives, secrets and internal notes alongside player-visible information.
+- GM-only motives, secrets and internal notes through the private-context layer.
 - Player-facing "Known to us" presentation separated from GM truth.
 - Relationship/status changes over time without rewriting old session history.
 - Search/backlinks across NPCs, Factions, Sessions and Locations.
 - Lightweight faction enable/disable configuration for campaigns that do not need it.
+- Adapter-aware actor/NPC context where available.
 
 ---
 
-## v1.3 — Session Command Center 2.0
+## v1.8 Campaign Memory Expansion
 
 ### Goal
-Turn the existing GM session tools into a compact live-session command surface.
 
-### Planned scope
-- Pre-session summary of the previous session and unresolved threads.
-- Prepared NPCs, locations, reveals, notes and likely active story threads in one place.
-- Quick Capture integrated directly into the live session flow.
-- One-click event markers such as NPC encountered, clue revealed, location visited or important event occurred.
-- Existing Reveal Queue and Show to Players integrated rather than duplicated.
-- Post-session handoff that can generate a structured draft for the Session Chronicle.
-- Keep the Command Center optional and compact; it should behave like a digital GM screen, not another workspace to administer.
+Expand the stable Tome data graph into richer long-term campaign memory without creating isolated mini-applications.
 
----
+This may ship as multiple `v1.8.x` feature releases if scope or QA risk warrants it.
 
-## v1.4 — Living Campaign Timeline
+### Planned capability groups
 
-### Goal
-Allow a multi-year campaign to be understood as a sequence of meaningful events rather than only a stack of session logs.
+#### Living Campaign Timeline
 
-### Planned scope
 - Chronological campaign event stream.
 - Events linked to Sessions, NPCs, Factions, Locations and Quests.
 - Important changes such as arrivals, departures, deaths, discoveries, betrayals, alliances and quest outcomes.
 - Player-visible timeline filtered by discovered/revealed knowledge.
-- GM timeline can include hidden events and future/planned notes where appropriate.
-- Timeline entries should be creatable from normal session work with minimal extra typing.
+- GM timeline may include hidden events and future/planned notes.
+- Event creation integrated into normal session workflow with minimal extra typing.
 
----
+#### World Atlas & Location Intelligence
 
-## v1.5 — World Atlas & Location Intelligence
-
-### Goal
-Make the campaign world navigable as a living atlas connected to Foundry Scenes and campaign history.
-
-### Planned scope
 - Hierarchical Locations: world/region -> settlement -> district/site -> point of interest where useful.
-- Location pages with description, discovered information, related NPCs/Factions/Sessions/Quests and notes.
+- Location pages with related NPCs/Factions/Sessions/Quests and relevant history.
 - Optional links between Tome Locations and Foundry Scenes.
-- "Last visited", first discovery and relevant recent events.
-- Location-aware suggestions in GM tools: relevant NPCs, unresolved threads, clues and prior events.
-- Player Atlas only exposes locations and details the party has discovered.
-- Search, Favorites, Recents and cross-links remain consistent with the rest of Tome.
+- First discovery, last visited and recent events.
+- Player Atlas exposes only discovered locations/details.
+- Atlas organizes campaign knowledge; it does not replace a dedicated map editor.
 
-### Guardrail
-The Atlas organizes campaign knowledge; it is not intended to replace a dedicated map editor.
+#### Secrets, Clues & Rumours
 
----
-
-## v1.6 — Secrets, Clues & Rumours
-
-### Goal
-Track what is true, what has been discovered and what the players merely suspect without forcing the GM to maintain a separate mystery module.
-
-### Planned scope
 - GM-only Secrets with linked Clues.
-- Reveal individual Clues to players/groups when discovered.
+- Reveal Clues individually to players/groups.
 - Rumours may be true, false, partial or unresolved.
 - Separate GM truth from player knowledge.
-- Link Secrets/Clues/Rumours to NPCs, Factions, Locations, Sessions and Quests.
-- Compact progress view for mysteries without treating them as linear quest trees.
-- Optional player theory notes in the Player Chronicle.
+- Link mystery information to NPCs, Factions, Locations, Sessions and Quests.
+- Optional player theory notes through Player Chronicle.
 
----
+#### Relationship Web & Campaign Connections
 
-## v1.7 — Relationship Web & Campaign Connections
-
-### Goal
-Expose the connections already present in campaign data so long-running stories remain understandable.
-
-### Planned scope
 - Relationship graph across NPCs, Factions, Locations and major campaign threads.
-- Relationship types/statuses remain lightweight and table-editable.
-- Clicking a node opens the normal Tome detail page rather than creating a parallel interface.
-- Backlinks and automatically discovered relationships from existing cross-links.
-- GM-only edges can coexist with player-visible relationships.
-- Compact "Why is this relevant?" context on detail pages.
+- Lightweight relationship types/statuses.
+- Existing Tome detail pages remain canonical; graph nodes navigate to them.
+- Backlinks and relationships can be discovered from existing cross-links.
+- GM-only edges may coexist with player-visible relationships.
+- Compact "Why is this relevant?" context where useful.
 
-### Guardrail
-The graph is a navigation and memory tool, not a mandatory data-entry system.
+#### Campaign Templates & Feature Profiles
 
----
-
-## v1.8 — Campaign Templates & Feature Profiles
-
-### Goal
-Let different tables use the same Adventurer's Tome without exposing every feature in every campaign.
-
-### Planned scope
-- Campaign feature configuration page.
 - Enable/disable optional surfaces such as Factions, Timeline, Secrets/Clues, Atlas and advanced GM tools.
 - Starter profiles such as Minimal, Classic Campaign, Sandbox and Mystery/Investigation.
-- Templates configure Tome structure and defaults without locking the campaign into a rigid workflow.
+- Profiles configure defaults without forcing rigid workflow.
 - Export/import reusable Tome configuration independently from campaign secrets/content where practical.
 - Existing campaigns remain unchanged unless the GM explicitly adopts a profile/change.
 
 ---
 
-## v1.9 — Integration API, Hooks & Adapters
+## v1.9 Integration API, Hooks & External Adapters
 
 ### Goal
-Make Adventurer's Tome a campaign platform that other Foundry systems/modules can integrate with without making Core system-specific.
+
+Formalize Adventurer's Tome as a campaign platform that other Foundry systems/modules can integrate with without making Core system-specific.
 
 ### Planned scope
-- Documented hooks/API for campaign events such as session start/end, actor discovered, NPC encountered, location visited, item discovered, quest changed and major campaign event recorded.
-- Adapter interface for system-specific context.
-- Realm Guard / Torchbearer can become an early reference adapter without becoming a Core dependency.
+
+- Documented hooks/API for campaign events such as:
+  - session start/end
+  - actor discovered
+  - NPC encountered
+  - location visited
+  - item discovered
+  - quest changed
+  - major campaign event recorded
+- Stable adapter interface based on the practical lessons from v1.4+.
+- Additional external/system adapters without Core rewrites.
 - Defensive validation and permission checks for third-party event submissions.
-- No private GM data is exposed to integrations without explicit authorization/scope.
-- Stable event schema designed so future adapters do not require Core rewrites.
+- Explicit authorization/scoping before integrations may access private GM data.
+- Stable event schema intended to support future Campaign Brain capabilities.
 
 ---
 
 # v2.0 — Campaign Brain
 
 ## Goal
+
 Turn the accumulated campaign graph into useful memory and continuity assistance while keeping the GM fully in control.
 
 **Campaign Brain is not an autopilot GM.** Its job is to notice, retrieve and connect information the campaign has already created.
 
 ### Planned capabilities
+
 - Surface unresolved story threads from prior Sessions.
 - Identify NPCs or Factions returning after long absences.
 - Show relevant history when opening a Location, NPC, Faction or Session Command Center.
@@ -253,8 +378,9 @@ Turn the accumulated campaign graph into useful memory and continuity assistance
 - Highlight forgotten promises, clues, unresolved consequences and relationship changes.
 - Provide "Relevant history for tonight" before a session.
 - Provide player-safe personal context inside Player Chronicle.
-- Keep every surfaced insight traceable back to the underlying Tome entries.
-- Prefer deterministic/searchable campaign data first; any future generative/AI assistance must remain optional, transparent and user-controlled.
+- Keep every surfaced insight traceable back to the underlying Tome/Foundry entries.
+- Prefer deterministic/searchable campaign data first.
+- Any future generative/AI assistance must remain optional, transparent and user-controlled.
 
 ## v2.0 success definition
 
@@ -268,7 +394,6 @@ A campaign that has run for several years should be able to open the Tome and fe
 
 These items may ship when they fit naturally without disrupting the feature order:
 
-- Revisit minimize as a separate Tome dock/minibar rather than ApplicationV2 geometry manipulation.
 - Animated Home/Hero backgrounds and atmospheric media.
 - Continued localization coverage.
 - Accessibility and responsive-layout hardening.
@@ -276,7 +401,8 @@ These items may ship when they fit naturally without disrupting the feature orde
 - Import/export schema evolution and migrations for new Chronicle/Atlas/Faction data.
 - Optional shared-GM private workspace/vault mode.
 - Additional player-facing presentation/recap modes.
-- Feedback-driven quality-of-life improvements that do not conflict with the roadmap guardrails.
+- Feedback-driven quality-of-life improvements that do not conflict with roadmap guardrails.
+- Continued cleanup/modularization of legacy implementation names after stable replacement paths are proven.
 
 # Release discipline
 
@@ -284,5 +410,7 @@ These items may ship when they fit naturally without disrupting the feature orde
 - Build from the latest verified stable baseline.
 - Blocking regressions stop promotion until fixed.
 - Patch/hotfix releases may be inserted without changing the planned feature order.
-- Existing campaign data must be treated as production data after v1.0.
+- Existing campaign data is production data.
 - V13/V14 compatibility is regression-tested throughout the 1.x line rather than postponed until the end.
+- Proven stable architecture is not rewritten merely for cleanup aesthetics.
+- Material runtime changes after RC require another RC before stable promotion.
