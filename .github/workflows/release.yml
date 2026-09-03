@@ -30,9 +30,24 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const manifest = JSON.parse(fs.readFileSync('module.json', 'utf8'));
-          const files = [...(manifest.esmodules || []), ...(manifest.styles || [])];
-          for (const file of files) {
+          const runtimeFiles = [
+            ...(manifest.esmodules || []),
+            ...(manifest.styles || []),
+            ...((manifest.languages || []).map((entry) => entry.path).filter(Boolean))
+          ];
+          const required = ['id', 'title', 'version', 'compatibility', 'esmodules', 'styles', 'languages', 'manifest', 'download'];
+          for (const key of required) {
+            if (manifest[key] == null) throw new Error(`Manifest missing required field: ${key}`);
+          }
+          if (manifest.id !== 'adventurers-tome') throw new Error(`Unexpected module id: ${manifest.id}`);
+          if (!/^1\.1\.0-(?:beta|rc)\.\d+$/.test(manifest.version)) throw new Error(`Beta/RC workflow expects a v1.1 prerelease version, got ${manifest.version}`);
+          if (new Set(runtimeFiles).size !== runtimeFiles.length) throw new Error('Manifest contains duplicate runtime file references.');
+          for (const file of runtimeFiles) {
             if (!fs.existsSync(file)) throw new Error(`Manifest references missing file: ${file}`);
+          }
+          for (const language of manifest.languages || []) {
+            if (!language.lang || !language.name || !language.path) throw new Error('Language entries require lang, name and path.');
+            JSON.parse(fs.readFileSync(language.path, 'utf8'));
           }
           const forbidden = [
             'scripts/authoring-alpha3-campaign-workspace.js',
@@ -44,7 +59,7 @@ jobs:
           ];
           for (const file of forbidden) {
             if (fs.existsSync(file)) throw new Error(`Obsolete alpha prototype must not ship: ${file}`);
-            if (files.includes(file)) throw new Error(`Manifest must not reference obsolete alpha prototype: ${file}`);
+            if (runtimeFiles.includes(file)) throw new Error(`Manifest must not reference obsolete alpha prototype: ${file}`);
           }
           NODE
 
@@ -56,6 +71,7 @@ jobs:
           test -f assets/default-hero.webp
           test -f LICENSE
           test -f README.md
+          test -f docs/V1.1_BETA_QA_CHECKLIST.md
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -88,10 +104,36 @@ jobs:
           cd /tmp/adventurers-tome-release
           zip -qr "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" .
           unzip -t "$GITHUB_WORKSPACE/dist/adventurers-tome.zip"
-          FIRST="$(unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | head -n 1)"
+
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'module.json'
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'LICENSE'
-          echo "Foundry package root verified; first entry: $FIRST"
+          unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'README.md'
+          unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.1_BETA_QA_CHECKLIST.md'
+
+          node <<'NODE'
+          const fs = require('fs');
+          const cp = require('child_process');
+          const m = JSON.parse(fs.readFileSync('module.json', 'utf8'));
+          const listed = cp.execFileSync('unzip', ['-Z1', 'dist/adventurers-tome.zip'], { cwd: process.env.GITHUB_WORKSPACE, encoding: 'utf8' })
+            .split(/\r?\n/).filter(Boolean);
+          const files = new Set(listed);
+          for (const file of [...(m.esmodules || []), ...(m.styles || []), ...((m.languages || []).map((entry) => entry.path).filter(Boolean))]) {
+            if (!files.has(file)) throw new Error(`Release ZIP is missing manifest runtime file: ${file}`);
+          }
+          const forbiddenPrefixes = ['.git/', '.github/', 'dist/', 'release/'];
+          for (const file of listed) {
+            if (forbiddenPrefixes.some((prefix) => file.startsWith(prefix))) throw new Error(`Release ZIP contains excluded path: ${file}`);
+          }
+          const retired = [
+            'scripts/authoring-alpha3-campaign-workspace.js',
+            'scripts/authoring-alpha3-tree-sync.js',
+            'scripts/authoring-alpha3-tree-v2.js',
+            'scripts/authoring-alpha3-world-workspace.js',
+            'styles/authoring-alpha3-tree-v2.css',
+            'styles/authoring-alpha3-world-workspace.css'
+          ];
+          for (const file of retired) if (files.has(file)) throw new Error(`Release ZIP contains retired prototype: ${file}`);
+          NODE
 
       - name: Publish GitHub release
         shell: bash
@@ -107,6 +149,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.8 is the authoring cleanup and hardening pass after the approved alpha.7 permissions baseline. It removes obsolete Explorer/tree/workspace prototypes from the repository, keeps the persistent Campaign Explorer v2 as the only active Explorer implementation, and hardens CI so every manifest-listed script/style must exist while retired alpha prototypes are explicitly forbidden from shipping. Existing authoring, Page Manager, Explorer, folder/entry management, and delegated permissions behavior is intentionally unchanged. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-beta.1 promotes the approved alpha.8 authoring baseline into beta stabilization without adding features. Runtime authoring behavior is intentionally unchanged. Release validation is hardened to verify required manifest fields, duplicate-free runtime references, language JSON, every manifest-listed JavaScript/style/language file, retired-prototype exclusion, prerelease URL consistency, ZIP integrity, required release files, and that the final ZIP contains every manifest runtime file while excluding development/release internals. A fixed GM / Section Editor / Entry Editor / Player regression checklist is now included as the manual release gate. v1.0.0 remains the stable production release." \
               "${PRERELEASE_ARGS[@]}"
           fi
