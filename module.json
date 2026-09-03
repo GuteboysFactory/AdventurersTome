@@ -25,7 +25,8 @@
     "scripts/authoring-alpha2.js",
     "scripts/world-journal-log-polish.js",
     "scripts/authoring-empty-pages.js",
-    "scripts/authoring-alpha3.js"
+    "scripts/authoring-alpha3.js",
+    "scripts/authoring-alpha3-tree-sync.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
