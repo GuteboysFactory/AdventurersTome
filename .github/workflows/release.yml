@@ -42,6 +42,7 @@ jobs:
           node --check scripts/authoring-alpha3.js
           node --check scripts/authoring-alpha3-campaign-explorer-v2.js
           node --check scripts/authoring-alpha4-explorer-management.js
+          node --check scripts/authoring-alpha5-entry-management.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
@@ -56,6 +57,7 @@ jobs:
           test -f styles/authoring-alpha3.css
           test -f styles/authoring-alpha3-campaign-workspace.css
           test -f styles/authoring-alpha4-explorer-management.css
+          test -f styles/authoring-alpha5-entry-management.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test -f LICENSE
@@ -111,6 +113,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.4 keeps the approved persistent Campaign Explorer v2 baseline and adds direct GM folder management inside Tome. GMs can create a real Foundry Journal subfolder under the selected Explorer folder, rename selected non-root folders, and safely delete only empty folders. Section roots are protected, non-empty folders cannot be deleted, and all operations write directly to Foundry's Journal folder backend. Explorer navigation, filtering, expand/collapse and drag-and-drop behavior from alpha.3 remain unchanged. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-alpha.5 keeps the approved persistent Campaign Explorer and alpha.4 folder-management baseline, then adds direct GM entry management inside Tome. Explorer entries get a dedicated management action for rename, Open in Tome, Open Foundry Source, and guarded permanent deletion of the real Journal Entry. Explorer folder tools also gain New Entry, which creates the correct World/Quest/Session Journal directly inside the selected folder, inheriting canonical World type from NPC/Location/Faction/Item/Lore branches where applicable. Existing drag-and-drop, filtering, expand/collapse, authoring, and folder management remain intact. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
