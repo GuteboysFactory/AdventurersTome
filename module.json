@@ -22,7 +22,8 @@
     "scripts/world-journal-parity.js",
     "scripts/world-inline-editing.js",
     "scripts/authoring-foundation.js",
-    "scripts/authoring-summary-sync.js"
+    "scripts/authoring-summary-sync.js",
+    "scripts/authoring-editor-bridge.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
