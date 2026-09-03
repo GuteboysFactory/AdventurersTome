@@ -1,0 +1,164 @@
+.at-a7-editor-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin: 0.55rem 0 0.7rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid rgba(201, 155, 74, 0.22);
+  background: linear-gradient(180deg, rgba(201, 155, 74, 0.07), rgba(8, 6, 4, 0.2));
+}
+
+.at-a7-editor-tools-copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.at-a7-editor-tools-copy > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #dcb66c;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.at-a7-editor-tools-copy > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(241, 218, 176, 0.9);
+  font-size: 0.78rem;
+}
+
+.at-a7-editor-tools-actions,
+.at-a7-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.at-a7-editor-tools-actions button {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(201, 155, 74, 0.25);
+  background: rgba(10, 7, 5, 0.55);
+  color: #dcb66c;
+}
+
+.at-a7-editor-tools-actions button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.at-a7-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.9rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.at-a7-entry-row > .at-cw-tree-entry {
+  min-width: 0;
+}
+
+.at-a7-entry-manage {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-right: 0.18rem;
+  border: 0;
+  background: transparent;
+  color: rgba(224, 185, 108, 0.72);
+  opacity: 0.35;
+  transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.at-a7-entry-row:hover .at-a7-entry-manage,
+.at-a7-entry-manage:focus-visible {
+  opacity: 1;
+  color: #e5bd70;
+  background: rgba(205, 157, 76, 0.08);
+}
+
+.at-a7-folder-drag {
+  color: rgba(223, 182, 101, 0.75);
+}
+
+.at-a7-folder-dragging {
+  opacity: 0.5;
+}
+
+.at-a7-folder-drop-target {
+  outline: 1px solid rgba(220, 174, 82, 0.85);
+  outline-offset: -1px;
+  background: rgba(205, 157, 76, 0.12) !important;
+}
+
+.at-a7-modal-body {
+  display: grid;
+  gap: 0.55rem;
+  color: rgba(239, 217, 177, 0.82);
+}
+
+.at-a7-modal-body p {
+  margin: 0;
+}
+
+.at-a7-entry-meta {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid rgba(199, 151, 70, 0.16);
+  background: rgba(199, 151, 70, 0.05);
+}
+
+.at-a7-entry-meta > span {
+  color: #dcb66c;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.at-a7-entry-meta > strong {
+  font-size: 0.8rem;
+  color: rgba(241, 221, 184, 0.9);
+}
+
+.at-a7-entry-actions {
+  margin-top: 0.25rem;
+}
+
+.at-a7-danger,
+.at-a7-modal.is-danger button[type="submit"] {
+  border-color: rgba(187, 86, 67, 0.48) !important;
+  color: #e7a08f !important;
+  background: rgba(106, 38, 29, 0.18) !important;
+}
+
+.at-a7-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.85rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(201, 155, 74, 0.28);
+  background: rgba(201, 155, 74, 0.07);
+  color: #dfb86c;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+}
+
+@container (max-width: 760px) {
+  .at-a7-editor-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .at-a7-editor-tools-actions {
+    justify-content: flex-start;
+  }
+}
