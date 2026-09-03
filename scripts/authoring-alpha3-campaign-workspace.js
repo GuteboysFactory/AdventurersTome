@@ -32,8 +32,8 @@ function atCwParentId(folder) {
 
 function atCwFolderAncestors(folder) {
   const chain = [];
-  let current = folder;
   const seen = new Set();
+  let current = folder;
   while (current && !seen.has(current.id)) {
     seen.add(current.id);
     chain.unshift(current);
@@ -95,65 +95,40 @@ function atCwCanManage(section) {
   return false;
 }
 
-function atCwCaptureMetadata(page, config) {
-  const map = new Map();
-  for (const node of page.querySelectorAll(config.entry)) {
-    const id = String(node.dataset.journalId || "");
-    if (!id || map.has(id)) continue;
-    const card = node.closest("button, article, li, div") || node;
-    const img = card.querySelector?.("img")?.getAttribute("src") || "";
-    const strong = card.querySelector?.("strong")?.textContent?.trim() || "";
-    const heading = card.querySelector?.("h1,h2,h3")?.textContent?.trim() || "";
-    const smalls = [...(card.querySelectorAll?.("small") || [])].map((el) => el.textContent?.trim()).filter(Boolean);
-    const status = card.querySelector?.(".at-quest-status")?.textContent?.trim() || "";
-    const subtitle = card.querySelector?.("b,em")?.textContent?.trim() || "";
-    map.set(id, { img, name: strong || heading || "", summary: smalls[0] || "", secondary: smalls[1] || "", status, subtitle });
-  }
-  return map;
+function atCwAllEntryIds(catalog, config) {
+  return new Set([...catalog.querySelectorAll(config.entry)].map((node) => String(node.dataset.journalId || "")).filter(Boolean));
 }
 
-function atCwVisibleIds(page, config) {
-  return new Set([...page.querySelectorAll(config.entry)].map((node) => String(node.dataset.journalId || "")).filter(Boolean));
-}
-
-function atCwRootCandidate(folder, section, visibleIds) {
+function atCwRootCandidate(folder, section, entryIds) {
   if (!folder || folder.type !== "JournalEntry" || folder.name !== ATCW_SECTIONS[section].label) return false;
   const subtree = atCwDescendantFolderIds(folder);
-  if ([...(game.journal?.contents ?? [])].some((journal) => visibleIds.has(journal.id) && subtree.has(String(journal.folder?.id ?? journal.folder ?? "")))) return true;
+  if ([...(game.journal?.contents ?? [])].some((journal) => entryIds.has(journal.id) && subtree.has(String(journal.folder?.id ?? journal.folder ?? "")))) return true;
   if (String(folder.getFlag?.(ATCW_MODULE_ID, "section") || "") === section) return true;
   return atCwFolderAncestors(folder).some((ancestor) => /adventurer'?s tome/i.test(ancestor.name));
 }
 
-function atCwSectionRoots(section, visibleIds) {
+function atCwSectionRoots(section, entryIds) {
   return [...(game.folders?.contents ?? [])]
-    .filter((folder) => atCwRootCandidate(folder, section, visibleIds))
+    .filter((folder) => atCwRootCandidate(folder, section, entryIds))
     .sort((a, b) => atCwFolderPath(a).localeCompare(atCwFolderPath(b)));
 }
 
-function atCwFolderHasVisible(folder, visibleIds) {
+function atCwFolderHasVisible(folder, entryIds) {
   if (game.user?.isGM) return true;
   const ids = atCwDescendantFolderIds(folder);
-  return [...(game.journal?.contents ?? [])].some((journal) => visibleIds.has(journal.id) && ids.has(String(journal.folder?.id ?? journal.folder ?? "")));
+  return [...(game.journal?.contents ?? [])].some((journal) => entryIds.has(journal.id) && ids.has(String(journal.folder?.id ?? journal.folder ?? "")));
 }
 
-function atCwChildFolders(folder, visibleIds) {
+function atCwChildFolders(folder, entryIds) {
   return [...(game.folders?.contents ?? [])]
-    .filter((child) => child.type === "JournalEntry" && atCwParentId(child) === folder.id && atCwFolderHasVisible(child, visibleIds))
+    .filter((child) => child.type === "JournalEntry" && atCwParentId(child) === folder.id && atCwFolderHasVisible(child, entryIds))
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 }
 
-function atCwDirectJournals(folder, visibleIds) {
+function atCwDirectJournals(folder, entryIds) {
   return [...(game.journal?.contents ?? [])]
-    .filter((journal) => visibleIds.has(journal.id) && String(journal.folder?.id ?? journal.folder ?? "") === folder.id)
+    .filter((journal) => entryIds.has(journal.id) && String(journal.folder?.id ?? journal.folder ?? "") === folder.id)
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
-}
-
-function atCwFolderCounts(folder, visibleIds) {
-  const ids = atCwDescendantFolderIds(folder);
-  return {
-    entries: [...(game.journal?.contents ?? [])].filter((journal) => visibleIds.has(journal.id) && ids.has(String(journal.folder?.id ?? journal.folder ?? ""))).length,
-    folders: Math.max(0, ids.size - 1)
-  };
 }
 
 function atCwFolderIcon(section, folder) {
@@ -163,43 +138,100 @@ function atCwFolderIcon(section, folder) {
   return "fa-folder";
 }
 
-function atCwTreeFolder(section, folder, selectedId, visibleIds, depth = 0) {
+function atCwTreeFolder(section, folder, selectedId, entryIds, rootIds, depth = 0) {
   const collapsed = atCwGetState(section, `collapsed.${folder.id}`, "0") === "1";
-  const children = atCwChildFolders(folder, visibleIds);
-  const journals = atCwDirectJournals(folder, visibleIds);
+  const children = atCwChildFolders(folder, entryIds);
+  const journals = atCwDirectJournals(folder, entryIds);
   const selected = folder.id === selectedId;
+  const isSourceRoot = rootIds.has(folder.id);
+  const dragHandle = game.user?.isGM && !isSourceRoot
+    ? `<span class="at-cw-folder-drag" draggable="true" data-at-cw-drag-folder="${atCwEscape(folder.id)}" title="Drag folder"><i class="fa-solid fa-grip-vertical"></i></span>`
+    : '<span class="at-cw-folder-drag is-disabled"></span>';
   return `<div class="at-cw-tree-folder ${collapsed ? "is-collapsed" : ""}" data-at-cw-folder="${atCwEscape(folder.id)}">
     <div class="at-cw-tree-folder-row ${selected ? "is-selected" : ""}" style="--at-tree-depth:${depth}" data-at-cw-drop-folder="${atCwEscape(folder.id)}">
-      <button type="button" class="at-cw-chevron" data-at-cw-toggle-folder="${atCwEscape(folder.id)}"><i class="fa-solid ${collapsed ? "fa-chevron-right" : "fa-chevron-down"}"></i></button>
-      <button type="button" class="at-cw-folder-open" data-at-cw-select-folder="${atCwEscape(folder.id)}" ${game.user?.isGM ? 'draggable="true" data-at-cw-drag-folder="true"' : ""}><i class="fa-solid ${atCwFolderIcon(section, folder)}"></i><span>${atCwEscape(folder.name)}</span></button>
+      <button type="button" class="at-cw-chevron" data-at-cw-toggle-folder="${atCwEscape(folder.id)}" title="${collapsed ? "Expand" : "Collapse"}"><i class="fa-solid ${collapsed ? "fa-chevron-right" : "fa-chevron-down"}"></i></button>
+      <button type="button" class="at-cw-folder-open" data-at-cw-select-folder="${atCwEscape(folder.id)}"><i class="fa-solid ${atCwFolderIcon(section, folder)}"></i><span>${atCwEscape(folder.name)}</span></button>
+      ${dragHandle}
     </div>
-    <div class="at-cw-tree-children">${journals.map((journal) => `<button type="button" class="at-cw-tree-entry" style="--at-tree-depth:${depth + 1}" data-at-cw-open-journal="${atCwEscape(journal.id)}" draggable="true"><i class="fa-solid fa-file-lines"></i><span>${atCwEscape(journal.name)}</span></button>`).join("")}${children.map((child) => atCwTreeFolder(section, child, selectedId, visibleIds, depth + 1)).join("")}</div>
+    <div class="at-cw-tree-children">${journals.map((journal) => `<button type="button" class="at-cw-tree-entry" style="--at-tree-depth:${depth + 1}" data-at-cw-open-journal="${atCwEscape(journal.id)}" data-at-cw-journal-id="${atCwEscape(journal.id)}" draggable="true"><i class="fa-solid fa-file-lines"></i><span>${atCwEscape(journal.name)}</span></button>`).join("")}${children.map((child) => atCwTreeFolder(section, child, selectedId, entryIds, rootIds, depth + 1)).join("")}</div>
   </div>`;
 }
 
-function atCwRootTree(section, rootFolder, selectedId, visibleIds) {
-  const parent = game.folders?.get(atCwParentId(rootFolder));
-  const sourceLabel = parent ? parent.name : "Foundry Journals";
-  return `<section class="at-cw-source-tree"><span class="at-cw-source-label">${atCwEscape(sourceLabel)}</span>${atCwTreeFolder(section, rootFolder, selectedId, visibleIds, 0)}</section>`;
+function atCwExplorerMarkup(section, roots, selectedId, entryIds) {
+  const config = ATCW_SECTIONS[section];
+  const rootIds = new Set(roots.map((root) => root.id));
+  const trees = roots.map((root) => {
+    const parent = game.folders?.get(atCwParentId(root));
+    const sourceLabel = parent ? parent.name : "Foundry Journals";
+    return `<section class="at-cw-source-tree"><span class="at-cw-source-label">${atCwEscape(sourceLabel)}</span>${atCwTreeFolder(section, root, selectedId, entryIds, rootIds, 0)}</section>`;
+  }).join("");
+  return `<aside class="at-cw-explorer" data-at-cw-section="${section}"><header><div><span class="at-kicker">Campaign Explorer</span><h2><i class="fa-solid ${config.icon}"></i> ${atCwEscape(config.label)}</h2></div>${game.user?.isGM ? '<button type="button" class="at-cw-new-folder" data-at-cw-new-folder title="New folder"><i class="fa-solid fa-folder-plus"></i></button>' : ""}</header><button type="button" class="at-cw-show-all ${selectedId ? "" : "is-selected"}" data-at-cw-show-all><i class="fa-solid fa-layer-group"></i><span>Show all</span></button><div class="at-cw-tree-scroll">${trees || '<div class="at-empty">No matching Foundry folder structure yet.</div>'}</div></aside>`;
 }
 
-function atCwFolderCard(section, folder, visibleIds) {
-  const counts = atCwFolderCounts(folder, visibleIds);
-  return `<article class="at-cw-folder-card" data-at-cw-drop-folder="${atCwEscape(folder.id)}" ${game.user?.isGM ? 'draggable="true" data-at-cw-drag-folder="true"' : ""}><button type="button" data-at-cw-select-folder="${atCwEscape(folder.id)}"><span class="at-cw-folder-card-icon"><i class="fa-solid ${atCwFolderIcon(section, folder)}"></i></span><span><strong>${atCwEscape(folder.name)}</strong><small>${counts.entries} ${counts.entries === 1 ? "entry" : "entries"}${counts.folders ? ` · ${counts.folders} ${counts.folders === 1 ? "folder" : "folders"}` : ""}</small></span><i class="fa-solid fa-chevron-right"></i></button></article>`;
+function atCwAllowedIds(selectedFolder, allEntryIds) {
+  if (!selectedFolder) return new Set(allEntryIds);
+  const folderIds = atCwDescendantFolderIds(selectedFolder);
+  return new Set([...(game.journal?.contents ?? [])]
+    .filter((journal) => allEntryIds.has(journal.id) && folderIds.has(String(journal.folder?.id ?? journal.folder ?? "")))
+    .map((journal) => journal.id));
 }
 
-function atCwEntryCard(section, journal, metadata) {
-  const meta = metadata.get(journal.id) || {};
-  const profile = section === "world" ? (journal.getFlag?.(ATCW_MODULE_ID, "worldProfile") || {}) : {};
-  const img = String(profile.heroImage || meta.img || "").trim();
-  const subtitle = String(meta.status || meta.subtitle || profile.subtitle || "").trim();
-  const summary = String(meta.summary || profile.summary || "").trim();
-  const icon = section === "quests" ? "fa-diamond" : section === "sessions" ? "fa-book-open" : "fa-book-open";
-  return `<article class="at-cw-entry-card" data-at-cw-journal-id="${atCwEscape(journal.id)}" draggable="true"><button type="button" data-at-cw-open-journal="${atCwEscape(journal.id)}">${img ? `<span class="at-cw-entry-art"><img src="${atCwEscape(img)}" alt="${atCwEscape(journal.name)}"></span>` : `<span class="at-cw-entry-art at-no-image"><i class="fa-solid ${icon}"></i></span>`}<span class="at-cw-entry-copy">${subtitle ? `<em>${atCwEscape(subtitle)}</em>` : ""}<strong>${atCwEscape(journal.name)}</strong>${summary ? `<small>${atCwEscape(summary)}</small>` : ""}</span><i class="fa-solid fa-chevron-right"></i></button></article>`;
+function atCwUpdateCount(container, selector, count) {
+  const counter = container.querySelector(selector);
+  if (counter) counter.textContent = String(count);
+}
+
+function atCwFilterWorld(catalog, allowed) {
+  for (const card of catalog.querySelectorAll('.at-world-card[data-journal-id]')) {
+    const visible = allowed.has(String(card.dataset.journalId || ""));
+    card.classList.toggle("at-cw-filtered-out", !visible);
+    card.draggable = visible;
+    if (visible) card.dataset.atCwJournalId = String(card.dataset.journalId || "");
+  }
+  for (const group of catalog.querySelectorAll(".at-world-category")) {
+    const visibleCards = [...group.querySelectorAll(".at-world-card[data-journal-id]")].filter((card) => !card.classList.contains("at-cw-filtered-out"));
+    group.classList.toggle("at-cw-filtered-out", visibleCards.length === 0);
+    atCwUpdateCount(group, ".at-world-category-heading > span", visibleCards.length);
+  }
+}
+
+function atCwFilterQuests(catalog, allowed) {
+  for (const card of catalog.querySelectorAll('.at-quest-card[data-journal-id]')) {
+    const visible = allowed.has(String(card.dataset.journalId || ""));
+    card.classList.toggle("at-cw-filtered-out", !visible);
+    card.draggable = visible;
+    if (visible) card.dataset.atCwJournalId = String(card.dataset.journalId || "");
+  }
+  for (const group of catalog.querySelectorAll(".at-quest-group")) {
+    const visibleCards = [...group.querySelectorAll(".at-quest-card[data-journal-id]")].filter((card) => !card.classList.contains("at-cw-filtered-out"));
+    group.classList.toggle("at-cw-filtered-out", visibleCards.length === 0);
+    atCwUpdateCount(group, ":scope > header > span", visibleCards.length);
+  }
+}
+
+function atCwFilterSessions(catalog, allowed) {
+  let visibleCount = 0;
+  for (const row of catalog.querySelectorAll('.at-session-row[data-journal-id]')) {
+    const visible = allowed.has(String(row.dataset.journalId || ""));
+    row.classList.toggle("at-cw-filtered-out", !visible);
+    row.draggable = visible;
+    if (visible) {
+      visibleCount += 1;
+      row.dataset.atCwJournalId = String(row.dataset.journalId || "");
+    }
+  }
+  let empty = catalog.querySelector(".at-cw-session-filter-empty");
+  if (!empty) {
+    empty = document.createElement("div");
+    empty.className = "at-empty at-cw-session-filter-empty";
+    empty.textContent = "No sessions in this folder branch.";
+    catalog.querySelector(".at-session-chronicle")?.append(empty);
+  }
+  empty.hidden = visibleCount > 0;
 }
 
 function atCwBreadcrumb(selected, roots) {
-  if (!selected) return '<span>All sources</span>';
+  if (!selected) return '<strong>All Tome entries</strong><span>Catalog view</span>';
   const rootIds = new Set(roots.map((root) => root.id));
   const chain = [];
   let current = selected;
@@ -208,69 +240,84 @@ function atCwBreadcrumb(selected, roots) {
     if (rootIds.has(current.id)) break;
     current = game.folders?.get(atCwParentId(current));
   }
-  return chain.map((folder, index) => `<button type="button" data-at-cw-select-folder="${atCwEscape(folder.id)}">${atCwEscape(folder.name)}</button>${index < chain.length - 1 ? '<i class="fa-solid fa-chevron-right"></i>' : ""}`).join("");
+  return `<strong>${chain.map((folder) => atCwEscape(folder.name)).join(" › ")}</strong><span>Showing this folder and all nested folders</span>`;
 }
 
-function atCwPreparePage(sectionPage) {
-  const { section, config, page } = sectionPage;
-  page.dataset.atA3TreeReady = "true";
-  let source = page.querySelector(":scope > .at-cw-source");
-  if (!source) {
-    source = document.createElement("div");
-    source.className = "at-cw-source";
-    source.hidden = true;
-    page.append(source);
-  }
+function atCwApplyFilter(section, catalog, selectedFolder, roots, allEntryIds) {
+  const allowed = atCwAllowedIds(selectedFolder, allEntryIds);
+  if (section === "world") atCwFilterWorld(catalog, allowed);
+  else if (section === "quests") atCwFilterQuests(catalog, allowed);
+  else atCwFilterSessions(catalog, allowed);
 
+  let bar = catalog.querySelector(":scope > .at-cw-filterbar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.className = "at-cw-filterbar";
+    catalog.prepend(bar);
+  }
+  bar.innerHTML = `<div>${atCwBreadcrumb(selectedFolder, roots)}</div><span class="at-cw-filter-count">${allowed.size} ${allowed.size === 1 ? "entry" : "entries"}</span>`;
+}
+
+function atCwRestoreLegacyContent(page, catalog) {
   const oldWorldSource = page.querySelector(":scope > .at-a3ww-source");
   if (oldWorldSource) {
-    while (oldWorldSource.firstChild) source.append(oldWorldSource.firstChild);
+    while (oldWorldSource.firstChild) catalog.append(oldWorldSource.firstChild);
     oldWorldSource.remove();
   }
+  const oldSource = page.querySelector(":scope > .at-cw-source");
+  if (oldSource) {
+    while (oldSource.firstChild) catalog.append(oldSource.firstChild);
+    oldSource.remove();
+  }
   page.querySelector(":scope > .at-a3ww-workspace")?.remove();
-
+  page.querySelector(":scope > .at-cw-workspace")?.remove();
   const oldLayout = page.querySelector(":scope > .at-a3-tree-layout");
   if (oldLayout) {
     const content = oldLayout.querySelector(":scope > .at-a3-tree-content");
-    if (content) while (content.firstChild) source.append(content.firstChild);
+    if (content) while (content.firstChild) catalog.append(content.firstChild);
     oldLayout.remove();
   }
+}
 
-  const heading = page.querySelector(":scope > .at-page-heading");
-  for (const child of [...page.children]) {
-    if (child === heading || child === source || child.classList.contains("at-cw-workspace")) continue;
-    source.append(child);
+function atCwEnsureLayout(sectionPage) {
+  const { section, config, page } = sectionPage;
+  page.dataset.atA3TreeReady = "true";
+  let layout = page.querySelector(":scope > .at-cw-catalog-layout");
+  let catalog = layout?.querySelector(":scope > .at-cw-catalog") || null;
+  if (!layout || !catalog) {
+    layout?.remove();
+    layout = document.createElement("section");
+    layout.className = "at-cw-catalog-layout";
+    catalog = document.createElement("div");
+    catalog.className = "at-cw-catalog";
+    atCwRestoreLegacyContent(page, catalog);
+    const heading = page.querySelector(":scope > .at-page-heading");
+    const movable = [...page.children].filter((child) => child !== heading && child !== layout && child !== catalog && !child.classList.contains("at-cw-catalog-layout"));
+    for (const child of movable) catalog.append(child);
+    layout.append(document.createElement("aside"), catalog);
+    layout.firstElementChild.remove();
+    heading?.insertAdjacentElement("afterend", layout);
   }
 
-  const visibleIds = atCwVisibleIds(source, config);
-  const metadata = atCwCaptureMetadata(source, config);
-  const roots = atCwSectionRoots(section, visibleIds);
-  let selectedId = atCwGetState(section, "selected", roots.length === 1 ? roots[0]?.id || "" : "");
-  const validIds = new Set(roots.flatMap((root) => [...atCwDescendantFolderIds(root)]));
-  if (selectedId && !validIds.has(selectedId)) selectedId = roots.length === 1 ? roots[0]?.id || "" : "";
-  const selected = selectedId ? game.folders?.get(selectedId) : null;
-  if (selectedId) atCwSetState(section, "selected", selectedId);
-
-  let workspace = page.querySelector(":scope > .at-cw-workspace");
-  if (!workspace) {
-    workspace = document.createElement("section");
-    workspace.className = "at-cw-workspace";
-    heading?.insertAdjacentElement("afterend", workspace);
+  const allEntryIds = atCwAllEntryIds(catalog, config);
+  const roots = atCwSectionRoots(section, allEntryIds);
+  const validFolderIds = new Set(roots.flatMap((root) => [...atCwDescendantFolderIds(root)]));
+  let selectedId = atCwGetState(section, "selected", "");
+  if (selectedId && !validFolderIds.has(selectedId)) {
+    selectedId = "";
+    atCwSetState(section, "selected", "");
   }
+  const selectedFolder = selectedId ? game.folders?.get(selectedId) : null;
 
-  const sourceCards = roots.map((root) => atCwFolderCard(section, root, visibleIds)).join("");
-  const childFolders = selected ? atCwChildFolders(selected, visibleIds) : [];
-  const directJournals = selected ? atCwDirectJournals(selected, visibleIds) : [];
-  const counts = selected ? atCwFolderCounts(selected, visibleIds) : { entries: [...visibleIds].length, folders: roots.length };
-  const mainTitle = selected ? selected.name : ATCW_SECTIONS[section].label;
-  const sourceSubtitle = selected ? atCwFolderPath(selected) : `${roots.length} Foundry ${roots.length === 1 ? "source" : "sources"}`;
+  let explorer = layout.querySelector(":scope > .at-cw-explorer");
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = atCwExplorerMarkup(section, roots, selectedId, allEntryIds);
+  const nextExplorer = wrapper.firstElementChild;
+  if (explorer) explorer.replaceWith(nextExplorer);
+  else layout.prepend(nextExplorer);
 
-  workspace.innerHTML = `<aside class="at-cw-explorer"><header><div><span class="at-kicker">Campaign Explorer</span><h2><i class="fa-solid ${config.icon}"></i> ${atCwEscape(config.label)}</h2></div></header><div class="at-cw-tree-scroll">${roots.length ? roots.map((root) => atCwRootTree(section, root, selectedId, visibleIds)).join("") : '<div class="at-empty">No matching Foundry folder structure yet.</div>'}</div></aside>
-    <section class="at-cw-main" data-at-cw-section="${section}" data-at-cw-selected-folder="${atCwEscape(selectedId)}"><header class="at-cw-main-head"><div><nav class="at-cw-breadcrumbs">${atCwBreadcrumb(selected, roots)}</nav><span class="at-kicker">${selected ? "Foundry Journal folder" : "Campaign structure"}</span><h2>${atCwEscape(mainTitle)}</h2><p>${atCwEscape(sourceSubtitle)} · ${counts.entries} ${counts.entries === 1 ? "entry" : "entries"}</p></div>${atCwCanManage(section) ? '<div class="at-cw-main-actions"><button type="button" class="at-secondary" data-at-cw-new-folder><i class="fa-solid fa-folder-plus"></i> Folder</button></div>' : ""}</header>
-      ${selected ? `<div class="at-cw-root-drop" data-at-cw-drop-folder="${atCwEscape(selected.id)}"><i class="fa-solid fa-arrow-down"></i><span>Drop entries or folders here to move them into ${atCwEscape(selected.name)}</span></div>` : ""}
-      <section class="at-cw-folder-section"><div class="at-cw-section-title"><h3>${selected ? "Folders" : "Foundry sources"}</h3><span>${selected ? childFolders.length : roots.length}</span></div><div class="at-cw-folder-grid">${selected ? childFolders.map((folder) => atCwFolderCard(section, folder, visibleIds)).join("") : sourceCards}</div></section>
-      ${selected ? `<section class="at-cw-entry-section"><div class="at-cw-section-title"><h3>Entries</h3><span>${directJournals.length}</span></div><div class="at-cw-entry-grid">${directJournals.map((journal) => atCwEntryCard(section, journal, metadata)).join("") || '<div class="at-empty at-wide">No entries in this folder yet.</div>'}</div></section>` : ""}
-    </section>`;
+  atCwApplyFilter(section, catalog, selectedFolder, roots, allEntryIds);
+  return { section, config, page, layout, catalog, roots, selectedFolder, allEntryIds };
 }
 
 function atCwQueue(delay = 100) {
@@ -279,21 +326,22 @@ function atCwQueue(delay = 100) {
     window.requestAnimationFrame(() => {
       atCwQueued = false;
       const sectionPage = atCwSectionFromPage();
-      if (sectionPage) atCwPreparePage(sectionPage);
+      if (sectionPage) atCwEnsureLayout(sectionPage);
     });
   }
   window.clearTimeout(atCwTimer);
   atCwTimer = window.setTimeout(() => {
     const sectionPage = atCwSectionFromPage();
-    if (sectionPage) atCwPreparePage(sectionPage);
+    if (sectionPage) atCwEnsureLayout(sectionPage);
   }, delay);
 }
 
 function atCwOpenJournal(section, journalId) {
   const sectionPage = atCwSectionFromPage();
   if (!sectionPage || sectionPage.section !== section) return;
-  const sourceButton = sectionPage.page.querySelector(`.at-cw-source ${ATCW_SECTIONS[section].entry}[data-journal-id="${CSS.escape(String(journalId))}"]`);
-  sourceButton?.click();
+  const node = [...sectionPage.page.querySelectorAll(ATCW_SECTIONS[section].entry)]
+    .find((item) => String(item.dataset.journalId || "") === String(journalId));
+  node?.click();
 }
 
 function atCwParseFoundryJournal(dataTransfer) {
@@ -350,8 +398,8 @@ async function atCwAdoptJournal(section, journal, targetFolder) {
   }
 }
 
-function atCwJournalBelongs(section, journal, visibleIds) {
-  if (visibleIds.has(journal.id)) return true;
+function atCwJournalBelongs(section, journal, knownIds) {
+  if (knownIds.has(journal.id)) return true;
   const type = String(journal.getFlag?.(ATCW_MODULE_ID, "type") || "").toLowerCase();
   return (section === "world" && type === "world") || (section === "quests" && (type === "quests" || type === "quest")) || (section === "sessions" && (type === "sessions" || type === "session"));
 }
@@ -359,11 +407,12 @@ function atCwJournalBelongs(section, journal, visibleIds) {
 async function atCwMoveJournal(section, journal, targetFolder) {
   if (!journal || !targetFolder) return;
   const sectionPage = atCwSectionFromPage();
-  const visibleIds = sectionPage ? atCwVisibleIds(sectionPage.page.querySelector(":scope > .at-cw-source"), sectionPage.config) : new Set();
+  const state = sectionPage ? atCwEnsureLayout(sectionPage) : null;
+  const knownIds = state?.allEntryIds || new Set();
   const canEdit = Boolean(game.user?.isGM || journal.isOwner || journal.testUserPermission?.(game.user, "OWNER"));
   if (!canEdit) return ui.notifications.warn("Adventurer's Tome: You do not have permission to move that Journal.");
   try {
-    const belongs = atCwJournalBelongs(section, journal, visibleIds);
+    const belongs = atCwJournalBelongs(section, journal, knownIds);
     if (!belongs) await atCwAdoptJournal(section, journal, targetFolder);
     await journal.update({ folder: targetFolder.id });
     if (section === "world") {
@@ -371,13 +420,16 @@ async function atCwMoveJournal(section, journal, targetFolder) {
       if (raw && typeof raw === "object" && !Array.isArray(raw)) {
         const profile = foundry.utils.deepClone(raw);
         const category = atCwWorldCategory(targetFolder);
-        if (profile.category !== category) { profile.category = category; await journal.setFlag(ATCW_MODULE_ID, "worldProfile", profile); }
+        if (profile.category !== category) {
+          profile.category = category;
+          await journal.setFlag(ATCW_MODULE_ID, "worldProfile", profile);
+        }
       }
     }
     ui.notifications.info(`Adventurer's Tome: ${belongs ? "Moved" : "Added"} ${journal.name} to ${targetFolder.name}.`);
-    await atCwApp()?.render?.({ parts: ["main"] });
+    await game.modules.get(ATCW_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] });
   } catch (error) {
-    console.error("Adventurer's Tome | Campaign workspace Journal move failed", error);
+    console.error("Adventurer's Tome | Campaign Explorer Journal move failed", error);
     ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not move that Journal."}`);
   }
 }
@@ -386,89 +438,108 @@ async function atCwMoveFolder(section, folder, targetFolder) {
   if (!game.user?.isGM || !folder || !targetFolder) return;
   const sectionPage = atCwSectionFromPage();
   if (!sectionPage || sectionPage.section !== section) return;
-  const visibleIds = atCwVisibleIds(sectionPage.page.querySelector(":scope > .at-cw-source"), sectionPage.config);
-  const roots = atCwSectionRoots(section, visibleIds);
-  const rootIds = new Set(roots.map((root) => root.id));
-  if (rootIds.has(folder.id)) return ui.notifications.warn("Adventurer's Tome: A section source root cannot be moved inside itself.");
+  const state = atCwEnsureLayout(sectionPage);
+  const rootIds = new Set(state.roots.map((root) => root.id));
+  if (rootIds.has(folder.id)) return ui.notifications.warn("Adventurer's Tome: A section source root cannot be moved.");
   if (folder.id === targetFolder.id || atCwDescendantFolderIds(folder).has(targetFolder.id)) return ui.notifications.warn("Adventurer's Tome: A folder cannot be moved into itself or one of its children.");
   try {
     await folder.update({ folder: targetFolder.id });
     ui.notifications.info(`Adventurer's Tome: Moved ${folder.name} into ${targetFolder.name}.`);
     atCwQueue(140);
   } catch (error) {
-    console.error("Adventurer's Tome | Campaign workspace folder move failed", error);
+    console.error("Adventurer's Tome | Campaign Explorer folder move failed", error);
     ui.notifications.error("Adventurer's Tome: Could not move that folder.");
   }
 }
 
-function atCwNewFolder(section) {
-  if (!atCwCanManage(section)) return;
+async function atCwCreateFolder(section) {
+  if (!game.user?.isGM) return ui.notifications.warn("Adventurer's Tome: Folder creation for delegated Editors will use the GM broker in a later alpha.3 pass.");
   const sectionPage = atCwSectionFromPage();
   if (!sectionPage || sectionPage.section !== section) return;
-  const selectedId = String(sectionPage.page.querySelector(".at-cw-main")?.dataset?.atCwSelectedFolder || "");
-  const selected = game.folders?.get(selectedId);
-  const visibleIds = atCwVisibleIds(sectionPage.page.querySelector(":scope > .at-cw-source"), sectionPage.config);
-  const roots = atCwSectionRoots(section, visibleIds);
-  const parent = selected || (roots.length === 1 ? roots[0] : null);
-  if (!parent) return ui.notifications.warn(`Adventurer's Tome: Open the ${ATCW_SECTIONS[section].label} source where you want the new folder first.`);
-  if (!game.user?.isGM) return document.querySelector(`${ATCW_ROOT} [data-at-a3-new-folder]`)?.click();
-  const overlay = document.createElement("div");
-  overlay.className = "at-cw-modal-overlay";
-  overlay.innerHTML = `<form class="at-cw-modal"><header><div><span class="at-kicker">Campaign structure</span><h2>New Folder</h2></div><button type="button" data-at-cw-close><i class="fa-solid fa-xmark"></i></button></header><label><span>Name</span><input name="name" required autocomplete="off"></label><p>Create a real Foundry Journal folder inside <strong>${atCwEscape(atCwFolderPath(parent))}</strong>.</p><footer><button type="button" class="at-secondary" data-at-cw-close>Cancel</button><button type="submit" class="at-primary"><i class="fa-solid fa-folder-plus"></i> Create Folder</button></footer></form>`;
-  document.querySelector(ATCW_ROOT)?.append(overlay);
-  overlay.addEventListener("click", (event) => { if (event.target === overlay || event.target.closest("[data-at-cw-close]")) overlay.remove(); });
-  overlay.querySelector("form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const name = String(new FormData(event.currentTarget).get("name") || "").trim();
-    if (!name) return;
+  const state = atCwEnsureLayout(sectionPage);
+  const parent = state.selectedFolder || (state.roots.length === 1 ? state.roots[0] : null);
+  if (!parent) return ui.notifications.warn(`Adventurer's Tome: Select the ${ATCW_SECTIONS[section].label} source where the new folder should be created.`);
+  const name = String(await new Promise((resolve) => {
+    const root = document.querySelector(ATCW_ROOT);
+    const overlay = document.createElement("div");
+    overlay.className = "at-cw-modal-overlay";
+    overlay.innerHTML = `<form class="at-cw-modal"><header><div><span class="at-kicker">Campaign structure</span><h2>New Folder</h2></div><button type="button" data-at-cw-close><i class="fa-solid fa-xmark"></i></button></header><label><span>Name</span><input name="name" required autocomplete="off"></label><p>Creates a real Foundry Journal folder inside <strong>${atCwEscape(atCwFolderPath(parent))}</strong>.</p><footer><button type="button" class="at-secondary" data-at-cw-close>Cancel</button><button type="submit" class="at-primary"><i class="fa-solid fa-folder-plus"></i> Create Folder</button></footer></form>`;
+    root?.append(overlay);
+    const close = (value = "") => { overlay.remove(); resolve(value); };
+    overlay.addEventListener("click", (event) => { if (event.target === overlay || event.target.closest("[data-at-cw-close]")) close(""); });
+    overlay.querySelector("form")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      close(String(new FormData(event.currentTarget).get("name") || "").trim());
+    });
+    overlay.querySelector("input")?.focus();
+  })).trim();
+  if (!name) return;
+  try {
     const created = await Folder.create({ name, type: "JournalEntry", folder: parent.id });
     atCwSetState(section, "selected", created.id);
-    overlay.remove();
     atCwQueue(120);
-  });
-}
-
-function atCwApp() {
-  try { return game.modules.get(ATCW_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
+  } catch (error) {
+    console.error("Adventurer's Tome | Campaign Explorer folder creation failed", error);
+    ui.notifications.error("Adventurer's Tome: Could not create that folder.");
+  }
 }
 
 Hooks.once("ready", () => {
   document.addEventListener("click", (event) => {
     const sectionPage = atCwSectionFromPage();
     if (!sectionPage) return;
-    const { section, page } = sectionPage;
-    const select = event.target.closest?.("[data-at-cw-select-folder]");
-    if (select) {
-      event.preventDefault(); event.stopImmediatePropagation();
-      atCwSetState(section, "selected", String(select.dataset.atCwSelectFolder || ""));
-      atCwPreparePage(sectionPage);
+    const { section } = sectionPage;
+
+    const showAll = event.target.closest?.("[data-at-cw-show-all]");
+    if (showAll) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      atCwSetState(section, "selected", "");
+      atCwEnsureLayout(sectionPage);
       return;
     }
+
+    const select = event.target.closest?.("[data-at-cw-select-folder]");
+    if (select) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      atCwSetState(section, "selected", String(select.dataset.atCwSelectFolder || ""));
+      atCwEnsureLayout(sectionPage);
+      return;
+    }
+
     const toggle = event.target.closest?.("[data-at-cw-toggle-folder]");
     if (toggle) {
-      event.preventDefault(); event.stopImmediatePropagation();
+      event.preventDefault();
+      event.stopImmediatePropagation();
       const id = String(toggle.dataset.atCwToggleFolder || "");
       const collapsed = atCwGetState(section, `collapsed.${id}`, "0") === "1";
       atCwSetState(section, `collapsed.${id}`, collapsed ? "0" : "1");
-      atCwPreparePage(sectionPage);
+      atCwEnsureLayout(sectionPage);
       return;
     }
+
     const open = event.target.closest?.("[data-at-cw-open-journal]");
     if (open) {
-      event.preventDefault(); event.stopImmediatePropagation();
+      event.preventDefault();
+      event.stopImmediatePropagation();
       atCwOpenJournal(section, String(open.dataset.atCwOpenJournal || ""));
       return;
     }
+
     if (event.target.closest?.("[data-at-cw-new-folder]")) {
-      event.preventDefault(); event.stopImmediatePropagation();
-      atCwNewFolder(section);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void atCwCreateFolder(section);
     }
   }, true);
 
   document.addEventListener("dragstart", (event) => {
-    const entry = event.target.closest?.(".at-cw-entry-card[draggable='true'], .at-cw-tree-entry[draggable='true']");
+    const sectionPage = atCwSectionFromPage();
+    if (!sectionPage) return;
+    const entry = event.target.closest?.("[data-at-cw-journal-id][draggable='true']");
     if (entry) {
-      const id = String(entry.dataset.atCwJournalId || entry.dataset.atCwOpenJournal || "");
+      const id = String(entry.dataset.atCwJournalId || "");
       if (!id) return;
       event.stopImmediatePropagation();
       event.dataTransfer.effectAllowed = "move";
@@ -476,19 +547,19 @@ Hooks.once("ready", () => {
       entry.classList.add("is-dragging");
       return;
     }
-    const folder = event.target.closest?.("[data-at-cw-drag-folder='true']");
-    if (folder) {
-      const folderId = String(folder.closest("[data-at-cw-folder]")?.dataset?.atCwFolder || folder.closest("[data-at-cw-drop-folder]")?.dataset?.atCwDropFolder || "");
-      if (!folderId) return;
+    const handle = event.target.closest?.("[data-at-cw-drag-folder][draggable='true']");
+    if (handle) {
+      const id = String(handle.dataset.atCwDragFolder || "");
+      if (!id) return;
       event.stopImmediatePropagation();
       event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData(ATCW_FOLDER_MIME, folderId);
-      folder.classList.add("is-dragging");
+      event.dataTransfer.setData(ATCW_FOLDER_MIME, id);
+      handle.closest(".at-cw-tree-folder-row")?.classList.add("is-dragging");
     }
   }, true);
 
-  document.addEventListener("dragend", (event) => {
-    event.target.closest?.(".is-dragging")?.classList.remove("is-dragging");
+  document.addEventListener("dragend", () => {
+    document.querySelectorAll(".is-dragging").forEach((node) => node.classList.remove("is-dragging"));
     document.querySelectorAll(".at-cw-drop-target").forEach((node) => node.classList.remove("at-cw-drop-target"));
   }, true);
 
@@ -497,7 +568,8 @@ Hooks.once("ready", () => {
     if (!target) return;
     const types = [...(event.dataTransfer?.types || [])];
     if (!types.includes(ATCW_JOURNAL_MIME) && !types.includes(ATCW_FOLDER_MIME) && !types.includes("text/plain")) return;
-    event.preventDefault(); event.stopImmediatePropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
     target.classList.add("at-cw-drop-target");
   }, true);
@@ -511,25 +583,25 @@ Hooks.once("ready", () => {
     const sectionPage = atCwSectionFromPage();
     const target = event.target.closest?.("[data-at-cw-drop-folder]");
     if (!sectionPage || !target) return;
-    const { section } = sectionPage;
     const targetFolder = game.folders?.get(String(target.dataset.atCwDropFolder || ""));
     if (!targetFolder) return;
     const journalId = String(event.dataTransfer?.getData?.(ATCW_JOURNAL_MIME) || "");
     const folderId = String(event.dataTransfer?.getData?.(ATCW_FOLDER_MIME) || "");
     const external = !journalId && !folderId ? atCwParseFoundryJournal(event.dataTransfer) : null;
     if (!journalId && !folderId && !external) return;
-    event.preventDefault(); event.stopImmediatePropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
     target.classList.remove("at-cw-drop-target");
-    if (journalId) return void atCwMoveJournal(section, game.journal?.get(journalId), targetFolder);
-    if (folderId) return void atCwMoveFolder(section, game.folders?.get(folderId), targetFolder);
-    if (external) return void atCwMoveJournal(section, external, targetFolder);
+    if (journalId) return void atCwMoveJournal(sectionPage.section, game.journal?.get(journalId), targetFolder);
+    if (folderId) return void atCwMoveFolder(sectionPage.section, game.folders?.get(folderId), targetFolder);
+    if (external) return void atCwMoveJournal(sectionPage.section, external, targetFolder);
   }, true);
 
-  const observer = new MutationObserver(() => atCwQueue(100));
+  const observer = new MutationObserver(() => atCwQueue(120));
   observer.observe(document.body, { childList: true, subtree: true });
-  atCwQueue(120);
+  atCwQueue(140);
 });
 
 for (const hookName of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createFolder", "updateFolder", "deleteFolder"]) {
-  Hooks.on(hookName, () => atCwQueue(140));
+  Hooks.on(hookName, () => atCwQueue(150));
 }
