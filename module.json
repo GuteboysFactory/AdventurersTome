@@ -26,7 +26,7 @@
     "scripts/world-journal-log-polish.js",
     "scripts/authoring-empty-pages.js",
     "scripts/authoring-alpha3.js",
-    "scripts/authoring-alpha3-campaign-workspace.js"
+    "scripts/authoring-alpha3-campaign-explorer-v2.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
