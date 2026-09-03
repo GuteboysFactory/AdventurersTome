@@ -1,16 +1,13 @@
 const ATWLP_ROOT = "#adventurers-tome-app";
-let atWlpQueued = false;
+let atWlpRafQueued = false;
+let atWlpSweepTimer = null;
 
 function atWlpJournalKey(shell) {
   return String(shell?.dataset?.journalId || "");
 }
 
-function atWlpStamp(shell) {
-  return String(shell?.dataset?.stamp || "");
-}
-
 function atWlpDedupe(world) {
-  const shells = [...world.querySelectorAll(":scope > .at-world-journal-parity, .at-world-journal-parity")];
+  const shells = [...world.querySelectorAll(".at-world-journal-parity")];
   const groups = new Map();
   for (const shell of shells) {
     const key = atWlpJournalKey(shell) || "__unknown__";
@@ -20,17 +17,12 @@ function atWlpDedupe(world) {
 
   for (const list of groups.values()) {
     if (list.length < 2) continue;
-    const ranked = [...list].sort((a, b) => {
-      const aConnected = Number(a.isConnected);
-      const bConnected = Number(b.isConnected);
-      if (aConnected !== bConnected) return bConnected - aConnected;
-      const aStamp = atWlpStamp(a);
-      const bStamp = atWlpStamp(b);
-      if (aStamp !== bStamp) return bStamp.localeCompare(aStamp);
-      return list.indexOf(b) - list.indexOf(a);
-    });
-    const keep = ranked[0];
-    for (const shell of list) if (shell !== keep) shell.remove();
+    // world-journal-parity inserts new renders immediately after the same
+    // profile-content anchor. Keep the first DOM instance, which is the newest
+    // render, and remove every stale concurrent render for the same Journal.
+    const keep = list[0];
+    for (let index = 1; index < list.length; index += 1) list[index].remove();
+    keep.dataset.atWlpDedupeOwner = "true";
   }
 }
 
@@ -78,12 +70,10 @@ function atWlpPolishShell(shell) {
     }
   }
 
-  const documentPane = shell.querySelector(".at-world-journal-document");
-  documentPane?.classList.add("at-wlp-document");
+  shell.querySelector(".at-world-journal-document")?.classList.add("at-wlp-document");
   shell.classList.add("at-wlp-compact");
   shell.dataset.atWlpPolished = "true";
-  const preferred = shell.dataset.atWlpActivePage || articles[0]?.dataset?.pageId || "";
-  atWlpActivate(shell, preferred);
+  atWlpActivate(shell, shell.dataset.atWlpActivePage || articles[0]?.dataset?.pageId || "");
 }
 
 function atWlpCleanToolbar(world) {
@@ -95,7 +85,7 @@ function atWlpCleanToolbar(world) {
   for (const button of pageButtons) if (button !== preferred) button.remove();
 }
 
-function atWlpEnhance() {
+function atWlpSweep() {
   const root = document.querySelector(ATWLP_ROOT);
   const world = root?.querySelector(".at-world-profile-page");
   if (!world) return;
@@ -105,12 +95,17 @@ function atWlpEnhance() {
 }
 
 function atWlpQueue() {
-  if (atWlpQueued) return;
-  atWlpQueued = true;
-  window.requestAnimationFrame(() => {
-    atWlpQueued = false;
-    atWlpEnhance();
-  });
+  if (!atWlpRafQueued) {
+    atWlpRafQueued = true;
+    window.requestAnimationFrame(() => {
+      atWlpRafQueued = false;
+      atWlpSweep();
+    });
+  }
+  // Concurrent async Journal renders can finish on different frames. A short
+  // trailing sweep guarantees stale blocks are removed after the burst ends.
+  window.clearTimeout(atWlpSweepTimer);
+  atWlpSweepTimer = window.setTimeout(atWlpSweep, 140);
 }
 
 Hooks.once("ready", () => {
@@ -130,5 +125,8 @@ Hooks.once("ready", () => {
 });
 
 for (const hookName of ["createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage", "updateJournalEntry"]) {
-  Hooks.on(hookName, () => window.setTimeout(atWlpQueue, 50));
+  Hooks.on(hookName, () => {
+    window.setTimeout(atWlpSweep, 40);
+    window.setTimeout(atWlpSweep, 180);
+  });
 }
