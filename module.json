@@ -21,7 +21,8 @@
     "scripts/universal-sharing.js",
     "scripts/world-journal-parity.js",
     "scripts/world-inline-editing.js",
-    "scripts/authoring-foundation.js"
+    "scripts/authoring-foundation.js",
+    "scripts/authoring-summary-sync.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
