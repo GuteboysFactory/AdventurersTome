@@ -40,7 +40,7 @@ jobs:
           node --check scripts/world-journal-log-polish.js
           node --check scripts/authoring-empty-pages.js
           node --check scripts/authoring-alpha3.js
-          node --check scripts/authoring-alpha3-tree-sync.js
+          node --check scripts/authoring-alpha3-tree-v2.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
@@ -53,6 +53,7 @@ jobs:
           test -f styles/world-journal-log-polish.css
           test -f styles/authoring-empty-pages.css
           test -f styles/authoring-alpha3.css
+          test -f styles/authoring-alpha3-tree-v2.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test -f LICENSE
@@ -108,6 +109,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.3 adds the Tome Campaign Explorer for World, Quests and Sessions with synchronized Foundry Journal folders, collapsible navigation and drag-to-move entries. It also adds delegated Tome Editor roles by section and per entry. Editors receive the minimum Foundry ownership needed for authoring player-facing content while GM Notes remain private, and player-created Journal/folder requests are securely brokered through an active GM. This alpha.3 hotfix keeps Campaign Explorer synchronized live when entries or folders are moved in Tome or Foundry, supports dragging Foundry Journals into Tome folders, and adds safe Tome folder drag-and-drop with cycle prevention. Carries forward alpha.2 hero drag-and-drop, Page Manager and Journal-backed autosave authoring. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-alpha.3 adds the Tome Campaign Explorer for World, Quests and Sessions with synchronized Foundry Journal folders, collapsible navigation and drag-to-move entries. It also adds delegated Tome Editor roles by section and per entry. Editors receive the minimum Foundry ownership needed for authoring player-facing content while GM Notes remain private, and player-created Journal/folder requests are securely brokered through an active GM. Campaign Explorer tree v2 replaces the earlier overlapping tree hotfix with one stable renderer, explicit root drop zones, safer entry/folder drag handling, synchronized Foundry folder state, and a collapsed Outside-section area for imported or legacy Journals. Carries forward alpha.2 hero drag-and-drop, Page Manager and Journal-backed autosave authoring. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
