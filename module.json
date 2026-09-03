@@ -26,7 +26,8 @@
     "scripts/world-journal-log-polish.js",
     "scripts/authoring-empty-pages.js",
     "scripts/authoring-alpha3.js",
-    "scripts/authoring-alpha3-tree-v2.js"
+    "scripts/authoring-alpha3-tree-v2.js",
+    "scripts/authoring-alpha3-world-workspace.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
@@ -41,7 +42,8 @@
     "styles/world-journal-log-polish.css",
     "styles/authoring-empty-pages.css",
     "styles/authoring-alpha3.css",
-    "styles/authoring-alpha3-tree-v2.css"
+    "styles/authoring-alpha3-tree-v2.css",
+    "styles/authoring-alpha3-world-workspace.css"
   ],
   "languages": [
     { "lang": "en", "name": "English", "path": "lang/en.json" },
