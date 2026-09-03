@@ -43,6 +43,7 @@ jobs:
           node --check scripts/authoring-alpha3-campaign-explorer-v2.js
           node --check scripts/authoring-alpha4-explorer-management.js
           node --check scripts/authoring-alpha5-entry-management.js
+          node --check scripts/authoring-alpha6-page-polish.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
@@ -58,6 +59,7 @@ jobs:
           test -f styles/authoring-alpha3-campaign-workspace.css
           test -f styles/authoring-alpha4-explorer-management.css
           test -f styles/authoring-alpha5-entry-management.css
+          test -f styles/authoring-alpha6-page-polish.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test -f LICENSE
@@ -113,6 +115,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.5 keeps the approved persistent Campaign Explorer and alpha.4 folder-management baseline, then adds direct GM entry management inside Tome. Explorer entries get a dedicated management action for rename, Open in Tome, Open Foundry Source, and guarded permanent deletion of the real Journal Entry. Explorer folder tools also gain New Entry, which creates the correct World/Quest/Session Journal directly inside the selected folder, inheriting canonical World type from NPC/Location/Faction/Item/Lore branches where applicable. Existing drag-and-drop, filtering, expand/collapse, authoring, and folder management remain intact. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-alpha.6 keeps the approved Explorer, folder-management and entry-management baseline and polishes Journal Page work inside Tome. Entry detail views now show a Tome-native Journal Pages navigator with readable-page count, page-type icons, Primary-page marking, one-click jump to rendered page content, and direct access to Page Manager for editors. Page Manager gains a compact page/type summary, clearer empty state, and per-page jump-back actions while preserving existing rename, reorder, duplicate, move, delete and player-access controls. Foundry Journal Pages remain the source of truth. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
