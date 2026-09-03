@@ -39,6 +39,7 @@ jobs:
           node --check scripts/authoring-alpha2.js
           node --check scripts/world-journal-log-polish.js
           node --check scripts/authoring-empty-pages.js
+          node --check scripts/authoring-alpha3.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
@@ -50,6 +51,7 @@ jobs:
           test -f styles/authoring-alpha2.css
           test -f styles/world-journal-log-polish.css
           test -f styles/authoring-empty-pages.css
+          test -f styles/authoring-alpha3.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test -f LICENSE
@@ -105,6 +107,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.2 adds drag-and-drop/click-to-browse World hero artwork with Foundry storage upload, plus a Tome Page Manager for real JournalEntryPages: create, autosave rename, reorder by buttons or drag, duplicate, move between Journals, delete with confirmation, and edit page-level access. It also hardens World Journal rendering against duplicate async log blocks, presents additional pages as compact chapters, and makes newly-created blank text pages immediately writable in Tome with autosave. Carries forward alpha.1 Journal-backed authoring and autosave work. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-alpha.3 adds the Tome Campaign Explorer for World, Quests and Sessions with synchronized Foundry Journal folders, collapsible navigation and drag-to-move entries. It also adds delegated Tome Editor roles by section and per entry. Editors receive the minimum Foundry ownership needed for authoring player-facing content while GM Notes remain private, and player-created Journal/folder requests are securely brokered through an active GM. Carries forward alpha.2 hero drag-and-drop, Page Manager and Journal-backed autosave authoring. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
