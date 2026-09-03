@@ -44,6 +44,7 @@ jobs:
           node --check scripts/authoring-alpha4-explorer-management.js
           node --check scripts/authoring-alpha5-entry-management.js
           node --check scripts/authoring-alpha6-page-polish.js
+          node --check scripts/authoring-alpha7-editor-hardening.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
@@ -60,6 +61,7 @@ jobs:
           test -f styles/authoring-alpha4-explorer-management.css
           test -f styles/authoring-alpha5-entry-management.css
           test -f styles/authoring-alpha6-page-polish.css
+          test -f styles/authoring-alpha7-editor-hardening.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test -f LICENSE
@@ -115,6 +117,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.6 keeps the approved Explorer, folder-management and entry-management baseline and polishes Journal Page work inside Tome. Entry detail views now show a Tome-native Journal Pages navigator with readable-page count, page-type icons, Primary-page marking, one-click jump to rendered page content, and direct access to Page Manager for editors. Page Manager gains a compact page/type summary, clearer empty state, and per-page jump-back actions while preserving existing rename, reorder, duplicate, move, delete and player-access controls. Foundry Journal Pages remain the source of truth. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-alpha.7 hardens Tome's delegated authoring model. Players remain read-only except for already-authorized entry editing; Entry Editors can edit and rename explicitly assigned entries/pages but cannot delete campaign entries or manage folder structure; Section Editors can create entries/folders and manage that section's structure through a validated GM socket broker without receiving GM privileges. The GM client reconciles only Tome-managed ownership grants, section roots stay protected, folder deletion remains empty-only, and private GM Notes/workspace remain outside delegated access. Existing Explorer, entry-management, Page Manager, and page-navigation baselines remain intact. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
