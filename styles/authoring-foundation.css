@@ -1,0 +1,127 @@
+/* Adventurer's Tome v1.1 alpha — Journal-backed authoring foundation */
+
+.at-authoring-save-state {
+  position: absolute;
+  top: 42px;
+  right: 18px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .32rem .55rem;
+  border: 1px solid rgba(214,178,108,.22);
+  background: rgba(15,10,6,.92);
+  color: #d8bd7d;
+  font-size: .7rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.at-authoring-save-state.is-visible { opacity: 1; transform: translateY(0); }
+.at-authoring-save-state[data-state="saving"] i { animation: at-af-spin 1s linear infinite; }
+.at-authoring-save-state[data-state="error"] { color: #e5a08f; border-color: rgba(198,87,68,.45); }
+@keyframes at-af-spin { to { transform: rotate(360deg); } }
+
+.at-authoring-editable {
+  cursor: text;
+  border-radius: 3px;
+  transition: background .14s ease, box-shadow .14s ease;
+}
+.at-authoring-editable:hover { background: rgba(214,178,108,.05); box-shadow: inset 0 0 0 1px rgba(214,178,108,.15); }
+.at-authoring-editable.is-editing {
+  outline: 1px solid rgba(230,194,115,.62);
+  background: rgba(255,226,163,.055) !important;
+  box-shadow: inset 0 0 0 1px rgba(214,178,108,.18);
+  min-width: 3ch;
+  padding: .12em .18em;
+  user-select: text !important;
+}
+.at-authoring-editable[data-at-af-mode="rich"].is-editing {
+  min-height: 120px;
+  padding: .7rem;
+  line-height: 1.6;
+}
+
+.at-authoring-create,
+.at-authoring-add-page { white-space: nowrap; }
+.at-world-heading > .at-authoring-create { margin-left: auto; align-self: center; }
+
+.at-authoring-pages {
+  margin-top: 1rem;
+  border: 1px solid rgba(214,178,108,.18);
+  background: rgba(13,8,5,.56);
+}
+.at-af-pages-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: .85rem 1rem;
+  border-bottom: 1px solid rgba(214,178,108,.16);
+}
+.at-af-pages-head h2 { margin: .1rem 0; color: #e3c175; }
+.at-af-pages-head p { margin: 0; color: #9f8a61; }
+.at-af-pages-layout { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); min-height: 220px; }
+.at-af-pages-layout > nav { border-right: 1px solid rgba(214,178,108,.15); padding: .5rem; display: grid; align-content: start; gap: .25rem; }
+.at-af-pages-layout > nav button {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  min-height: 34px;
+  padding: .42rem .5rem;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #c6aa6b;
+}
+.at-af-pages-layout > nav button:hover { border-color: rgba(214,178,108,.2); background: rgba(214,178,108,.04); }
+.at-af-pages-document { padding: .9rem 1rem; max-height: 520px; overflow: auto; }
+.at-af-page + .at-af-page { margin-top: 1.2rem; padding-top: 1.2rem; border-top: 1px solid rgba(214,178,108,.14); }
+.at-af-page > header { display: flex; align-items: baseline; gap: .55rem; margin-bottom: .6rem; }
+.at-af-page > header span { color: #9b7c3e; text-transform: uppercase; font-size: .65rem; letter-spacing: .08em; }
+.at-af-page > header h3 { margin: 0; color: #e5c477; font-size: 1.2rem; }
+.at-af-page-text { color: #dcc99d; }
+.at-af-media img, .at-af-media video { max-width: 100%; max-height: 480px; object-fit: contain; display: block; }
+.at-af-media figcaption { margin-top: .4rem; color: #a28d66; font-style: italic; }
+.at-af-pdf iframe { width: 100%; min-height: 440px; border: 1px solid rgba(214,178,108,.16); }
+
+.at-authoring-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0,0,0,.7);
+}
+.at-authoring-modal {
+  width: min(620px, 96vw);
+  max-height: 88vh;
+  overflow: auto;
+  border: 1px solid rgba(214,178,108,.36);
+  background: linear-gradient(180deg, #1b120b, #100b07);
+  box-shadow: 0 22px 70px rgba(0,0,0,.55);
+  color: #d9c493;
+}
+.at-authoring-modal > header,
+.at-authoring-modal > footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; border-bottom: 1px solid rgba(214,178,108,.16); }
+.at-authoring-modal > footer { justify-content: flex-end; border-bottom: 0; border-top: 1px solid rgba(214,178,108,.16); }
+.at-authoring-modal > header h2 { margin: .12rem 0 0; color: #efcc7c; }
+.at-authoring-modal > header > button { width: 34px; min-width: 34px; height: 34px !important; }
+.at-authoring-modal-body { padding: 1rem; display: grid; gap: .75rem; }
+.at-authoring-modal-body label { display: grid; gap: .28rem; }
+.at-authoring-modal-body label > span { color: #c8a85f; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+.at-authoring-modal-body input,
+.at-authoring-modal-body select { min-height: 36px; }
+.at-authoring-help { margin: .25rem 0 0; padding: .65rem .7rem; border: 1px solid rgba(214,178,108,.14); background: rgba(214,178,108,.035); color: #9f8c67; line-height: 1.45; }
+
+@container (max-width: 760px) {
+  .at-af-pages-layout { grid-template-columns: 1fr; }
+  .at-af-pages-layout > nav { border-right: 0; border-bottom: 1px solid rgba(214,178,108,.15); grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); }
+  .at-af-pages-document { max-height: none; }
+  .at-authoring-save-state { top: 38px; right: 8px; }
+}
