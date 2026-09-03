@@ -40,7 +40,7 @@ jobs:
           node --check scripts/world-journal-log-polish.js
           node --check scripts/authoring-empty-pages.js
           node --check scripts/authoring-alpha3.js
-          node --check scripts/authoring-alpha3-campaign-workspace.js
+          node --check scripts/authoring-alpha3-campaign-explorer-v2.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
@@ -109,6 +109,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.3 now uses one Foundry-backed Campaign Workspace for World, Quests and Sessions. Tome mirrors the real Foundry Journal folder hierarchy, including multiple Tome/demo roots, and presents that hierarchy through a cleaner Explorer plus folder/entry cards in the main workspace. Drag-and-drop moves real Journal Entries or folders, and GM adoption can turn an ordinary Foundry Journal into the selected Tome section without a separate import step. Editor permissions remain separate and GM Notes stay private. Carries forward alpha.2 hero drag-and-drop, Page Manager and Journal-backed autosave authoring. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-alpha.3 replaces the unstable Campaign Explorer interaction loop with a persistent Explorer. Folder clicks now filter the existing Tome catalog without rebuilding the tree, expand/collapse changes the existing tree in place, and folder dragging starts only from a dedicated grip handle. Explorer refreshes are limited to real Foundry Journal/Folder structure changes and never run during an active drag. World keeps its image-rich NPC/Location/Faction/Item/Lore catalog; Quests and Sessions keep their native Tome presentation. Foundry remains the storage backend. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
