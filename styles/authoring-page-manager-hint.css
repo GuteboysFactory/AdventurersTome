@@ -1,0 +1,22 @@
+#adventurers-tome-app .at-a2-page-manager-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  color: rgba(230, 194, 116, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#adventurers-tome-app .at-a2-page-manager-hint i {
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+@container (max-width: 980px) {
+  #adventurers-tome-app .at-a2-page-manager-hint {
+    display: none;
+  }
+}
