@@ -24,7 +24,8 @@
     "scripts/authoring-foundation.js",
     "scripts/authoring-summary-sync.js",
     "scripts/authoring-editor-bridge.js",
-    "scripts/authoring-alpha2.js"
+    "scripts/authoring-alpha2.js",
+    "scripts/world-journal-log-polish.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
@@ -35,7 +36,8 @@
     "styles/world-journal-parity.css",
     "styles/world-inline-editing.css",
     "styles/authoring-foundation.css",
-    "styles/authoring-alpha2.css"
+    "styles/authoring-alpha2.css",
+    "styles/world-journal-log-polish.css"
   ],
   "languages": [
     {
