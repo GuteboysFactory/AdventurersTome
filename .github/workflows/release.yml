@@ -72,6 +72,7 @@ jobs:
           test -f LICENSE
           test -f README.md
           test -f docs/V1.1_BETA_QA_CHECKLIST.md
+          test -f docs/V1.1_RC_RELEASE_GATE.md
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -109,6 +110,7 @@ jobs:
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'LICENSE'
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'README.md'
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.1_BETA_QA_CHECKLIST.md'
+          unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.1_RC_RELEASE_GATE.md'
 
           node <<'NODE'
           const fs = require('fs');
@@ -149,6 +151,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-beta.1 promotes the approved alpha.8 authoring baseline into beta stabilization without adding features. Runtime authoring behavior is intentionally unchanged. Release validation is hardened to verify required manifest fields, duplicate-free runtime references, language JSON, every manifest-listed JavaScript/style/language file, retired-prototype exclusion, prerelease URL consistency, ZIP integrity, required release files, and that the final ZIP contains every manifest runtime file while excluding development/release internals. A fixed GM / Section Editor / Entry Editor / Player regression checklist is now included as the manual release gate. v1.0.0 remains the stable production release." \
+              --notes "v1.1.0-rc.1 is the release-candidate promotion of the fully approved beta.1 authoring baseline. No runtime features are added. The RC freezes Explorer, folder/entry/page management, Journal-backed authoring, delegated Section Editor / Entry Editor permissions, player read-only behavior, and GM-private content isolation while adding a formal RC-to-stable release gate. Automated packaging validation remains strict and now requires the RC release-gate document in both the repository and final ZIP. Promote to stable v1.1.0 only after the packaged RC smoke test passes with no known release blocker." \
               "${PRERELEASE_ARGS[@]}"
           fi
