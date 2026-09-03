@@ -35,6 +35,7 @@ jobs:
           node --check scripts/world-inline-editing.js
           node --check scripts/authoring-foundation.js
           node --check scripts/authoring-summary-sync.js
+          node --check scripts/authoring-editor-bridge.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
