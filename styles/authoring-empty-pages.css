@@ -1,0 +1,49 @@
+#adventurers-tome-app .at-empty-authoring-page {
+  min-height: 92px;
+  position: relative;
+  cursor: text;
+  border: 1px dashed rgba(216, 170, 78, 0.36);
+  border-radius: 6px;
+  padding: 14px;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+#adventurers-tome-app .at-empty-authoring-page:hover,
+#adventurers-tome-app .at-empty-authoring-page:focus-visible {
+  border-color: rgba(235, 190, 94, 0.78);
+  background: rgba(119, 77, 22, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(235, 190, 94, 0.12);
+  outline: 0;
+}
+
+#adventurers-tome-app .at-empty-authoring-page:not(.is-direct-editing)::before {
+  content: "Click here to start writing";
+  display: block;
+  color: rgba(224, 184, 104, 0.72);
+  font-style: italic;
+  pointer-events: none;
+}
+
+#adventurers-tome-app .at-empty-authoring-page:not(.is-direct-editing) > .at-empty {
+  display: none;
+}
+
+#adventurers-tome-app .at-empty-authoring-page.is-direct-editing {
+  border-style: solid;
+  border-color: rgba(235, 190, 94, 0.72);
+  background: rgba(13, 9, 6, 0.38);
+}
+
+#adventurers-tome-app .at-empty-authoring-page.is-direct-editing [data-at-ep-editor] {
+  min-height: 76px;
+  outline: 0;
+}
+
+#adventurers-tome-app .at-empty-authoring-page .at-ep-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+  color: rgba(224, 184, 104, 0.76);
+  font-size: 0.76rem;
+}
