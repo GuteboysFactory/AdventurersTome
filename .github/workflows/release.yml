@@ -36,6 +36,7 @@ jobs:
           node --check scripts/authoring-foundation.js
           node --check scripts/authoring-summary-sync.js
           node --check scripts/authoring-editor-bridge.js
+          node --check scripts/authoring-alpha2.js
           test -f styles/adventurers-tome.css
           test -f styles/structured-journals.css
           test -f styles/content-importer.css
@@ -44,6 +45,7 @@ jobs:
           test -f styles/world-journal-parity.css
           test -f styles/world-inline-editing.css
           test -f styles/authoring-foundation.css
+          test -f styles/authoring-alpha2.css
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test -f LICENSE
@@ -99,6 +101,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.1 begins the Tome Authoring & Journal Takeover line. It adds Journal-backed Create flows for World, Quests and Sessions, real JournalEntryPage creation, inline autosave for titles/summaries/pages, World summary migration into Journal-backed Overview content, and Tome-native Journal page rendering for Quest and Session detail views. This is an alpha QA build; v1.0.0 remains the stable release." \
+              --notes "v1.1.0-alpha.2 adds drag-and-drop/click-to-browse World hero artwork with Foundry storage upload, plus a Tome Page Manager for real JournalEntryPages: create, autosave rename, reorder by buttons or drag, duplicate, move between Journals, delete with confirmation, and edit page-level access. Carries forward alpha.1 Journal-backed authoring and autosave work. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
