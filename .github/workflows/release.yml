@@ -26,42 +26,32 @@ jobs:
           test -n "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           node -e "JSON.parse(require('fs').readFileSync('module.json','utf8'))"
-          node --check scripts/adventurers-tome.js
-          node --check scripts/structured-journals.js
-          node --check scripts/content-importer.js
-          node --check scripts/reading-polish.js
-          node --check scripts/universal-sharing.js
-          node --check scripts/world-journal-parity.js
-          node --check scripts/world-inline-editing.js
-          node --check scripts/authoring-foundation.js
-          node --check scripts/authoring-summary-sync.js
-          node --check scripts/authoring-editor-bridge.js
-          node --check scripts/authoring-alpha2.js
-          node --check scripts/world-journal-log-polish.js
-          node --check scripts/authoring-empty-pages.js
-          node --check scripts/authoring-alpha3.js
-          node --check scripts/authoring-alpha3-campaign-explorer-v2.js
-          node --check scripts/authoring-alpha4-explorer-management.js
-          node --check scripts/authoring-alpha5-entry-management.js
-          node --check scripts/authoring-alpha6-page-polish.js
-          node --check scripts/authoring-alpha7-editor-hardening.js
-          test -f styles/adventurers-tome.css
-          test -f styles/structured-journals.css
-          test -f styles/content-importer.css
-          test -f styles/reading-polish.css
-          test -f styles/universal-sharing.css
-          test -f styles/world-journal-parity.css
-          test -f styles/world-inline-editing.css
-          test -f styles/authoring-foundation.css
-          test -f styles/authoring-alpha2.css
-          test -f styles/world-journal-log-polish.css
-          test -f styles/authoring-empty-pages.css
-          test -f styles/authoring-alpha3.css
-          test -f styles/authoring-alpha3-campaign-workspace.css
-          test -f styles/authoring-alpha4-explorer-management.css
-          test -f styles/authoring-alpha5-entry-management.css
-          test -f styles/authoring-alpha6-page-polish.css
-          test -f styles/authoring-alpha7-editor-hardening.css
+
+          node <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('module.json', 'utf8'));
+          const files = [...(manifest.esmodules || []), ...(manifest.styles || [])];
+          for (const file of files) {
+            if (!fs.existsSync(file)) throw new Error(`Manifest references missing file: ${file}`);
+          }
+          const forbidden = [
+            'scripts/authoring-alpha3-campaign-workspace.js',
+            'scripts/authoring-alpha3-tree-sync.js',
+            'scripts/authoring-alpha3-tree-v2.js',
+            'scripts/authoring-alpha3-world-workspace.js',
+            'styles/authoring-alpha3-tree-v2.css',
+            'styles/authoring-alpha3-world-workspace.css'
+          ];
+          for (const file of forbidden) {
+            if (fs.existsSync(file)) throw new Error(`Obsolete alpha prototype must not ship: ${file}`);
+            if (files.includes(file)) throw new Error(`Manifest must not reference obsolete alpha prototype: ${file}`);
+          }
+          NODE
+
+          for file in $(node -e "const m=require('./module.json'); console.log((m.esmodules||[]).join(' '))"); do
+            node --check "$file"
+          done
+
           test -f templates/tome.hbs
           test -f assets/default-hero.webp
           test -f LICENSE
@@ -117,6 +107,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0-alpha.7 hardens Tome's delegated authoring model. Players remain read-only except for already-authorized entry editing; Entry Editors can edit and rename explicitly assigned entries/pages but cannot delete campaign entries or manage folder structure; Section Editors can create entries/folders and manage that section's structure through a validated GM socket broker without receiving GM privileges. The GM client reconciles only Tome-managed ownership grants, section roots stay protected, folder deletion remains empty-only, and private GM Notes/workspace remain outside delegated access. Existing Explorer, entry-management, Page Manager, and page-navigation baselines remain intact. This is an alpha QA build; v1.0.0 remains stable." \
+              --notes "v1.1.0-alpha.8 is the authoring cleanup and hardening pass after the approved alpha.7 permissions baseline. It removes obsolete Explorer/tree/workspace prototypes from the repository, keeps the persistent Campaign Explorer v2 as the only active Explorer implementation, and hardens CI so every manifest-listed script/style must exist while retired alpha prototypes are explicitly forbidden from shipping. Existing authoring, Page Manager, Explorer, folder/entry management, and delegated permissions behavior is intentionally unchanged. This is an alpha QA build; v1.0.0 remains stable." \
               "${PRERELEASE_ARGS[@]}"
           fi
