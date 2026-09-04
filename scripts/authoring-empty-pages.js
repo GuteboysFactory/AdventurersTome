@@ -105,6 +105,9 @@ function atEpScheduleSave(surface) {
 
 function atEpStartEditing(surface, event) {
   if (!surface || surface.dataset.atEpEditing === "true") return;
+  // The v1.1 authoring foundation owns all modern Journal text surfaces.
+  // Never layer the legacy blank-page editor on top of the foundation editor.
+  if (surface.dataset.atAfEditable === "true" || surface.dataset.atAfEditing === "true") return;
   const { journal, page } = atEpPageContext(surface);
   if (!journal || !page || !atEpCanEdit(journal)) return;
   event?.preventDefault?.();
@@ -128,6 +131,17 @@ function atEpStartEditing(surface, event) {
 function atEpMarkBlankPages(root) {
   for (const surface of root.querySelectorAll(".at-world-journal-page[data-page-type='text'] .at-world-journal-text, .at-af-page[data-page-type='text'] .at-af-page-text")) {
     if (surface.dataset.atEpEditing === "true") continue;
+
+    // Modern Tome authoring already marks these surfaces as directly editable.
+    // Leaving the legacy blank-page marker on the same node allows two editors
+    // to compete for one click and can persist editor UI into Journal content.
+    if (surface.dataset.atAfEditable === "true") {
+      surface.classList.remove("at-empty-authoring-page");
+      delete surface.dataset.atEmptyAuthoring;
+      if (surface.getAttribute("tabindex") === "0") surface.removeAttribute("tabindex");
+      continue;
+    }
+
     const blank = atEpIsBlank(surface);
     surface.classList.toggle("at-empty-authoring-page", blank);
     if (blank) {
