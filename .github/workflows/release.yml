@@ -40,7 +40,7 @@ jobs:
             if (manifest[key] == null) throw new Error(`Manifest missing required field: ${key}`);
           }
           if (manifest.id !== 'adventurers-tome') throw new Error(`Unexpected module id: ${manifest.id}`);
-          if (!/^1\.1\.0(?:-(?:beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`v1.1 workflow expects beta, rc, or stable v1.1.0, got ${manifest.version}`);
+          if (!/^1\.1\.\d+(?:-(?:beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`v1.1 workflow expects a v1.1 release, got ${manifest.version}`);
           if (new Set(runtimeFiles).size !== runtimeFiles.length) throw new Error('Manifest contains duplicate runtime file references.');
           for (const file of runtimeFiles) {
             if (!fs.existsSync(file)) throw new Error(`Manifest references missing file: ${file}`);
@@ -151,6 +151,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.0 is the stable release of Tome Authoring & Journal Takeover. It promotes the fully approved RC baseline without runtime feature changes. Adventurer's Tome now provides persistent Campaign Explorer organization over real Foundry Journal folders, Tome-native folder/entry/page management, Journal-backed inline authoring and autosave, Page Navigator/Page Manager workflow, delegated Section Editor and Entry Editor roles via validated GM brokerage, strict player read-only presentation, and continued isolation of GM-private notes/workspace. The release retains the hardened package/manifest validation and retired-prototype exclusion established during beta/RC stabilization." \
+              --notes "v1.1.1 is a focused authoring autosave hotfix. It prevents Journal page autosave updates from replacing an active Tome editor, prevents the legacy blank-page editor from taking ownership of surfaces already managed by the v1.1 authoring foundation, and performs a one-time GM repair of known transient Tome editor scaffolding that may have been persisted by the v1.1.0 race. Explorer, permissions, folder/entry/page management and the v1.1.0 feature baseline are otherwise unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
