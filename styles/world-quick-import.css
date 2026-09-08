@@ -1,19 +1,22 @@
-.at-qi-drop-target {
+.at-qi-drop-target,
+.at-qf-drop-target {
   position: relative;
   outline: 2px solid rgba(229, 190, 92, 0.9);
   outline-offset: 2px;
   box-shadow: 0 0 0 3px rgba(229, 190, 92, 0.12), 0 0 18px rgba(229, 190, 92, 0.14);
 }
 
-.at-qi-drop-blocked {
+.at-qi-drop-blocked,
+.at-qf-drop-blocked {
   position: relative;
   outline: 2px dashed rgba(190, 95, 95, 0.9);
   outline-offset: 2px;
 }
 
 .at-qi-drop-target::after,
-.at-qi-drop-blocked::after {
-  content: attr(data-at-qi-hint);
+.at-qi-drop-blocked::after,
+.at-qf-drop-target::after,
+.at-qf-drop-blocked::after {
   position: absolute;
   z-index: 20;
   left: 50%;
@@ -33,7 +36,18 @@
   white-space: normal;
 }
 
+.at-qi-drop-target::after,
 .at-qi-drop-blocked::after {
+  content: attr(data-at-qi-hint);
+}
+
+.at-qf-drop-target::after,
+.at-qf-drop-blocked::after {
+  content: attr(data-at-qf-hint);
+}
+
+.at-qi-drop-blocked::after,
+.at-qf-drop-blocked::after {
   border-color: rgba(190, 95, 95, 0.8);
   color: #f2b0b0;
 }
