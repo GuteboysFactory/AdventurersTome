@@ -39,10 +39,19 @@ function atStripSecrets(html) {
   return host.innerHTML;
 }
 
+function atTextEditorImplementation() {
+  const modern = globalThis.foundry?.applications?.ux?.TextEditor?.implementation;
+  if (modern?.enrichHTML) return modern;
+  const legacy = globalThis.TextEditor;
+  return legacy?.enrichHTML ? legacy : null;
+}
+
 async function atEnrichJournalHtml(html, relativeTo) {
   const safeHtml = atStripSecrets(html);
   try {
-    return await TextEditor.enrichHTML(safeHtml, {
+    const textEditor = atTextEditorImplementation();
+    if (!textEditor) return safeHtml;
+    return await textEditor.enrichHTML(safeHtml, {
       async: true,
       documents: true,
       secrets: Boolean(game.user?.isGM),
