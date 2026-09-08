@@ -7,6 +7,8 @@ const ATAW_MODES = Object.freeze({
 });
 const ATAW_ATTACH_MAX_ATTEMPTS = 60;
 const ATAW_ATTACH_DELAY = 100;
+const ATAW_FIT_MAX_ATTEMPTS = 30;
+const ATAW_FIT_DELAY = 50;
 let atAwAttachTimer = null;
 let atAwAttachedApp = null;
 
@@ -119,6 +121,10 @@ function atAwResolve(mode = atAwMode(), saved = atAwSavedState(), viewport = atA
   return atAwAuto(saved, viewport, options);
 }
 
+function atAwCanPosition(app) {
+  return Boolean(app?.rendered && app?.element && app.element.style);
+}
+
 function atAwInstallStyles() {
   if (document.getElementById("at-adaptive-window-styles")) return;
   const style = document.createElement("style");
@@ -176,9 +182,26 @@ async function atAwSaveState(app) {
 }
 
 function atAwApply(app, { forceAutoDefault = false } = {}) {
-  if (!app) return;
+  if (!atAwCanPosition(app)) return false;
   const position = atAwResolve(atAwMode(), atAwSavedState(), atAwViewport(), { forceDefault: forceAutoDefault });
   app.setPosition(position);
+  return true;
+}
+
+function atAwScheduleFit(app, options = {}, attempt = 0) {
+  if (!app) return;
+  clearTimeout(app.__atAdaptiveWindowFitTimer);
+  app.__atAdaptiveWindowFitTimer = window.setTimeout(() => {
+    window.requestAnimationFrame(() => {
+      if (atAwApply(app, options)) {
+        app.__atAdaptiveWindowInitialFitApplied = true;
+        atAwInstallControl(app);
+        return;
+      }
+      if (attempt < ATAW_FIT_MAX_ATTEMPTS) atAwScheduleFit(app, options, attempt + 1);
+      else console.warn("Adventurer's Tome | Adaptive Window could not apply after the Tome DOM finished rendering.");
+    });
+  }, attempt === 0 ? 0 : ATAW_FIT_DELAY);
 }
 
 function atAwInstallControl(app) {
@@ -196,8 +219,7 @@ function atAwInstallControl(app) {
       const mode = String(event.currentTarget.value || "auto");
       if (!ATAW_MODES[mode]) return;
       await game.settings.set(ATAW_MODULE_ID, ATAW_SETTING, mode);
-      atAwApply(app, { forceAutoDefault: mode === "auto" });
-      await atAwSaveState(app);
+      atAwScheduleFit(app, { forceAutoDefault: mode === "auto" });
     });
   }
 
@@ -215,6 +237,7 @@ function atAwInstallControl(app) {
 function atAwPatchApp(app) {
   if (!app || app.__atAdaptiveWindowPatched) return;
   app.__atAdaptiveWindowPatched = true;
+  app.__atAdaptiveWindowInitialFitApplied = false;
 
   const originalChrome = app._installWindowChromeControls?.bind(app);
   app._installWindowChromeControls = function (...args) {
@@ -237,9 +260,10 @@ function atAwPatchApp(app) {
     if (this._viewportResizeHandler) window.removeEventListener("resize", this._viewportResizeHandler);
     clearTimeout(this.__atViewportResizeTimer);
     this._viewportResizeHandler = () => {
-      if (!this.rendered) return;
+      if (!atAwCanPosition(this)) return;
       clearTimeout(this.__atViewportResizeTimer);
       this.__atViewportResizeTimer = setTimeout(() => {
+        if (!atAwCanPosition(this)) return;
         const mode = atAwMode();
         const saved = atAwSavedState();
         const viewport = atAwViewport();
@@ -256,10 +280,13 @@ function atAwPatchApp(app) {
   const originalTearDown = app._tearDown?.bind(app);
   app._tearDown = function (...args) {
     clearTimeout(this.__atViewportResizeTimer);
+    clearTimeout(this.__atAdaptiveWindowFitTimer);
     return originalTearDown?.(...args);
   };
 
-  app.setPosition(atAwResolve());
+  // Important: do not call setPosition here. ApplicationV2 may expose the Tome
+  // singleton before its window element/style exists. Initial fitting is deferred
+  // until the post-render hook confirms a real DOM element is available.
 }
 
 function atAwExposeApi(module, app) {
@@ -269,12 +296,10 @@ function atAwExposeApi(module, app) {
     set: async (mode = "auto") => {
       const normalized = ATAW_MODES[String(mode)] ? String(mode) : "auto";
       await game.settings.set(ATAW_MODULE_ID, ATAW_SETTING, normalized);
-      atAwApply(app, { forceAutoDefault: normalized === "auto" });
-      await atAwSaveState(app);
-      if (app.rendered) atAwInstallControl(app);
+      atAwScheduleFit(app, { forceAutoDefault: normalized === "auto" });
       return normalized;
     },
-    fit: () => atAwApply(app)
+    fit: () => atAwScheduleFit(app)
   });
 
   try {
@@ -295,7 +320,10 @@ function atAwResolveApp() {
 
 function atAwTryAttach(attempt = 0) {
   if (atAwAttachedApp) {
-    if (atAwAttachedApp.rendered) atAwInstallControl(atAwAttachedApp);
+    if (atAwCanPosition(atAwAttachedApp)) {
+      atAwInstallControl(atAwAttachedApp);
+      if (!atAwAttachedApp.__atAdaptiveWindowInitialFitApplied) atAwScheduleFit(atAwAttachedApp);
+    }
     return true;
   }
 
@@ -306,7 +334,10 @@ function atAwTryAttach(attempt = 0) {
     atAwPatchApp(app);
     atAwExposeApi(module, app);
     atAwAttachedApp = app;
-    if (app.rendered) atAwInstallControl(app);
+    if (atAwCanPosition(app)) {
+      atAwInstallControl(app);
+      atAwScheduleFit(app);
+    }
     return true;
   }
 
@@ -337,6 +368,12 @@ Hooks.once("ready", () => {
 for (const hookName of ["renderApplication", "renderApplicationV2"]) {
   Hooks.on(hookName, (app) => {
     if (!atAwAttachedApp) atAwTryAttach(0);
-    if (app === atAwAttachedApp) atAwInstallControl(app);
+    if (app !== atAwAttachedApp) return;
+
+    // Foundry can fire the render hook while its internal positioning work is
+    // still unwinding. Defer one animation frame (and retry if necessary) before
+    // touching setPosition so ApplicationV2 always has element.style available.
+    atAwInstallControl(app);
+    if (!app.__atAdaptiveWindowInitialFitApplied) atAwScheduleFit(app);
   });
 }
