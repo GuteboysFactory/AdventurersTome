@@ -1,45 +1,112 @@
-/* v1.1.12: keep Group roster portraits readable without allowing them to dominate the page. */
+/* v1.1.13: Group owns portrait presentation. Source image proportions never size the card. */
 
 .at-character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 300px);
+  gap: 16px;
   align-items: start;
+  justify-content: start;
 }
 
 .at-character-card {
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
   align-self: start;
 }
 
+/* Fixed Tome display frame: every source image gets the same visual footprint. */
 .at-character-image {
-  height: clamp(240px, 36vh, 420px) !important;
-  min-height: 220px !important;
-  max-height: 420px !important;
+  width: 100%;
+  height: 240px !important;
+  min-height: 240px !important;
+  max-height: 240px !important;
   aspect-ratio: auto !important;
+  display: grid !important;
+  place-items: center;
+  padding: 10px !important;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(214, 178, 108, 0.08), transparent 58%),
+    linear-gradient(180deg, rgba(18, 14, 10, 0.98), rgba(8, 7, 5, 0.99));
+  border-bottom: 1px solid rgba(214, 178, 108, 0.28);
 }
 
 .at-character-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
+  position: static !important;
+  inset: auto !important;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain !important;
+  object-position: center center !important;
+  transform: none !important;
+  transition: filter 180ms ease, opacity 180ms ease !important;
 }
 
-/* Compact/narrow windows should reveal the character text sooner. */
+.at-character-image:hover img {
+  transform: none !important;
+  filter: brightness(1.06);
+}
+
+.at-character-body {
+  min-height: 112px;
+}
+
+/* Compact/narrow keeps the same card language, just slightly smaller. */
+.at-layout-compact .at-character-grid,
+.at-layout-narrow .at-character-grid {
+  grid-template-columns: repeat(auto-fill, 270px);
+  gap: 14px;
+}
+
+.at-layout-compact .at-character-card,
+.at-layout-narrow .at-character-card {
+  width: 270px;
+  min-width: 270px;
+  max-width: 270px;
+}
+
 .at-layout-compact .at-character-image,
 .at-layout-narrow .at-character-image {
-  height: clamp(220px, 34vh, 350px) !important;
-  min-height: 200px !important;
-  max-height: 350px !important;
+  height: 220px !important;
+  min-height: 220px !important;
+  max-height: 220px !important;
 }
 
-/* Short Tome windows need a stricter portrait cap. */
+/* Short windows prioritize roster density. */
+.at-layout-short .at-character-grid {
+  grid-template-columns: repeat(auto-fill, 260px);
+  gap: 12px;
+}
+
+.at-layout-short .at-character-card {
+  width: 260px;
+  min-width: 260px;
+  max-width: 260px;
+}
+
 .at-layout-short .at-character-image {
-  height: clamp(200px, 31vh, 310px) !important;
-  min-height: 190px !important;
-  max-height: 310px !important;
+  height: 200px !important;
+  min-height: 200px !important;
+  max-height: 200px !important;
 }
 
-/* Single-column/tiny presentation can be slightly taller, but still bounded. */
+/* Tiny/single-column layouts fill the available width but keep a bounded frame. */
+.at-layout-tiny .at-character-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.at-layout-tiny .at-character-card {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
 .at-layout-tiny .at-character-image {
-  height: clamp(210px, 36vh, 320px) !important;
-  min-height: 190px !important;
-  max-height: 320px !important;
+  height: 210px !important;
+  min-height: 210px !important;
+  max-height: 210px !important;
 }
