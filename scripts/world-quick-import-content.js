@@ -2,7 +2,7 @@ const ATQIC_MODULE_ID = "adventurers-tome";
 const ATQIC_SOURCE_UUID = "quickImportSourceUuid";
 const ATQIC_SOURCE_TYPE = "quickImportSourceType";
 const ATQIC_CONTENT_VERSION = "quickImportContentVersion";
-const ATQIC_VERSION = 2;
+const ATQIC_VERSION = 3;
 const ATQIC_RUNNING = new Set();
 let atQicTimer = null;
 
