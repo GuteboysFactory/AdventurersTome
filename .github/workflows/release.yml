@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.6 is a Foundry API compatibility hotfix for structured Journal rendering. Adventurer's Tome now prefers the namespaced foundry.applications.ux.TextEditor.implementation API introduced for Foundry V13 instead of accessing the deprecated global TextEditor directly. A legacy fallback is retained only for environments where the namespaced implementation is unavailable. Journal enrichment behavior, Quick Import, system adapters, permissions, and authored campaign content are unchanged." \
+              --notes "v1.1.7 hardens optional Genesys enrichment for World Quick Import. The Genesys adapter now scans the complete serialized Item/Actor document, including system data and flags, and uses a conservative narrative-text fallback when known rules-summary keys are absent. Tome Core remains system-agnostic and unchanged. Content migration v3 re-evaluates already imported Quick Import entries so existing blank Known Information panels can be populated without re-importing or overwriting manually authored Tome content." \
               "${PRERELEASE_ARGS[@]}"
           fi
