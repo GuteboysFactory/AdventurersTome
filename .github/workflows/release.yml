@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.12 caps Group roster portrait presentation so character images no longer expand into oversized poster-like cards on large Tome windows. Group card images now use a bounded responsive height with object-fit: cover, with stricter caps for compact, narrow, short, and tiny layouts. Full character/profile hero presentation elsewhere in Tome is unchanged." \
+              --notes "v1.1.13 makes Tome Group presentation authoritative over source portrait proportions. Character cards now use fixed roster widths and fixed image frames, source portraits are fitted with object-fit: contain so the entire image remains visible, and mismatched portrait ratios are letterboxed against Tome's dark presentation background instead of resizing or cropping the card. Compact, narrow, short, and tiny layouts receive their own fixed roster dimensions while character profile/hero presentation elsewhere remains unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
