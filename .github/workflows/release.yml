@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.9 adds per-player Adaptive Window fitting. Auto is the default and fits new Tome windows to roughly 92% of the current viewport width and 90% of its height, then preserves the player's relative window size when moving between materially different displays or resolutions. Remember Size keeps the saved absolute dimensions while still clamping safely to smaller viewports. Full View fills the available Foundry viewport with safe margins. The mode selector lives in Tome's window header beside the existing transparency control, is stored client-side per player, and does not affect campaign settings or other users. Existing responsive compact/narrow/tiny/short layout breakpoints remain unchanged." \
+              --notes "v1.1.10 fixes an Adaptive Window startup race introduced in v1.1.9. The adaptive layer now waits and retries for the Adventurer's Tome application singleton instead of assuming it already exists when its ready hook fires, and render hooks provide an additional attachment safety net. This removes the normal-startup warning while preserving Auto, Remember Size, Full View, per-player storage, and the existing responsive layout behavior." \
               "${PRERELEASE_ARGS[@]}"
           fi
