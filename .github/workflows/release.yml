@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.7 hardens optional Genesys enrichment for World Quick Import. The Genesys adapter now scans the complete serialized Item/Actor document, including system data and flags, and uses a conservative narrative-text fallback when known rules-summary keys are absent. Tome Core remains system-agnostic and unchanged. Content migration v3 re-evaluates already imported Quick Import entries so existing blank Known Information panels can be populated without re-importing or overwriting manually authored Tome content." \
+              --notes "v1.1.8 completes the first concrete system-adapter integration for World Quick Import. Tome Core remains system-agnostic. When Genesys VTT is active, an optional runtime-registry adapter resolves Talent Item system.sourceId through game.genesysContent.getContent('talents') and imports the registered rulesSummary, sourceReference, and authority note into blank Tome Known Information. Content migration v4 re-evaluates existing Quick Import entries, and enrichment also re-runs when Genesys registers a character content pack. Other systems continue using the generic importer unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
