@@ -5,6 +5,10 @@ const ATAW_MODES = Object.freeze({
   remember: "Remember Size",
   full: "Full View"
 });
+const ATAW_ATTACH_MAX_ATTEMPTS = 60;
+const ATAW_ATTACH_DELAY = 100;
+let atAwAttachTimer = null;
+let atAwAttachedApp = null;
 
 function atAwClamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -97,9 +101,6 @@ function atAwAuto(saved = atAwSavedState(), viewport = atAwViewport(), { forceDe
   const hasSavedSize = Number.isFinite(Number(saved.width)) && Number.isFinite(Number(saved.height));
   if (forceDefault || !hasSavedSize) return atAwDefaultAuto(viewport);
 
-  // Older Tome versions did not store the viewport dimensions. Preserve the
-  // player's existing manual size once, then future saves establish the
-  // baseline needed for relative scaling across displays.
   const oldViewportWidth = Number(saved.viewportWidth || 0);
   const oldViewportHeight = Number(saved.viewportHeight || 0);
   if (!oldViewportWidth || !oldViewportHeight || !atAwViewportChanged(saved, viewport)) return atAwRemember(saved, viewport);
@@ -109,9 +110,6 @@ function atAwAuto(saved = atAwSavedState(), viewport = atAwViewport(), { forceDe
   const heightRatio = viewport.height / oldViewportHeight;
   const width = atAwClamp(Math.round(Number(saved.width) * widthRatio), limits.minWidth, limits.maxWidth);
   const height = atAwClamp(Math.round(Number(saved.height) * heightRatio), limits.minHeight, limits.maxHeight);
-
-  // Display/viewport changes are the moment where old absolute coordinates are
-  // least useful. Re-center while preserving the player's relative window size.
   return { width, height, ...atAwCenter(width, height, viewport) };
 }
 
@@ -245,15 +243,9 @@ function atAwPatchApp(app) {
         const mode = atAwMode();
         const saved = atAwSavedState();
         const viewport = atAwViewport();
-        if (mode === "remember") {
-          // Remember Size never grows simply because more screen became available,
-          // but still clamps safely if the viewport gets smaller.
-          this.setPosition(atAwRemember({ ...saved, ...this.position }, viewport));
-        } else if (mode === "full") {
-          this.setPosition(atAwFull(viewport));
-        } else {
-          this.setPosition(atAwAuto(saved, viewport));
-        }
+        if (mode === "remember") this.setPosition(atAwRemember({ ...saved, ...this.position }, viewport));
+        else if (mode === "full") this.setPosition(atAwFull(viewport));
+        else this.setPosition(atAwAuto(saved, viewport));
         this._syncResponsiveState?.();
       }, 140);
     };
@@ -267,10 +259,65 @@ function atAwPatchApp(app) {
     return originalTearDown?.(...args);
   };
 
-  // Re-evaluate the singleton's constructor-time position. Existing users from
-  // <=1.1.8 keep their saved manual dimensions on this first adaptive run;
-  // new users get the Auto 92% x 90% starting footprint.
   app.setPosition(atAwResolve());
+}
+
+function atAwExposeApi(module, app) {
+  const windowFit = Object.freeze({
+    modes: ATAW_MODES,
+    get: () => atAwMode(),
+    set: async (mode = "auto") => {
+      const normalized = ATAW_MODES[String(mode)] ? String(mode) : "auto";
+      await game.settings.set(ATAW_MODULE_ID, ATAW_SETTING, normalized);
+      atAwApply(app, { forceAutoDefault: normalized === "auto" });
+      await atAwSaveState(app);
+      if (app.rendered) atAwInstallControl(app);
+      return normalized;
+    },
+    fit: () => atAwApply(app)
+  });
+
+  try {
+    if (module?.api && typeof module.api === "object") module.api.windowFit = windowFit;
+  } catch (error) {
+    console.debug("Adventurer's Tome | Adaptive Window API extension unavailable; window fitting remains active.", error);
+  }
+  globalThis.AdventurersTomeWindowFit = windowFit;
+}
+
+function atAwResolveApp() {
+  const module = game.modules.get(ATAW_MODULE_ID);
+  if (!module) return { module: null, app: null };
+  let app = null;
+  try { app = module.api?.app?.() || null; } catch (_err) { app = null; }
+  return { module, app };
+}
+
+function atAwTryAttach(attempt = 0) {
+  if (atAwAttachedApp) {
+    if (atAwAttachedApp.rendered) atAwInstallControl(atAwAttachedApp);
+    return true;
+  }
+
+  const { module, app } = atAwResolveApp();
+  if (app) {
+    clearTimeout(atAwAttachTimer);
+    atAwAttachTimer = null;
+    atAwPatchApp(app);
+    atAwExposeApi(module, app);
+    atAwAttachedApp = app;
+    if (app.rendered) atAwInstallControl(app);
+    return true;
+  }
+
+  if (attempt >= ATAW_ATTACH_MAX_ATTEMPTS) {
+    console.warn("Adventurer's Tome | Adaptive Window could not attach after waiting for the Tome application singleton.");
+    return false;
+  }
+
+  clearTimeout(atAwAttachTimer);
+  atAwAttachTimer = window.setTimeout(() => atAwTryAttach(attempt + 1), ATAW_ATTACH_DELAY);
+  return false;
 }
 
 Hooks.once("init", () => {
@@ -284,25 +331,12 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   atAwInstallStyles();
-  const module = game.modules.get(ATAW_MODULE_ID);
-  const app = module?.api?.app?.();
-  if (!app) {
-    console.warn("Adventurer's Tome | Adaptive Window could not access the Tome application singleton.");
-    return;
-  }
-  atAwPatchApp(app);
-
-  module.api.windowFit = Object.freeze({
-    modes: ATAW_MODES,
-    get: () => atAwMode(),
-    set: async (mode = "auto") => {
-      const normalized = ATAW_MODES[String(mode)] ? String(mode) : "auto";
-      await game.settings.set(ATAW_MODULE_ID, ATAW_SETTING, normalized);
-      atAwApply(app, { forceAutoDefault: normalized === "auto" });
-      await atAwSaveState(app);
-      if (app.rendered) atAwInstallControl(app);
-      return normalized;
-    },
-    fit: () => atAwApply(app)
-  });
+  atAwTryAttach(0);
 });
+
+for (const hookName of ["renderApplication", "renderApplicationV2"]) {
+  Hooks.on(hookName, (app) => {
+    if (!atAwAttachedApp) atAwTryAttach(0);
+    if (app === atAwAttachedApp) atAwInstallControl(app);
+  });
+}
