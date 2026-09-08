@@ -1,0 +1,43 @@
+.at-qi-drop-target {
+  position: relative;
+  outline: 2px solid rgba(229, 190, 92, 0.9);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(229, 190, 92, 0.12), 0 0 18px rgba(229, 190, 92, 0.14);
+}
+
+.at-qi-drop-blocked {
+  position: relative;
+  outline: 2px dashed rgba(190, 95, 95, 0.9);
+  outline-offset: 2px;
+}
+
+.at-qi-drop-target::after,
+.at-qi-drop-blocked::after {
+  content: attr(data-at-qi-hint);
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(420px, 88%);
+  padding: 8px 12px;
+  border: 1px solid rgba(229, 190, 92, 0.7);
+  border-radius: 8px;
+  background: rgba(18, 15, 10, 0.96);
+  color: #f4df9b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+  white-space: normal;
+}
+
+.at-qi-drop-blocked::after {
+  border-color: rgba(190, 95, 95, 0.8);
+  color: #f2b0b0;
+}
+
+.at-qi-open-source {
+  gap: 6px;
+}
