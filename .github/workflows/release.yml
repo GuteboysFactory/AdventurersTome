@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.10 fixes an Adaptive Window startup race introduced in v1.1.9. The adaptive layer now waits and retries for the Adventurer's Tome application singleton instead of assuming it already exists when its ready hook fires, and render hooks provide an additional attachment safety net. This removes the normal-startup warning while preserving Auto, Remember Size, Full View, per-player storage, and the existing responsive layout behavior." \
+              --notes "v1.1.11 fixes the remaining Adaptive Window ApplicationV2 startup race. The adaptive layer may attach to the Tome singleton early, but it no longer calls setPosition until the Tome application is rendered and its DOM element/style is available. Initial fitting is deferred through the post-render lifecycle with guarded retries, and resize handling now also refuses to position an unrendered window. Auto, Remember Size, Full View, per-player state, and existing responsive breakpoints remain unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
