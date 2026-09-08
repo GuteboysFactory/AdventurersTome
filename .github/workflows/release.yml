@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.11 fixes the remaining Adaptive Window ApplicationV2 startup race. The adaptive layer may attach to the Tome singleton early, but it no longer calls setPosition until the Tome application is rendered and its DOM element/style is available. Initial fitting is deferred through the post-render lifecycle with guarded retries, and resize handling now also refuses to position an unrendered window. Auto, Remember Size, Full View, per-player state, and existing responsive breakpoints remain unchanged." \
+              --notes "v1.1.12 caps Group roster portrait presentation so character images no longer expand into oversized poster-like cards on large Tome windows. Group card images now use a bounded responsive height with object-fit: cover, with stricter caps for compact, narrow, short, and tiny layouts. Full character/profile hero presentation elsewhere in Tome is unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
