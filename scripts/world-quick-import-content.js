@@ -2,7 +2,7 @@ const ATQIC_MODULE_ID = "adventurers-tome";
 const ATQIC_SOURCE_UUID = "quickImportSourceUuid";
 const ATQIC_SOURCE_TYPE = "quickImportSourceType";
 const ATQIC_CONTENT_VERSION = "quickImportContentVersion";
-const ATQIC_VERSION = 1;
+const ATQIC_VERSION = 2;
 const ATQIC_RUNNING = new Set();
 let atQicTimer = null;
 
@@ -142,7 +142,23 @@ function atQicFlattenFacts(root, maxDepth = 2) {
   return result;
 }
 
-function atQicSourcePayload(source) {
+function atQicMergeFacts(primary = [], supplemental = []) {
+  const result = [];
+  const seen = new Set();
+  for (const fact of [...primary, ...supplemental]) {
+    const label = String(fact?.label || "").trim();
+    const value = String(fact?.value ?? "").trim();
+    if (!label && !value) continue;
+    const key = label.toLowerCase();
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    result.push({ ...fact, label, value });
+    if (result.length >= 10) break;
+  }
+  return result;
+}
+
+async function atQicSourcePayload(source) {
   const system = source?.system && typeof source.system === "object" ? source.system : {};
   const sourceData = source?.toObject?.() || {};
   const textCandidates = atQicFindTextFields(system);
@@ -169,9 +185,21 @@ function atQicSourcePayload(source) {
     bodyHtml = uniqueText.map((text) => /<\/?[a-z][\s\S]*>/i.test(text) ? text : `<p>${atQicEscape(text)}</p>`).join("");
   }
 
-  const summaryPlain = uniqueText.length ? atQicPlain(uniqueText[0]).slice(0, 360) : "";
-  const facts = atQicFlattenFacts(system);
-  return { bodyHtml, summary: summaryPlain, facts };
+  let summary = uniqueText.length ? atQicPlain(uniqueText[0]).slice(0, 360) : "";
+  let facts = atQicFlattenFacts(system);
+
+  try {
+    const adapterResult = await globalThis.AdventurersTomeSystemAdapters?.enrich?.(source);
+    if (adapterResult && typeof adapterResult === "object") {
+      if (!bodyHtml && String(adapterResult.bodyHtml || "").trim()) bodyHtml = String(adapterResult.bodyHtml);
+      if (!summary && String(adapterResult.summary || "").trim()) summary = String(adapterResult.summary);
+      facts = atQicMergeFacts(facts, Array.isArray(adapterResult.facts) ? adapterResult.facts : []);
+    }
+  } catch (error) {
+    console.warn("Adventurer's Tome | Optional system adapter enrichment failed", error);
+  }
+
+  return { bodyHtml, summary, facts };
 }
 
 function atQicIsBlankPage(page) {
@@ -212,7 +240,7 @@ async function atQicEnrichJournal(journal) {
   try {
     const source = await fromUuid(quick.uuid);
     if (!source) return false;
-    const payload = atQicSourcePayload(source);
+    const payload = await atQicSourcePayload(source);
     const current = journal.getFlag?.(ATQIC_MODULE_ID, "worldProfile") || {};
     const profile = current && typeof current === "object" && !Array.isArray(current) ? foundry.utils.deepClone(current) : {};
     const existingFacts = Array.isArray(profile.facts) ? profile.facts : [];
