@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.2 adds Foundry-to-Tome World Quick Import. Drag Actors, Items, Scenes, or Journal Entries from Foundry into Tome World Explorer folders or rich World category surfaces. Actors become linked NPC entries, Items become linked Item entries, Scenes become linked Location entries, and Journals are adopted or copied without creating an unnecessary parallel data layer. Existing linked source entries are moved instead of duplicated. Delegated World Editors use a validated GM broker. The release also switches the stable manifest update channel to releases/latest/download/module.json so future stable updates can be discovered from the same permanent manifest URL." \
+              --notes "v1.1.3 expands Foundry-to-Tome World Quick Import with recursive folder drops. Drag a supported Foundry Actor, Item, Scene, or Journal folder onto a Tome World Explorer folder and Tome mirrors the dropped folder plus nested subfolders, importing contained documents through the same linked/adopted World model used by v1.1.2. Existing imported Actor/Item/Scene sources are moved rather than duplicated. Tome-owned backend Journal folders are explicitly rejected to prevent accidental self-import. The permanent releases/latest/download/module.json update channel remains active." \
               "${PRERELEASE_ARGS[@]}"
           fi
