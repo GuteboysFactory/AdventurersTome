@@ -1,0 +1,45 @@
+/* v1.1.12: keep Group roster portraits readable without allowing them to dominate the page. */
+
+.at-character-grid {
+  align-items: start;
+}
+
+.at-character-card {
+  align-self: start;
+}
+
+.at-character-image {
+  height: clamp(240px, 36vh, 420px) !important;
+  min-height: 220px !important;
+  max-height: 420px !important;
+  aspect-ratio: auto !important;
+}
+
+.at-character-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+/* Compact/narrow windows should reveal the character text sooner. */
+.at-layout-compact .at-character-image,
+.at-layout-narrow .at-character-image {
+  height: clamp(220px, 34vh, 350px) !important;
+  min-height: 200px !important;
+  max-height: 350px !important;
+}
+
+/* Short Tome windows need a stricter portrait cap. */
+.at-layout-short .at-character-image {
+  height: clamp(200px, 31vh, 310px) !important;
+  min-height: 190px !important;
+  max-height: 310px !important;
+}
+
+/* Single-column/tiny presentation can be slightly taller, but still bounded. */
+.at-layout-tiny .at-character-image {
+  height: clamp(210px, 36vh, 320px) !important;
+  min-height: 190px !important;
+  max-height: 320px !important;
+}
