@@ -24,7 +24,7 @@ function atSaMeaningful(value) {
   return value.trim();
 }
 
-function atSaFirstText(value, maxDepth = 5, depth = 0, seen = new Set()) {
+function atSaFirstText(value, maxDepth = 6, depth = 0, seen = new Set()) {
   if (depth > maxDepth || value == null) return "";
   if (typeof value === "string") return atSaMeaningful(value);
   if (typeof value !== "object") return "";
@@ -52,7 +52,7 @@ function atSaFirstText(value, maxDepth = 5, depth = 0, seen = new Set()) {
   return "";
 }
 
-function atSaFindMatchingText(root, patterns, maxDepth = 7) {
+function atSaFindMatchingText(root, patterns, maxDepth = 9) {
   const matches = [];
   const seen = new Set();
   const visit = (value, path = [], depth = 0) => {
@@ -77,6 +77,43 @@ function atSaFindMatchingText(root, patterns, maxDepth = 7) {
   };
   visit(root);
   return matches.sort((a, b) => a.priority - b.priority || a.path.length - b.path.length);
+}
+
+function atSaHarvestNarrativeStrings(root, maxDepth = 10) {
+  const matches = [];
+  const seenObjects = new Set();
+  const seenText = new Set();
+  const blockedPath = /(?:img|image|icon|uuid|folder|ownership|sort|sourceid|sourcetype|automation|name|label|slug|key|path|version|type)$/i;
+  const referencePath = /reference|citation|source.*note|source.*reference/i;
+
+  const visit = (value, path = [], depth = 0) => {
+    if (depth > maxDepth || value == null) return;
+    if (typeof value === "string") {
+      const plain = atSaPlain(value);
+      if (!plain || plain.length < 24 || plain.length > 4000) return;
+      const pathText = path.join(".");
+      if (blockedPath.test(pathText) && !referencePath.test(pathText)) return;
+      if (!/[A-Za-zÅÄÖåäö]/.test(plain) || !/\s/.test(plain)) return;
+      if (!/[.!?)]/.test(plain) && plain.split(/\s+/).length < 6) return;
+      const key = plain.toLowerCase();
+      if (seenText.has(key)) return;
+      seenText.add(key);
+      const score = referencePath.test(pathText) ? 60 : 20 - Math.min(path.length, 10);
+      matches.push({ key: path.at(-1) || "text", path, value, priority: score });
+      return;
+    }
+    if (typeof value !== "object") return;
+    if (seenObjects.has(value)) return;
+    seenObjects.add(value);
+    if (Array.isArray(value)) {
+      value.forEach((child, index) => visit(child, [...path, String(index)], depth + 1));
+      return;
+    }
+    for (const [key, child] of Object.entries(value)) visit(child, [...path, key], depth + 1);
+  };
+
+  visit(root);
+  return matches.sort((a, b) => a.priority - b.priority || b.value.length - a.value.length);
 }
 
 function atSaUniqueTexts(matches, limit = 4) {
@@ -144,9 +181,11 @@ atSaRegister("genesys-vtt-core", {
   systemId: "genesys-vtt",
   matches: ({ source, systemId }) => systemId === "genesys-vtt" && ["Item", "Actor"].includes(String(source?.documentName || "")),
   enrich: ({ source }) => {
+    const documentData = source?.toObject?.() || {};
     const system = source?.system && typeof source.system === "object" ? source.system : {};
+    const searchable = { system, flags: documentData.flags || {}, document: documentData };
 
-    const mainMatches = atSaFindMatchingText(system, [
+    const mainMatches = atSaFindMatchingText(searchable, [
       /^rulessummary$/i,
       /^rulesummary$/i,
       /rules.*summary/i,
@@ -155,17 +194,25 @@ atSaRegister("genesys-vtt-core", {
       /^rules$/i,
       /effect.*text/i,
       /^effect$/i,
-      /^notes$/i
+      /^notes$/i,
+      /talent.*text/i,
+      /ability.*text/i
     ]);
 
-    const referenceMatches = atSaFindMatchingText(system, [
+    const referenceMatches = atSaFindMatchingText(searchable, [
       /reference/i,
       /citation/i,
       /source.*note/i,
       /source.*reference/i
     ]);
 
-    const mainTexts = atSaUniqueTexts(mainMatches, 3);
+    let mainTexts = atSaUniqueTexts(mainMatches, 3);
+    if (!mainTexts.length) {
+      const harvested = atSaHarvestNarrativeStrings(searchable)
+        .filter((match) => !/reference|citation/i.test(match.path.join(".")));
+      mainTexts = atSaUniqueTexts(harvested, 3);
+    }
+
     const referenceTexts = atSaUniqueTexts(referenceMatches, 2)
       .filter((value) => !mainTexts.some((main) => atSaPlain(main).toLowerCase() === atSaPlain(value).toLowerCase()));
 
