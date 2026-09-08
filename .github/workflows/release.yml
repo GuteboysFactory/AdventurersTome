@@ -84,9 +84,11 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const m = JSON.parse(fs.readFileSync('module.json','utf8'));
-          const base = `https://github.com/GuteboysFactory/AdventurersTome/releases/download/${m.version}`;
-          if (m.manifest !== `${base}/module.json`) throw new Error(`Manifest URL does not match ${m.version}`);
-          if (m.download !== `${base}/adventurers-tome.zip`) throw new Error(`Download URL does not match ${m.version}`);
+          const versionBase = `https://github.com/GuteboysFactory/AdventurersTome/releases/download/${m.version}`;
+          const latestManifest = 'https://github.com/GuteboysFactory/AdventurersTome/releases/latest/download/module.json';
+          const versionManifest = `${versionBase}/module.json`;
+          if (![latestManifest, versionManifest].includes(m.manifest)) throw new Error(`Manifest URL is not a supported update channel for ${m.version}`);
+          if (m.download !== `${versionBase}/adventurers-tome.zip`) throw new Error(`Download URL does not match ${m.version}`);
           NODE
 
       - name: Build Foundry package
@@ -151,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.1 is a focused authoring autosave hotfix. It prevents Journal page autosave updates from replacing an active Tome editor, prevents the legacy blank-page editor from taking ownership of surfaces already managed by the v1.1 authoring foundation, and performs a one-time GM repair of known transient Tome editor scaffolding that may have been persisted by the v1.1.0 race. Explorer, permissions, folder/entry/page management and the v1.1.0 feature baseline are otherwise unchanged." \
+              --notes "v1.1.2 adds Foundry-to-Tome World Quick Import. Drag Actors, Items, Scenes, or Journal Entries from Foundry into Tome World Explorer folders or rich World category surfaces. Actors become linked NPC entries, Items become linked Item entries, Scenes become linked Location entries, and Journals are adopted or copied without creating an unnecessary parallel data layer. Existing linked source entries are moved instead of duplicated. Delegated World Editors use a validated GM broker. The release also switches the stable manifest update channel to releases/latest/download/module.json so future stable updates can be discovered from the same permanent manifest URL." \
               "${PRERELEASE_ARGS[@]}"
           fi
