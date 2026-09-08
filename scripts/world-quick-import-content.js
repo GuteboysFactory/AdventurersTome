@@ -2,7 +2,7 @@ const ATQIC_MODULE_ID = "adventurers-tome";
 const ATQIC_SOURCE_UUID = "quickImportSourceUuid";
 const ATQIC_SOURCE_TYPE = "quickImportSourceType";
 const ATQIC_CONTENT_VERSION = "quickImportContentVersion";
-const ATQIC_VERSION = 3;
+const ATQIC_VERSION = 4;
 const ATQIC_RUNNING = new Set();
 let atQicTimer = null;
 
@@ -298,7 +298,8 @@ function atQicScheduleAll(delay = 180) {
   }, delay);
 }
 
-Hooks.once("ready", () => atQicScheduleAll(250));
+Hooks.once("ready", () => atQicScheduleAll(350));
+Hooks.on("genesysCharacterContentPackRegistered", () => atQicScheduleAll(120));
 for (const hookName of ["createJournalEntry", "createJournalEntryPage", "updateJournalEntry"]) {
   Hooks.on(hookName, () => atQicScheduleAll(180));
 }
