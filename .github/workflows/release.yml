@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.5 adds the first optional system-adapter enrichment layer without changing Tome's system-agnostic core. Quick Import still performs generic document extraction first; registered adapters may only supplement content the generic bridge could not resolve. A built-in Genesys VTT adapter activates only when the current system id is genesys-vtt and searches deeper nested Talent/Actor data for rules-summary, description, reference and citation text. Existing Quick Import entries are re-evaluated through content migration v2, while manually authored Tome pages and facts remain protected from overwrite. Other Foundry systems continue using the generic importer exactly as before." \
+              --notes "v1.1.6 is a Foundry API compatibility hotfix for structured Journal rendering. Adventurer's Tome now prefers the namespaced foundry.applications.ux.TextEditor.implementation API introduced for Foundry V13 instead of accessing the deprecated global TextEditor directly. A legacy fallback is retained only for environments where the namespaced implementation is unavailable. Journal enrichment behavior, Quick Import, system adapters, permissions, and authored campaign content are unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
