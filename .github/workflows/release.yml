@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.13 makes Tome Group presentation authoritative over source portrait proportions. Character cards now use fixed roster widths and fixed image frames, source portraits are fitted with object-fit: contain so the entire image remains visible, and mismatched portrait ratios are letterboxed against Tome's dark presentation background instead of resizing or cropping the card. Compact, narrow, short, and tiny layouts receive their own fixed roster dimensions while character profile/hero presentation elsewhere remains unchanged." \
+              --notes "v1.1.14 fixes the Foundry-to-Tome drag-and-drop regression reported during playtest. A compatibility front-controller now handles current Foundry V13 drag payloads before the legacy Quick Import listeners, uses the namespaced TextEditor drag API when available, treats empty parsed payloads as invalid, and falls back through standard JSON/text/UUID transfer formats. Actor, Item, Scene, and Folder drops are routed into the existing Quick Import and Folder Quick Import broker paths, so content creation, duplicate handling, permissions, and optional system enrichment remain unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
