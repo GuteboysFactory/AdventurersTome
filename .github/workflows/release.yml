@@ -153,6 +153,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.14 fixes the Foundry-to-Tome drag-and-drop regression reported during playtest. A compatibility front-controller now handles current Foundry V13 drag payloads before the legacy Quick Import listeners, uses the namespaced TextEditor drag API when available, treats empty parsed payloads as invalid, and falls back through standard JSON/text/UUID transfer formats. Actor, Item, Scene, and Folder drops are routed into the existing Quick Import and Folder Quick Import broker paths, so content creation, duplicate handling, permissions, and optional system enrichment remain unchanged." \
+              --notes "v1.1.15 fixes the Quick Import timeout exposed by v1.1.14. The DnD compatibility layer no longer sends a GM-authored Actor, Item, Scene, or Folder import request back to the same GM client over the module socket. GM drops now execute locally and immediately, while non-GM Section Editors continue to use the validated GM socket broker. Drag payload compatibility, duplicate handling, content enrichment, and Tome permissions remain unchanged." \
               "${PRERELEASE_ARGS[@]}"
           fi
