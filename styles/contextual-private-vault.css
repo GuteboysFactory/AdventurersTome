@@ -1,0 +1,236 @@
+.adventurers-tome-app .at-shell {
+  position: relative;
+}
+
+.adventurers-tome-app .at-context-vault-button {
+  position: relative;
+}
+
+.adventurers-tome-app .at-context-vault-button.has-notes {
+  box-shadow: inset 0 0 0 1px rgba(214, 177, 91, 0.42);
+}
+
+.adventurers-tome-app .at-context-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #b88a37;
+  color: #111;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.adventurers-tome-app .at-context-badge[hidden] {
+  display: none;
+}
+
+.adventurers-tome-app .at-context-vault {
+  position: absolute;
+  z-index: 120;
+  top: 62px;
+  right: 14px;
+  bottom: 14px;
+  width: min(520px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(214, 177, 91, 0.34);
+  border-radius: 14px;
+  background: rgba(22, 19, 16, 0.97);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+}
+
+.adventurers-tome-app .at-context-vault-head,
+.adventurers-tome-app .at-context-vault-tools,
+.adventurers-tome-app .at-context-vault-footer,
+.adventurers-tome-app .at-context-note-head,
+.adventurers-tome-app .at-context-note-grid {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adventurers-tome-app .at-context-vault-head {
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+
+.adventurers-tome-app .at-context-vault-head h2 {
+  margin: 2px 0 0;
+  font-size: 22px;
+}
+
+.adventurers-tome-app .at-context-vault-head p {
+  margin: 3px 0 0;
+  color: rgba(236, 229, 214, 0.72);
+}
+
+.adventurers-tome-app .at-context-vault-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid rgba(103, 151, 116, 0.3);
+  border-radius: 9px;
+  background: rgba(52, 92, 65, 0.18);
+  color: rgba(228, 239, 228, 0.88);
+  font-size: 12px;
+  line-height: 1.4;
+  flex: 0 0 auto;
+}
+
+.adventurers-tome-app .at-context-vault-tools {
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+
+.adventurers-tome-app .at-context-vault-tools > span {
+  color: rgba(236, 229, 214, 0.62);
+  font-size: 12px;
+}
+
+.adventurers-tome-app .at-context-note-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.adventurers-tome-app .at-context-note {
+  display: grid;
+  gap: 9px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid rgba(214, 177, 91, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.adventurers-tome-app .at-context-note:last-child {
+  margin-bottom: 0;
+}
+
+.adventurers-tome-app .at-context-note label {
+  display: grid;
+  gap: 5px;
+  color: rgba(236, 229, 214, 0.7);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.adventurers-tome-app .at-context-note input,
+.adventurers-tome-app .at-context-note select,
+.adventurers-tome-app .at-context-note textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.26);
+  color: #eee5d6;
+  padding: 7px 8px;
+}
+
+.adventurers-tome-app .at-context-note textarea {
+  resize: vertical;
+  min-height: 92px;
+}
+
+.adventurers-tome-app .at-context-note-head {
+  align-items: end;
+}
+
+.adventurers-tome-app .at-context-note-head > label {
+  flex: 1 1 0;
+}
+
+.adventurers-tome-app .at-context-note-head .at-context-pin {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-height: 31px;
+  padding-bottom: 3px;
+}
+
+.adventurers-tome-app .at-context-note-head .at-context-pin input {
+  width: auto;
+}
+
+.adventurers-tome-app .at-context-note-remove {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(214, 116, 103, 0.26);
+  border-radius: 7px;
+  background: rgba(120, 46, 38, 0.14);
+  color: rgba(239, 190, 184, 0.88);
+}
+
+.adventurers-tome-app .at-context-note-grid > label:first-child {
+  flex: 1 1 auto;
+}
+
+.adventurers-tome-app .at-context-note-grid > label:last-child {
+  flex: 0 0 120px;
+}
+
+.adventurers-tome-app .at-context-empty {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  text-align: center;
+  color: rgba(236, 229, 214, 0.58);
+}
+
+.adventurers-tome-app .at-context-empty i {
+  font-size: 28px;
+  color: rgba(214, 177, 91, 0.7);
+}
+
+.adventurers-tome-app .at-context-empty strong {
+  color: rgba(236, 229, 214, 0.9);
+}
+
+.adventurers-tome-app .at-context-vault-footer {
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .adventurers-tome-app .at-context-vault {
+    top: 54px;
+    right: 8px;
+    bottom: 8px;
+    width: calc(100% - 16px);
+    padding: 12px;
+  }
+
+  .adventurers-tome-app .at-context-note-head,
+  .adventurers-tome-app .at-context-note-grid {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .adventurers-tome-app .at-context-note-grid > label:last-child {
+    flex: 1 1 120px;
+  }
+}
