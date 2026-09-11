@@ -157,6 +157,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.2.0-qa.1 starts the Contextual GM Notes / Private Vault roadmap phase. It adds a GM-only contextual drawer on supported Tome campaign objects, introduces UUID-backed per-GM private storage, and non-destructively imports the existing v1.1 private vault while mirroring qa.1 writes back to the legacy store for regression safety." \
+              --notes "v1.2.0-qa.2 adds Foundry Source Parity I for Actor-backed World entries while preserving the qa.1 Contextual Private Vault foundation. Actor UUID identity is normalized, Actor/Tome names synchronize in both directions, Actor images can be source-followed or Tome-overridden, Actor-backed private notes reconcile to one logical context, and deleted Actor sources remain UUID-stable instead of relinking by name." \
               "${PRERELEASE_ARGS[@]}"
           fi
