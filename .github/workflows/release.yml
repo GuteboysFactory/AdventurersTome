@@ -94,6 +94,8 @@ jobs:
 
       - name: Build Foundry package
         shell: bash
+        env:
+          VERSION: ${{ steps.manifest.outputs.version }}
         run: |
           set -euo pipefail
           rm -rf dist /tmp/adventurers-tome-release
