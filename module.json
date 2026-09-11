@@ -2,7 +2,7 @@
   "id": "adventurers-tome",
   "title": "Adventurer's Tome",
   "description": "A responsive, system-agnostic campaign landing page and living campaign archive for Foundry VTT, featuring Home Builder, Foundry-synced World content, a customizable private GM workspace, guided in-app manual, live-session tools, import/export, permissions, cross-links, search, and diagnostics.",
-  "version": "1.2.0-qa.1",
+  "version": "1.2.0-qa.2",
   "authors": [
     { "name": "Per" }
   ],
@@ -39,7 +39,8 @@
     "scripts/world-system-adapter-genesys-registry.js",
     "scripts/world-quick-import-content.js",
     "scripts/adaptive-window.js",
-    "scripts/contextual-private-vault.js"
+    "scripts/contextual-private-vault.js",
+    "scripts/foundry-source-parity.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
@@ -71,5 +72,5 @@
   "readme": "README.md",
   "url": "https://github.com/GuteboysFactory/AdventurersTome",
   "manifest": "https://github.com/GuteboysFactory/AdventurersTome/releases/latest/download/module.json",
-  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.2.0-qa.1/adventurers-tome.zip"
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.2.0-qa.2/adventurers-tome.zip"
 }
