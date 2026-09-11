@@ -40,7 +40,7 @@ jobs:
             if (manifest[key] == null) throw new Error(`Manifest missing required field: ${key}`);
           }
           if (manifest.id !== 'adventurers-tome') throw new Error(`Unexpected module id: ${manifest.id}`);
-          if (!/^1\.1\.\d+(?:-(?:beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`v1.1 workflow expects a v1.1 release, got ${manifest.version}`);
+          if (!/^1\.(?:1|2)\.\d+(?:-(?:qa|beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`Release workflow expects a supported v1.1/v1.2 release, got ${manifest.version}`);
           if (new Set(runtimeFiles).size !== runtimeFiles.length) throw new Error('Manifest contains duplicate runtime file references.');
           for (const file of runtimeFiles) {
             if (!fs.existsSync(file)) throw new Error(`Manifest references missing file: ${file}`);
@@ -73,6 +73,7 @@ jobs:
           test -f README.md
           test -f docs/V1.1_BETA_QA_CHECKLIST.md
           test -f docs/V1.1_RC_RELEASE_GATE.md
+          if [[ "$VERSION" == 1.2.* ]]; then test -f docs/V1.2_PRIVATE_VAULT_QA.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -113,6 +114,7 @@ jobs:
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'README.md'
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.1_BETA_QA_CHECKLIST.md'
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.1_RC_RELEASE_GATE.md'
+          if [[ "$VERSION" == 1.2.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.2_PRIVATE_VAULT_QA.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -153,6 +155,6 @@ jobs:
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.1.15 fixes the Quick Import timeout exposed by v1.1.14. The DnD compatibility layer no longer sends a GM-authored Actor, Item, Scene, or Folder import request back to the same GM client over the module socket. GM drops now execute locally and immediately, while non-GM Section Editors continue to use the validated GM socket broker. Drag payload compatibility, duplicate handling, content enrichment, and Tome permissions remain unchanged." \
+              --notes "v1.2.0-qa.1 starts the Contextual GM Notes / Private Vault roadmap phase. It adds a GM-only contextual drawer on supported Tome campaign objects, introduces UUID-backed per-GM private storage, and non-destructively imports the existing v1.1 private vault while mirroring qa.1 writes back to the legacy store for regression safety." \
               "${PRERELEASE_ARGS[@]}"
           fi
