@@ -74,6 +74,7 @@ jobs:
           test -f docs/V1.1_BETA_QA_CHECKLIST.md
           test -f docs/V1.1_RC_RELEASE_GATE.md
           if [[ "$VERSION" == 1.2.* ]]; then test -f docs/V1.2_PRIVATE_VAULT_QA.md; fi
+          if [[ "$VERSION" == "1.2.0-qa.5" ]]; then test -f docs/V1.2_QA5_VAULT_BROWSER_QA.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -120,6 +121,7 @@ jobs:
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.1_BETA_QA_CHECKLIST.md'
           unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.1_RC_RELEASE_GATE.md'
           if [[ "$VERSION" == 1.2.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.2_PRIVATE_VAULT_QA.md'; fi
+          if [[ "$VERSION" == "1.2.0-qa.5" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.2_QA5_VAULT_BROWSER_QA.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -155,11 +157,15 @@ jobs:
           set -euo pipefail
           PRERELEASE_ARGS=()
           if [[ "$VERSION" == *-* ]]; then PRERELEASE_ARGS+=(--prerelease); fi
+          NOTES="Adventurer's Tome $VERSION test build."
+          if [[ "$VERSION" == "1.2.0-qa.5" ]]; then
+            NOTES="v1.2.0-qa.5 adds the GM-only campaign-wide Private Vault Browser with canonical Actor/helper-Journal deduplication, search and filters, contextual Tome links/backlinks, safe missing-source display, and source-opening navigation. It preserves the verified qa.2 Source Parity foundation and qa.3/qa.4 DialogV2/header polish."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
               --title "Adventurer's Tome $VERSION" \
-              --notes "v1.2.0-qa.2 adds Foundry Source Parity I for Actor-backed World entries while preserving the qa.1 Contextual Private Vault foundation. Actor UUID identity is normalized, Actor/Tome names synchronize in both directions, Actor images can be source-followed or Tome-overridden, Actor-backed private notes reconcile to one logical context, and deleted Actor sources remain UUID-stable instead of relinking by name." \
+              --notes "$NOTES" \
               "${PRERELEASE_ARGS[@]}"
           fi
