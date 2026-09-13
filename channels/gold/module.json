@@ -1,0 +1,73 @@
+{
+  "id": "adventurers-tome",
+  "title": "Adventurer's Tome",
+  "description": "A responsive, system-agnostic campaign landing page and living campaign archive for Foundry VTT, featuring Home Builder, Foundry-synced World content, a customizable private GM workspace, guided in-app manual, live-session tools, import/export, permissions, cross-links, search, and diagnostics.",
+  "version": "1.1.15",
+  "authors": [
+    { "name": "Per" }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13.351",
+    "maximum": "13"
+  },
+  "esmodules": [
+    "scripts/adventurers-tome.js",
+    "scripts/structured-journals.js",
+    "scripts/content-importer.js",
+    "scripts/reading-polish.js",
+    "scripts/universal-sharing.js",
+    "scripts/world-journal-parity.js",
+    "scripts/world-inline-editing.js",
+    "scripts/authoring-foundation.js",
+    "scripts/authoring-summary-sync.js",
+    "scripts/authoring-editor-bridge.js",
+    "scripts/authoring-alpha2.js",
+    "scripts/world-journal-log-polish.js",
+    "scripts/authoring-empty-pages.js",
+    "scripts/authoring-autosave-hotfix.js",
+    "scripts/authoring-alpha3.js",
+    "scripts/authoring-alpha3-campaign-explorer-v2.js",
+    "scripts/authoring-alpha4-explorer-management.js",
+    "scripts/authoring-alpha5-entry-management.js",
+    "scripts/authoring-alpha6-page-polish.js",
+    "scripts/authoring-alpha7-editor-hardening.js",
+    "scripts/world-quick-import-dnd-compat.js",
+    "scripts/world-quick-import.js",
+    "scripts/world-folder-quick-import.js",
+    "scripts/world-system-adapters.js",
+    "scripts/world-system-adapter-genesys-registry.js",
+    "scripts/world-quick-import-content.js",
+    "scripts/adaptive-window.js"
+  ],
+  "styles": [
+    "styles/adventurers-tome.css",
+    "styles/structured-journals.css",
+    "styles/content-importer.css",
+    "styles/reading-polish.css",
+    "styles/universal-sharing.css",
+    "styles/world-journal-parity.css",
+    "styles/world-inline-editing.css",
+    "styles/authoring-foundation.css",
+    "styles/authoring-alpha2.css",
+    "styles/world-journal-log-polish.css",
+    "styles/authoring-empty-pages.css",
+    "styles/authoring-alpha3.css",
+    "styles/authoring-alpha3-campaign-workspace.css",
+    "styles/authoring-alpha4-explorer-management.css",
+    "styles/authoring-alpha5-entry-management.css",
+    "styles/authoring-alpha6-page-polish.css",
+    "styles/authoring-alpha7-editor-hardening.css",
+    "styles/world-quick-import.css",
+    "styles/group-card-image-polish.css"
+  ],
+  "languages": [
+    { "lang": "en", "name": "English", "path": "lang/en.json" },
+    { "lang": "sv", "name": "Svenska", "path": "lang/sv.json" }
+  ],
+  "socket": true,
+  "readme": "README.md",
+  "url": "https://github.com/GuteboysFactory/AdventurersTome",
+  "manifest": "https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json",
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.1.15/adventurers-tome.zip"
+}
