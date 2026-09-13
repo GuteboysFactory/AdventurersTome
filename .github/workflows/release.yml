@@ -88,7 +88,9 @@ jobs:
           const versionBase = `https://github.com/GuteboysFactory/AdventurersTome/releases/download/${m.version}`;
           const latestManifest = 'https://github.com/GuteboysFactory/AdventurersTome/releases/latest/download/module.json';
           const versionManifest = `${versionBase}/module.json`;
-          if (![latestManifest, versionManifest].includes(m.manifest)) throw new Error(`Manifest URL is not a supported update channel for ${m.version}`);
+          const testManifest = 'https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/test/module.json';
+          const goldManifest = 'https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json';
+          if (![latestManifest, versionManifest, testManifest, goldManifest].includes(m.manifest)) throw new Error(`Manifest URL is not a supported update channel for ${m.version}`);
           if (m.download !== `${versionBase}/adventurers-tome.zip`) throw new Error(`Download URL does not match ${m.version}`);
           NODE
 
@@ -105,6 +107,7 @@ jobs:
             --exclude '.github/' \
             --exclude 'dist/' \
             --exclude 'release/' \
+            --exclude 'channels/' \
             --exclude 'assets/Bree.webp'
           cp module.json dist/module.json
           cd /tmp/adventurers-tome-release
@@ -128,7 +131,7 @@ jobs:
           for (const file of [...(m.esmodules || []), ...(m.styles || []), ...((m.languages || []).map((entry) => entry.path).filter(Boolean))]) {
             if (!files.has(file)) throw new Error(`Release ZIP is missing manifest runtime file: ${file}`);
           }
-          const forbiddenPrefixes = ['.git/', '.github/', 'dist/', 'release/'];
+          const forbiddenPrefixes = ['.git/', '.github/', 'dist/', 'release/', 'channels/'];
           for (const file of listed) {
             if (forbiddenPrefixes.some((prefix) => file.startsWith(prefix))) throw new Error(`Release ZIP contains excluded path: ${file}`);
           }
