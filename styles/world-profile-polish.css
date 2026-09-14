@@ -55,35 +55,40 @@
 .at-world-profile-hero.at-world-profile-compact .at-profile-intro > p {
   max-width: 720px;
   margin: 10px 0 0;
-  font-size: clamp(13px, 1.05vw, 16px);
-  line-height: 1.45;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
   color: #cab485;
 }
 
-/* Known Information is reference copy, never display-sized hero text. */
-.at-world-profile-page .at-profile-biography > p:not(.at-empty),
-.at-world-profile-page .at-profile-biography > .at-tome-richtext,
-.at-world-profile-page .at-profile-biography > .at-tome-richtext p,
-.at-world-profile-page .at-profile-biography [data-at-af-kind="page"],
-.at-world-profile-page .at-profile-biography [data-at-af-kind="page"] p,
+/* Known Information: same visual scale as compact GM note body copy. */
+.at-world-profile-page .at-profile-biography,
+.at-world-profile-page .at-profile-biography *,
+.at-world-profile-page .at-profile-biography [contenteditable="true"],
+.at-world-profile-page .at-profile-biography [contenteditable="true"] *,
+.at-world-profile-page .at-profile-biography .at-tome-richtext,
+.at-world-profile-page .at-profile-biography .at-tome-richtext *,
 .at-world-profile-page .at-profile-biography .at-authoring-editable,
-.at-world-profile-page .at-profile-biography .at-authoring-editable p {
-  font-size: 15px !important;
-  line-height: 1.55 !important;
+.at-world-profile-page .at-profile-biography .at-authoring-editable * {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
 }
 
-.at-world-profile-page .at-profile-biography > p:not(.at-empty),
-.at-world-profile-page .at-profile-biography > .at-tome-richtext,
-.at-world-profile-page .at-profile-biography > .at-tome-richtext p {
-  color: #d7c28f !important;
+/* Preserve the Known Information heading itself. */
+.at-world-profile-page .at-profile-biography .at-profile-section-heading,
+.at-world-profile-page .at-profile-biography .at-profile-section-heading *,
+.at-world-profile-page .at-profile-biography h2 {
+  font-size: revert !important;
+  line-height: revert !important;
+  font-weight: revert !important;
 }
 
 .at-world-profile-page .at-profile-biography p {
   margin-top: 0;
   margin-bottom: 0.65em;
+  color: #d7c28f !important;
 }
 
 .at-world-summary-help {
