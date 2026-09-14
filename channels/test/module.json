@@ -42,6 +42,7 @@
     "scripts/adaptive-window.js",
     "scripts/contextual-private-vault.js",
     "scripts/foundry-source-parity.js",
+    "scripts/source-parity-hardening.js",
     "scripts/private-vault-v2-dialog.js",
     "scripts/private-vault-header-position.js",
     "scripts/private-vault-browser.js",
