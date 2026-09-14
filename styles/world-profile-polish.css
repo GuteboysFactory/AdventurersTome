@@ -1,5 +1,5 @@
-.at-world-profile-hero.at-world-profile-compact {
-  grid-template-columns: 225px minmax(0, 1fr) !important;
+.at-world-profile-hero.at-world-profile-compact.at-world-profile-facts-header {
+  grid-template-columns: 225px minmax(220px, 1fr) minmax(260px, 360px) !important;
   min-height: 225px !important;
   align-items: stretch;
 }
@@ -47,20 +47,43 @@
 }
 
 .at-world-profile-hero.at-world-profile-compact .at-profile-intro h2 {
-  margin: 7px 0 12px;
+  margin: 7px 0 0;
   font-size: clamp(16px, 1.5vw, 22px);
 }
 
-.at-world-profile-hero.at-world-profile-compact .at-profile-intro p.at-world-profile-teaser,
+/* No prose preview under the World profile name. Known Information is the sole prose source. */
 .at-world-profile-hero.at-world-profile-compact .at-profile-intro > p {
-  max-width: 720px;
-  margin: 10px 0 0;
-  font-size: 14px !important;
-  line-height: 1.45 !important;
-  color: #cab485;
+  display: none !important;
 }
 
-/* Known Information: same visual scale as compact GM note body copy. */
+/* Facts now live in the compact profile header beside identity. */
+.at-world-profile-hero .at-profile-facts-hero {
+  align-self: stretch;
+  min-width: 0;
+  max-height: 197px;
+  margin: 14px 14px 14px 0;
+  overflow: auto;
+  background: rgba(14, 11, 8, 0.76);
+}
+
+.at-world-profile-hero .at-profile-facts-hero .at-profile-section-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(20, 15, 10, 0.98);
+}
+
+/* Once Facts move into the header, Known Information owns the full content width. */
+.at-world-profile-page .at-profile-content.at-profile-content-single {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.at-world-profile-page .at-profile-content.at-profile-content-single .at-profile-biography {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+/* Known Information: compact reference text, same visual scale as GM-note body copy. */
 .at-world-profile-page .at-profile-biography,
 .at-world-profile-page .at-profile-biography *,
 .at-world-profile-page .at-profile-biography [contenteditable="true"],
@@ -76,7 +99,6 @@
   text-transform: none !important;
 }
 
-/* Preserve the Known Information heading itself. */
 .at-world-profile-page .at-profile-biography .at-profile-section-heading,
 .at-world-profile-page .at-profile-biography .at-profile-section-heading *,
 .at-world-profile-page .at-profile-biography h2 {
@@ -99,11 +121,17 @@
   line-height: 1.35;
 }
 
-.at-layout-narrow .at-world-profile-hero.at-world-profile-compact {
+.at-layout-narrow .at-world-profile-hero.at-world-profile-compact.at-world-profile-facts-header {
   grid-template-columns: 225px minmax(0, 1fr) !important;
 }
 
-.at-layout-tiny .at-world-profile-hero.at-world-profile-compact {
+.at-layout-narrow .at-world-profile-hero .at-profile-facts-hero {
+  grid-column: 1 / -1;
+  max-height: 220px;
+  margin: 0 14px 14px;
+}
+
+.at-layout-tiny .at-world-profile-hero.at-world-profile-compact.at-world-profile-facts-header {
   grid-template-columns: 1fr !important;
 }
 
@@ -120,11 +148,12 @@
 }
 
 .at-layout-tiny .at-world-profile-hero.at-world-profile-compact .at-profile-intro {
-  padding: 18px 22px 26px;
+  padding: 18px 22px 22px;
   text-align: center;
 }
 
-.at-layout-tiny .at-world-profile-hero.at-world-profile-compact .at-profile-intro p {
-  margin-left: auto;
-  margin-right: auto;
+.at-layout-tiny .at-world-profile-hero .at-profile-facts-hero {
+  grid-column: 1;
+  max-height: 260px;
+  margin: 0 18px 18px;
 }
