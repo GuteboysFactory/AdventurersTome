@@ -8,6 +8,25 @@ function atEbApp() {
   try { return game.modules.get(ATEB_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
 }
 
+function atEbHoldAppRender() {
+  const app = atEbApp();
+  if (!app) return;
+  app._atRichEditingCount = Math.max(0, Number(app._atRichEditingCount || 0)) + 1;
+  app._bulkUpdating = true;
+}
+
+function atEbReleaseAppRender() {
+  const app = atEbApp();
+  if (!app) return;
+  app._atRichEditingCount = Math.max(0, Number(app._atRichEditingCount || 0) - 1);
+  if (app._atRichEditingCount > 0) return;
+  window.setTimeout(() => {
+    if (Number(app._atRichEditingCount || 0) > 0) return;
+    app._bulkUpdating = false;
+    if (app.rendered) app.render({ parts: ["main"] }).catch((error) => console.error("Adventurer's Tome | Post-edit refresh failed", error));
+  }, 120);
+}
+
 function atEbWorldJournal(root) {
   const source = root?.querySelector('.at-world-profile-page [data-action="openJournal"][data-journal-id]');
   return source ? game.journal?.get(String(source.dataset.journalId || "")) : null;
@@ -32,12 +51,16 @@ function atEbPageForSurface(surface, root) {
 async function atEbEnrich(page) {
   const raw = String(page?.text?.content ?? "");
   try {
-    return await TextEditor.enrichHTML(raw, {
-      async: true,
-      documents: true,
-      secrets: Boolean(game.user?.isGM),
-      relativeTo: page
-    });
+    const implementation = foundry?.applications?.ux?.TextEditor?.implementation;
+    if (implementation?.enrichHTML) {
+      return await implementation.enrichHTML(raw, {
+        async: true,
+        documents: true,
+        secrets: Boolean(game.user?.isGM),
+        relativeTo: page
+      });
+    }
+    return raw;
   } catch (_err) {
     return raw;
   }
@@ -45,14 +68,17 @@ async function atEbEnrich(page) {
 
 async function atEbUpdatePage(page, html) {
   const app = atEbApp();
+  const editorSessionOwnsRenderLock = Number(app?._atRichEditingCount || 0) > 0;
   if (app) app._bulkUpdating = true;
   try {
     await page.update({
       "text.content": html,
       "text.format": CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML ?? 1
-    });
+    }, { adventurersTomeLiveAuthoring: true });
   } finally {
-    window.setTimeout(() => { if (app) app._bulkUpdating = false; }, 180);
+    if (!editorSessionOwnsRenderLock) {
+      window.setTimeout(() => { if (app && Number(app._atRichEditingCount || 0) < 1) app._bulkUpdating = false; }, 180);
+    }
   }
 }
 
@@ -65,7 +91,7 @@ function atEbSetStatus(surface, state, text) {
   }
   status.dataset.state = state;
   const icon = state === "saving" ? "fa-arrows-rotate" : state === "error" ? "fa-triangle-exclamation" : state === "editing" ? "fa-pen" : "fa-check";
-  status.innerHTML = `<i class="fa-solid ${icon}"></i> ${text || ({ editing: "Editing…", saving: "Saving…", saved: "Saved", error: "Save failed" })[state] || "Saved"}`;
+  status.innerHTML = `<i class="fa-solid ${icon}"></i> ${text || ({ editing: "Editing…", saving: "Saving…", saved: "Saved — keep writing", error: "Save failed" })[state] || "Saved"}`;
 }
 
 async function atEbSave(surface, { close = false } = {}) {
@@ -85,11 +111,11 @@ async function atEbSave(surface, { close = false } = {}) {
       await atEbUpdatePage(state.page, html);
       state.dirty = false;
       state.saving = false;
-      atEbSetStatus(surface, "saved");
+      atEbSetStatus(surface, "saved", "Saved — keep writing");
     } catch (error) {
       state.saving = false;
       state.dirty = true;
-      atEbSetStatus(surface, "error", "Save failed — click away to retry");
+      atEbSetStatus(surface, "error", "Save failed — keep editing to retry");
       console.error("Adventurer's Tome | Rich autosave bridge failed", error);
       return;
     }
@@ -100,6 +126,10 @@ async function atEbSave(surface, { close = false } = {}) {
     surface.classList.remove("is-editing");
     surface.innerHTML = await atEbEnrich(state.page);
     atEbEditors.delete(surface);
+    if (state.renderHeld) {
+      state.renderHeld = false;
+      atEbReleaseAppRender();
+    }
   }
 }
 
@@ -120,9 +150,10 @@ function atEbTakeOver(surface, root) {
   if (!page) return;
 
   surface.querySelector(".at-wie-rich-actions")?.remove();
-  const state = { page, dirty: false, saving: false, timer: null, closing: false };
+  atEbHoldAppRender();
+  const state = { page, dirty: false, saving: false, timer: null, closing: false, renderHeld: true };
   atEbEditors.set(surface, state);
-  atEbSetStatus(surface, "saved", "Autosave on");
+  atEbSetStatus(surface, "saved", "Autosave on — keep writing");
 
   editor.addEventListener("input", () => atEbSchedule(surface));
   editor.addEventListener("keydown", (event) => {
