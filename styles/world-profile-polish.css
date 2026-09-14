@@ -60,6 +60,16 @@
   color: #cab485;
 }
 
+/* World profile body copy: readable reference text rather than display text. */
+.at-profile-content .at-profile-biography > p:not(.at-empty) {
+  margin: 0;
+  font-size: clamp(14px, 1vw, 16px) !important;
+  line-height: 1.58 !important;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #d7c28f;
+}
+
 .at-world-summary-help {
   display: block;
   margin-top: 4px;
