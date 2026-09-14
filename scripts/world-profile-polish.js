@@ -1,5 +1,7 @@
 const AT_WPP_MODULE_ID = "adventurers-tome";
 const AT_WPP_TEASER_WORDS = 10;
+const atWppObservers = new WeakMap();
+const atWppTimers = new WeakMap();
 
 function atWppRoot(element) {
   if (element instanceof HTMLElement) return element;
@@ -15,48 +17,31 @@ function atWppText(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
-function atWppComparable(value) {
-  return atWppText(value).toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, " ").trim();
-}
-
 function atWppTeaser(value, maxWords = AT_WPP_TEASER_WORDS) {
   const text = atWppText(value).replace(/^['"“”‘’]+|['"“”‘’]+$/g, "").trim();
   if (!text) return "";
-
   const words = text.split(/\s+/).filter(Boolean).slice(0, maxWords);
   if (!words.length) return "";
-
   words[words.length - 1] = words[words.length - 1].replace(/[.!?;,:…]+$/u, "");
   const preview = words.join(" ").trim();
   return preview ? `"${preview}...."` : "";
 }
 
-function atWppSummaryDuplicates(summary, body) {
-  const s = atWppComparable(summary);
-  const b = atWppComparable(body);
-  if (!s || !b) return false;
-  if (s === b) return true;
-  if (b.startsWith(s) || s.startsWith(b)) return true;
-  if (b.includes(s) && s.split(/\s+/).length > AT_WPP_TEASER_WORDS) return true;
-  return false;
-}
-
 function atWppApplyViewer(root) {
   const hero = root.querySelector(".at-world-profile-hero");
   if (!hero) return;
-
   hero.classList.add("at-world-profile-compact");
 
   const intro = hero.querySelector(".at-profile-intro");
-  const biography = root.querySelector(".at-profile-biography");
-  const bodyNode = biography?.querySelector("p:not(.at-empty)");
-  const knownInformation = atWppText(bodyNode?.textContent || "");
-  if (!intro || !knownInformation) return;
+  if (!intro) return;
 
   let summaryNode = intro.querySelector(":scope > p");
-  const existingSummary = atWppText(summaryNode?.textContent || "");
-  const shouldDerive = !existingSummary || atWppSummaryDuplicates(existingSummary, knownInformation);
-  const teaser = atWppTeaser(shouldDerive ? knownInformation : existingSummary);
+  const biography = root.querySelector(".at-profile-biography");
+  const knownNode = biography?.querySelector(".at-tome-richtext, [data-at-af-kind='page'], p:not(.at-empty)");
+  const currentSummary = atWppText(summaryNode?.textContent || "");
+  const knownInformation = atWppText(knownNode?.textContent || "");
+  const sourceText = currentSummary || knownInformation;
+  const teaser = atWppTeaser(sourceText);
   if (!teaser) return;
 
   if (!summaryNode) {
@@ -64,10 +49,10 @@ function atWppApplyViewer(root) {
     intro.append(summaryNode);
   }
 
-  summaryNode.textContent = teaser;
+  if (summaryNode.textContent !== teaser) summaryNode.textContent = teaser;
   summaryNode.classList.add("at-world-profile-teaser");
-  summaryNode.dataset.atWorldProfileTeaser = shouldDerive ? "derived" : "summary";
-  summaryNode.title = shouldDerive ? "10-word preview from Known Information" : "10-word profile teaser";
+  summaryNode.dataset.atWorldProfileTeaser = "locked";
+  summaryNode.title = "10-word profile teaser";
 }
 
 function atWppApplyEditor(root) {
@@ -84,9 +69,36 @@ function atWppApplyEditor(root) {
   if (!label.querySelector(".at-world-summary-help")) {
     const help = document.createElement("small");
     help.className = "at-world-summary-help";
-    help.textContent = "The profile header shows at most 10 words in quotation marks. Known Information below remains the full description.";
+    help.textContent = "The profile header always shows the first 10 words in quotation marks. Known Information below remains the full description.";
     label.append(help);
   }
+}
+
+function atWppApply(root) {
+  atWppApplyViewer(root);
+  atWppApplyEditor(root);
+}
+
+function atWppSchedule(root) {
+  window.clearTimeout(atWppTimers.get(root));
+  const timer = window.setTimeout(() => {
+    try { atWppApply(root); }
+    catch (error) { console.error(`${AT_WPP_MODULE_ID} | World profile polish refresh failed safely`, error); }
+  }, 40);
+  atWppTimers.set(root, timer);
+}
+
+function atWppObserve(root) {
+  if (atWppObservers.has(root)) return;
+  const observer = new MutationObserver((mutations) => {
+    const relevant = mutations.some((mutation) => {
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
+      return target?.closest?.(".at-world-profile-page, .at-world-profile-hero, .at-profile-intro, .at-profile-biography");
+    });
+    if (relevant) atWppSchedule(root);
+  });
+  observer.observe(root, { childList: true, subtree: true, characterData: true });
+  atWppObservers.set(root, observer);
 }
 
 Hooks.on("renderApplicationV2", (app, element) => {
@@ -94,8 +106,10 @@ Hooks.on("renderApplicationV2", (app, element) => {
   try {
     const root = atWppRoot(element);
     if (!root) return;
-    atWppApplyViewer(root);
-    atWppApplyEditor(root);
+    atWppApply(root);
+    atWppObserve(root);
+    window.setTimeout(() => atWppSchedule(root), 120);
+    window.setTimeout(() => atWppSchedule(root), 400);
   } catch (error) {
     console.error(`${AT_WPP_MODULE_ID} | World profile polish failed safely`, error);
   }
