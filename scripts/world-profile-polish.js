@@ -1,5 +1,5 @@
 const AT_WPP_MODULE_ID = "adventurers-tome";
-const AT_WPP_TEASER_MAX = 180;
+const AT_WPP_TEASER_WORDS = 10;
 
 function atWppRoot(element) {
   if (element instanceof HTMLElement) return element;
@@ -19,17 +19,16 @@ function atWppComparable(value) {
   return atWppText(value).toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, " ").trim();
 }
 
-function atWppTeaser(value, max = AT_WPP_TEASER_MAX) {
-  const text = atWppText(value);
+function atWppTeaser(value, maxWords = AT_WPP_TEASER_WORDS) {
+  const text = atWppText(value).replace(/^['"“”‘’]+|['"“”‘’]+$/g, "").trim();
   if (!text) return "";
 
-  const sentenceMatch = text.match(/^(.+?[.!?])(?:\s|$)/);
-  let teaser = sentenceMatch?.[1] ? atWppText(sentenceMatch[1]) : text;
+  const words = text.split(/\s+/).filter(Boolean).slice(0, maxWords);
+  if (!words.length) return "";
 
-  if (teaser.length <= max) return teaser;
-  const slice = teaser.slice(0, max + 1);
-  const breakAt = Math.max(slice.lastIndexOf(" "), Math.floor(max * 0.72));
-  return `${slice.slice(0, breakAt > 0 ? breakAt : max).trim()}…`;
+  words[words.length - 1] = words[words.length - 1].replace(/[.!?;,:…]+$/u, "");
+  const preview = words.join(" ").trim();
+  return preview ? `"${preview}...."` : "";
 }
 
 function atWppSummaryDuplicates(summary, body) {
@@ -37,8 +36,8 @@ function atWppSummaryDuplicates(summary, body) {
   const b = atWppComparable(body);
   if (!s || !b) return false;
   if (s === b) return true;
-  if (s.length > AT_WPP_TEASER_MAX && (b.startsWith(s) || s.startsWith(b))) return true;
-  if (s.length > AT_WPP_TEASER_MAX && b.includes(s)) return true;
+  if (b.startsWith(s) || s.startsWith(b)) return true;
+  if (b.includes(s) && s.split(/\s+/).length > AT_WPP_TEASER_WORDS) return true;
   return false;
 }
 
@@ -56,8 +55,8 @@ function atWppApplyViewer(root) {
 
   let summaryNode = intro.querySelector(":scope > p");
   const existingSummary = atWppText(summaryNode?.textContent || "");
-  const shouldDerive = !existingSummary || existingSummary.length > AT_WPP_TEASER_MAX || atWppSummaryDuplicates(existingSummary, knownInformation);
-  const teaser = shouldDerive ? atWppTeaser(knownInformation) : atWppTeaser(existingSummary);
+  const shouldDerive = !existingSummary || atWppSummaryDuplicates(existingSummary, knownInformation);
+  const teaser = atWppTeaser(shouldDerive ? knownInformation : existingSummary);
   if (!teaser) return;
 
   if (!summaryNode) {
@@ -68,7 +67,7 @@ function atWppApplyViewer(root) {
   summaryNode.textContent = teaser;
   summaryNode.classList.add("at-world-profile-teaser");
   summaryNode.dataset.atWorldProfileTeaser = shouldDerive ? "derived" : "summary";
-  summaryNode.title = shouldDerive ? "Short preview from Known Information" : "Profile teaser";
+  summaryNode.title = shouldDerive ? "10-word preview from Known Information" : "10-word profile teaser";
 }
 
 function atWppApplyEditor(root) {
@@ -85,7 +84,7 @@ function atWppApplyEditor(root) {
   if (!label.querySelector(".at-world-summary-help")) {
     const help = document.createElement("small");
     help.className = "at-world-summary-help";
-    help.textContent = "Keep this to 1–2 short lines. Known Information below remains the full description.";
+    help.textContent = "The profile header shows at most 10 words in quotation marks. Known Information below remains the full description.";
     label.append(help);
   }
 }
