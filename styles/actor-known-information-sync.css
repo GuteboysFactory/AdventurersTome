@@ -92,26 +92,70 @@
   margin: 0;
 }
 
-.rg-npc-sheet .at-ki-actor-panel .at-ki-actor-heading {
+.rg-npc-sheet .at-ki-actor-panel .at-ki-actor-heading,
+.rg-sheet .at-ki-pc-panel .at-ki-actor-heading {
   border-bottom: 1px solid rgba(212, 173, 88, 0.28);
   padding-bottom: 7px;
   margin-bottom: 6px;
 }
 
-.rg-npc-sheet .at-ki-actor-panel .at-ki-actor-heading h2 {
+.rg-npc-sheet .at-ki-actor-panel .at-ki-actor-heading h2,
+.rg-sheet .at-ki-pc-panel .at-ki-actor-heading h2 {
   color: var(--rg-gold, #d8b35f);
   text-transform: uppercase;
   font-size: 15px;
   letter-spacing: .03em;
 }
 
-.rg-npc-sheet .at-ki-actor-panel .at-ki-known-body {
+.rg-npc-sheet .at-ki-actor-panel .at-ki-known-body,
+.rg-sheet .at-ki-pc-panel .at-ki-known-body {
   color: inherit;
   font-size: 12px;
   min-height: 68px;
 }
 
-.rg-npc-sheet .at-ki-actor-panel .at-ki-toolbar {
+.rg-npc-sheet .at-ki-actor-panel .at-ki-toolbar,
+.rg-sheet .at-ki-pc-panel .at-ki-toolbar {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Realm Guard PC integration: full-width panel on Character tab. */
+.rg-sheet .at-ki-pc-panel {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+
+/* Realm Guard Item integration. */
+.rg-item-form .at-ki-item-panel {
+  display: block;
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid rgba(212, 173, 88, 0.28);
+  border-radius: 6px;
+  background: rgba(20, 17, 12, 0.38);
+}
+
+.rg-item-form .at-ki-item-panel .at-ki-actor-heading {
+  padding-bottom: 7px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(212, 173, 88, 0.28);
+}
+
+.rg-item-form .at-ki-item-panel .at-ki-actor-heading h2 {
+  color: var(--rg-gold, #d8b35f);
+  text-transform: uppercase;
+  font-size: 14px;
+  letter-spacing: .03em;
+}
+
+.rg-item-form .at-ki-item-panel .at-ki-known-body {
+  min-height: 62px;
+  font-size: 12px;
+  color: inherit;
+}
+
+.rg-item-form .at-ki-item-panel .at-ki-toolbar {
   padding-left: 0;
   padding-right: 0;
 }
