@@ -1,0 +1,99 @@
+.at-world-profile-hero.at-world-profile-compact {
+  grid-template-columns: 225px minmax(0, 1fr) !important;
+  min-height: 225px !important;
+  align-items: stretch;
+}
+
+.at-world-profile-hero.at-world-profile-compact .at-world-profile-art {
+  width: 225px !important;
+  height: 225px !important;
+  min-width: 225px !important;
+  min-height: 225px !important;
+  max-width: 225px !important;
+  max-height: 225px !important;
+  padding: 14px;
+  border-right: 1px solid rgba(214, 178, 108, 0.22);
+  background: rgba(8, 7, 5, 0.92);
+}
+
+.at-world-profile-hero.at-world-profile-compact .at-world-profile-art img {
+  width: 197px !important;
+  height: 197px !important;
+  min-width: 197px !important;
+  min-height: 197px !important;
+  max-width: 197px !important;
+  max-height: 197px !important;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  border: 5px solid rgba(224, 192, 112, 0.92);
+  box-shadow: 0 0 0 1px rgba(98, 71, 31, 0.9), 0 10px 22px rgba(0, 0, 0, 0.42);
+}
+
+.at-world-profile-hero.at-world-profile-compact .at-world-profile-art.at-no-image {
+  font-size: 48px;
+}
+
+.at-world-profile-hero.at-world-profile-compact .at-profile-intro {
+  align-self: center;
+  max-width: none;
+  padding: 24px 30px;
+}
+
+.at-world-profile-hero.at-world-profile-compact .at-profile-intro h1 {
+  margin: 6px 0 4px;
+  font-size: clamp(30px, 3.2vw, 46px);
+  line-height: 1;
+}
+
+.at-world-profile-hero.at-world-profile-compact .at-profile-intro h2 {
+  margin: 7px 0 12px;
+  font-size: clamp(16px, 1.5vw, 22px);
+}
+
+.at-world-profile-hero.at-world-profile-compact .at-profile-intro p.at-world-profile-teaser,
+.at-world-profile-hero.at-world-profile-compact .at-profile-intro > p {
+  max-width: 720px;
+  margin: 10px 0 0;
+  font-size: clamp(13px, 1.05vw, 16px);
+  line-height: 1.45;
+  color: #cab485;
+}
+
+.at-world-summary-help {
+  display: block;
+  margin-top: 4px;
+  color: #9e8d6a;
+  font-size: 0.78em;
+  line-height: 1.35;
+}
+
+.at-layout-narrow .at-world-profile-hero.at-world-profile-compact {
+  grid-template-columns: 225px minmax(0, 1fr) !important;
+}
+
+.at-layout-tiny .at-world-profile-hero.at-world-profile-compact {
+  grid-template-columns: 1fr !important;
+}
+
+.at-layout-tiny .at-world-profile-hero.at-world-profile-compact .at-world-profile-art {
+  width: 225px !important;
+  height: 225px !important;
+  min-width: 225px !important;
+  min-height: 225px !important;
+  max-width: 225px !important;
+  max-height: 225px !important;
+  margin: 18px auto 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.at-layout-tiny .at-world-profile-hero.at-world-profile-compact .at-profile-intro {
+  padding: 18px 22px 26px;
+  text-align: center;
+}
+
+.at-layout-tiny .at-world-profile-hero.at-world-profile-compact .at-profile-intro p {
+  margin-left: auto;
+  margin-right: auto;
+}
