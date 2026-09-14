@@ -60,14 +60,30 @@
   color: #cab485;
 }
 
-/* World profile body copy: readable reference text rather than display text. */
-.at-profile-content .at-profile-biography > p:not(.at-empty) {
-  margin: 0;
-  font-size: clamp(14px, 1vw, 16px) !important;
-  line-height: 1.58 !important;
-  font-weight: 400;
-  letter-spacing: 0;
-  color: #d7c28f;
+/* Known Information is reference copy, never display-sized hero text. */
+.at-world-profile-page .at-profile-biography > p:not(.at-empty),
+.at-world-profile-page .at-profile-biography > .at-tome-richtext,
+.at-world-profile-page .at-profile-biography > .at-tome-richtext p,
+.at-world-profile-page .at-profile-biography [data-at-af-kind="page"],
+.at-world-profile-page .at-profile-biography [data-at-af-kind="page"] p,
+.at-world-profile-page .at-profile-biography .at-authoring-editable,
+.at-world-profile-page .at-profile-biography .at-authoring-editable p {
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.at-world-profile-page .at-profile-biography > p:not(.at-empty),
+.at-world-profile-page .at-profile-biography > .at-tome-richtext,
+.at-world-profile-page .at-profile-biography > .at-tome-richtext p {
+  color: #d7c28f !important;
+}
+
+.at-world-profile-page .at-profile-biography p {
+  margin-top: 0;
+  margin-bottom: 0.65em;
 }
 
 .at-world-summary-help {
