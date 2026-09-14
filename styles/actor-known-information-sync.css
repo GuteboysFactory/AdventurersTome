@@ -1,0 +1,117 @@
+.at-ki-panel {
+  position: relative;
+}
+
+.at-ki-known-body {
+  min-height: 56px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  line-height: 1.5;
+  cursor: text;
+  white-space: normal;
+}
+
+.at-ki-known-body:hover {
+  border-color: rgba(214, 178, 108, 0.28);
+  background: rgba(214, 178, 108, 0.025);
+}
+
+.at-ki-known-body.is-editing {
+  outline: none;
+  border-color: rgba(214, 178, 108, 0.58);
+  background: rgba(8, 7, 5, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(214, 178, 108, 0.08);
+}
+
+.at-ki-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(214, 178, 108, 0.18);
+}
+
+.at-ki-toolbar button {
+  width: 28px;
+  min-width: 28px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+}
+
+.at-ki-save-state {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.78;
+  white-space: nowrap;
+}
+
+.at-ki-save-state[data-state="saving"] i {
+  animation: at-ki-spin 0.85s linear infinite;
+}
+
+.at-ki-save-state[data-state="error"] {
+  color: #e4a07c;
+}
+
+@keyframes at-ki-spin {
+  to { transform: rotate(360deg); }
+}
+
+.at-ki-actor-panel {
+  display: block;
+  margin: 0;
+  min-width: 0;
+}
+
+.at-ki-actor-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.at-ki-actor-heading h2 {
+  margin: 0;
+}
+
+.at-ki-actor-heading small,
+.at-ki-actor-heading > span {
+  opacity: 0.7;
+  font-size: 11px;
+}
+
+.at-ki-actor-heading > span {
+  white-space: nowrap;
+}
+
+/* Realm Guard / Torchbearer NPC integration */
+.rg-npc-sheet .at-ki-actor-panel.rg-panel {
+  margin: 0;
+}
+
+.rg-npc-sheet .at-ki-actor-panel .at-ki-actor-heading {
+  border-bottom: 1px solid rgba(212, 173, 88, 0.28);
+  padding-bottom: 7px;
+  margin-bottom: 6px;
+}
+
+.rg-npc-sheet .at-ki-actor-panel .at-ki-actor-heading h2 {
+  color: var(--rg-gold, #d8b35f);
+  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: .03em;
+}
+
+.rg-npc-sheet .at-ki-actor-panel .at-ki-known-body {
+  color: inherit;
+  font-size: 12px;
+  min-height: 68px;
+}
+
+.rg-npc-sheet .at-ki-actor-panel .at-ki-toolbar {
+  padding-left: 0;
+  padding-right: 0;
+}
