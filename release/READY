@@ -1,2 +1,2 @@
-1.3.0-qa.8
-release: relation-permission-shadow-audit
+1.3.0-qa.9
+release: permission-aware-active-read-layer
