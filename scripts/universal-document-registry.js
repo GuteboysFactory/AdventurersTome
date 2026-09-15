@@ -9,12 +9,33 @@ const ATUDR_SUPPORTED = Object.freeze([
   "Folder"
 ]);
 
+const ATUDR_PARITY_FIELDS = Object.freeze([
+  "uuid",
+  "id",
+  "documentName",
+  "name",
+  "folderUuid",
+  "parentUuid",
+  "ownershipDefault"
+]);
+
+const ATUDR_HOOKS = Object.freeze([
+  "createActor", "updateActor", "deleteActor",
+  "createItem", "updateItem", "deleteItem",
+  "createJournalEntry", "updateJournalEntry", "deleteJournalEntry",
+  "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage",
+  "createScene", "updateScene", "deleteScene",
+  "createFolder", "updateFolder", "deleteFolder"
+]);
+
 let atUdrRecords = new Map();
 let atUdrDocuments = new Map();
 let atUdrAudit = null;
 let atUdrTimer = null;
 let atUdrRevision = 0;
 let atUdrPublicApi = null;
+const atUdrLifecycleCounts = Object.fromEntries(ATUDR_HOOKS.map((hook) => [hook, 0]));
+const atUdrLifecycleRecent = [];
 
 function atUdrClone(value) {
   try { return foundry.utils.deepClone(value); }
@@ -72,10 +93,30 @@ function atUdrWorldDocuments() {
   return documents;
 }
 
-function atUdrBuildAudit(records, duplicateUuids, invalidDocuments) {
+function atUdrCompareRecord(record, document) {
+  const live = atUdrRecord(document);
+  if (!live) return [{ field: "document", expected: record?.documentName || "", actual: "unresolvable" }];
+  const mismatches = [];
+  for (const field of ATUDR_PARITY_FIELDS) {
+    if (record?.[field] !== live?.[field]) {
+      mismatches.push({ field, expected: record?.[field] ?? null, actual: live?.[field] ?? null });
+    }
+  }
+  return mismatches;
+}
+
+function atUdrLifecycleSnapshot() {
+  return {
+    counts: { ...atUdrLifecycleCounts },
+    recent: atUdrLifecycleRecent.map((entry) => ({ ...entry }))
+  };
+}
+
+function atUdrBuildAudit(records, documents, duplicateUuids, invalidDocuments) {
   const byType = Object.fromEntries(ATUDR_SUPPORTED.map((type) => [type, 0]));
   const missingFolders = [];
   const badPageParents = [];
+  const canonicalMismatches = [];
 
   for (const record of records.values()) {
     byType[record.documentName] = Number(byType[record.documentName] || 0) + 1;
@@ -90,27 +131,35 @@ function atUdrBuildAudit(records, duplicateUuids, invalidDocuments) {
         badPageParents.push({ uuid: record.uuid, parentUuid: record.parentUuid });
       }
     }
+
+    const document = documents.get(record.uuid);
+    const mismatches = atUdrCompareRecord(record, document);
+    if (mismatches.length) canonicalMismatches.push({ uuid: record.uuid, documentName: record.documentName, mismatches });
   }
 
   const platform = foundryPlatformInfo();
   return Object.freeze({
     schema: "adventurers-tome.universal-document-registry",
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: "shadow-read-only",
     revision: atUdrRevision,
     generatedAt: Date.now(),
     platform,
     supportedDocumentTypes: [...ATUDR_SUPPORTED],
+    parityFields: [...ATUDR_PARITY_FIELDS],
     total: records.size,
     byType,
     duplicateUuids: [...duplicateUuids],
     invalidDocuments: [...invalidDocuments],
     missingFolders,
     badPageParents,
+    canonicalMismatches,
+    lifecycle: atUdrLifecycleSnapshot(),
     healthy: duplicateUuids.length === 0
       && invalidDocuments.length === 0
       && missingFolders.length === 0
       && badPageParents.length === 0
+      && canonicalMismatches.length === 0
   });
 }
 
@@ -138,13 +187,14 @@ function atUdrRebuild({ reason = "manual" } = {}) {
   atUdrRevision += 1;
   atUdrRecords = nextRecords;
   atUdrDocuments = nextDocuments;
-  atUdrAudit = atUdrBuildAudit(nextRecords, duplicateUuids, invalidDocuments);
+  atUdrAudit = atUdrBuildAudit(nextRecords, nextDocuments, duplicateUuids, invalidDocuments);
 
   Hooks.callAll("adventurersTomeUniversalRegistryRebuilt", {
     reason,
     revision: atUdrRevision,
     total: atUdrRecords.size,
-    healthy: atUdrAudit.healthy
+    healthy: atUdrAudit.healthy,
+    canonicalMismatches: atUdrAudit.canonicalMismatches.length
   });
 
   return atUdrAudit;
@@ -159,13 +209,54 @@ function atUdrSchedule(reason) {
   }, 60);
 }
 
+function atUdrRecordLifecycle(hookName, document) {
+  atUdrLifecycleCounts[hookName] = Number(atUdrLifecycleCounts[hookName] || 0) + 1;
+  atUdrLifecycleRecent.unshift({
+    hook: hookName,
+    uuid: String(document?.uuid || ""),
+    documentName: String(document?.documentName || ""),
+    name: String(document?.name || ""),
+    at: Date.now()
+  });
+  if (atUdrLifecycleRecent.length > 30) atUdrLifecycleRecent.length = 30;
+}
+
+function atUdrVerify(uuid) {
+  const key = String(uuid || "");
+  const record = atUdrRecords.get(key) || null;
+  const document = atUdrDocuments.get(key) || null;
+  if (!record || !document) {
+    return {
+      uuid: key,
+      registered: Boolean(record),
+      resolved: Boolean(document),
+      exactResolve: false,
+      mismatches: record ? [{ field: "document", expected: record.documentName, actual: "missing" }] : []
+    };
+  }
+  const mismatches = atUdrCompareRecord(record, document);
+  return {
+    uuid: key,
+    registered: true,
+    resolved: true,
+    exactResolve: atUdrDocuments.get(key) === document,
+    documentName: record.documentName,
+    name: record.name,
+    mismatches,
+    healthy: mismatches.length === 0
+  };
+}
+
 function atUdrApi() {
   if (atUdrPublicApi) return atUdrPublicApi;
   atUdrPublicApi = Object.freeze({
     mode: "shadow-read-only",
     supportedTypes: [...ATUDR_SUPPORTED],
+    parityFields: [...ATUDR_PARITY_FIELDS],
     rebuild: () => atUdrRebuild({ reason: "api" }),
     audit: () => atUdrClone(atUdrAudit || atUdrRebuild({ reason: "audit" })),
+    verify: (uuid) => atUdrClone(atUdrVerify(uuid)),
+    lifecycle: () => atUdrClone(atUdrLifecycleSnapshot()),
     get: (uuid) => atUdrClone(atUdrRecords.get(String(uuid || "")) || null),
     resolve: (uuid) => atUdrDocuments.get(String(uuid || "")) || null,
     has: (uuid) => atUdrRecords.has(String(uuid || "")),
@@ -184,18 +275,14 @@ export function universalDocumentRegistryApi() {
 Hooks.once("ready", () => {
   const audit = atUdrRebuild({ reason: "ready" });
   console.info(
-    `Adventurer's Tome | Universal Document Registry shadow foundation ready: ${audit.total} documents, `
+    `Adventurer's Tome | Universal Document Registry shadow parity ready: ${audit.total} documents, `
     + `${audit.healthy ? "healthy" : "audit findings present"}.`
   );
 });
 
-for (const hookName of [
-  "createActor", "updateActor", "deleteActor",
-  "createItem", "updateItem", "deleteItem",
-  "createJournalEntry", "updateJournalEntry", "deleteJournalEntry",
-  "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage",
-  "createScene", "updateScene", "deleteScene",
-  "createFolder", "updateFolder", "deleteFolder"
-]) {
-  Hooks.on(hookName, () => atUdrSchedule(hookName));
+for (const hookName of ATUDR_HOOKS) {
+  Hooks.on(hookName, (document) => {
+    atUdrRecordLifecycle(hookName, document);
+    atUdrSchedule(hookName);
+  });
 }
