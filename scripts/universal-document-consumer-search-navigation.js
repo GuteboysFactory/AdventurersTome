@@ -1,6 +1,9 @@
 const ATCSN_ID = "adventurers-tome";
 let atcsnTimer = null;
 let atcsnAttached = false;
+let atcsnApp = null;
+let atcsnRegistry = null;
+let atcsnInitialRefreshQueued = false;
 
 const atcsnStats = {
   prepareCalls: 0,
@@ -40,6 +43,35 @@ function atcsnResolveRef(registry, refKey = "") {
   return registry.resolve(uuid) || null;
 }
 
+function atcsnInstallNavigationGuard(app, registry) {
+  const root = app?.element;
+  if (!root || root.__atUniversalRegistryNavGuard) return;
+
+  const handler = (event) => {
+    const target = event.target?.closest?.("[data-ref-key]");
+    if (!target || !root.contains(target)) return;
+    const refKey = String(target.dataset.refKey || "").trim();
+    if (!refKey) return;
+
+    if (!atcsnResolveRef(registry, refKey)) {
+      atcsnStats.navigationBlocked += 1;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    atcsnStats.navigationAllowed += 1;
+  };
+
+  root.addEventListener("click", handler, true);
+  Object.defineProperty(root, "__atUniversalRegistryNavGuard", {
+    value: true,
+    configurable: false,
+    enumerable: false,
+    writable: false
+  });
+}
+
 function atcsnAttach() {
   if (atcsnAttached) return true;
   const module = atcsnModule();
@@ -48,12 +80,14 @@ function atcsnAttach() {
   if (!registry?.permissionAwareRead || !app) return false;
   if (app.__atUniversalConsumerSearchNavigation) {
     atcsnAttached = true;
+    atcsnApp = app;
+    atcsnRegistry = registry;
+    atcsnInstallNavigationGuard(app, registry);
     return true;
   }
 
   const originalPrepareContext = app._prepareContext?.bind(app);
-  const originalOpenRefKey = app._openRefKey?.bind(app);
-  if (typeof originalPrepareContext !== "function" || typeof originalOpenRefKey !== "function") return false;
+  if (typeof originalPrepareContext !== "function") return false;
 
   app._prepareContext = async function(options) {
     const context = await originalPrepareContext(options);
@@ -79,19 +113,6 @@ function atcsnAttach() {
     return context;
   };
 
-  app._openRefKey = async function(refKey, options = {}) {
-    const uuid = atcsnUuidForRef(refKey);
-    if (uuid) {
-      const document = registry.resolve(uuid);
-      if (!document) {
-        atcsnStats.navigationBlocked += 1;
-        return false;
-      }
-      atcsnStats.navigationAllowed += 1;
-    }
-    return originalOpenRefKey(refKey, options);
-  };
-
   Object.defineProperty(app, "__atUniversalConsumerSearchNavigation", {
     value: true,
     configurable: false,
@@ -111,7 +132,21 @@ function atcsnAttach() {
     })
   });
 
+  atcsnApp = app;
+  atcsnRegistry = module.api.universalDocuments;
   atcsnAttached = true;
+  atcsnInstallNavigationGuard(app, atcsnRegistry);
+
+  // The consumer can attach after an already-open Tome has completed its first
+  // render. Force one settled main render so Search is immediately rebuilt from
+  // the canonical registry instead of waiting for unrelated navigation.
+  if (app.rendered && !atcsnInitialRefreshQueued) {
+    atcsnInitialRefreshQueued = true;
+    window.setTimeout(() => {
+      app.render({ parts: ["main"] }).catch((error) => console.error("Adventurer's Tome | Universal consumer initial refresh failed", error));
+    }, 0);
+  }
+
   if (atcsnTimer) {
     window.clearInterval(atcsnTimer);
     atcsnTimer = null;
@@ -126,4 +161,9 @@ function atcsnWatch() {
 }
 
 Hooks.once("ready", atcsnWatch);
-Hooks.on("renderApplicationV2", atcsnWatch);
+Hooks.on("renderApplicationV2", (renderedApp) => {
+  atcsnWatch();
+  if (atcsnAttached && renderedApp === atcsnApp && atcsnRegistry) {
+    atcsnInstallNavigationGuard(atcsnApp, atcsnRegistry);
+  }
+});
