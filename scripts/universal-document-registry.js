@@ -1,6 +1,5 @@
 import { foundryPlatformInfo } from "./foundry-platform.js";
 
-const ATUDR_ID = "adventurers-tome";
 const ATUDR_SUPPORTED = Object.freeze([
   "Actor",
   "Item",
@@ -16,7 +15,6 @@ let atUdrAudit = null;
 let atUdrTimer = null;
 let atUdrRevision = 0;
 let atUdrPublicApi = null;
-let atUdrAttachTimer = null;
 
 function atUdrClone(value) {
   try { return foundry.utils.deepClone(value); }
@@ -179,36 +177,12 @@ function atUdrApi() {
   return atUdrPublicApi;
 }
 
-function atUdrAttachApi({ attempt = 0 } = {}) {
-  const module = game.modules.get(ATUDR_ID);
-  const api = module?.api;
-  if (api && typeof api === "object") {
-    try {
-      api.universalDocuments = atUdrApi();
-      if (api.universalDocuments) return true;
-    } catch (error) {
-      console.warn("Adventurer's Tome | Universal Registry API attach deferred", error);
-    }
-  }
-
-  if (attempt >= 20) {
-    console.error("Adventurer's Tome | Universal Document Registry could not attach to module API after Tome initialization.");
-    return false;
-  }
-
-  window.clearTimeout(atUdrAttachTimer);
-  atUdrAttachTimer = window.setTimeout(() => atUdrAttachApi({ attempt: attempt + 1 }), 50);
-  return false;
+export function universalDocumentRegistryApi() {
+  return atUdrApi();
 }
 
 Hooks.once("ready", () => {
   const audit = atUdrRebuild({ reason: "ready" });
-
-  // This module is loaded before adventurers-tome.js so its ready hook can run
-  // before the main Tome API has been assigned. Defer/retry API attachment until
-  // the main module has finished initialization rather than silently missing it.
-  queueMicrotask(() => atUdrAttachApi());
-
   console.info(
     `Adventurer's Tome | Universal Document Registry shadow foundation ready: ${audit.total} documents, `
     + `${audit.healthy ? "healthy" : "audit findings present"}.`
