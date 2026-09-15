@@ -15,6 +15,8 @@ let atUdrDocuments = new Map();
 let atUdrAudit = null;
 let atUdrTimer = null;
 let atUdrRevision = 0;
+let atUdrPublicApi = null;
+let atUdrAttachTimer = null;
 
 function atUdrClone(value) {
   try { return foundry.utils.deepClone(value); }
@@ -160,7 +162,8 @@ function atUdrSchedule(reason) {
 }
 
 function atUdrApi() {
-  return Object.freeze({
+  if (atUdrPublicApi) return atUdrPublicApi;
+  atUdrPublicApi = Object.freeze({
     mode: "shadow-read-only",
     supportedTypes: [...ATUDR_SUPPORTED],
     rebuild: () => atUdrRebuild({ reason: "api" }),
@@ -173,12 +176,38 @@ function atUdrApi() {
       .filter((record) => record.documentName === String(documentName || ""))
       .map((record) => atUdrClone(record))
   });
+  return atUdrPublicApi;
+}
+
+function atUdrAttachApi({ attempt = 0 } = {}) {
+  const module = game.modules.get(ATUDR_ID);
+  const api = module?.api;
+  if (api && typeof api === "object") {
+    try {
+      api.universalDocuments = atUdrApi();
+      if (api.universalDocuments) return true;
+    } catch (error) {
+      console.warn("Adventurer's Tome | Universal Registry API attach deferred", error);
+    }
+  }
+
+  if (attempt >= 20) {
+    console.error("Adventurer's Tome | Universal Document Registry could not attach to module API after Tome initialization.");
+    return false;
+  }
+
+  window.clearTimeout(atUdrAttachTimer);
+  atUdrAttachTimer = window.setTimeout(() => atUdrAttachApi({ attempt: attempt + 1 }), 50);
+  return false;
 }
 
 Hooks.once("ready", () => {
   const audit = atUdrRebuild({ reason: "ready" });
-  const module = game.modules.get(ATUDR_ID);
-  if (module?.api) module.api.universalDocuments = atUdrApi();
+
+  // This module is loaded before adventurers-tome.js so its ready hook can run
+  // before the main Tome API has been assigned. Defer/retry API attachment until
+  // the main module has finished initialization rather than silently missing it.
+  queueMicrotask(() => atUdrAttachApi());
 
   console.info(
     `Adventurer's Tome | Universal Document Registry shadow foundation ready: ${audit.total} documents, `
