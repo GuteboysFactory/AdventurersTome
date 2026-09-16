@@ -16,6 +16,11 @@ const ATEC_SECTIONS = Object.freeze({
   }
 });
 
+const ATEC_EXPLORER_ENTRY_SELECTOR = [
+  '.at-em-entry-row[data-at-cw-journal-id]',
+  '.at-cw-tree-entry[data-at-cw-journal-id]'
+].join(', ');
+
 let atecAttached = false;
 let atecTimer = null;
 let atecObserver = null;
@@ -58,14 +63,29 @@ function atecSetCanonicalVisibility(node, visible) {
   node.dataset.atUniversalRegistryVisible = visible ? "1" : "0";
 }
 
+function atecExplorerJournalId(node) {
+  const direct = String(node?.dataset?.atCwJournalId || "").trim();
+  if (direct) return direct;
+  const nested = node?.querySelector?.('[data-at-cw-open-journal]');
+  return String(nested?.dataset?.atCwOpenJournal || "").trim();
+}
+
+function atecExplorerNodes(page) {
+  return [...page.querySelectorAll(ATEC_EXPLORER_ENTRY_SELECTOR)];
+}
+
 function atecReconcileFolders(page) {
   let hiddenCount = 0;
   const folders = [...page.querySelectorAll(".at-cw-tree-folder")].reverse();
   for (const folder of folders) {
-    const directVisibleEntry = [...folder.querySelectorAll(":scope > .at-cw-tree-children > .at-cw-tree-entry[data-at-cw-journal-id]")]
-      .some((entry) => !entry.hidden);
-    const visibleChildFolder = [...folder.querySelectorAll(":scope > .at-cw-tree-children > .at-cw-tree-folder")]
-      .some((child) => !child.hidden);
+    const children = folder.querySelector(":scope > .at-cw-tree-children");
+    const directVisibleEntry = children
+      ? [...children.querySelectorAll(":scope > .at-em-entry-row[data-at-cw-journal-id], :scope > .at-cw-tree-entry[data-at-cw-journal-id]")]
+        .some((entry) => !entry.hidden)
+      : false;
+    const visibleChildFolder = children
+      ? [...children.querySelectorAll(":scope > .at-cw-tree-folder")].some((child) => !child.hidden)
+      : false;
     const visible = game.user?.isGM || directVisibleEntry || visibleChildFolder;
     folder.hidden = !visible;
     folder.classList.toggle("at-universal-registry-filtered", !visible);
@@ -93,10 +113,11 @@ function atecReconcile() {
     if (visible) catalogVisible += 1;
   }
 
-  const explorerNodes = [...page.querySelectorAll('.at-cw-tree-entry[data-at-cw-journal-id]')];
+  const explorerNodes = atecExplorerNodes(page);
   let explorerVisible = 0;
   for (const node of explorerNodes) {
-    const visible = Boolean(atecResolveJournal(node.dataset.atCwJournalId));
+    const journalId = atecExplorerJournalId(node);
+    const visible = Boolean(journalId && atecResolveJournal(journalId));
     atecSetCanonicalVisibility(node, visible);
     if (visible) explorerVisible += 1;
   }
