@@ -6,6 +6,15 @@ const ATWSA_SOURCE_TYPE = "quickImportSourceType";
 
 let atWsaQueued = false;
 let atWsaWorking = false;
+const atWsaAudit = {
+  buttonsBuilt: 0,
+  clicks: 0,
+  journalOpens: 0,
+  sourceOpens: 0,
+  failures: 0,
+  lastAction: "",
+  lastError: ""
+};
 
 function atWsaText(node) {
   return String(node?.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -48,6 +57,69 @@ function atWsaHost(world) {
   return world.querySelector(".at-profile-toolbar-actions") || world.querySelector(".at-detail-toolbar");
 }
 
+function atWsaCanView(document) {
+  if (!document) return false;
+  if (game.user?.isGM) return true;
+  try {
+    const observer = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2;
+    return typeof document.testUserPermission !== "function" || document.testUserPermission(game.user, observer);
+  } catch (_err) {
+    return document.visible !== false;
+  }
+}
+
+async function atWsaOpenJournal(button) {
+  const journal = game.journal?.get(String(button.dataset.journalId || ""));
+  if (!journal || !atWsaCanView(journal)) {
+    ui.notifications.warn("Adventurer's Tome: Journal not found or not visible.");
+    throw new Error("journal-not-found-or-not-visible");
+  }
+  journal.sheet?.render?.(true);
+  atWsaAudit.journalOpens += 1;
+}
+
+async function atWsaOpenSource(button) {
+  const uuid = String(button.dataset.sourceUuid || "").trim();
+  const resolver = game.modules.get(ATWSA_ID)?.api?.universalDocuments?.resolveCanonical;
+  if (!uuid || typeof resolver !== "function") {
+    ui.notifications.warn("Adventurer's Tome: Source resolver is not available.");
+    throw new Error("source-resolver-not-available");
+  }
+
+  const source = await resolver(uuid, { consumer: "world-source-actions" });
+  if (!source || !atWsaCanView(source)) {
+    ui.notifications.warn("Adventurer's Tome: Source document no longer exists or is not visible.");
+    throw new Error("source-not-found-or-not-visible");
+  }
+
+  if (source.documentName === "Scene" && typeof source.view === "function") await source.view();
+  else if (source.sheet?.render) source.sheet.render(true);
+  else {
+    ui.notifications.warn("Adventurer's Tome: That source document has no openable sheet.");
+    throw new Error("source-has-no-openable-sheet");
+  }
+  atWsaAudit.sourceOpens += 1;
+}
+
+async function atWsaHandleButtonClick(event) {
+  const button = event.currentTarget;
+  if (!(button instanceof HTMLElement)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  atWsaAudit.clicks += 1;
+  const action = String(button.dataset.atWsaAction || "");
+  atWsaAudit.lastAction = action;
+  atWsaAudit.lastError = "";
+  try {
+    if (action === "journal") await atWsaOpenJournal(button);
+    else if (action === "source") await atWsaOpenSource(button);
+  } catch (error) {
+    atWsaAudit.failures += 1;
+    atWsaAudit.lastError = String(error?.message || error || "unknown-error");
+    console.warn("Adventurer's Tome | World source action failed", error);
+  }
+}
+
 function atWsaButton({ action, label, icon, journalId = "", sourceUuid = "", sourceType = "" }) {
   const button = document.createElement("button");
   button.type = "button";
@@ -57,6 +129,8 @@ function atWsaButton({ action, label, icon, journalId = "", sourceUuid = "", sou
   if (sourceUuid) button.dataset.sourceUuid = sourceUuid;
   if (sourceType) button.dataset.sourceType = sourceType;
   button.innerHTML = `<i class="fa-solid ${icon}"></i> ${label}`;
+  button.addEventListener("click", atWsaHandleButtonClick, false);
+  atWsaAudit.buttonsBuilt += 1;
   return button;
 }
 
@@ -104,6 +178,11 @@ function atWsaDesiredSignature(spec) {
   ].join("|");
 }
 
+function atWsaRebind(button) {
+  button.removeEventListener("click", atWsaHandleButtonClick, false);
+  button.addEventListener("click", atWsaHandleButtonClick, false);
+}
+
 function atWsaRebuild() {
   if (atWsaWorking) return;
   const world = document.querySelector(ATWSA_WORLD);
@@ -122,7 +201,10 @@ function atWsaRebuild() {
     && existingCanonical.length === desired.length
     && desiredSignatures.every((signature, index) => existingSignatures[index] === signature);
 
-  if (alreadyCorrect) return;
+  if (alreadyCorrect) {
+    for (const button of existingCanonical) atWsaRebind(button);
+    return;
+  }
 
   atWsaWorking = true;
   try {
@@ -145,55 +227,14 @@ function atWsaQueue(delay = 0) {
   }, delay);
 }
 
-function atWsaCanView(document) {
-  if (!document) return false;
-  if (game.user?.isGM) return true;
-  try {
-    const observer = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2;
-    return typeof document.testUserPermission !== "function" || document.testUserPermission(game.user, observer);
-  } catch (_err) {
-    return document.visible !== false;
-  }
-}
-
-async function atWsaOpenJournal(button) {
-  const journal = game.journal?.get(String(button.dataset.journalId || ""));
-  if (!journal || !atWsaCanView(journal)) {
-    ui.notifications.warn("Adventurer's Tome: Journal not found or not visible.");
-    return;
-  }
-  journal.sheet?.render?.(true);
-}
-
-async function atWsaOpenSource(button) {
-  const uuid = String(button.dataset.sourceUuid || "").trim();
-  const resolver = game.modules.get(ATWSA_ID)?.api?.universalDocuments?.resolveCanonical;
-  if (!uuid || typeof resolver !== "function") {
-    ui.notifications.warn("Adventurer's Tome: Source resolver is not available.");
-    return;
-  }
-
-  const source = await resolver(uuid, { consumer: "world-source-actions" });
-  if (!source || !atWsaCanView(source)) {
-    ui.notifications.warn("Adventurer's Tome: Source document no longer exists or is not visible.");
-    return;
-  }
-
-  if (source.documentName === "Scene" && typeof source.view === "function") await source.view();
-  else if (source.sheet?.render) source.sheet.render(true);
-  else ui.notifications.warn("Adventurer's Tome: That source document has no openable sheet.");
+function atWsaAttachAudit() {
+  const module = game.modules.get(ATWSA_ID);
+  if (!module?.api) return;
+  module.api.worldSourceActionsAudit = () => ({ ...atWsaAudit });
 }
 
 Hooks.once("ready", () => {
-  document.addEventListener("click", (event) => {
-    const button = event.target.closest?.(`${ATWSA_WORLD} button[data-at-wsa-action]`);
-    if (!button) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const action = String(button.dataset.atWsaAction || "");
-    if (action === "journal") void atWsaOpenJournal(button);
-    else if (action === "source") void atWsaOpenSource(button);
-  }, true);
+  atWsaAttachAudit();
 
   const observer = new MutationObserver((mutations) => {
     if (atWsaWorking) return;
@@ -212,6 +253,7 @@ Hooks.once("ready", () => {
 
 for (const hookName of ["renderApplicationV2", "updateJournalEntry", "updateActor", "createJournalEntry", "deleteJournalEntry"]) {
   Hooks.on(hookName, () => {
+    atWsaAttachAudit();
     atWsaQueue(0);
     window.setTimeout(() => atWsaQueue(0), 120);
   });
