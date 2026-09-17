@@ -67,11 +67,11 @@ function atWabCategory(button) {
 }
 
 function atWabCollectButtons(toolbar, actions) {
-  const candidates = [...toolbar.querySelectorAll("button")].filter((button) => {
-    if (button.closest(".at-detail-nav")) return false;
-    if (button.closest(".at-world-gm-tools")) return false;
-    return true;
-  });
+  // Only collect buttons that still belong to the original action host.
+  // Buttons already moved into .at-world-action-groups must never be
+  // re-appended on every polish pass, since that creates a childList
+  // mutation loop and can suppress Chromium's native click synthesis.
+  const candidates = [...actions.querySelectorAll(":scope > button")];
 
   /* Include dynamically injected controls in the toolbar which are not buttons only if
      they are obvious authoring hints. They are hidden instead of removed. */
@@ -81,6 +81,12 @@ function atWabCollectButtons(toolbar, actions) {
   }
 
   return candidates;
+}
+
+function atWabAppendIfNeeded(parent, button) {
+  if (!parent || !button || button.parentElement === parent) return false;
+  parent.append(button);
+  return true;
 }
 
 function atWabPolish() {
@@ -118,11 +124,11 @@ function atWabPolish() {
       button.classList.add("at-world-action-button");
       button.hidden = category === "hide";
       if (category === "hide") continue;
-      if (category === "source") source.append(button);
-      else if (category === "personal") personal.append(button);
-      else if (category === "share") share.append(button);
-      else if (category === "gm") gmMenu.append(button);
-      else misc.append(button);
+      if (category === "source") atWabAppendIfNeeded(source, button);
+      else if (category === "personal") atWabAppendIfNeeded(personal, button);
+      else if (category === "share") atWabAppendIfNeeded(share, button);
+      else if (category === "gm") atWabAppendIfNeeded(gmMenu, button);
+      else atWabAppendIfNeeded(misc, button);
     }
 
     source.hidden = !source.querySelector("button:not([hidden])");
@@ -153,7 +159,9 @@ Hooks.once("ready", () => {
     if (atWabRebuilding) return;
     const relevant = mutations.some((mutation) => {
       const target = mutation.target instanceof Element ? mutation.target : mutation.target?.parentElement;
-      return Boolean(target?.closest?.("#adventurers-tome-app .at-world-profile-page .at-detail-toolbar"));
+      if (!target) return false;
+      if (target.closest?.("#adventurers-tome-app .at-world-profile-page .at-world-action-groups")) return false;
+      return Boolean(target.closest?.("#adventurers-tome-app .at-world-profile-page .at-detail-toolbar"));
     });
     if (relevant) atWabQueue();
   });
