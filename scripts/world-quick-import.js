@@ -205,6 +205,12 @@ function atQiTypeLabel(type) {
   return ({ Actor: "Actor", Item: "Item", Scene: "Scene", JournalEntry: "Journal" })[type] || type;
 }
 
+async function atQiResolveCanonical(uuid, consumer) {
+  const resolver = game.modules.get(ATQI_MODULE_ID)?.api?.universalDocuments?.resolveCanonical;
+  if (typeof resolver !== "function") throw new Error("Universal Registry resolver is not ready.");
+  return resolver(uuid, { consumer });
+}
+
 function atQiRequest(payload) {
   if (game.user?.isGM) return atQiExecute(payload, game.user.id);
   const gm = atQiLeaderGM();
@@ -356,7 +362,7 @@ async function atQiExecute(payload, requesterId = "") {
   const requestedType = atQiNormalizeType(payload?.sourceType);
   if (!uuid || !requestedType) throw new Error("Unsupported Foundry drag payload.");
 
-  const source = await fromUuid(uuid);
+  const source = await atQiResolveCanonical(uuid, "quick-import");
   if (!source) throw new Error("The dragged Foundry document could not be resolved.");
   const type = atQiNormalizeType(source.documentName || requestedType);
   if (!type) throw new Error(`${source.documentName || requestedType} is not supported by World Quick Import yet.`);
@@ -462,7 +468,7 @@ async function atQiOpenSource(button) {
   const uuid = String(button?.dataset?.atQiOpenSource || "");
   if (!uuid) return;
   try {
-    const document = await fromUuid(uuid);
+    const document = await atQiResolveCanonical(uuid, "open-source");
     if (!document) throw new Error("Source document no longer exists.");
     if (document.documentName === "Scene" && typeof document.view === "function") await document.view();
     else if (document.sheet?.render) document.sheet.render(true);
