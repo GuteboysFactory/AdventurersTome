@@ -125,11 +125,10 @@ function atQfFolderDragData(event) {
 async function atQfResolveSourceFolder(payload) {
   const uuid = String(payload?.sourceFolderUuid || "").trim();
   const id = String(payload?.sourceFolderId || "").trim();
-  let folder = null;
-  if (uuid) {
-    try { folder = await fromUuid(uuid); } catch (_err) {}
-  }
-  if (!folder && id) folder = game.folders?.get(id) || null;
+  const canonicalUuid = uuid || (id ? `Folder.${id}` : "");
+  const resolver = game.modules.get(ATQF_MODULE_ID)?.api?.universalDocuments?.resolveCanonical;
+  if (typeof resolver !== "function") throw new Error("Universal Registry resolver is not ready.");
+  const folder = canonicalUuid ? await resolver(canonicalUuid, { consumer: "folder-quick-import" }) : null;
   if (!folder || folder.documentName !== "Folder") throw new Error("The dragged Foundry folder could not be resolved.");
   return folder;
 }
