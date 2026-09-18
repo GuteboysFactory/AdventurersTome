@@ -392,6 +392,23 @@ The qa.1 live observation showed that two independent GM Docks are technically f
 
 QA protocol: `docs/V1.4_QA2_UNIFIED_GM_DOCK_HOST.md`
 
+## v1.4.0-qa.5 — Unified Dock UX & Universal Context
+
+**Status:** QA / LIVE TEST REQUIRED
+
+Following successful host/API composition QA, the unified Dock is tightened around the actual GM workflow:
+
+- compatible Host v2 menus can render a provider-owned inline body and dedicated footer action
+- Tome uses that body for compact Quick Capture directly from the Dock
+- Open Adventurer's Tome becomes a persistent footer action rather than a long-menu item
+- Recent navigation is capped at three direct entries with a compact continuation action
+- contextual Private Vault no longer requires a Tome ref; any supported canonical Foundry document with a stable UUID can carry GM-private context
+- Scene and Item contexts therefore become first-class GM context targets
+- standalone Tome Dock retains equivalent canonical-context capture/Vault behavior
+- all campaign data remains Tome-owned; the host only renders provider-supplied UI and invokes callbacks
+
+QA protocol: `docs/V1.4_QA5_UNIFIED_DOCK_UX.md`
+
 ---
 
 # v1.5 — Formal Adapter API
