@@ -472,8 +472,12 @@ Hooks.once("ready", async () => {
 
   const module = game.modules.get(MODULE_ID);
   if (module) {
-    const api = module.api && typeof module.api === "object" ? module.api : {};
-    module.api = { ...api, contextualPrivateVault: gmApi() };
+    if (!module.api || typeof module.api !== "object") module.api = {};
+    const contextual = module.api.contextualPrivateVault && typeof module.api.contextualPrivateVault === "object"
+      ? module.api.contextualPrivateVault
+      : {};
+    module.api.contextualPrivateVault = contextual;
+    Object.assign(contextual, gmApi());
   }
 });
 
