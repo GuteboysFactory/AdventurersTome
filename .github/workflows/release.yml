@@ -186,6 +186,9 @@ jobs:
           if [[ "$VERSION" == "1.4.0-qa.5" ]]; then
             NOTES="v1.4.0-qa.5 polishes the unified GM Dock experience: compact inline Quick Capture inside compatible host v2 menus, canonical Foundry context support for Private Vault including Scene/Item contexts, three-item recent navigation, and a persistent Open Adventurer's Tome footer. Standalone Tome Dock remains the fallback."
           fi
+          if [[ "$VERSION" == "1.4.0-qa.6" ]]; then
+            NOTES="v1.4.0-qa.6 is a focused GM Dock Quick Capture UX polish: Quick Capture is collapsed by default, expands inline on demand, uses a vertical select layout to avoid Foundry select compression, and collapses again after a successful save. No campaign data model or host architecture changes are introduced."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
