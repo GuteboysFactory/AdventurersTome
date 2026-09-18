@@ -347,7 +347,7 @@ function pv2InstallStyle() {
 Hooks.once("ready", () => {
   if (!game.user?.isGM) return;
   pv2InstallStyle();
-  const module = game.modules.get(PV2_MODULE_ID);
+  const module = game.modules.get(MODULE_ID);
   if (module) {
     const api = module.api && typeof module.api === "object" ? module.api : {};
     const contextual = api.contextualPrivateVault && typeof api.contextualPrivateVault === "object"
