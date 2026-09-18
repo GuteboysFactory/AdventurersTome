@@ -345,7 +345,34 @@ function pv2InstallStyle() {
 }
 
 Hooks.once("ready", () => {
-  if (game.user?.isGM) pv2InstallStyle();
+  if (!game.user?.isGM) return;
+  pv2InstallStyle();
+  const module = game.modules.get(PV2_MODULE_ID);
+  if (module) {
+    const api = module.api && typeof module.api === "object" ? module.api : {};
+    const contextual = api.contextualPrivateVault && typeof api.contextualPrivateVault === "object"
+      ? api.contextualPrivateVault
+      : {};
+    module.api = {
+      ...api,
+      contextualPrivateVault: {
+        ...contextual,
+        open: async (documentOrUuid) => {
+          let document = documentOrUuid;
+          if (typeof documentOrUuid === "string") {
+            try {
+              document = api.universalDocuments?.resolve?.(documentOrUuid) || fromUuidSync?.(documentOrUuid) || null;
+            } catch (_err) {
+              document = api.universalDocuments?.resolve?.(documentOrUuid) || null;
+            }
+          }
+          if (!document?.uuid) return false;
+          await pv2OpenVault(document);
+          return true;
+        }
+      }
+    };
+  }
 });
 
 Hooks.on("renderApplicationV2", (app, element) => {

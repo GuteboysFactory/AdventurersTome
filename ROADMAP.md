@@ -349,22 +349,28 @@ The Dock should reduce navigation friction for common GM workflows without becom
 - GM utility shortcuts
 - future adapter-powered contextual actions
 
-## v1.4 first implementation target
+## v1.4.0-qa.1 — GM Dock Foundation
 
-The first GM Dock QA package should establish:
+**Status:** QA / LIVE TEST REQUIRED
 
-1. a compact dock surface
-2. stable placement and persistence
-3. contextual active-entry awareness
-4. direct Private Vault access
-5. Quick Capture access
-6. Reveal Queue access
-7. Next Session access
-8. safe interaction with existing Tome navigation
-9. no duplication of existing data models
-10. Foundry V13.351 regression safety
+Implemented foundation:
 
-The first package should prioritize the shell, context model and core shortcuts before adding richer adapter-driven actions.
+1. compact GM-only persistent Dock shell
+2. draggable per-user placement with reset and reload persistence
+3. deterministic current-context resolution with UUID-backed pin/unpin
+4. contextual Private Vault shortcut using the existing UUID-backed vault
+5. Dock Quick Capture using the existing Tome/private-note and Quick Capture Inbox workflows
+6. Reveal Queue shortcut and live queue badge
+7. Next Session / GM Dashboard shortcut and session badge
+8. recent/contextual GM navigation using the existing per-user Tome recent list
+9. safe Tome navigation through the existing canonical Tome reference resolver
+10. internal Dock action registry prepared for future adapter-powered actions without defining the public v1.5 Adapter API
+11. no ApplicationV2 minimize/restore behavior; the Dock is its own lightweight Foundry UI surface
+12. Foundry V13.351 remains the QA runtime target
+
+QA protocol: `docs/V1.4_QA1_GM_DOCK_FOUNDATION.md`
+
+The v1.4 foundation remains non-promoted until live QA confirms placement, context behavior, privacy, reload/multi-client safety and v1.3 regression.
 
 ---
 
@@ -387,6 +393,17 @@ Adapters may provide:
 Core remains functional with no adapter or when an adapter cannot enrich a document.
 
 Genesys and Realm Guard / Torchbearer may serve as reference adapters without becoming Core dependencies.
+
+## Ecosystem discovery / optional Tome handoff
+
+Other GuteboysFactory systems/modules may expose an optional Tome-aware action.
+
+- If Adventurer's Tome is active, the action hands the current UUID/context to Tome.
+- If Tome is not installed/active, the same user-invoked action may open a tasteful GM-only **Discover Adventurer's Tome** panel with install/learn-more links.
+- No startup advertising or repeated unsolicited popup.
+- Player clients do not receive install/promotional prompts.
+- The fallback presentation should be implemented through a shared integration helper so Realm Guard, Genesys VTT and future GBF projects do not each invent incompatible Tome detection.
+- This discovery/fallback contract belongs with the formal integration/adapter work and is deliberately not part of v1.4 GM Dock Core.
 
 ---
 
