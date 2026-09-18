@@ -7,6 +7,8 @@ let dock = null;
 let panel = "";
 let lastFoundryUuid = "";
 let refreshTimer = null;
+let hostedProviderRegistered = false;
+let hostedProviderHostId = "";
 const extraActions = new Map();
 
 const api = () => game.modules.get(MODULE_ID)?.api || {};
@@ -79,6 +81,126 @@ function vaultCount(ctx) {
 function recentRows() {
   const refs = Array.isArray(api().getRecentItems?.()) ? api().getRecentItems() : [];
   return refs.slice(0,8).map((ref) => api().getRefMeta?.(ref)).filter(Boolean);
+}
+
+function activeDockHost() {
+  const host = globalThis.GuteboysFactory?.gmDockHost;
+  if (!host || host.id === MODULE_ID) return null;
+  if (host.contract !== "gbf-gm-dock-host" || Number(host.version || 0) < 1) return null;
+  if (typeof host.registerProvider !== "function") return null;
+  return host;
+}
+
+function removeStandaloneDock() {
+  document.getElementById(DOCK_ID)?.remove();
+  dock = null;
+  panel = "";
+}
+
+function hostedMenu() {
+  const ctx = currentContext();
+  const pinned = Boolean(ctx.uuid && String(game.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
+  const recents = recentRows().slice(0,5);
+  const items = [
+    {
+      id:"context",
+      label:ctx.name || "Current Context",
+      detail:ctx.refKey ? `${labelFor(ctx.documentName)} · Open current Tome context` : `${labelFor(ctx.documentName)} · Foundry context`,
+      icon:`fa-solid ${iconFor(ctx.documentName)}`,
+      disabled:!ctx.refKey && !ctx.document,
+      onClick:()=>handleAction("context")
+    },
+    {
+      id:"pin",
+      label:pinned ? "Unpin Context" : "Pin Context",
+      detail:pinned ? "Return Dock context to normal navigation." : "Keep this context active while you work elsewhere.",
+      icon:"fa-solid fa-thumbtack",
+      disabled:!ctx.uuid,
+      onClick:()=>handleAction("pin")
+    },
+    { separator:true, label:"Campaign tools" },
+    {
+      id:"vault",
+      label:"Private Vault",
+      detail:ctx.refKey ? `Private GM context for ${ctx.name}` : "Open a Tome-linked context first.",
+      icon:"fa-solid fa-lock",
+      badge:vaultCount(ctx),
+      disabled:!ctx.refKey,
+      onClick:()=>handleAction("vault")
+    },
+    {
+      id:"capture",
+      label:"Quick Capture",
+      detail:"Capture a private GM note without creating a parallel data model.",
+      icon:"fa-solid fa-bolt",
+      onClick:()=>api().openQuickCapture?.()
+    },
+    {
+      id:"reveal",
+      label:"Reveal Queue",
+      detail:"Review queued campaign reveals and Show to Players.",
+      icon:"fa-solid fa-eye",
+      badge:queueCount(),
+      onClick:()=>handleAction("reveal")
+    },
+    {
+      id:"next",
+      label:`Next Session${nextSession() ? ` · ${nextSession()}` : ""}`,
+      detail:"Open the existing Tome GM Dashboard and session-prep workflow.",
+      icon:"fa-solid fa-calendar-day",
+      onClick:()=>handleAction("next")
+    },
+    { separator:true, label:"Recent Tome context" },
+    ...recents.map((row,index)=>({
+      id:`recent-${index}`,
+      label:row.name,
+      detail:row.category || row.type || "Tome",
+      icon:`fa-solid ${row.icon || "fa-book"}`,
+      onClick:()=>api().openRef?.(row.refKey)
+    })),
+    { separator:true, label:"Workspace" },
+    {
+      id:"open-tome",
+      label:"Open Adventurer's Tome",
+      detail:"Open the full campaign workspace.",
+      icon:"fa-solid fa-book-open",
+      onClick:()=>handleAction("tome")
+    }
+  ];
+  return {
+    title:"Adventurer's Tome",
+    subtitle:"Campaign workspace",
+    context:ctx?.name ? `Current: ${ctx.name}` : "",
+    items
+  };
+}
+
+function registerWithDockHost() {
+  if (!game.user?.isGM) return false;
+  const host = activeDockHost();
+  if (!host) {
+    hostedProviderRegistered = false;
+    hostedProviderHostId = "";
+    return false;
+  }
+
+  if (!host.hasProvider?.(MODULE_ID) || hostedProviderHostId !== host.id) {
+    host.registerProvider({
+      id:MODULE_ID,
+      label:"Adventurer's Tome",
+      icon:"fa-solid fa-book-open",
+      tooltip:"Adventurer's Tome · Campaign Workspace",
+      order:50,
+      visible:()=>game.user?.isGM === true,
+      badge:()=>queueCount(),
+      menu:()=>hostedMenu()
+    });
+  }
+
+  hostedProviderRegistered = true;
+  hostedProviderHostId = String(host.id || "");
+  removeStandaloneDock();
+  return true;
 }
 
 function badge(n) {
@@ -259,7 +381,16 @@ function bindGrip() {
 }
 
 function refreshDock() {
-  if (!game.user?.isGM) return;
+  if (!game.user?.isGM) {
+    removeStandaloneDock();
+    return;
+  }
+
+  if (registerWithDockHost()) {
+    activeDockHost()?.refresh?.();
+    return;
+  }
+
   dock = document.getElementById(DOCK_ID);
   if (!dock) {
     dock=document.createElement("aside");
@@ -296,8 +427,11 @@ function captureFoundryContext(app) {
 
 function gmDockApi() {
   return Object.freeze({
-    version:1,
+    version:2,
+    hostContract:"gbf-gm-dock-host",
     refresh:refreshDock,
+    mode:()=>activeDockHost() ? "hosted-provider" : "standalone-fallback",
+    host:()=>activeDockHost() ? { id:String(activeDockHost().id || ""), label:String(activeDockHost().label || "") } : null,
     context:()=>{
       const c=currentContext();
       return {uuid:c.uuid,refKey:c.refKey,name:c.name,documentName:c.documentName,source:c.source,pinned:String(game.settings.get(MODULE_ID,PIN_SETTING)||"")===c.uuid};
@@ -324,8 +458,18 @@ Hooks.once("ready",()=>{
   const module=game.modules.get(MODULE_ID);
   if (module) module.api={...(module.api||{}),gmDock:gmDockApi()};
   refreshDock();
-  window.addEventListener("resize",()=>positionDock({left:Number(dock?.dataset.left||savedPosition().left),top:Number(dock?.dataset.top||savedPosition().top)}));
-  console.info("Adventurer's Tome | v1.4 GM Dock foundation ready.");
+  window.addEventListener("resize",()=>{
+    if (activeDockHost()) return activeDockHost()?.refresh?.();
+    positionDock({left:Number(dock?.dataset.left||savedPosition().left),top:Number(dock?.dataset.top||savedPosition().top)});
+  });
+  console.info(`Adventurer's Tome | v1.4 GM Dock ready in ${activeDockHost() ? "hosted provider" : "standalone fallback"} mode.`);
+});
+
+Hooks.on("guteboysFactoryGmDockHostReady",()=>{
+  if (!game.user?.isGM) return;
+  hostedProviderRegistered=false;
+  hostedProviderHostId="";
+  refreshDock();
 });
 
 Hooks.on("renderApplicationV2",(app)=>captureFoundryContext(app));
