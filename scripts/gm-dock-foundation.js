@@ -74,7 +74,7 @@ function nextSession() {
 }
 
 function vaultCount(ctx) {
-  if (!ctx.document || !ctx.refKey) return 0;
+  if (!ctx.document?.uuid) return 0;
   try { return Number(api().contextualPrivateVault?.getSummary?.(ctx.document)?.noteCount || 0); } catch (_e) { return 0; }
 }
 
@@ -97,10 +97,68 @@ function removeStandaloneDock() {
   panel = "";
 }
 
+function hostedCaptureHtml(ctx) {
+  const contextLabel = ctx.document?.uuid ? `Current context · ${esc(ctx.name)}` : "GM Quick Capture Inbox";
+  return `<form class="at-gmd-hosted-capture" data-at-hosted-capture>
+    <div class="at-gmd-hosted-capture-head"><i class="fa-solid fa-bolt"></i><span><strong>Quick Capture</strong><small>Capture now. Organize later.</small></span></div>
+    <input type="text" name="title" placeholder="Title">
+    <textarea name="body" rows="2" placeholder="Private GM note..."></textarea>
+    <div class="at-gmd-hosted-capture-row">
+      <select name="type" aria-label="Capture type">
+        <option value="reminder">Reminder</option><option value="prep">Prep</option><option value="secret">Secret</option><option value="clue">Clue</option><option value="reveal">Reveal</option><option value="consequence">Consequence</option><option value="question">Question</option><option value="idea">Idea</option><option value="scene">Scene</option>
+      </select>
+      <select name="target" aria-label="Capture target">
+        ${ctx.document?.uuid ? `<option value="context">${contextLabel}</option>` : ""}
+        <option value="inbox">GM Quick Capture Inbox</option>
+      </select>
+      <button type="submit" title="Save Capture" aria-label="Save Capture"><i class="fa-solid fa-floppy-disk"></i></button>
+    </div>
+  </form>`;
+}
+
+function wireHostedCapture(root) {
+  const form = root?.querySelector?.("[data-at-hosted-capture]");
+  if (!form) return;
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    event.stopPropagation();
+    const data = new FormData(form);
+    const title = String(data.get("title") || "").trim();
+    const body = String(data.get("body") || "").trim();
+    if (!title && !body) return ui.notifications.warn("Adventurer's Tome: Add a title or note before saving.");
+
+    const ctx = currentContext();
+    const type = String(data.get("type") || "reminder");
+    const target = String(data.get("target") || "inbox");
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+
+    try {
+      if (target === "context" && ctx.document?.uuid) {
+        const addNote = api().contextualPrivateVault?.addNote;
+        if (typeof addNote !== "function") throw new Error("Contextual Private Vault capture API is unavailable.");
+        await addNote(ctx.document, { title: title || "Quick Capture", body, type, status:"open" });
+        ui.notifications.info(`Adventurer's Tome: Captured to ${ctx.name}.`);
+      } else {
+        const result = await api().quickCapture?.({ title, body, type });
+        ui.notifications.info(`Adventurer's Tome: Captured to ${result?.documentName || "GM Quick Capture Inbox"}.`);
+      }
+      form.reset();
+      activeDockHost()?.refresh?.();
+    } catch (error) {
+      console.error("Adventurer's Tome | Hosted Quick Capture failed", error);
+      ui.notifications.error("Adventurer's Tome: Quick Capture failed. See console.");
+    } finally {
+      if (button?.isConnected) button.disabled = false;
+    }
+  });
+}
+
 function hostedMenu() {
   const ctx = currentContext();
   const pinned = Boolean(ctx.uuid && String(game.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
-  const recents = recentRows().slice(0,5);
+  const recents = recentRows().slice(0,3);
+  const richHost = Number(activeDockHost()?.version || 0) >= 2;
   const items = [
     {
       id:"context",
@@ -122,19 +180,19 @@ function hostedMenu() {
     {
       id:"vault",
       label:"Private Vault",
-      detail:ctx.refKey ? `Private GM context for ${ctx.name}` : "Open a Tome-linked context first.",
+      detail:ctx.document?.uuid ? `Private GM context for ${ctx.name}` : "Open a canonical Foundry context first.",
       icon:"fa-solid fa-lock",
       badge:vaultCount(ctx),
-      disabled:!ctx.refKey,
+      disabled:!ctx.document?.uuid,
       onClick:()=>handleAction("vault")
     },
-    {
+    ...(!richHost ? [{
       id:"capture",
       label:"Quick Capture",
       detail:"Capture a private GM note without creating a parallel data model.",
       icon:"fa-solid fa-bolt",
       onClick:()=>api().openQuickCapture?.()
-    },
+    }] : []),
     {
       id:"reveal",
       label:"Reveal Queue",
@@ -158,20 +216,29 @@ function hostedMenu() {
       icon:`fa-solid ${row.icon || "fa-book"}`,
       onClick:()=>api().openRef?.(row.refKey)
     })),
-    { separator:true, label:"Workspace" },
-    {
-      id:"open-tome",
-      label:"Open Adventurer's Tome",
-      detail:"Open the full campaign workspace.",
-      icon:"fa-solid fa-book-open",
+    ...(recentRows().length > 3 ? [{
+      id:"recent-more",
+      label:"More recent entries",
+      detail:"Open Adventurer's Tome to continue browsing.",
+      icon:"fa-solid fa-clock-rotate-left",
       onClick:()=>handleAction("tome")
-    }
+    }] : [])
   ];
+
   return {
     title:"Adventurer's Tome",
     subtitle:"Campaign workspace",
     context:ctx?.name ? `Current: ${ctx.name}` : "",
-    items
+    bodyHtml:richHost ? hostedCaptureHtml(ctx) : "",
+    onRender:richHost ? (root)=>wireHostedCapture(root) : null,
+    items,
+    footer:richHost ? {
+      id:"open-tome",
+      label:"Open Adventurer's Tome",
+      detail:"Full campaign workspace",
+      icon:"fa-solid fa-book-open",
+      onClick:()=>handleAction("tome")
+    } : null
   };
 }
 
@@ -228,7 +295,7 @@ function barHtml(ctx) {
     </button>
     <button type="button" class="at-gmd-pin ${pinned ? "is-pinned" : ""}" data-gmd-action="pin" title="${pinned ? "Unpin context" : "Pin context"}"${ctx.uuid ? "" : " disabled"}><i class="fa-solid fa-thumbtack"></i></button>
     <i class="at-gmd-divider"></i>
-    ${action("vault","fa-lock","Contextual Private Vault",vaultCount(ctx),!ctx.refKey)}
+    ${action("vault","fa-lock","Contextual Private Vault",vaultCount(ctx),!ctx.document?.uuid)}
     ${action("capture","fa-bolt","Quick Capture")}
     ${action("reveal","fa-eye","Reveal Queue",queueCount())}
     ${action("next","fa-calendar-day","Next Session",nextSession())}
@@ -240,7 +307,7 @@ function barHtml(ctx) {
 }
 
 function quickCaptureHtml(ctx) {
-  const contextOption = ctx.refKey ? `<option value="context">Current context - ${esc(ctx.name)}</option>` : "";
+  const contextOption = ctx.document?.uuid ? `<option value="context">Current context - ${esc(ctx.name)}</option>` : "";
   return `<section class="at-gmd-panel">
     <header><div><small>GM WORKFLOW</small><h3>Quick Capture</h3></div><button type="button" data-gmd-close><i class="fa-solid fa-xmark"></i></button></header>
     <form data-gmd-capture>
@@ -303,13 +370,24 @@ function renderPanel(ctx=currentContext()) {
     if (!title && !body) return ui.notifications.warn("Adventurer's Tome: Add a title or note before saving.");
     const latest = currentContext();
     try {
-      const result = await api().quickCapture?.({
-        refKey: String(data.get("target")) === "context" ? latest.refKey : "",
-        title, body,
-        type:String(data.get("type")||"reminder"),
-        pinned:data.get("pinned")==="on"
-      });
-      ui.notifications.info(`Adventurer's Tome: Captured to ${result?.documentName || "GM Quick Capture Inbox"}.`);
+      let result = null;
+      if (String(data.get("target")) === "context" && latest.document?.uuid) {
+        result = await api().contextualPrivateVault?.addNote?.(latest.document, {
+          title:title || "Quick Capture",
+          body,
+          type:String(data.get("type")||"reminder"),
+          pinned:data.get("pinned")==="on",
+          status:"open"
+        });
+        ui.notifications.info(`Adventurer's Tome: Captured to ${latest.name}.`);
+      } else {
+        result = await api().quickCapture?.({
+          title, body,
+          type:String(data.get("type")||"reminder"),
+          pinned:data.get("pinned")==="on"
+        });
+        ui.notifications.info(`Adventurer's Tome: Captured to ${result?.documentName || "GM Quick Capture Inbox"}.`);
+      }
       panel="";
       scheduleRefresh();
     } catch(error) {
@@ -333,8 +411,8 @@ async function handleAction(id) {
   } else if (id === "pin") {
     await game.settings.set(MODULE_ID,PIN_SETTING,String(game.settings.get(MODULE_ID,PIN_SETTING)||"")===ctx.uuid ? "" : ctx.uuid);
   } else if (id === "vault") {
-    if (!ctx.refKey) return ui.notifications.info("Adventurer's Tome: Private Vault needs a Tome-linked context.");
-    await api().contextualPrivateVault?.open?.(ctx.document || ctx.uuid);
+    if (!ctx.document?.uuid) return ui.notifications.info("Adventurer's Tome: Private Vault needs a canonical Foundry context.");
+    await api().contextualPrivateVault?.open?.(ctx.document);
   } else if (id === "capture" || id === "recent") {
     panel = panel === id ? "" : id;
     return renderPanel(ctx);
