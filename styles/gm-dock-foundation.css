@@ -26,3 +26,15 @@
 .at-gmd-empty{display:flex;align-items:center;justify-content:center;gap:8px;min-height:90px;color:#948773;font-size:12px}
 @media(max-width:900px){.at-gmd-context{max-width:170px}.at-gmd-context strong{max-width:120px}.at-gm-dock button{padding-inline:6px}}
 @media(max-width:650px){.at-gmd-context>span{display:none}.at-gmd-context{width:34px;padding:0;justify-content:center}.at-gmd-divider{margin-inline:1px}.at-gmd-row{grid-template-columns:1fr}}
+
+
+.at-gmd-hosted-capture{display:grid;gap:7px;padding:9px 10px 10px}
+.at-gmd-hosted-capture-head{display:flex;align-items:center;gap:8px;color:#d8b56f}.at-gmd-hosted-capture-head>i{width:20px;text-align:center}
+.at-gmd-hosted-capture-head>span{display:grid;min-width:0}.at-gmd-hosted-capture-head strong{color:#f1e4cf;font-size:11px}.at-gmd-hosted-capture-head small{color:#958a78;font-size:9px}
+.at-gmd-hosted-capture input,.at-gmd-hosted-capture textarea,.at-gmd-hosted-capture select{box-sizing:border-box;width:100%;margin:0;border:1px solid rgba(197,160,96,.26);border-radius:6px;color:#eee5d6;background:rgba(8,8,8,.46);box-shadow:inset 0 1px 3px rgba(0,0,0,.34);font-size:10px}
+.at-gmd-hosted-capture input{height:30px;padding:0 7px}.at-gmd-hosted-capture textarea{min-height:54px;padding:6px 7px;resize:vertical}
+.at-gmd-hosted-capture-row{display:grid;grid-template-columns:.78fr 1.42fr 32px;gap:6px;align-items:stretch}
+.at-gmd-hosted-capture-row select{min-width:0;height:30px;padding:0 5px}
+.at-gmd-hosted-capture-row button{display:grid;place-items:center;width:32px!important;min-width:32px!important;height:30px!important;min-height:30px!important;margin:0!important;padding:0!important;border:1px solid rgba(197,160,96,.32)!important;border-radius:6px!important;color:#1b1712!important;background:linear-gradient(180deg,#d8b56f,#b98b42)!important;box-shadow:none!important}
+.at-gmd-hosted-capture-row button:hover:not(:disabled),.at-gmd-hosted-capture-row button:focus-visible:not(:disabled){filter:brightness(1.08);outline:none}
+.at-gmd-hosted-capture-row button:disabled{opacity:.45}

@@ -183,6 +183,9 @@ jobs:
           if [[ "$VERSION" == "1.4.0-qa.4" ]]; then
             NOTES="v1.4.0-qa.4 hardens Tome API composition. Core ready no longer replaces extension APIs, and GM Dock plus contextual Private Vault APIs merge into stable shared objects. This removes the ready-hook race that could erase gmDock and contextualPrivateVault.open while preserving the unified Dock architecture."
           fi
+          if [[ "$VERSION" == "1.4.0-qa.5" ]]; then
+            NOTES="v1.4.0-qa.5 polishes the unified GM Dock experience: compact inline Quick Capture inside compatible host v2 menus, canonical Foundry context support for Private Vault including Scene/Item contexts, three-item recent navigation, and a persistent Open Adventurer's Tome footer. Standalone Tome Dock remains the fallback."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else

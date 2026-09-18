@@ -447,6 +447,14 @@ function gmApi() {
       const record = getRecord(document);
       return { available: true, uuid: canonicalUuid(document), noteCount: record.notes.length, updatedAt: record.updatedAt };
     },
+    async addNote(document, note = {}) {
+      if (!game.user?.isGM) throw new Error("Only a GM can add private Adventurer's Tome context.");
+      if (!canonicalUuid(document)) throw new Error("A stable Foundry UUID is required for contextual GM notes.");
+      const record = getRecord(document);
+      const normalized = normalizeNote({ ...note, status: note?.status || "open" });
+      await saveRecord(document, { notes: [normalized, ...record.notes] });
+      return { note: normalized, summary: this.getSummary(document) };
+    },
     async migrateLegacy() {
       return migrateLegacyVault();
     }
