@@ -197,7 +197,7 @@ Make Tome the place users actually organize and author campaign Journals while F
 
 - v1.1.15 is the final v1.1 release line.
 - v1.2 Foundry Source Parity I + Contextual Private Vault is complete.
-- v1.3 Foundry Source Parity II / Universal Document Takeover is complete on the verified Foundry V13.351 baseline.
+- v1.3 Foundry Source Parity II / Universal Document Takeover is complete and released as stable `v1.3.0` on the verified Foundry V13.351 baseline.
 - Development now moves to v1.4.x.
 - Older bugs discovered during v1.4 are fixed inside the active v1.4.x line unless they require a dedicated stable hotfix.
 - Remain on each roadmap version until that complete milestone is QA-approved.
@@ -307,7 +307,8 @@ On Foundry V13.351:
 - structuralHealthy = true
 - qaComplete = true
 
-**Current verified QA completion build:** `v1.3.0-qa.24`
+**Stable release:** `v1.3.0`  
+**Verified QA source build:** `v1.3.0-qa.24`
 
 ### Important remaining platform note
 
@@ -514,7 +515,8 @@ A milestone is not complete merely because its headline feature works.
 # Current handoff snapshot
 
 **Stable completed architecture milestone:** `v1.3 — Foundry Source Parity II / Universal Document Takeover`  
-**Verified completion build:** `v1.3.0-qa.24`  
+**Stable baseline:** `v1.3.0`  
+**Verified QA source build:** `v1.3.0-qa.24`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.4 — Tome GM Dock`
 
