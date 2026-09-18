@@ -438,6 +438,14 @@ function inferJournalRefKey(journal) {
   return "";
 }
 
+function tomeRefForDocument(document) {
+  if (!document) return "";
+  if (document.documentName === "Actor" && document.id) return `actor:${document.id}`;
+  if (document.documentName === "JournalEntry") return inferJournalRefKey(document);
+  if (document.documentName === "JournalEntryPage") return inferJournalRefKey(document.parent);
+  return "";
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -6924,6 +6932,119 @@ Hooks.once("ready", async () => {
       const result = await saveTomeAccess(document, { visibility: access.visibility, discovered: access.discovered !== false, notes });
       if (tomeApp?.rendered) await tomeApp.render({ parts: ["main"] });
       return result;
+    },
+    currentContext: () => {
+      const app = getApp();
+      const refKey = String(app?._currentTomeRef?.() || "");
+      const meta = tomeRefMeta(refKey);
+      if (!meta) return null;
+      return {
+        refKey,
+        uuid: String(meta.document?.uuid || ""),
+        documentName: String(meta.document?.documentName || ""),
+        name: String(meta.name || meta.document?.name || ""),
+        category: String(meta.category || ""),
+        icon: String(meta.icon || "fa-book"),
+        img: String(meta.img || "")
+      };
+    },
+    refForDocument: (documentOrUuid) => {
+      let document = documentOrUuid;
+      if (typeof documentOrUuid === "string") {
+        try { document = game.modules.get(MODULE_ID)?.api?.universalDocuments?.resolve?.(documentOrUuid) || fromUuidSync?.(documentOrUuid) || null; }
+        catch (_err) { document = game.modules.get(MODULE_ID)?.api?.universalDocuments?.resolve?.(documentOrUuid) || null; }
+      }
+      return tomeRefForDocument(document);
+    },
+    getRefMeta: (refKey) => {
+      const meta = tomeRefMeta(refKey);
+      if (!meta) return null;
+      return {
+        refKey: meta.refKey,
+        type: meta.type,
+        id: meta.id,
+        uuid: String(meta.document?.uuid || ""),
+        documentName: String(meta.document?.documentName || ""),
+        name: String(meta.name || ""),
+        category: String(meta.category || ""),
+        icon: String(meta.icon || "fa-book"),
+        summary: String(meta.summary || ""),
+        img: String(meta.img || "")
+      };
+    },
+    openRef: async (refKey, { record = true } = {}) => {
+      const app = getApp();
+      if (!app.rendered) await app.render(true);
+      return app._openRefKey(String(refKey || ""), { record });
+    },
+    openGmDashboard: async () => {
+      if (!game.user.isGM) throw new Error("Only a GM can open Tome GM tools.");
+      const app = getApp();
+      if (!app.rendered) await app.render(true);
+      if (app.activeTab !== "gmDashboard") app._pushNavigationState?.();
+      app.activeTab = "gmDashboard";
+      await app.render({ parts: ["main"] });
+      return true;
+    },
+    openQuickCapture: async () => {
+      if (!game.user.isGM) throw new Error("Only a GM can open Quick Capture.");
+      const app = getApp();
+      if (!app.rendered) await app.render(true);
+      app._quickCaptureSourceRef = app._currentTomeRef?.() || "";
+      if (app.activeTab !== "quickCapture") app._pushNavigationState?.();
+      app.activeTab = "quickCapture";
+      await app.render({ parts: ["main"] });
+      requestAnimationFrame(() => app.element?.querySelector('[name="captureTitle"]')?.focus?.());
+      return true;
+    },
+    openRevealQueue: async () => {
+      if (!game.user.isGM) throw new Error("Only a GM can open Reveal Queue.");
+      const app = getApp();
+      if (!app.rendered) await app.render(true);
+      if (app.activeTab !== "revealQueue") app._pushNavigationState?.();
+      app.activeTab = "revealQueue";
+      await app.render({ parts: ["main"] });
+      return true;
+    },
+    openNotebook: async () => {
+      if (!game.user.isGM) throw new Error("Only a GM can open the GM Notebook.");
+      const app = getApp();
+      if (!app.rendered) await app.render(true);
+      app.activeTab = "settings";
+      app.settingsSection = "notebook";
+      await app.render({ parts: ["main"] });
+      return true;
+    },
+    quickCapture: async ({ refKey = "", title = "", body = "", type = "reminder", pinned = false, trigger = "", sessionTarget = null } = {}) => {
+      if (!game.user.isGM) throw new Error("Only a GM can use Quick Capture.");
+      const rawTitle = String(title || "").trim();
+      const rawBody = String(body || "").trim();
+      if (!rawTitle && !rawBody) throw new Error("Quick Capture needs a title or note.");
+
+      let document = refKey ? resolveTomeRefKey(String(refKey)) : null;
+      if (!document) document = await ensureQuickCaptureInbox();
+
+      const access = getTomeAccess(document);
+      const targetSession = Number(sessionTarget || 0);
+      const note = normalizeGmNote({
+        title: rawTitle || "Quick Capture",
+        body: rawBody,
+        type: String(type || "reminder"),
+        pinned: Boolean(pinned),
+        trigger: String(trigger || "").trim(),
+        sessionTarget: Number.isFinite(targetSession) && targetSession > 0 ? Math.floor(targetSession) : null,
+        status: "open"
+      });
+      await setPrivateOverlay(document, { notes: [note, ...access.notes] });
+      if (tomeApp?.rendered) await tomeApp.render({ parts: ["main"] });
+      const payload = {
+        documentUuid: String(document.uuid || ""),
+        documentName: String(document.name || "GM Quick Capture Inbox"),
+        refKey: tomeRefForDocument(document),
+        noteId: note.id
+      };
+      Hooks.callAll("adventurersTomeQuickCaptureSaved", payload);
+      return payload;
     },
     getFavorites: () => getFavoriteRefs(),
     getRecentItems: () => getRecentRefs(),
