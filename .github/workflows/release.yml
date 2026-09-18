@@ -40,7 +40,7 @@ jobs:
             if (manifest[key] == null) throw new Error(`Manifest missing required field: ${key}`);
           }
           if (manifest.id !== 'adventurers-tome') throw new Error(`Unexpected module id: ${manifest.id}`);
-          if (!/^1\.(?:1|2|3)\.\d+(?:-(?:qa|beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`Release workflow expects a supported v1.1-v1.4 release, got ${manifest.version}`);
+          if (!/^1\.(?:1|2|3|4)\.\d+(?:-(?:qa|beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`Release workflow expects a supported v1.1-v1.4 release, got ${manifest.version}`);
           if (new Set(runtimeFiles).size !== runtimeFiles.length) throw new Error('Manifest contains duplicate runtime file references.');
           for (const file of runtimeFiles) {
             if (!fs.existsSync(file)) throw new Error(`Manifest references missing file: ${file}`);
