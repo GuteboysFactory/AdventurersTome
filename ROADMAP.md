@@ -372,6 +372,26 @@ QA protocol: `docs/V1.4_QA1_GM_DOCK_FOUNDATION.md`
 
 The v1.4 foundation remains non-promoted until live QA confirms placement, context behavior, privacy, reload/multi-client safety and v1.3 regression.
 
+## v1.4.0-qa.2 — Unified GM Dock Host
+
+**Status:** QA / LIVE TEST REQUIRED
+
+The qa.1 live observation showed that two independent GM Docks are technically functional but product-level duplication. qa.2 establishes a host/provider model instead:
+
+- a compatible GuteboysFactory system may expose one neutral GM Dock Host
+- Tome registers a campaign-workspace provider/menu into that host
+- Realm Guard / Torchbearer is the first reference Host implementation
+- when a compatible Host exists, Tome suppresses its own standalone Dock
+- when no Host exists, Tome keeps its own Dock as the fallback
+- Tome actions continue to operate on Tome-owned/canonical campaign workflows
+- the Host receives callbacks and presentation metadata, not copied Tome campaign data
+- the contract is capability-based rather than hard-coded to Realm Guard
+- future system actions may later flow in the opposite direction, with Tome becoming the primary campaign workspace while systems retain rule authority
+
+**Product direction locked:** Foundry is the game table; Adventurer's Tome is the campaign workspace. Campaign preparation, memory, documentation, discovery and reveal workflows should increasingly converge in Tome, while rules engines continue to own system mechanics.
+
+QA protocol: `docs/V1.4_QA2_UNIFIED_GM_DOCK_HOST.md`
+
 ---
 
 # v1.5 — Formal Adapter API
