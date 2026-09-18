@@ -6906,7 +6906,9 @@ Hooks.once("ready", async () => {
     }
   }
   const module = game.modules.get(MODULE_ID);
-  module.api = {
+  if (!module) throw new Error("Adventurer's Tome module package was not found during ready.");
+  if (!module.api || typeof module.api !== "object") module.api = {};
+  const coreApi = {
     open: () => getApp().render(true),
     app: () => getApp(),
     getGroup: () => getGroupActors(),
@@ -7107,6 +7109,7 @@ Hooks.once("ready", async () => {
     },
     moduleId: MODULE_ID
   };
+  Object.assign(module.api, coreApi);
 
   installLauncher();
   game.socket.on(`module.${MODULE_ID}`, async (payload = {}) => {
