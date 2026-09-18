@@ -180,6 +180,9 @@ jobs:
           if [[ "$VERSION" == "1.4.0-qa.3" ]]; then
             NOTES="v1.4.0-qa.3 is a focused hotfix for the unified GM Dock QA line. It corrects the Private Vault ready-hook module-id reference so the contextual Private Vault open API registers cleanly at world ready. No Dock architecture or campaign data model changes are introduced."
           fi
+          if [[ "$VERSION" == "1.4.0-qa.4" ]]; then
+            NOTES="v1.4.0-qa.4 hardens Tome API composition. Core ready no longer replaces extension APIs, and GM Dock plus contextual Private Vault APIs merge into stable shared objects. This removes the ready-hook race that could erase gmDock and contextualPrivateVault.open while preserving the unified Dock architecture."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
