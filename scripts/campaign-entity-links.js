@@ -286,6 +286,7 @@ function atCelManagerForJournal(context) {
   const section = document.createElement("section");
   section.className = "at-cel-manager";
   section.dataset.atCelManager = context.type;
+  section.dataset.atCelOwned = "true";
   section.dataset.journalId = context.journal.id;
   section.innerHTML = `
     <div class="at-cel-heading">
@@ -302,25 +303,86 @@ function atCelManagerForJournal(context) {
   return section;
 }
 
-function atCelManagerForActor(context) {
-  const section = document.createElement("section");
-  section.className = "at-profile-panel at-profile-campaign-links at-cel-manager at-cel-actor-manager";
-  section.dataset.atCelManager = "actor";
-  section.dataset.actorId = context.actor.id;
-  section.innerHTML = `
-    <div class="at-profile-section-heading at-cel-heading">
-      <i class="fa-solid fa-link"></i><h2>Campaign Links</h2>
-      <small>Manual Session / Quest links</small>
+function atCelResetMount(root) {
+  root.querySelectorAll('[data-at-cel-owned-panel="true"]').forEach((node) => node.remove());
+
+  root.querySelectorAll(".at-cel-inline-chip").forEach((wrapper) => {
+    const original = [...wrapper.children].find((child) => child.matches?.("button[data-action][data-journal-id]"));
+    if (original) wrapper.replaceWith(original);
+    else wrapper.remove();
+  });
+
+  root.querySelectorAll('[data-at-cel-owned="true"]').forEach((node) => node.remove());
+
+  root.querySelectorAll('[data-at-cel-augmented="true"]').forEach((node) => {
+    delete node.dataset.atCelManager;
+    delete node.dataset.actorId;
+    delete node.dataset.atCelAugmented;
+  });
+}
+
+function atCelWrapManualJournalLink(panel, journal, kind) {
+  const action = kind === "session" ? "selectSession" : "openQuestDetail";
+  const button = [...panel.querySelectorAll(`button[data-action="${action}"][data-journal-id]`)]
+    .find((candidate) => String(candidate.dataset.journalId || "") === journal.id);
+  if (!button || button.closest(".at-cel-inline-chip")) return false;
+
+  const wrapper = document.createElement("span");
+  wrapper.className = "at-cel-inline-chip";
+  button.before(wrapper);
+  wrapper.append(button);
+
+  const unlink = document.createElement("button");
+  unlink.type = "button";
+  unlink.className = "at-cel-unlink at-cel-inline-unlink";
+  unlink.dataset.atCelUnlinkJournal = `${kind}:${journal.id}`;
+  unlink.title = `Unlink ${journal.name}`;
+  unlink.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  wrapper.append(unlink);
+  return true;
+}
+
+function atCelManagerForActor(context, main) {
+  let panel = main.querySelector(".at-profile-campaign-links");
+  const relations = main.querySelector(".at-profile-relations");
+
+  if (!panel) {
+    panel = document.createElement("section");
+    panel.className = "at-profile-panel at-profile-campaign-links at-cel-created-campaign-links";
+    panel.dataset.atCelOwnedPanel = "true";
+    panel.innerHTML = `
+      <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
+      <p class="at-empty at-cel-empty-summary">No campaign links yet.</p>
+    `;
+    if (relations) relations.before(panel);
+    else main.append(panel);
+  }
+
+  panel.dataset.atCelManager = "actor";
+  panel.dataset.actorId = context.actor.id;
+  panel.dataset.atCelAugmented = "true";
+
+  if (!game.user?.isGM) return panel;
+
+  const linked = atCelJournalLinksForActor(context.actor);
+  for (const journal of linked.sessions) atCelWrapManualJournalLink(panel, journal, "session");
+  for (const journal of linked.quests) atCelWrapManualJournalLink(panel, journal, "quest");
+
+  const editor = document.createElement("div");
+  editor.className = "at-cel-inline-editor";
+  editor.dataset.atCelOwned = "true";
+  editor.innerHTML = `
+    <div class="at-cel-inline-editor-head">
+      <span><i class="fa-solid fa-link"></i> Manage links</span>
+      <small>Sessions / Quests</small>
     </div>
-    <div class="at-cel-actor-links">${atCelLinkedJournalChips(context.actor)}</div>
-    ${game.user?.isGM ? `
-      <div class="at-cel-add-row">
-        <select data-at-cel-journal-picker>${atCelJournalOptions(context.actor)}</select>
-        <button type="button" class="at-secondary" data-at-cel-add-journal><i class="fa-solid fa-plus"></i> Link Session / Quest</button>
-      </div>
-    ` : ""}
+    <div class="at-cel-add-row">
+      <select data-at-cel-journal-picker>${atCelJournalOptions(context.actor)}</select>
+      <button type="button" class="at-secondary" data-at-cel-add-journal><i class="fa-solid fa-plus"></i> Link Session / Quest</button>
+    </div>
   `;
-  return section;
+  panel.append(editor);
+  return panel;
 }
 
 function atCelMount() {
@@ -329,7 +391,7 @@ function atCelMount() {
   if (!root?.isConnected) return;
   const context = atCelCurrentContext(app);
 
-  root.querySelectorAll("[data-at-cel-manager]").forEach((node) => node.remove());
+  atCelResetMount(root);
   if (!context) return;
 
   if (context.type === "session") {
@@ -352,18 +414,7 @@ function atCelMount() {
   if (context.type === "actor") {
     const main = root.querySelector(".at-profile-page");
     if (!main) return;
-    const existingCampaign = main.querySelector(".at-profile-campaign-links");
-    const relations = main.querySelector(".at-profile-relations");
-    const manager = atCelManagerForActor(context);
-
-    if (existingCampaign) {
-      existingCampaign.classList.add("at-cel-existing-campaign-links");
-      existingCampaign.after(manager);
-    } else if (relations) {
-      relations.before(manager);
-    } else {
-      main.append(manager);
-    }
+    atCelManagerForActor(context, main);
   }
 }
 
@@ -482,8 +533,40 @@ function atCelInstallStyles() {
     .at-cel-empty { margin:0; opacity:.6; font-size:12px; }
     .at-cel-link-group + .at-cel-link-group { margin-top:10px; }
     .at-cel-link-group > strong { display:block; margin-bottom:5px; color:rgba(214,178,108,.72); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
-    .at-cel-actor-manager .at-profile-section-heading small { margin-left:auto; }
-    .at-cel-existing-campaign-links + .at-cel-actor-manager { margin-top:12px; }
+    .at-cel-inline-chip {
+      display:inline-flex;
+      align-items:stretch;
+      border-radius:4px;
+      overflow:hidden;
+      vertical-align:middle;
+    }
+    .at-cel-inline-chip > button[data-action] {
+      border-top-right-radius:0 !important;
+      border-bottom-right-radius:0 !important;
+    }
+    .at-cel-inline-unlink {
+      min-width:28px;
+      width:28px;
+      border-top-left-radius:0 !important;
+      border-bottom-left-radius:0 !important;
+    }
+    .at-cel-inline-editor {
+      margin-top:14px;
+      padding-top:12px;
+      border-top:1px solid rgba(214,178,108,.18);
+    }
+    .at-cel-inline-editor-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      color:rgba(214,178,108,.78);
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.055em;
+    }
+    .at-cel-inline-editor-head small { opacity:.58; font-size:9px; }
+    .at-cel-empty-summary { margin-bottom:0; }
     @media (max-width: 760px) {
       .at-cel-add-row { flex-direction:column; align-items:stretch; }
       .at-cel-add-row button, .at-cel-add-row select { width:100%; }
