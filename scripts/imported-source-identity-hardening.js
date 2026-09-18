@@ -231,9 +231,17 @@ function atiiSourceChildren(sourceFolder) {
 }
 
 async function atiiResolveSourceFolder(uuid, id = "") {
+  const canonicalUuid = String(uuid || "").trim() || (id ? `Folder.${String(id)}` : "");
+  if (!canonicalUuid) return null;
+
+  const resolver = atiiModule()?.api?.universalDocuments?.resolveCanonical;
   let source = null;
-  try { if (uuid) source = await fromUuid(uuid); } catch (_err) {}
-  if (!source && id) source = game.folders?.get(String(id)) || null;
+  if (typeof resolver === "function") {
+    source = await resolver(canonicalUuid, { consumer: "import-identity-hardening" });
+  } else {
+    source = atiiResolve(canonicalUuid);
+  }
+
   return source?.documentName === "Folder" ? source : null;
 }
 
