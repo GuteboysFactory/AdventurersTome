@@ -196,8 +196,10 @@ Make Tome the place users actually organize and author campaign Journals while F
 # Version discipline — LOCKED
 
 - v1.1.15 is the final v1.1 release line.
-- Development is on v1.2.x.
-- Older bugs discovered during v1.2 are fixed inside v1.2.x, not by reopening v1.1.
+- v1.2 Foundry Source Parity I + Contextual Private Vault is complete.
+- v1.3 Foundry Source Parity II / Universal Document Takeover is complete on the verified Foundry V13.351 baseline.
+- Development now moves to v1.4.x.
+- Older bugs discovered during v1.4 are fixed inside the active v1.4.x line unless they require a dedicated stable hotfix.
 - Remain on each roadmap version until that complete milestone is QA-approved.
 - Architecture defects blocking the active milestone belong inside the active milestone.
 - Patch/QA increments may contain current-milestone work, regressions, compatibility fixes and hardening.
@@ -232,151 +234,136 @@ v2.0  Campaign Brain
 
 ---
 
-# CURRENT — v1.2 Foundry Source Parity I + Contextual Private Vault
+# DONE — v1.2 Foundry Source Parity I + Contextual Private Vault
 
-**Stable baseline:** v1.1.15  
-**Current QA build:** v1.2.0-qa.1
+## Goal achieved
 
-## Goal
+Establish reliable Foundry↔Tome identity/live parity for the Journal/Actor surfaces central to Tome, while attaching private GM context to those same stable identities.
 
-Establish reliable Foundry↔Tome identity/live parity for the Journal/Actor surfaces already central to Tome, while attaching private GM context to those same stable identities.
+### Verified scope
 
-## v1.2.0-qa.1 — Contextual Private Vault Foundation
-
-Implemented:
-
-- UUID-backed v2 Private Vault storage.
-- GM-only contextual notes.
-- legacy private-vault migration path.
-- contextual access from supported Tome pages.
-- regression-safe mirroring to the legacy private note store during QA.
-
-Initial live QA indicates the Private Vault direction is sound, but exposed a pre-existing architectural gap:
-
-- Actor-backed Tome NPCs are not fully live-synced with their Foundry Actor.
-- Foundry Actor rename does not reliably update the Tome representation.
-- Tome-side rename does not reliably update the linked Actor.
-
-Therefore v1.2.0-qa.1 is **not a milestone completion build**.
-
-## NEXT — v1.2.0-qa.2 Foundry Identity & Live Sync Foundation
-
-Required scope:
-
-### Actor-backed identity/parity
-
-- Persist explicit Actor UUID/reference.
-- Stop ongoing name matching once a permanent Actor link exists.
-- Actor rename → Tome refresh/update.
-- Tome canonical-name edit → real Actor update.
-- linked helper Journal representation remains consistent where required for Explorer/search.
-- Actor image → Tome image when no deliberate Tome presentation override exists.
-- Tome canonical-image edit writes to Actor when editing the Foundry-owned image field.
-
-### Live Foundry hooks
-
-- Actor updates refresh relevant open Tome views.
-- JournalEntry/JournalEntryPage updates refresh relevant Tome views.
-- relevant create/delete lifecycle hooks handled safely.
-- loop/reentrancy protection.
-- no repeated render loops.
-
-### Private Vault UX
-
-- compact GM-only lock icon in Tome context/top actions.
-- hover provides tooltip/summary only.
-- click opens the editable private panel/popover.
-- same UUID-backed Private Vault record accessible from supported Foundry sheets.
-- existing permanent GM NOTES sheet area may be retired when its data is migrated into the shared Vault.
-- existing GM NOTES content must be migrated, never discarded.
-- Sheet ⇄ Private Vault ⇄ Tome reads/writes one record.
-
-### Privacy
-
-- ordinary players see no lock control.
-- player DOM/UI does not receive private note content.
-- Observer/Owner access to the public source does not expose GM-private context.
-
-## v1.2.x QA/hardening after qa.2
-
-As required:
-
-- rename/move/delete lifecycle hardening.
-- stale/missing UUID handling.
-- legacy↔v2 vault consistency until legacy paths are retired.
-- Journal/Actor title/image parity edge cases.
-- permissions and delegated-editor regression.
-- reload and multi-client behavior.
-- open-view refresh without disruptive navigation reset.
-- Foundry V13.351 regression gate.
-
-## v1.2 completion gate
-
-v1.2 is complete only when:
-
-- supported Actor-backed Tome content uses stable explicit identity.
-- canonical Actor/Journal fields exposed by Tome no longer behave as conflicting independent copies.
-- Foundry edits propagate to Tome.
-- Tome canonical edits propagate to the correct Foundry source.
-- UUID-linked private context survives rename and folder moves.
-- Private Vault is available contextually in Tome and on supported Foundry sheets.
-- player privacy is explicitly verified.
-- no render/update loops occur.
-- major v1.1 workflows remain intact.
+- stable explicit Actor-backed source identity
+- canonical Actor/Journal parity on supported fields
+- Foundry → Tome live refresh for supported Actor/Journal surfaces
+- Tome → Foundry writes for supported canonical fields
+- UUID-backed Contextual Private Vault
+- supported Foundry sheet access to the same private context
+- rename/move/delete/reload hardening
+- player privacy boundary preserved
+- no conflicting independent canonical copies on supported surfaces
+- Foundry V13.351 regression baseline preserved
 
 ---
 
-# v1.3 — Foundry Source Parity II / Universal Document Takeover
+# DONE — v1.3 Foundry Source Parity II / Universal Document Takeover
 
-## Goal
+## Goal achieved
 
 Expand the v1.2 parity architecture into a general system-independent Foundry-document campaign layer.
 
-Planned audit/scope:
+### Verified architecture
 
-- Actors
-- JournalEntries
-- JournalEntryPages
-- Items
-- Scenes/references
-- Folders
-- ownership/permissions
-- UUID/document links
-- imported source identity
-- create/update/rename/move/delete lifecycle
+- Universal Document Registry
+- supported canonical document types:
+  - Actor
+  - Item
+  - JournalEntry
+  - JournalEntryPage
+  - Scene
+  - Folder
+- Actor → embedded Item relations
+- JournalEntry → JournalEntryPage relations
+- Folder → child document relations
+- permission-aware active read layer
+- Search + Navigation consumer takeover
+- Explorer + Catalog consumer takeover
+- create/update/rename/move/delete lifecycle hardening
+- imported source identity hardening
+- UUID-only identity after permanent linking
+- canonical `resolveCanonical()` takeover resolver
+- Quick Import convergence
+- Folder Quick Import convergence
+- Open Source convergence
+- Imported Source Identity hardening convergence
+- Campaign Entity Links v1 built on canonical Actor identity
+- v1.3 Universal Convergence Gate
 
-Goals:
+### Completion gate — VERIFIED
 
-- information Foundry already owns should be available to Tome where useful.
-- Tome should not create independent canonical duplicates.
-- imported documents retain permanent source identity.
-- Explorer, Search and Catalog resolve the same underlying document truth.
-- generic parity does not require a system adapter.
+On Foundry V13.351:
 
-### Completion gate
+- Universal Registry healthy
+- relation graph healthy
+- permission-aware read healthy
+- Search / Navigation attached
+- Explorer / Catalog attached
+- lifecycle pending = 0
+- lifecycle failures = 0
+- imported source UUID mismatches = 0
+- imported source type mismatches = 0
+- duplicate source UUIDs = 0
+- takeover consumer coverage = 4/4
+- takeover misses = 0
+- structuralHealthy = true
+- qaComplete = true
 
-A representative campaign can use Tome as its primary campaign-facing interface without routinely opening generic Foundry document UIs merely to keep Tome synchronized.
+**Current verified QA completion build:** `v1.3.0-qa.24`
+
+### Important remaining platform note
+
+Foundry V13.351 is the verified runtime baseline for the completed v1.3 milestone.
+
+The architecture policy remains **v14-first, v13-compatible**, but Foundry V14 runtime verification is still a separate compatibility gate and must not be claimed as completed until it has been tested directly.
 
 ---
 
-# v1.4 — Tome GM Dock
+# CURRENT — v1.4 Tome GM Dock
 
 ## Goal
 
 Create a compact GM command surface on top of the now-stable Foundry/Tome source model.
 
-Candidate scope:
+The Dock should reduce navigation friction for common GM workflows without becoming a second campaign-management application.
+
+## Design principles
+
+- contextual first
+- compact and always useful
+- player-facing Tome remains uncluttered
+- no duplication of canonical Foundry/Tome data
+- commands operate on the currently active canonical Tome/Foundry context where possible
+- system-agnostic Core
+- optional future adapter actions may extend the Dock
+- no revival of unstable ApplicationV2 minimize/restore behavior
+
+## Planned core scope
 
 - contextual Private Vault access
-- Next Session
+- active/current Tome entry
+- Next Session access
 - Quick Capture
 - Reveal Queue / Show to Players
-- recently opened / active Tome entry
-- GM shortcuts
-- session prep access
-- future adapter-powered actions
+- recent GM-relevant entries
+- session prep shortcuts
+- GM utility shortcuts
+- future adapter-powered contextual actions
 
-The dock remains a separate surface and does not revive unstable ApplicationV2 minimize/restore behavior.
+## v1.4 first implementation target
+
+The first GM Dock QA package should establish:
+
+1. a compact dock surface
+2. stable placement and persistence
+3. contextual active-entry awareness
+4. direct Private Vault access
+5. Quick Capture access
+6. Reveal Queue access
+7. Next Session access
+8. safe interaction with existing Tome navigation
+9. no duplication of existing data models
+10. Foundry V13.351 regression safety
+
+The first package should prioritize the shell, context model and core shortcuts before adding richer adapter-driven actions.
 
 ---
 
@@ -526,29 +513,46 @@ A milestone is not complete merely because its headline feature works.
 
 # Current handoff snapshot
 
-**Stable baseline:** `v1.1.15`  
-**Current development build:** `v1.2.0-qa.1`  
-**Active milestone:** `v1.2.x — Foundry Source Parity I + Contextual Private Vault`
+**Stable completed architecture milestone:** `v1.3 — Foundry Source Parity II / Universal Document Takeover`  
+**Verified completion build:** `v1.3.0-qa.24`  
+**Verified Foundry baseline:** `V13.351`  
+**Active milestone:** `v1.4 — Tome GM Dock`
 
-Current finding:
+## v1.3 final status
 
-- Private Vault foundation is functioning in initial live QA.
-- UUID-backed private-context direction is approved.
-- Actor-backed World/Tome live identity parity is missing and is now a blocking architecture item.
+- Universal Document Registry = VERIFIED
+- permission-aware read = VERIFIED
+- Search / Navigation takeover = VERIFIED
+- Explorer / Catalog takeover = VERIFIED
+- lifecycle hardening = VERIFIED
+- imported source identity = VERIFIED
+- canonical takeover resolver = VERIFIED
+- takeover consumer coverage = 4/4
+- takeover misses = 0
+- Universal Convergence Gate = PASS
+- Campaign Entity Links v1 = VERIFIED
 
-**NEXT:** `v1.2.0-qa.2 — Foundry Identity & Live Sync Foundation`
+## v1.4 NEXT
+
+Build the GM Dock foundation on top of the stable universal document/source model.
 
 Primary objectives:
 
-1. persistent Actor UUID linkage
-2. Actor ⇄ Tome canonical name sync
-3. Actor ⇄ Tome canonical image sync where no Tome presentation override applies
-4. Foundry update hooks → live Tome refresh
-5. Tome canonical edits → real Foundry source updates
-6. loop/reentrancy protection
-7. compact GM-only lock UX in Tome
-8. Private Vault access from supported Foundry sheets
-9. existing GM NOTES migration into the same UUID-backed vault
-10. explicit player-privacy regression test
+1. compact persistent Dock shell
+2. current-context awareness
+3. Private Vault shortcut
+4. Quick Capture shortcut
+5. Reveal Queue / Show to Players access
+6. Next Session shortcut
+7. recent/contextual GM navigation
+8. preserve existing player-facing Tome presentation
+9. no competing canonical data model
+10. Foundry V13.351 regression gate
+
+## Platform compatibility note
+
+The project remains **v14-first, v13-compatible** in architecture policy.
+
+Foundry V14 runtime verification is still pending and must be completed separately before V14 compatibility is described as verified.
 
 > **Conquer Foundry first. Extend beyond Foundry second.**
