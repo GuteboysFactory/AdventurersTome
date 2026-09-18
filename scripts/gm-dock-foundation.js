@@ -9,6 +9,7 @@ let lastFoundryUuid = "";
 let refreshTimer = null;
 let hostedProviderRegistered = false;
 let hostedProviderHostId = "";
+let hostedCaptureExpanded = false;
 const extraActions = new Map();
 
 const api = () => game.modules.get(MODULE_ID)?.api || {};
@@ -99,26 +100,54 @@ function removeStandaloneDock() {
 
 function hostedCaptureHtml(ctx) {
   const contextLabel = ctx.document?.uuid ? `Current context · ${esc(ctx.name)}` : "GM Quick Capture Inbox";
-  return `<form class="at-gmd-hosted-capture" data-at-hosted-capture>
-    <div class="at-gmd-hosted-capture-head"><i class="fa-solid fa-bolt"></i><span><strong>Quick Capture</strong><small>Capture now. Organize later.</small></span></div>
-    <input type="text" name="title" placeholder="Title">
-    <textarea name="body" rows="2" placeholder="Private GM note..."></textarea>
-    <div class="at-gmd-hosted-capture-row">
-      <select name="type" aria-label="Capture type">
-        <option value="reminder">Reminder</option><option value="prep">Prep</option><option value="secret">Secret</option><option value="clue">Clue</option><option value="reveal">Reveal</option><option value="consequence">Consequence</option><option value="question">Question</option><option value="idea">Idea</option><option value="scene">Scene</option>
-      </select>
-      <select name="target" aria-label="Capture target">
-        ${ctx.document?.uuid ? `<option value="context">${contextLabel}</option>` : ""}
-        <option value="inbox">GM Quick Capture Inbox</option>
-      </select>
-      <button type="submit" title="Save Capture" aria-label="Save Capture"><i class="fa-solid fa-floppy-disk"></i></button>
-    </div>
-  </form>`;
+  return `<section class="at-gmd-hosted-capture${hostedCaptureExpanded ? " is-expanded" : ""}" data-at-hosted-capture-wrap>
+    <button type="button" class="at-gmd-hosted-capture-toggle" data-at-hosted-capture-toggle aria-expanded="${hostedCaptureExpanded ? "true" : "false"}">
+      <i class="fa-solid fa-bolt"></i>
+      <span><strong>Quick Capture</strong><small>Capture now. Organize later.</small></span>
+      <i class="fa-solid ${hostedCaptureExpanded ? "fa-minus" : "fa-plus"}" data-at-hosted-capture-toggle-icon></i>
+    </button>
+    <form data-at-hosted-capture${hostedCaptureExpanded ? "" : " hidden"}>
+      <label>Title<input type="text" name="title" placeholder="Reminder, clue, idea..."></label>
+      <label>Private GM note<textarea name="body" rows="3" placeholder="Capture it now; sort it later."></textarea></label>
+      <div class="at-gmd-hosted-capture-fields">
+        <label>Type
+          <select name="type" aria-label="Capture type">
+            <option value="reminder">Reminder</option><option value="prep">Prep</option><option value="secret">Secret</option><option value="clue">Clue</option><option value="reveal">Reveal</option><option value="consequence">Consequence</option><option value="question">Question</option><option value="idea">Idea</option><option value="scene">Scene</option>
+          </select>
+        </label>
+        <label>Save to
+          <select name="target" aria-label="Capture target">
+            ${ctx.document?.uuid ? `<option value="context">${contextLabel}</option>` : ""}
+            <option value="inbox">GM Quick Capture Inbox</option>
+          </select>
+        </label>
+      </div>
+      <div class="at-gmd-hosted-capture-actions">
+        <button type="submit" class="at-gmd-hosted-capture-save"><i class="fa-solid fa-floppy-disk"></i><span>Save Capture</span></button>
+      </div>
+    </form>
+  </section>`;
 }
 
 function wireHostedCapture(root) {
-  const form = root?.querySelector?.("[data-at-hosted-capture]");
-  if (!form) return;
+  const wrap = root?.querySelector?.("[data-at-hosted-capture-wrap]");
+  const toggle = wrap?.querySelector?.("[data-at-hosted-capture-toggle]");
+  const form = wrap?.querySelector?.("[data-at-hosted-capture]");
+  if (!wrap || !toggle || !form) return;
+
+  toggle.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    hostedCaptureExpanded = !hostedCaptureExpanded;
+    wrap.classList.toggle("is-expanded", hostedCaptureExpanded);
+    form.hidden = !hostedCaptureExpanded;
+    toggle.setAttribute("aria-expanded", hostedCaptureExpanded ? "true" : "false");
+    const icon = toggle.querySelector("[data-at-hosted-capture-toggle-icon]");
+    icon?.classList.toggle("fa-plus", !hostedCaptureExpanded);
+    icon?.classList.toggle("fa-minus", hostedCaptureExpanded);
+    if (hostedCaptureExpanded) requestAnimationFrame(() => form.querySelector('input[name="title"]')?.focus?.());
+  });
+
   form.addEventListener("submit", async event => {
     event.preventDefault();
     event.stopPropagation();
@@ -144,6 +173,7 @@ function wireHostedCapture(root) {
         ui.notifications.info(`Adventurer's Tome: Captured to ${result?.documentName || "GM Quick Capture Inbox"}.`);
       }
       form.reset();
+      hostedCaptureExpanded = false;
       activeDockHost()?.refresh?.();
     } catch (error) {
       console.error("Adventurer's Tome | Hosted Quick Capture failed", error);
