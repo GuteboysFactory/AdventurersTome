@@ -456,7 +456,10 @@ Hooks.once("init",()=>{
 Hooks.once("ready",()=>{
   if (!game.user?.isGM) return;
   const module=game.modules.get(MODULE_ID);
-  if (module) module.api={...(module.api||{}),gmDock:gmDockApi()};
+  if (module) {
+    if (!module.api || typeof module.api !== "object") module.api = {};
+    module.api.gmDock = gmDockApi();
+  }
   refreshDock();
   window.addEventListener("resize",()=>{
     if (activeDockHost()) return activeDockHost()?.refresh?.();

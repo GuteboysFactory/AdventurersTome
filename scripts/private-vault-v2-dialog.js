@@ -349,29 +349,27 @@ Hooks.once("ready", () => {
   pv2InstallStyle();
   const module = game.modules.get(MODULE_ID);
   if (module) {
-    const api = module.api && typeof module.api === "object" ? module.api : {};
+    if (!module.api || typeof module.api !== "object") module.api = {};
+    const api = module.api;
     const contextual = api.contextualPrivateVault && typeof api.contextualPrivateVault === "object"
       ? api.contextualPrivateVault
       : {};
-    module.api = {
-      ...api,
-      contextualPrivateVault: {
-        ...contextual,
-        open: async (documentOrUuid) => {
-          let document = documentOrUuid;
-          if (typeof documentOrUuid === "string") {
-            try {
-              document = api.universalDocuments?.resolve?.(documentOrUuid) || fromUuidSync?.(documentOrUuid) || null;
-            } catch (_err) {
-              document = api.universalDocuments?.resolve?.(documentOrUuid) || null;
-            }
+    api.contextualPrivateVault = contextual;
+    Object.assign(contextual, {
+      open: async (documentOrUuid) => {
+        let document = documentOrUuid;
+        if (typeof documentOrUuid === "string") {
+          try {
+            document = api.universalDocuments?.resolve?.(documentOrUuid) || fromUuidSync?.(documentOrUuid) || null;
+          } catch (_err) {
+            document = api.universalDocuments?.resolve?.(documentOrUuid) || null;
           }
-          if (!document?.uuid) return false;
-          await pv2OpenVault(document);
-          return true;
         }
+        if (!document?.uuid) return false;
+        await pv2OpenVault(document);
+        return true;
       }
-    };
+    });
   }
 });
 
