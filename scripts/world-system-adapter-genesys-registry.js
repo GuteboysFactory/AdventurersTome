@@ -26,9 +26,11 @@ function atGrTalentRow(source) {
 }
 
 function atGrRegistry() {
-  return game.modules.get("adventurers-tome")?.api?.adapters
-    || globalThis.AdventurersTomeSystemAdapters
-    || null;
+  const earlyBridge = globalThis.AdventurersTomeSystemAdapters;
+  if (earlyBridge?.register) return earlyBridge;
+
+  const moduleRegistry = globalThis.game?.modules?.get?.("adventurers-tome")?.api?.adapters;
+  return moduleRegistry?.register ? moduleRegistry : null;
 }
 
 function atGrRegister() {
