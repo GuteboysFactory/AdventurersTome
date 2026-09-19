@@ -10,7 +10,8 @@ const ATSA_CAPABILITIES = Object.freeze([
   "npcSchema",
   "actions",
   "rules",
-  "presentation"
+  "presentation",
+  "semanticRead"
 ]);
 
 const ATSA_STATS = {

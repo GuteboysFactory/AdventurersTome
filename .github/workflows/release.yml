@@ -40,7 +40,7 @@ jobs:
             if (manifest[key] == null) throw new Error(`Manifest missing required field: ${key}`);
           }
           if (manifest.id !== 'adventurers-tome') throw new Error(`Unexpected module id: ${manifest.id}`);
-          if (!/^1\.(?:1|2|3|4|5)\.\d+(?:-(?:qa|beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`Release workflow expects a supported v1.1-v1.5 release, got ${manifest.version}`);
+          if (!/^1\.(?:1|2|3|4|5|6)\.\d+(?:-(?:qa|beta|rc)\.\d+)?$/.test(manifest.version)) throw new Error(`Release workflow expects a supported v1.1-v1.6 release, got ${manifest.version}`);
           if (new Set(runtimeFiles).size !== runtimeFiles.length) throw new Error('Manifest contains duplicate runtime file references.');
           for (const file of runtimeFiles) {
             if (!fs.existsSync(file)) throw new Error(`Manifest references missing file: ${file}`);
@@ -78,6 +78,7 @@ jobs:
           if [[ "$VERSION" == 1.3.* ]]; then test -f docs/V1.3_QA1_UNIVERSAL_DOCUMENT_REGISTRY.md; fi
           if [[ "$VERSION" == 1.4.* ]]; then test -f docs/V1.4_QA1_GM_DOCK_FOUNDATION.md; fi
           if [[ "$VERSION" == 1.5.* ]]; then test -f docs/V1.5_QA1_FORMAL_ADAPTER_API.md; fi
+          if [[ "$VERSION" == 1.6.* ]]; then test -f docs/V1.6_QA1_USL_FOUNDATION.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -128,6 +129,7 @@ jobs:
           if [[ "$VERSION" == 1.3.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.3_QA1_UNIVERSAL_DOCUMENT_REGISTRY.md'; fi
           if [[ "$VERSION" == 1.4.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.4_QA1_GM_DOCK_FOUNDATION.md'; fi
           if [[ "$VERSION" == 1.5.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.5_QA1_FORMAL_ADAPTER_API.md'; fi
+          if [[ "$VERSION" == 1.6.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA1_USL_FOUNDATION.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -217,6 +219,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.5.0" ]]; then
             NOTES="Adventurer's Tome v1.5.0 completes the Formal Adapter API milestone. It ships the versioned public adapter registry, capability matching/execution, normalized display/Actor/Item helpers, safe namespaced adapter actions, standalone/hosted GM Dock action presentation, GM-only and disabled-action protection, failure containment, audit diagnostics, and startup lifecycle hardening. Verified on Foundry V13.351 with v1.4 GM Dock and v1.3 convergence regressions preserved."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.1" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.1 starts the Universal Semantic Layer with a permission-gated read-only foundation, Semantic Catalog v1, identity/relationships/traits vertical slice, additive semanticRead adapter capability, provenance/authority/visibility normalization, and conservative generic Foundry identity fallback. No write-back, creation or broad schema crawling is enabled yet."
           fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
