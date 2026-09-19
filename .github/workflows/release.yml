@@ -189,6 +189,9 @@ jobs:
           if [[ "$VERSION" == "1.4.0-qa.6" ]]; then
             NOTES="v1.4.0-qa.6 is a focused GM Dock Quick Capture UX polish: Quick Capture is collapsed by default, expands inline on demand, uses a vertical select layout to avoid Foundry select compression, and collapses again after a successful save. No campaign data model or host architecture changes are introduced."
           fi
+          if [[ "$VERSION" == "1.4.0-qa.7" ]]; then
+            NOTES="v1.4.0-qa.7 hardens the system-independent GM Dock lifecycle: stale pinned UUID recovery, deleted-context cleanup, explicit Quick Capture target preservation across host refreshes, generic host compatibility diagnostics, and QA coverage for standalone, Host v1/v2+, privacy and multi-client behavior. Reference-system versions are not runtime dependencies."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
