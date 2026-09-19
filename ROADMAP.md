@@ -198,7 +198,8 @@ Make Tome the place users actually organize and author campaign Journals while F
 - v1.1.15 is the final v1.1 release line.
 - v1.2 Foundry Source Parity I + Contextual Private Vault is complete.
 - v1.3 Foundry Source Parity II / Universal Document Takeover is complete and released as stable `v1.3.0` on the verified Foundry V13.351 baseline.
-- Development now moves to v1.4.x.
+- v1.4 Tome GM Dock is complete and released as stable `v1.4.0`.
+- Development now moves to v1.5.x.
 - Older bugs discovered during v1.4 are fixed inside the active v1.4.x line unless they require a dedicated stable hotfix.
 - Remain on each roadmap version until that complete milestone is QA-approved.
 - Architecture defects blocking the active milestone belong inside the active milestone.
@@ -318,7 +319,7 @@ The architecture policy remains **v14-first, v13-compatible**, but Foundry V14 r
 
 ---
 
-# CURRENT — v1.4 Tome GM Dock
+# DONE — v1.4 Tome GM Dock
 
 ## Goal
 
@@ -468,7 +469,7 @@ QA protocol: `docs/V1.4_QA9_RC_GATE_SEMANTICS.md`
 
 ## v1.4.0-rc.1 — Tome GM Dock Release Candidate
 
-**Status:** RELEASE CANDIDATE / FEATURE FREEZE
+**Status:** PASS
 
 The v1.4 GM Dock feature scope is complete and QA-approved.
 
@@ -488,6 +489,33 @@ No new feature scope is accepted during rc.1.
 **System-independence remains locked:** reference systems may be used as live integration examples, but no reference-system release number is a Tome dependency.
 
 RC gate: `docs/V1.4_RC1_RELEASE_CANDIDATE.md`
+
+## v1.4.0 — Stable
+
+**Status:** ⭐ STABLE / VERIFIED
+
+The Tome GM Dock milestone is complete.
+
+Stable scope includes:
+
+- standalone system-independent GM Dock
+- optional generic `gbf-gm-dock-host` integration
+- canonical current-context and UUID pinning
+- contextual Private Vault and Quick Capture
+- Reveal Queue / Next Session / recent navigation
+- universal Scene/Item/Actor/Journal context support
+- stale-context recovery
+- host lifecycle hardening
+- privacy, reload and multi-client hardening
+- deterministic runtime release gate
+- preserved v1.3 Universal Document convergence
+
+**Stable release:** `v1.4.0`  
+**Verified Foundry baseline:** `V13.351`
+
+GM workspace cosmetic redesign and additional GM feature proposals are deferred for later design review and do not alter this stable milestone.
+
+Release record: `docs/V1.4_STABLE_RELEASE.md`
 
 ---
 
@@ -650,13 +678,12 @@ System-independence rule: **Reference-system versions must never become Tome run
 
 # Current handoff snapshot
 
-**Stable completed architecture milestone:** `v1.3 — Foundry Source Parity II / Universal Document Takeover`  
-**Stable baseline:** `v1.3.0`  
-**Verified QA source build:** `v1.3.0-qa.24`  
+**Stable completed architecture milestone:** `v1.4 — Tome GM Dock`  
+**Stable baseline:** `v1.4.0`  
+**Verified QA/RC source:** `v1.4.0-rc.1`  
 **Verified Foundry baseline:** `V13.351`  
-**Active milestone:** `v1.4 — Tome GM Dock`  
-**Current candidate:** `v1.4.0-rc.1`  
-**Feature state:** FROZEN pending stable promotion
+**Active milestone:** `v1.5 — Formal Adapter API`  
+**v1.4 feature state:** STABLE
 
 ## v1.3 final status
 
@@ -672,16 +699,20 @@ System-independence rule: **Reference-system versions must never become Tome run
 - Universal Convergence Gate = PASS
 - Campaign Entity Links v1 = VERIFIED
 
-## v1.4 RELEASE CANDIDATE STATUS
+## v1.4 FINAL STATUS
 
-The GM Dock milestone is feature-complete and has passed the qa.9 release gate.
+The GM Dock milestone is released as stable `v1.4.0`.
 
-Current release path:
+- RC gate = PASS
+- runtime release gate = PASS
+- standalone operation = PASS
+- optional hosted-provider operation = PASS
+- privacy / multi-client = PASS
+- reload / lifecycle = PASS
+- v1.3 convergence preserved
+- console-clean smoke = PASS
 
-1. `v1.4.0-rc.1` real-play / packaging smoke
-2. blocker-only fixes if needed
-3. `v1.4.0` stable promotion
-4. begin v1.5 Formal Adapter API only after stable promotion
+Development may now proceed to v1.5 Formal Adapter API.
 
 ## Platform compatibility note
 

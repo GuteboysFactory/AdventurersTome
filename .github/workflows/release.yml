@@ -201,6 +201,9 @@ jobs:
           if [[ "$VERSION" == "1.4.0-rc.1" ]]; then
             NOTES="Adventurer's Tome v1.4.0-rc.1 is the feature-frozen release candidate for the Tome GM Dock milestone. It carries the system-independent standalone Dock, optional capability-driven GM Dock Host integration, canonical contextual Private Vault/Quick Capture workflows, hardened lifecycle and multi-client behavior, and the verified v1.4 runtime release gate on Foundry V13.351. RC scope is blocker-only; no new features are introduced."
           fi
+          if [[ "$VERSION" == "1.4.0" ]]; then
+            NOTES="Adventurer's Tome v1.4.0 completes the Tome GM Dock milestone. It adds a system-independent standalone GM Dock, optional capability-driven gbf-gm-dock-host integration, canonical contextual Private Vault and Quick Capture workflows, Reveal Queue and Next Session access, stale-context and host-lifecycle hardening, multi-client/privacy protection, and a deterministic runtime release gate. The release is verified on Foundry V13.351; V14 runtime verification remains separate."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
