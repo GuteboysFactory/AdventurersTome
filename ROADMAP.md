@@ -605,6 +605,22 @@ Locked principles:
 
 QA protocol: `docs/V1.5_QA2_ADAPTER_CAPABILITIES_ACTION_BRIDGE.md`
 
+## v1.5.0-qa.3 — Adapter Startup Hotfix
+
+**Status:** QA / FOCUSED HOTFIX
+
+Live qa.2 startup exposed an initialization-order defect in the optional Genesys reference adapter: it could query `game.modules` before Foundry had created the module collection.
+
+qa.3 makes registry discovery lifecycle-safe:
+
+- early ESModule registration prefers the already-created global Adapter API bridge
+- formal module API lookup is guarded behind `globalThis.game?.modules?.get`
+- missing early registry state returns safely and keeps the existing ready retry
+- no Adapter API contract or capability behavior changes
+- no reference system becomes a Core dependency
+
+QA protocol: `docs/V1.5_QA3_ADAPTER_STARTUP_HOTFIX.md`
+
 ## Ecosystem discovery / optional Tome handoff
 
 Other GuteboysFactory systems/modules may expose an optional Tome-aware action.
@@ -749,7 +765,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA/RC source:** `v1.4.0-rc.1`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.5 — Formal Adapter API`  
-**Current QA build:** `v1.5.0-qa.2`  
+**Current QA build:** `v1.5.0-qa.3`  
 **v1.4 feature state:** STABLE
 
 ## v1.3 final status
