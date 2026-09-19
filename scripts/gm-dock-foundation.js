@@ -10,6 +10,7 @@ let refreshTimer = null;
 let hostedProviderRegistered = false;
 let hostedProviderHostId = "";
 let hostedCaptureExpanded = false;
+let hostedCaptureDraft = { title:"", body:"", type:"reminder", target:"" };
 const extraActions = new Map();
 
 const api = () => game.modules.get(MODULE_ID)?.api || {};
@@ -92,6 +93,52 @@ function activeDockHost() {
   return host;
 }
 
+function richDockHost() {
+  const host = activeDockHost();
+  return host && Number(host.version || 0) >= 2 ? host : null;
+}
+
+function normalizedCaptureType(value) {
+  const allowed = new Set(["reminder","prep","secret","clue","reveal","consequence","question","idea","scene"]);
+  const type = String(value || "reminder").toLowerCase();
+  return allowed.has(type) ? type : "reminder";
+}
+
+function resetHostedCaptureDraft() {
+  hostedCaptureDraft = { title:"", body:"", type:"reminder", target:"" };
+}
+
+function captureTargetForContext(ctx) {
+  return ctx.document?.uuid ? `uuid:${ctx.document.uuid}` : "inbox";
+}
+
+function resolveCaptureTarget(value) {
+  const raw = String(value || "").trim();
+  if (!raw.startsWith("uuid:")) return null;
+  return resolveUuid(raw.slice(5));
+}
+
+async function healPinnedContext() {
+  if (!game.user?.isGM) return false;
+  const pinnedUuid = String(game.settings.get(MODULE_ID, PIN_SETTING) || "").trim();
+  if (!pinnedUuid || resolveUuid(pinnedUuid)) return false;
+  await game.settings.set(MODULE_ID, PIN_SETTING, "");
+  return true;
+}
+
+async function handleDeletedContext(document) {
+  if (!game.user?.isGM || !document?.uuid) return;
+  const uuid = String(document.uuid);
+  if (lastFoundryUuid === uuid) lastFoundryUuid = "";
+  if (String(game.settings.get(MODULE_ID, PIN_SETTING) || "") === uuid) {
+    await game.settings.set(MODULE_ID, PIN_SETTING, "");
+  }
+  if (String(hostedCaptureDraft.target || "") === `uuid:${uuid}`) {
+    hostedCaptureDraft = { ...hostedCaptureDraft, target:"inbox" };
+  }
+  scheduleRefresh();
+}
+
 function removeStandaloneDock() {
   document.getElementById(DOCK_ID)?.remove();
   dock = null;
@@ -99,7 +146,37 @@ function removeStandaloneDock() {
 }
 
 function hostedCaptureHtml(ctx) {
-  const contextLabel = ctx.document?.uuid ? `Current context · ${esc(ctx.name)}` : "GM Quick Capture Inbox";
+  const currentTarget = captureTargetForContext(ctx);
+  let selectedTarget = String(hostedCaptureDraft.target || currentTarget);
+  let selectedDocument = resolveCaptureTarget(selectedTarget);
+
+  if (selectedTarget.startsWith("uuid:") && !selectedDocument) {
+    selectedTarget = currentTarget;
+    selectedDocument = resolveCaptureTarget(selectedTarget);
+    hostedCaptureDraft = { ...hostedCaptureDraft, target:selectedTarget };
+  }
+
+  const targetOptions = [];
+  if (ctx.document?.uuid) {
+    targetOptions.push({
+      value:currentTarget,
+      label:`Current context · ${ctx.name}`
+    });
+  }
+  if (selectedDocument?.uuid && selectedTarget !== currentTarget) {
+    targetOptions.push({
+      value:selectedTarget,
+      label:`Captured context · ${selectedDocument.name || selectedDocument.documentName || "Document"}`
+    });
+  }
+  targetOptions.push({ value:"inbox", label:"GM Quick Capture Inbox" });
+
+  const type = normalizedCaptureType(hostedCaptureDraft.type);
+  const typeOptions = [
+    ["reminder","Reminder"],["prep","Prep"],["secret","Secret"],["clue","Clue"],["reveal","Reveal"],
+    ["consequence","Consequence"],["question","Question"],["idea","Idea"],["scene","Scene"]
+  ].map(([value,label]) => `<option value="${value}"${type === value ? " selected" : ""}>${label}</option>`).join("");
+
   return `<section class="at-gmd-hosted-capture${hostedCaptureExpanded ? " is-expanded" : ""}" data-at-hosted-capture-wrap>
     <button type="button" class="at-gmd-hosted-capture-toggle" data-at-hosted-capture-toggle aria-expanded="${hostedCaptureExpanded ? "true" : "false"}">
       <i class="fa-solid fa-bolt"></i>
@@ -107,18 +184,15 @@ function hostedCaptureHtml(ctx) {
       <i class="fa-solid ${hostedCaptureExpanded ? "fa-minus" : "fa-plus"}" data-at-hosted-capture-toggle-icon></i>
     </button>
     <form data-at-hosted-capture${hostedCaptureExpanded ? "" : " hidden"}>
-      <label>Title<input type="text" name="title" placeholder="Reminder, clue, idea..."></label>
-      <label>Private GM note<textarea name="body" rows="3" placeholder="Capture it now; sort it later."></textarea></label>
+      <label>Title<input type="text" name="title" value="${esc(hostedCaptureDraft.title)}" placeholder="Reminder, clue, idea..."></label>
+      <label>Private GM note<textarea name="body" rows="3" placeholder="Capture it now; sort it later.">${esc(hostedCaptureDraft.body)}</textarea></label>
       <div class="at-gmd-hosted-capture-fields">
         <label>Type
-          <select name="type" aria-label="Capture type">
-            <option value="reminder">Reminder</option><option value="prep">Prep</option><option value="secret">Secret</option><option value="clue">Clue</option><option value="reveal">Reveal</option><option value="consequence">Consequence</option><option value="question">Question</option><option value="idea">Idea</option><option value="scene">Scene</option>
-          </select>
+          <select name="type" aria-label="Capture type">${typeOptions}</select>
         </label>
         <label>Save to
           <select name="target" aria-label="Capture target">
-            ${ctx.document?.uuid ? `<option value="context">${contextLabel}</option>` : ""}
-            <option value="inbox">GM Quick Capture Inbox</option>
+            ${targetOptions.map(option => `<option value="${esc(option.value)}"${selectedTarget === option.value ? " selected" : ""}>${esc(option.label)}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -128,12 +202,25 @@ function hostedCaptureHtml(ctx) {
     </form>
   </section>`;
 }
-
 function wireHostedCapture(root) {
   const wrap = root?.querySelector?.("[data-at-hosted-capture-wrap]");
   const toggle = wrap?.querySelector?.("[data-at-hosted-capture-toggle]");
   const form = wrap?.querySelector?.("[data-at-hosted-capture]");
   if (!wrap || !toggle || !form) return;
+
+  const syncDraft = () => {
+    const data = new FormData(form);
+    hostedCaptureDraft = {
+      title:String(data.get("title") || ""),
+      body:String(data.get("body") || ""),
+      type:normalizedCaptureType(data.get("type")),
+      target:String(data.get("target") || "inbox")
+    };
+  };
+
+  for (const control of form.querySelectorAll("input, textarea, select")) {
+    control.addEventListener(control.tagName === "SELECT" ? "change" : "input", syncDraft);
+  }
 
   toggle.addEventListener("click", event => {
     event.preventDefault();
@@ -151,28 +238,33 @@ function wireHostedCapture(root) {
   form.addEventListener("submit", async event => {
     event.preventDefault();
     event.stopPropagation();
-    const data = new FormData(form);
-    const title = String(data.get("title") || "").trim();
-    const body = String(data.get("body") || "").trim();
+    syncDraft();
+
+    const title = String(hostedCaptureDraft.title || "").trim();
+    const body = String(hostedCaptureDraft.body || "").trim();
     if (!title && !body) return ui.notifications.warn("Adventurer's Tome: Add a title or note before saving.");
 
-    const ctx = currentContext();
-    const type = String(data.get("type") || "reminder");
-    const target = String(data.get("target") || "inbox");
+    const type = normalizedCaptureType(hostedCaptureDraft.type);
+    const target = String(hostedCaptureDraft.target || "inbox");
     const button = form.querySelector('button[type="submit"]');
     if (button) button.disabled = true;
 
     try {
-      if (target === "context" && ctx.document?.uuid) {
+      const targetDocument = resolveCaptureTarget(target);
+      if (target.startsWith("uuid:")) {
+        if (!targetDocument?.uuid) {
+          ui.notifications.warn("Adventurer's Tome: The selected capture context no longer exists. Choose another target.");
+          return;
+        }
         const addNote = api().contextualPrivateVault?.addNote;
         if (typeof addNote !== "function") throw new Error("Contextual Private Vault capture API is unavailable.");
-        await addNote(ctx.document, { title: title || "Quick Capture", body, type, status:"open" });
-        ui.notifications.info(`Adventurer's Tome: Captured to ${ctx.name}.`);
+        await addNote(targetDocument, { title:title || "Quick Capture", body, type, status:"open" });
+        ui.notifications.info(`Adventurer's Tome: Captured to ${targetDocument.name || "current context"}.`);
       } else {
         const result = await api().quickCapture?.({ title, body, type });
         ui.notifications.info(`Adventurer's Tome: Captured to ${result?.documentName || "GM Quick Capture Inbox"}.`);
       }
-      form.reset();
+      resetHostedCaptureDraft();
       hostedCaptureExpanded = false;
       activeDockHost()?.refresh?.();
     } catch (error) {
@@ -183,12 +275,11 @@ function wireHostedCapture(root) {
     }
   });
 }
-
 function hostedMenu() {
   const ctx = currentContext();
   const pinned = Boolean(ctx.uuid && String(game.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
   const recents = recentRows().slice(0,3);
-  const richHost = Number(activeDockHost()?.version || 0) >= 2;
+  const richHost = Boolean(richDockHost());
   const items = [
     {
       id:"context",
@@ -539,7 +630,22 @@ function gmDockApi() {
     hostContract:"gbf-gm-dock-host",
     refresh:refreshDock,
     mode:()=>activeDockHost() ? "hosted-provider" : "standalone-fallback",
-    host:()=>activeDockHost() ? { id:String(activeDockHost().id || ""), label:String(activeDockHost().label || "") } : null,
+    host:()=>activeDockHost() ? {
+      id:String(activeDockHost().id || ""),
+      label:String(activeDockHost().label || ""),
+      contract:String(activeDockHost().contract || ""),
+      version:Number(activeDockHost().version || 0)
+    } : null,
+    compatibility:()=>{
+      const host=activeDockHost();
+      return {
+        systemId:String(game.system?.id || ""),
+        mode:host ? "hosted-provider" : "standalone-fallback",
+        hostContract:host ? String(host.contract || "") : "",
+        hostVersion:host ? Number(host.version || 0) : 0,
+        richMenu:Boolean(host && Number(host.version || 0) >= 2)
+      };
+    },
     context:()=>{
       const c=currentContext();
       return {uuid:c.uuid,refKey:c.refKey,name:c.name,documentName:c.documentName,source:c.source,pinned:String(game.settings.get(MODULE_ID,PIN_SETTING)||"")===c.uuid};
@@ -568,7 +674,7 @@ Hooks.once("ready",()=>{
     if (!module.api || typeof module.api !== "object") module.api = {};
     module.api.gmDock = gmDockApi();
   }
-  refreshDock();
+  healPinnedContext().catch((error)=>console.warn("Adventurer's Tome | Could not heal stale pinned context",error)).finally(refreshDock);
   window.addEventListener("resize",()=>{
     if (activeDockHost()) return activeDockHost()?.refresh?.();
     positionDock({left:Number(dock?.dataset.left||savedPosition().left),top:Number(dock?.dataset.top||savedPosition().top)});
@@ -588,6 +694,11 @@ Hooks.on("renderActorSheet",(app)=>captureFoundryContext(app));
 Hooks.on("renderItemSheet",(app)=>captureFoundryContext(app));
 Hooks.on("renderJournalSheet",(app)=>captureFoundryContext(app));
 Hooks.on("canvasReady",scheduleRefresh);
-Hooks.on("adventurersTomeUniversalRegistryRebuilt",scheduleRefresh);
+Hooks.on("adventurersTomeUniversalRegistryRebuilt",()=>{
+  healPinnedContext().catch((error)=>console.warn("Adventurer's Tome | Could not heal pinned context after registry rebuild",error)).finally(scheduleRefresh);
+});
 Hooks.on("adventurersTomeQuickCaptureSaved",scheduleRefresh);
-for (const hook of ["createActor","updateActor","deleteActor","createItem","updateItem","deleteItem","createJournalEntry","updateJournalEntry","deleteJournalEntry","createJournalEntryPage","updateJournalEntryPage","deleteJournalEntryPage","createScene","updateScene","deleteScene","createFolder","updateFolder","deleteFolder"]) Hooks.on(hook,scheduleRefresh);
+for (const hook of ["createActor","updateActor","createItem","updateItem","createJournalEntry","updateJournalEntry","createJournalEntryPage","updateJournalEntryPage","createScene","updateScene","createFolder","updateFolder"]) Hooks.on(hook,scheduleRefresh);
+for (const hook of ["deleteActor","deleteItem","deleteJournalEntry","deleteJournalEntryPage","deleteScene","deleteFolder"]) {
+  Hooks.on(hook,(document)=>{ handleDeletedContext(document).catch((error)=>console.warn("Adventurer's Tome | Deleted context cleanup failed safely",error)); });
+}
