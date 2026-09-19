@@ -519,7 +519,7 @@ Release record: `docs/V1.4_STABLE_RELEASE.md`
 
 ---
 
-# CURRENT — v1.5 Formal Adapter API
+# DONE — v1.5 Formal Adapter API
 
 ## Goal
 
@@ -620,6 +620,32 @@ qa.3 makes registry discovery lifecycle-safe:
 - no reference system becomes a Core dependency
 
 QA protocol: `docs/V1.5_QA3_ADAPTER_STARTUP_HOTFIX.md`
+
+## v1.5.0 — Stable
+
+**Status:** ⭐ STABLE / VERIFIED
+
+The Formal Adapter API milestone is complete.
+
+Stable scope includes:
+
+- versioned public Adapter API v1
+- safe registration/unregistration and duplicate protection
+- capability matching, priority ordering and failure containment
+- normalized display-field / Actor / Item helper surfaces
+- safe namespaced adapter action discovery and invocation
+- standalone and hosted GM Dock action presentation
+- GM-only, disabled and unknown action protection
+- startup lifecycle hardening for optional reference adapters
+- preserved v1.4 GM Dock release gate
+- preserved v1.3 Universal Document convergence and takeover misses = 0
+
+**Stable release:** `v1.5.0`  
+**Verified Foundry baseline:** `V13.351`
+
+Release record: `docs/V1.5_STABLE_RELEASE.md`
+
+---
 
 ## Universal Semantic Layer — Architecture locked
 
@@ -790,7 +816,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA/RC source:** `v1.4.0-rc.1`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.5 — Formal Adapter API`  
-**Current QA build:** `v1.5.0-qa.3`  
+**Current stable build:** `v1.5.0`  
 **v1.4 feature state:** STABLE
 
 ## v1.3 final status
@@ -820,7 +846,7 @@ The GM Dock milestone is released as stable `v1.4.0`.
 - v1.3 convergence preserved
 - console-clean smoke = PASS
 
-Development may now proceed to v1.5 Formal Adapter API.
+Development may now proceed to the Universal Semantic Layer foundation on top of the verified v1.5 Adapter API.
 
 ## Platform compatibility note
 
