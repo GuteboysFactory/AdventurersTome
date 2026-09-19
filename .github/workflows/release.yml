@@ -215,6 +215,9 @@ jobs:
           if [[ "$VERSION" == "1.5.0-qa.3" ]]; then
             NOTES="Adventurer's Tome v1.5.0-qa.3 is a focused startup hotfix for the optional Genesys reference adapter. Early ESModule registration now prefers the already-created global Adapter API bridge and guards formal module lookup until game.modules exists, removing the startup TypeError without changing the Adapter API contract or action bridge."
           fi
+          if [[ "$VERSION" == "1.5.0" ]]; then
+            NOTES="Adventurer's Tome v1.5.0 completes the Formal Adapter API milestone. It ships the versioned public adapter registry, capability matching/execution, normalized display/Actor/Item helpers, safe namespaced adapter actions, standalone/hosted GM Dock action presentation, GM-only and disabled-action protection, failure containment, audit diagnostics, and startup lifecycle hardening. Verified on Foundry V13.351 with v1.4 GM Dock and v1.3 convergence regressions preserved."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
