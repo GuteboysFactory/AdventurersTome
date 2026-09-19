@@ -195,6 +195,9 @@ jobs:
           if [[ "$VERSION" == "1.4.0-qa.8" ]]; then
             NOTES="v1.4.0-qa.8 is the v1.4 release-hardening and RC-gate build. It adds a deterministic runtime releaseGate() diagnostic, hardens generic host re-registration/replacement, verifies public API composition and v1.3 convergence preservation, and defines standalone/hosted/privacy/reload/console-clean promotion criteria for v1.4.0-rc.1."
           fi
+          if [[ "$VERSION" == "1.4.0-qa.9" ]]; then
+            NOTES="v1.4.0-qa.9 is a focused RC-gate semantics hotfix. It clarifies that the v1.3 qaComplete signal is session-local runtime evidence, not a v1.4 release requirement, and exposes takeover misses plus explicit runtimeEvidenceRequiredForRelease=false in the v1.4 release gate. No campaign feature or canonical-source behavior changes are introduced."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
