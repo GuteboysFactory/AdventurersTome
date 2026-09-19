@@ -222,7 +222,7 @@ v1.4  Tome GM Dock
   ↓
 v1.5  Formal Adapter API
   ↓
-v1.6  Quick NPC & System-aware Creation
+v1.6  Universal Semantic Layer Foundation & System-aware Creation
   ↓
 v1.7  SCC 2.0 / Campaign Graph & Memory Expansion
   ↓
@@ -685,23 +685,66 @@ Other GuteboysFactory systems/modules may expose an optional Tome-aware action.
 
 ---
 
-# v1.6 — Quick NPC & System-aware Creation
+# CURRENT — v1.6 Universal Semantic Layer Foundation & System-aware Creation
 
 ## Goal
 
-Create system-native NPCs from Tome through adapters rather than hard-coded Core behavior.
+Build the shared semantic information layer that future Tome features use before adding write/create automation.
+
+The v1.6 sequence begins read-only and permission-safe:
 
 ```text
-Tome Quick NPC
+Foundry Document
       ↓
-Adapter
+Universal Document Registry
       ↓
-System-specific Actor data
+Formal Adapter API
       ↓
-Foundry Actor
+Permission / Visibility Gate
       ↓
-Tome live presentation
+Universal Semantic Layer
+      ↓
+Tome consumers
 ```
+
+Quick NPC and system-aware creation remain part of the v1.6 direction, but they must build on the semantic layer rather than introduce a separate system-specific model.
+
+## v1.6.0-qa.1 — USL Foundation
+
+**Status:** QA / LIVE TEST REQUIRED
+
+Initial scope:
+
+- public `module.api.semantic`
+- semantic contract version 1
+- Semantic Catalog v1
+- first vertical slice: identity, relationships, traits
+- additive Adapter API capability `semanticRead`
+- permission gate before semantic resolution
+- explicit provenance / authority / visibility normalization
+- conservative generic identity fallback only
+- no uncontrolled `actor.system` crawling
+- no write-back
+- no creation
+- no World Auto-Build yet
+
+Security lock:
+
+> Player-facing semantic results are permission-filtered before they reach downstream consumers.
+
+QA protocol: `docs/V1.6_QA1_USL_FOUNDATION.md`
+
+## Later v1.6 direction
+
+After the read foundation is verified:
+
+- broaden Semantic Catalog deliberately
+- first advanced Realm Guard reference mapping when its character-data model is stable
+- provenance/visibility hardening
+- controlled semantic write planning
+- system-aware create planning
+- Quick NPC through adapter creation schemas
+- existing World → compendium → create-new duplicate prevention
 
 ---
 
@@ -811,13 +854,13 @@ System-independence rule: **Reference-system versions must never become Tome run
 
 # Current handoff snapshot
 
-**Stable completed architecture milestone:** `v1.4 — Tome GM Dock`  
-**Stable baseline:** `v1.4.0`  
-**Verified QA/RC source:** `v1.4.0-rc.1`  
+**Stable completed architecture milestone:** `v1.5 — Formal Adapter API`  
+**Stable baseline:** `v1.5.0`  
+**Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
-**Active milestone:** `v1.5 — Formal Adapter API`  
-**Current stable build:** `v1.5.0`  
-**v1.4 feature state:** STABLE
+**Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
+**Current QA build:** `v1.6.0-qa.1`  
+**v1.5 feature state:** STABLE
 
 ## v1.3 final status
 
