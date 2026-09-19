@@ -409,6 +409,25 @@ Following successful host/API composition QA, the unified Dock is tightened arou
 
 QA protocol: `docs/V1.4_QA5_UNIFIED_DOCK_UX.md`
 
+## v1.4.0-qa.7 — Dock Hardening & Multi-Client
+
+**Status:** QA / LIVE TEST REQUIRED
+
+This package hardens the Dock lifecycle without tying Tome to a specific game system or a specific version of any reference host.
+
+Locked integration policy:
+
+- Adventurer's Tome is tested first as a standalone, system-independent module
+- external GM Dock integration is capability-driven through `gbf-gm-dock-host`
+- Host v1 remains supported for standard provider menus
+- Host v2+ enables richer inline provider body/footer UX
+- Realm Guard / Torchbearer and future systems are optional reference integrations only; their release numbers are never Tome runtime dependencies
+- stale/deleted pinned UUIDs recover automatically
+- hosted Quick Capture preserves explicit capture target/draft across unrelated host refreshes
+- system id is exposed only for diagnostics and never used to branch Tome Core behavior
+
+QA protocol: `docs/V1.4_QA7_DOCK_HARDENING_MULTICLIENT.md`
+
 ---
 
 # v1.5 — Formal Adapter API
@@ -563,6 +582,8 @@ Critical areas include:
 - Foundry V13.351 compatibility
 
 A milestone is not complete merely because its headline feature works.
+
+System-independence rule: **Reference-system versions must never become Tome runtime dependencies.** Reference integrations are used only to exercise generic capabilities; Tome Core must retain full standalone behavior.
 
 ---
 
