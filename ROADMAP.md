@@ -430,7 +430,7 @@ QA protocol: `docs/V1.4_QA7_DOCK_HARDENING_MULTICLIENT.md`
 
 ## v1.4.0-qa.8 — Release Hardening / RC Gate
 
-**Status:** QA / RC GATE
+**Status:** PASS
 
 No new campaign feature scope is introduced. qa.8 closes the v1.4 GM Dock line with a deterministic runtime release gate and final regression protocol.
 
@@ -453,7 +453,7 @@ QA protocol: `docs/V1.4_QA8_RELEASE_HARDENING_RC_GATE.md`
 
 ## v1.4.0-qa.9 — RC Gate Semantics Hotfix
 
-**Status:** QA / FOCUSED HOTFIX
+**Status:** PASS
 
 Clarifies the v1.4 release gate after live QA confirmed that the old v1.3 `qaComplete` field is session-local runtime evidence rather than a structural release requirement.
 
@@ -465,6 +465,29 @@ Clarifies the v1.4 release gate after live QA confirmed that the old v1.3 `qaCom
 - no campaign feature, data model, host contract or canonical-source behavior changes
 
 QA protocol: `docs/V1.4_QA9_RC_GATE_SEMANTICS.md`
+
+## v1.4.0-rc.1 — Tome GM Dock Release Candidate
+
+**Status:** RELEASE CANDIDATE / FEATURE FREEZE
+
+The v1.4 GM Dock feature scope is complete and QA-approved.
+
+RC scope is intentionally limited to:
+
+- installation/update verification
+- runtime release-gate verification
+- standalone/system-independent smoke
+- optional generic host integration smoke
+- lifecycle/reload regression
+- GM privacy and multi-client regression
+- console-clean verification
+- final core Tome smoke
+
+No new feature scope is accepted during rc.1.
+
+**System-independence remains locked:** reference systems may be used as live integration examples, but no reference-system release number is a Tome dependency.
+
+RC gate: `docs/V1.4_RC1_RELEASE_CANDIDATE.md`
 
 ---
 
@@ -631,7 +654,9 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable baseline:** `v1.3.0`  
 **Verified QA source build:** `v1.3.0-qa.24`  
 **Verified Foundry baseline:** `V13.351`  
-**Active milestone:** `v1.4 — Tome GM Dock`
+**Active milestone:** `v1.4 — Tome GM Dock`  
+**Current candidate:** `v1.4.0-rc.1`  
+**Feature state:** FROZEN pending stable promotion
 
 ## v1.3 final status
 
@@ -647,22 +672,16 @@ System-independence rule: **Reference-system versions must never become Tome run
 - Universal Convergence Gate = PASS
 - Campaign Entity Links v1 = VERIFIED
 
-## v1.4 NEXT
+## v1.4 RELEASE CANDIDATE STATUS
 
-Build the GM Dock foundation on top of the stable universal document/source model.
+The GM Dock milestone is feature-complete and has passed the qa.9 release gate.
 
-Primary objectives:
+Current release path:
 
-1. compact persistent Dock shell
-2. current-context awareness
-3. Private Vault shortcut
-4. Quick Capture shortcut
-5. Reveal Queue / Show to Players access
-6. Next Session shortcut
-7. recent/contextual GM navigation
-8. preserve existing player-facing Tome presentation
-9. no competing canonical data model
-10. Foundry V13.351 regression gate
+1. `v1.4.0-rc.1` real-play / packaging smoke
+2. blocker-only fixes if needed
+3. `v1.4.0` stable promotion
+4. begin v1.5 Formal Adapter API only after stable promotion
 
 ## Platform compatibility note
 
