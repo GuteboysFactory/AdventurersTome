@@ -198,6 +198,9 @@ jobs:
           if [[ "$VERSION" == "1.4.0-qa.9" ]]; then
             NOTES="v1.4.0-qa.9 is a focused RC-gate semantics hotfix. It clarifies that the v1.3 qaComplete signal is session-local runtime evidence, not a v1.4 release requirement, and exposes takeover misses plus explicit runtimeEvidenceRequiredForRelease=false in the v1.4 release gate. No campaign feature or canonical-source behavior changes are introduced."
           fi
+          if [[ "$VERSION" == "1.4.0-rc.1" ]]; then
+            NOTES="Adventurer's Tome v1.4.0-rc.1 is the feature-frozen release candidate for the Tome GM Dock milestone. It carries the system-independent standalone Dock, optional capability-driven GM Dock Host integration, canonical contextual Private Vault/Quick Capture workflows, hardened lifecycle and multi-client behavior, and the verified v1.4 runtime release gate on Foundry V13.351. RC scope is blocker-only; no new features are introduced."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
