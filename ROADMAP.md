@@ -428,6 +428,29 @@ Locked integration policy:
 
 QA protocol: `docs/V1.4_QA7_DOCK_HARDENING_MULTICLIENT.md`
 
+## v1.4.0-qa.8 — Release Hardening / RC Gate
+
+**Status:** QA / RC GATE
+
+No new campaign feature scope is introduced. qa.8 closes the v1.4 GM Dock line with a deterministic runtime release gate and final regression protocol.
+
+Release-gate coverage:
+
+- standalone/system-independent Dock health
+- generic Host v1 and Host v2+ capability compatibility
+- stable provider re-registration across host lifecycle replacement
+- public API composition
+- contextual Private Vault / Quick Capture / Reveal Queue / Next Session availability
+- stale context/capture target integrity
+- v1.3 Universal Convergence Gate preservation
+- Foundry runtime identity/compatibility diagnostics
+- multi-client privacy and reload/lifecycle smoke
+- console-clean release criterion
+
+Promotion target after PASS: `v1.4.0-rc.1`.
+
+QA protocol: `docs/V1.4_QA8_RELEASE_HARDENING_RC_GATE.md`
+
 ---
 
 # v1.5 — Formal Adapter API
