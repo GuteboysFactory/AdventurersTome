@@ -621,6 +621,31 @@ qa.3 makes registry discovery lifecycle-safe:
 
 QA protocol: `docs/V1.5_QA3_ADAPTER_STARTUP_HOTFIX.md`
 
+## Universal Semantic Layer — Architecture locked
+
+The long-term information architecture for cross-system data discovery, normalization, write-back and creation is now documented separately:
+
+`docs/UNIVERSAL_SEMANTIC_LAYER_ARCHITECTURE.md`
+
+This design extends the v1.3 Universal Document Registry and v1.5 Formal Adapter API into a future shared semantic layer for Actors, NPCs, Items, Journals, Scenes, compendiums and Tome extension data.
+
+Locked principles include:
+
+- targeted semantic discovery rather than uncontrolled schema crawling
+- canonical concepts such as identity, relationships, skills, talents, inventory, conditions, resources and biography
+- adapter-first resolution with safe generic fallback
+- provenance, authority and visibility on every resolved fact
+- Foundry → Tome read, Tome → Foundry write-back and adapter-driven Foundry creation
+- existing World document → compendium reference/import → create new as the preferred anti-duplication order
+- permission/visibility filtering before player-facing semantic results
+- GM Notes, Private Vault data and unrevealed information must never leak through Search, Graph, Chronicle, backlinks or Campaign Brain
+- future Quick NPC, Campaign Graph, Player Chronicle and Campaign Brain should consume this shared layer rather than invent separate system readers
+- Realm Guard / Torchbearer may serve as the first advanced reference mapping once its relationship/character-data model is stable, but no reference-system version becomes a Tome dependency
+
+Implementation is intentionally deferred until the v1.5 Adapter API is sufficiently hardened and the first reference semantic model is stable.
+
+---
+
 ## Ecosystem discovery / optional Tome handoff
 
 Other GuteboysFactory systems/modules may expose an optional Tome-aware action.
