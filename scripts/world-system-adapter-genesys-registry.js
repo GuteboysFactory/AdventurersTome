@@ -25,13 +25,26 @@ function atGrTalentRow(source) {
   return rows.find((row) => String(row?.id || "") === sourceId || String(row?.sourceId || "") === sourceId) || null;
 }
 
+function atGrRegistry() {
+  return game.modules.get("adventurers-tome")?.api?.adapters
+    || globalThis.AdventurersTomeSystemAdapters
+    || null;
+}
+
 function atGrRegister() {
-  const registry = globalThis.AdventurersTomeSystemAdapters;
+  const registry = atGrRegistry();
   if (!registry?.register) return false;
   if (registry.list?.().includes(ATGR_ADAPTER_ID)) return true;
 
-  registry.register(ATGR_ADAPTER_ID, {
+  registry.register({
+    id: ATGR_ADAPTER_ID,
+    label: "Genesys VTT Talent Registry",
+    apiVersion: 1,
     systemId: "genesys-vtt",
+    priority: 50,
+    documentTypes: ["Item"],
+    sourceTypes: ["talent"],
+    capabilities: ["enrich"],
     matches: ({ source, systemId }) => systemId === "genesys-vtt" && String(source?.documentName || "") === "Item" && String(source?.type || "") === "talent",
     enrich: ({ source }) => {
       const row = atGrTalentRow(source);
@@ -59,3 +72,7 @@ function atGrRegister() {
 if (!atGrRegister()) {
   Hooks.once("ready", () => { atGrRegister(); });
 }
+
+Hooks.on("adventurersTomeAdapterRegistered", () => {
+  if (!atGrRegistry()?.list?.().includes(ATGR_ADAPTER_ID)) atGrRegister();
+});

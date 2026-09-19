@@ -1,232 +1,260 @@
 const ATSA_MODULE_ID = "adventurers-tome";
+const ATSA_CONTRACT = "adventurers-tome-adapter-api";
+const ATSA_VERSION = 1;
 const ATSA_REGISTRY = new Map();
+const ATSA_CAPABILITIES = Object.freeze([
+  "enrich",
+  "actorMapping",
+  "itemMapping",
+  "displayFields",
+  "npcSchema",
+  "actions",
+  "rules",
+  "presentation"
+]);
 
-function atSaPlain(value) {
-  const host = document.createElement("div");
-  host.innerHTML = String(value || "");
-  return String(host.textContent || "").replace(/\s+/g, " ").trim();
+const ATSA_STATS = {
+  registrations: 0,
+  unregisters: 0,
+  executions: 0,
+  failures: 0,
+  lastError: ""
+};
+
+function atSaSystemId() {
+  return String(game.system?.id || "");
 }
 
-function atSaEscape(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function atSaNormalizeList(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((entry) => String(entry || "").trim()).filter(Boolean))];
 }
 
-function atSaMeaningful(value) {
-  if (typeof value !== "string") return "";
-  const plain = atSaPlain(value);
-  if (!plain || plain.length < 3) return "";
-  if (/^(?:none|n\/a|null|undefined)$/i.test(plain)) return "";
-  return value.trim();
+function atSaCapabilities(adapter) {
+  const explicit = atSaNormalizeList(adapter?.capabilities);
+  const inferred = ATSA_CAPABILITIES.filter((capability) => typeof adapter?.[capability] === "function");
+  return [...new Set([...explicit, ...inferred])];
 }
 
-function atSaFirstText(value, maxDepth = 6, depth = 0, seen = new Set()) {
-  if (depth > maxDepth || value == null) return "";
-  if (typeof value === "string") return atSaMeaningful(value);
-  if (typeof value !== "object") return "";
-  if (seen.has(value)) return "";
-  seen.add(value);
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const text = atSaFirstText(item, maxDepth, depth + 1, seen);
-      if (text) return text;
-    }
-    return "";
-  }
-
-  for (const key of ["value", "text", "content", "summary", "description", "label", "name"]) {
-    if (!Object.hasOwn(value, key)) continue;
-    const text = atSaFirstText(value[key], maxDepth, depth + 1, seen);
-    if (text) return text;
-  }
-
-  for (const child of Object.values(value)) {
-    const text = atSaFirstText(child, maxDepth, depth + 1, seen);
-    if (text) return text;
-  }
-  return "";
-}
-
-function atSaFindMatchingText(root, patterns, maxDepth = 9) {
-  const matches = [];
-  const seen = new Set();
-  const visit = (value, path = [], depth = 0) => {
-    if (depth > maxDepth || value == null || typeof value !== "object") return;
-    if (seen.has(value)) return;
-    seen.add(value);
-
-    if (Array.isArray(value)) {
-      value.forEach((child, index) => visit(child, [...path, String(index)], depth + 1));
-      return;
-    }
-
-    for (const [key, raw] of Object.entries(value)) {
-      const lower = String(key).toLowerCase();
-      const matchIndex = patterns.findIndex((pattern) => pattern.test(lower));
-      if (matchIndex >= 0) {
-        const text = atSaFirstText(raw);
-        if (text) matches.push({ key, path: [...path, key], value: text, priority: matchIndex });
-      }
-      if (raw && typeof raw === "object") visit(raw, [...path, key], depth + 1);
-    }
-  };
-  visit(root);
-  return matches.sort((a, b) => a.priority - b.priority || a.path.length - b.path.length);
-}
-
-function atSaHarvestNarrativeStrings(root, maxDepth = 10) {
-  const matches = [];
-  const seenObjects = new Set();
-  const seenText = new Set();
-  const blockedPath = /(?:img|image|icon|uuid|folder|ownership|sort|sourceid|sourcetype|automation|name|label|slug|key|path|version|type)$/i;
-  const referencePath = /reference|citation|source.*note|source.*reference/i;
-
-  const visit = (value, path = [], depth = 0) => {
-    if (depth > maxDepth || value == null) return;
-    if (typeof value === "string") {
-      const plain = atSaPlain(value);
-      if (!plain || plain.length < 24 || plain.length > 4000) return;
-      const pathText = path.join(".");
-      if (blockedPath.test(pathText) && !referencePath.test(pathText)) return;
-      if (!/[A-Za-zÅÄÖåäö]/.test(plain) || !/\s/.test(plain)) return;
-      if (!/[.!?)]/.test(plain) && plain.split(/\s+/).length < 6) return;
-      const key = plain.toLowerCase();
-      if (seenText.has(key)) return;
-      seenText.add(key);
-      const score = referencePath.test(pathText) ? 60 : 20 - Math.min(path.length, 10);
-      matches.push({ key: path.at(-1) || "text", path, value, priority: score });
-      return;
-    }
-    if (typeof value !== "object") return;
-    if (seenObjects.has(value)) return;
-    seenObjects.add(value);
-    if (Array.isArray(value)) {
-      value.forEach((child, index) => visit(child, [...path, String(index)], depth + 1));
-      return;
-    }
-    for (const [key, child] of Object.entries(value)) visit(child, [...path, key], depth + 1);
-  };
-
-  visit(root);
-  return matches.sort((a, b) => a.priority - b.priority || b.value.length - a.value.length);
-}
-
-function atSaUniqueTexts(matches, limit = 4) {
-  const output = [];
-  const seen = new Set();
-  for (const match of matches) {
-    const plain = atSaPlain(match.value);
-    if (!plain) continue;
-    const key = plain.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    output.push(match.value);
-    if (output.length >= limit) break;
-  }
-  return output;
-}
-
-function atSaRegister(id, adapter) {
-  const key = String(id || "").trim();
-  if (!key || !adapter || typeof adapter !== "object") throw new Error("Tome system adapters require an id and adapter object.");
-  ATSA_REGISTRY.set(key, Object.freeze({ ...adapter, id: key }));
-  return key;
-}
-
-function atSaMatchingAdapters(source) {
-  const systemId = String(game.system?.id || "");
-  return [...ATSA_REGISTRY.values()].filter((adapter) => {
-    try {
-      if (typeof adapter.matches === "function") return adapter.matches({ source, systemId, game });
-      return String(adapter.systemId || "") === systemId;
-    } catch (error) {
-      console.warn(`Adventurer's Tome | Adapter ${adapter.id} match failed`, error);
-      return false;
-    }
+function atSaPublicDescriptor(adapter) {
+  if (!adapter) return null;
+  return Object.freeze({
+    id: adapter.id,
+    label: adapter.label,
+    apiVersion: adapter.apiVersion,
+    systemId: adapter.systemId,
+    priority: adapter.priority,
+    documentTypes: [...adapter.documentTypes],
+    sourceTypes: [...adapter.sourceTypes],
+    capabilities: [...adapter.capabilities]
   });
 }
 
-async function atSaEnrich(source) {
-  const merged = { bodyHtml: "", summary: "", facts: [] };
-  for (const adapter of atSaMatchingAdapters(source)) {
-    if (typeof adapter.enrich !== "function") continue;
+function atSaNormalizeAdapter(idOrAdapter, maybeAdapter) {
+  const raw = typeof idOrAdapter === "string"
+    ? { ...(maybeAdapter || {}), id: String(idOrAdapter || "").trim() }
+    : { ...(idOrAdapter || {}) };
+
+  const id = String(raw.id || "").trim();
+  if (!id) throw new Error("Tome adapters require a stable id.");
+
+  const apiVersion = Number(raw.apiVersion || 1);
+  if (!Number.isFinite(apiVersion) || apiVersion < 1) throw new Error(`Adapter ${id} has an invalid apiVersion.`);
+  if (apiVersion > ATSA_VERSION) throw new Error(`Adapter ${id} requires unsupported Adapter API v${apiVersion}.`);
+
+  const systemId = String(raw.systemId || "").trim();
+  const label = String(raw.label || id).trim() || id;
+  const priorityValue = Number(raw.priority ?? 100);
+  const priority = Number.isFinite(priorityValue) ? priorityValue : 100;
+  const documentTypes = atSaNormalizeList(raw.documentTypes);
+  const sourceTypes = atSaNormalizeList(raw.sourceTypes);
+  const capabilities = atSaCapabilities(raw);
+
+  if (!capabilities.length) throw new Error(`Adapter ${id} does not expose a supported capability.`);
+
+  return Object.freeze({
+    ...raw,
+    id,
+    label,
+    apiVersion,
+    systemId,
+    priority,
+    documentTypes:Object.freeze(documentTypes),
+    sourceTypes:Object.freeze(sourceTypes),
+    capabilities:Object.freeze(capabilities)
+  });
+}
+
+function atSaRegister(idOrAdapter, maybeAdapter, options = {}) {
+  const adapter = atSaNormalizeAdapter(idOrAdapter, maybeAdapter);
+  const replace = options?.replace === true;
+  const existing = ATSA_REGISTRY.get(adapter.id);
+
+  if (existing && !replace) throw new Error(`Tome adapter already registered: ${adapter.id}`);
+
+  ATSA_REGISTRY.set(adapter.id, adapter);
+  ATSA_STATS.registrations += 1;
+  ATSA_STATS.lastError = "";
+
+  try {
+    Hooks.callAll("adventurersTomeAdapterRegistered", atSaPublicDescriptor(adapter));
+  } catch (_error) {}
+
+  return adapter.id;
+}
+
+function atSaUnregister(id) {
+  const key = String(id || "").trim();
+  if (!key) return false;
+  const existing = ATSA_REGISTRY.get(key);
+  if (!existing) return false;
+  const removed = ATSA_REGISTRY.delete(key);
+  if (removed) {
+    ATSA_STATS.unregisters += 1;
     try {
-      const result = await adapter.enrich({ source, systemId: game.system?.id || "", game });
-      if (!result || typeof result !== "object") continue;
-      if (!merged.bodyHtml && String(result.bodyHtml || "").trim()) merged.bodyHtml = String(result.bodyHtml);
-      if (!merged.summary && String(result.summary || "").trim()) merged.summary = String(result.summary);
-      if (Array.isArray(result.facts)) merged.facts.push(...result.facts);
+      Hooks.callAll("adventurersTomeAdapterUnregistered", atSaPublicDescriptor(existing));
+    } catch (_error) {}
+  }
+  return removed;
+}
+
+function atSaGet(id) {
+  return atSaPublicDescriptor(ATSA_REGISTRY.get(String(id || "").trim()));
+}
+
+function atSaList(options = {}) {
+  const rows = [...ATSA_REGISTRY.values()]
+    .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
+  if (options?.details === true) return rows.map(atSaPublicDescriptor);
+  return rows.map((adapter) => adapter.id);
+}
+
+function atSaMatchesSource(adapter, source, systemId = atSaSystemId()) {
+  try {
+    if (adapter.systemId && adapter.systemId !== systemId) return false;
+    if (adapter.documentTypes.length && !adapter.documentTypes.includes(String(source?.documentName || ""))) return false;
+    if (adapter.sourceTypes.length && !adapter.sourceTypes.includes(String(source?.type || ""))) return false;
+    if (typeof adapter.matches === "function") {
+      return adapter.matches({ source, systemId, game }) === true;
+    }
+    return true;
+  } catch (error) {
+    ATSA_STATS.failures += 1;
+    ATSA_STATS.lastError = String(error?.message || error);
+    console.warn(`Adventurer's Tome | Adapter ${adapter.id} match failed safely`, error);
+    return false;
+  }
+}
+
+function atSaMatchingAdapters(source, capability = "") {
+  const systemId = atSaSystemId();
+  return [...ATSA_REGISTRY.values()]
+    .filter((adapter) => !capability || adapter.capabilities.includes(capability))
+    .filter((adapter) => atSaMatchesSource(adapter, source, systemId))
+    .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
+}
+
+async function atSaExecute(capability, payload = {}) {
+  const key = String(capability || "").trim();
+  if (!ATSA_CAPABILITIES.includes(key)) throw new Error(`Unsupported Tome adapter capability: ${key || "(empty)"}`);
+
+  const source = payload?.source || null;
+  const systemId = atSaSystemId();
+  const results = [];
+
+  for (const adapter of atSaMatchingAdapters(source, key)) {
+    const handler = adapter[key];
+    if (typeof handler !== "function") continue;
+    try {
+      ATSA_STATS.executions += 1;
+      const result = await handler({
+        ...payload,
+        source,
+        systemId,
+        game,
+        adapter:atSaPublicDescriptor(adapter)
+      });
+      results.push({ adapterId:adapter.id, result });
     } catch (error) {
-      console.warn(`Adventurer's Tome | Adapter ${adapter.id} enrichment failed`, error);
+      ATSA_STATS.failures += 1;
+      ATSA_STATS.lastError = String(error?.message || error);
+      console.warn(`Adventurer's Tome | Adapter ${adapter.id} capability ${key} failed safely`, error);
+      results.push({ adapterId:adapter.id, error:String(error?.message || error) });
     }
   }
+
+  return results;
+}
+
+async function atSaEnrich(source) {
+  const merged = { bodyHtml:"", summary:"", facts:[] };
+  const rows = await atSaExecute("enrich", { source });
+
+  for (const row of rows) {
+    const result = row?.result;
+    if (!result || typeof result !== "object") continue;
+    if (!merged.bodyHtml && String(result.bodyHtml || "").trim()) merged.bodyHtml = String(result.bodyHtml);
+    if (!merged.summary && String(result.summary || "").trim()) merged.summary = String(result.summary);
+    if (Array.isArray(result.facts)) merged.facts.push(...result.facts);
+  }
+
   return merged;
 }
 
-globalThis.AdventurersTomeSystemAdapters = Object.freeze({
-  register: atSaRegister,
-  enrich: atSaEnrich,
-  list: () => [...ATSA_REGISTRY.keys()]
+function atSaSupports(capability, source = null) {
+  const key = String(capability || "").trim();
+  if (!ATSA_CAPABILITIES.includes(key)) return false;
+  return atSaMatchingAdapters(source, key).length > 0;
+}
+
+function atSaAudit() {
+  const systemId = atSaSystemId();
+  const adapters = atSaList({ details:true });
+  return {
+    contract:ATSA_CONTRACT,
+    version:ATSA_VERSION,
+    systemId,
+    healthy:ATSA_STATS.failures === 0,
+    registered:adapters.length,
+    active:adapters.filter((adapter) => !adapter.systemId || adapter.systemId === systemId).map((adapter) => adapter.id),
+    capabilities:[...ATSA_CAPABILITIES],
+    stats:{ ...ATSA_STATS },
+    adapters
+  };
+}
+
+const ATSA_PUBLIC_API = Object.freeze({
+  contract:ATSA_CONTRACT,
+  version:ATSA_VERSION,
+  capabilities:Object.freeze([...ATSA_CAPABILITIES]),
+  register:atSaRegister,
+  unregister:atSaUnregister,
+  get:atSaGet,
+  list:atSaList,
+  matching:(source, capability = "") => atSaMatchingAdapters(source, capability).map(atSaPublicDescriptor),
+  supports:atSaSupports,
+  execute:atSaExecute,
+  enrich:atSaEnrich,
+  audit:atSaAudit
 });
 
-// Optional Genesys adapter. This contains no Genesys classes or imports and only
-// activates when the current Foundry system identifies itself as genesys-vtt.
-// Tome Core remains fully functional when Genesys is absent.
-atSaRegister("genesys-vtt-core", {
-  systemId: "genesys-vtt",
-  matches: ({ source, systemId }) => systemId === "genesys-vtt" && ["Item", "Actor"].includes(String(source?.documentName || "")),
-  enrich: ({ source }) => {
-    const documentData = source?.toObject?.() || {};
-    const system = source?.system && typeof source.system === "object" ? source.system : {};
-    const searchable = { system, flags: documentData.flags || {}, document: documentData };
+// Backward-compatible global bridge for existing v1.1-v1.4 consumers.
+// New integrations should prefer game.modules.get("adventurers-tome").api.adapters.
+globalThis.AdventurersTomeSystemAdapters = ATSA_PUBLIC_API;
 
-    const mainMatches = atSaFindMatchingText(searchable, [
-      /^rulessummary$/i,
-      /^rulesummary$/i,
-      /rules.*summary/i,
-      /^summary$/i,
-      /description/i,
-      /^rules$/i,
-      /effect.*text/i,
-      /^effect$/i,
-      /^notes$/i,
-      /talent.*text/i,
-      /ability.*text/i
-    ]);
+function atSaAttachPublicApi() {
+  const module = game.modules.get(ATSA_MODULE_ID);
+  if (!module) return false;
+  if (!module.api || typeof module.api !== "object") module.api = {};
+  module.api.adapters = ATSA_PUBLIC_API;
+  return true;
+}
 
-    const referenceMatches = atSaFindMatchingText(searchable, [
-      /reference/i,
-      /citation/i,
-      /source.*note/i,
-      /source.*reference/i
-    ]);
+Hooks.once("ready", () => {
+  atSaAttachPublicApi();
+  console.info(`Adventurer's Tome | Formal Adapter API v${ATSA_VERSION} ready (${ATSA_REGISTRY.size} registered).`);
+});
 
-    let mainTexts = atSaUniqueTexts(mainMatches, 3);
-    if (!mainTexts.length) {
-      const harvested = atSaHarvestNarrativeStrings(searchable)
-        .filter((match) => !/reference|citation/i.test(match.path.join(".")));
-      mainTexts = atSaUniqueTexts(harvested, 3);
-    }
-
-    const referenceTexts = atSaUniqueTexts(referenceMatches, 2)
-      .filter((value) => !mainTexts.some((main) => atSaPlain(main).toLowerCase() === atSaPlain(value).toLowerCase()));
-
-    const bodyParts = [];
-    for (const text of mainTexts) {
-      bodyParts.push(/<\/?[a-z][\s\S]*>/i.test(text) ? text : `<p>${atSaEscape(text)}</p>`);
-    }
-    for (const text of referenceTexts) {
-      const plain = atSaPlain(text);
-      const label = /^reference\s*:/i.test(plain) ? plain : `Reference: ${plain}`;
-      bodyParts.push(`<p><em>${atSaEscape(label)}</em></p>`);
-    }
-
-    const summary = mainTexts.length ? atSaPlain(mainTexts[0]).slice(0, 360) : "";
-    return { bodyHtml: bodyParts.join(""), summary, facts: [] };
-  }
+Hooks.on("renderApplicationV2", () => {
+  if (game.modules.get(ATSA_MODULE_ID)?.api?.adapters !== ATSA_PUBLIC_API) atSaAttachPublicApi();
 });

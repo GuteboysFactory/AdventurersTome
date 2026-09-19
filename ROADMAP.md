@@ -519,7 +519,7 @@ Release record: `docs/V1.4_STABLE_RELEASE.md`
 
 ---
 
-# v1.5 — Formal Adapter API
+# CURRENT — v1.5 Formal Adapter API
 
 ## Goal
 
@@ -538,6 +538,43 @@ Adapters may provide:
 Core remains functional with no adapter or when an adapter cannot enrich a document.
 
 Genesys and Realm Guard / Torchbearer may serve as reference adapters without becoming Core dependencies.
+
+## v1.5.0-qa.1 — Formal Adapter API Foundation
+
+**Status:** QA / LIVE TEST REQUIRED
+
+This package promotes the old internal enrichment bridge into a formal, public, system-agnostic Adapter API.
+
+Locked v1 contract:
+
+- public access through `game.modules.get("adventurers-tome").api.adapters`
+- contract id `adventurers-tome-adapter-api`
+- Adapter API version `1`
+- explicit registration/unregistration lifecycle
+- deterministic priority ordering
+- optional system/document/source-type affinity
+- capability discovery via `supports()` / `matching()`
+- safe capability execution through `execute()`
+- existing enrichment preserved through `enrich()`
+- adapter failures are contained and audited rather than breaking Tome Core
+- legacy global adapter bridge remains temporarily for backward compatibility
+- new integrations should use the module API
+- no specific system package or version is a Core dependency
+
+Initial declared capabilities:
+
+- `enrich`
+- `actorMapping`
+- `itemMapping`
+- `displayFields`
+- `npcSchema`
+- `actions`
+- `rules`
+- `presentation`
+
+Genesys Talent enrichment is retained as an optional reference adapter registered through the formal contract rather than embedded as Core logic.
+
+QA protocol: `docs/V1.5_QA1_FORMAL_ADAPTER_API.md`
 
 ## Ecosystem discovery / optional Tome handoff
 
@@ -683,6 +720,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA/RC source:** `v1.4.0-rc.1`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.5 — Formal Adapter API`  
+**Current QA build:** `v1.5.0-qa.1`  
 **v1.4 feature state:** STABLE
 
 ## v1.3 final status
