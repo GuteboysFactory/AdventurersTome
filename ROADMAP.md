@@ -451,6 +451,21 @@ Promotion target after PASS: `v1.4.0-rc.1`.
 
 QA protocol: `docs/V1.4_QA8_RELEASE_HARDENING_RC_GATE.md`
 
+## v1.4.0-qa.9 — RC Gate Semantics Hotfix
+
+**Status:** QA / FOCUSED HOTFIX
+
+Clarifies the v1.4 release gate after live QA confirmed that the old v1.3 `qaComplete` field is session-local runtime evidence rather than a structural release requirement.
+
+- v1.4 RC requires convergence `healthy === true`
+- v1.4 RC requires `structuralHealthy === true`
+- v1.4 RC requires takeover `misses === 0`
+- v1.3 `qaComplete` is reported as `runtimeEvidenceComplete`
+- `runtimeEvidenceRequiredForRelease` is explicitly `false`
+- no campaign feature, data model, host contract or canonical-source behavior changes
+
+QA protocol: `docs/V1.4_QA9_RC_GATE_SEMANTICS.md`
+
 ---
 
 # v1.5 — Formal Adapter API
