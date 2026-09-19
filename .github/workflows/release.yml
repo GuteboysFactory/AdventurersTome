@@ -212,6 +212,9 @@ jobs:
           if [[ "$VERSION" == "1.5.0-qa.2" ]]; then
             NOTES="Adventurer's Tome v1.5.0-qa.2 adds typed Adapter API helper surfaces and a safe action bridge. displayFields/mapActor/mapItem/actions/invokeAction normalize capability results, namespace adapter actions, contain execution failures, and surface GM-only system actions through both standalone and compatible hosted GM Docks without hard-coding any game system into Tome Core."
           fi
+          if [[ "$VERSION" == "1.5.0-qa.3" ]]; then
+            NOTES="Adventurer's Tome v1.5.0-qa.3 is a focused startup hotfix for the optional Genesys reference adapter. Early ESModule registration now prefers the already-created global Adapter API bridge and guards formal module lookup until game.modules exists, removing the startup TypeError without changing the Adapter API contract or action bridge."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
