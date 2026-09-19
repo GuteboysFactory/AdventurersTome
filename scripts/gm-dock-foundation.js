@@ -719,7 +719,9 @@ function releaseGate() {
     convergence:convergence ? {
       healthy:Boolean(convergence.healthy),
       structuralHealthy:Boolean(convergence.structuralHealthy),
-      qaComplete:Boolean(convergence.qaComplete),
+      takeoverMisses:Number(convergence?.takeover?.misses || 0),
+      runtimeEvidenceComplete:Boolean(convergence.qaComplete),
+      runtimeEvidenceRequiredForRelease:false,
       phase:String(convergence.phase || "")
     } : null
   };
