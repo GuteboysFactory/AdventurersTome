@@ -576,6 +576,35 @@ Genesys Talent enrichment is retained as an optional reference adapter registere
 
 QA protocol: `docs/V1.5_QA1_FORMAL_ADAPTER_API.md`
 
+## v1.5.0-qa.2 — Adapter Capabilities & Action Bridge
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.2 turns the formal registry into a usable capability bridge while preserving system independence.
+
+New public convenience surfaces:
+
+- `displayFields(source)`
+- `mapActor(source)`
+- `mapItem(source)`
+- `actions(source)`
+- `invokeAction(actionKey)`
+
+Locked principles:
+
+- adapter result shapes are normalized before Tome consumes them
+- public action discovery exposes safe descriptors, never executable closures
+- execution routes through a namespaced `adapterId:actionId` key
+- adapter action exceptions are contained and audited
+- GM-only actions stay GM-only
+- action availability is re-evaluated against the current canonical source
+- standalone Tome Dock can present adapter actions
+- compatible hosted-provider menus can present the same adapter actions under **System actions**
+- adapter unregister/context changes remove stale Dock actions
+- Tome Core still never branches on a specific reference-system id for action presentation
+
+QA protocol: `docs/V1.5_QA2_ADAPTER_CAPABILITIES_ACTION_BRIDGE.md`
+
 ## Ecosystem discovery / optional Tome handoff
 
 Other GuteboysFactory systems/modules may expose an optional Tome-aware action.
@@ -720,7 +749,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA/RC source:** `v1.4.0-rc.1`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.5 — Formal Adapter API`  
-**Current QA build:** `v1.5.0-qa.1`  
+**Current QA build:** `v1.5.0-qa.2`  
 **v1.4 feature state:** STABLE
 
 ## v1.3 final status

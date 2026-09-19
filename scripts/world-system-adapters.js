@@ -207,6 +207,155 @@ function atSaSupports(capability, source = null) {
   return atSaMatchingAdapters(source, key).length > 0;
 }
 
+function atSaPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function atSaNormalizeField(field, index = 0, adapterId = "") {
+  const raw = atSaPlainObject(field);
+  const id = String(raw.id || raw.key || `field-${index + 1}`).trim();
+  if (!id) return null;
+  return Object.freeze({
+    adapterId:String(adapterId || ""),
+    id,
+    label:String(raw.label || raw.name || id),
+    value:raw.value ?? "",
+    icon:String(raw.icon || ""),
+    group:String(raw.group || ""),
+    order:Number.isFinite(Number(raw.order)) ? Number(raw.order) : 100,
+    visibility:String(raw.visibility || "default")
+  });
+}
+
+function atSaNormalizeAction(action, index = 0, adapter = null) {
+  const raw = atSaPlainObject(action);
+  const id = String(raw.id || raw.key || `action-${index + 1}`).trim();
+  if (!id || !adapter) return null;
+  const actionKey = `${adapter.id}:${id}`;
+  return {
+    descriptor:Object.freeze({
+      key:actionKey,
+      adapterId:adapter.id,
+      id,
+      label:String(raw.label || raw.name || id),
+      detail:String(raw.detail || raw.description || ""),
+      icon:String(raw.icon || "fa-wand-magic-sparkles"),
+      group:String(raw.group || "system"),
+      order:Number.isFinite(Number(raw.order)) ? Number(raw.order) : 100,
+      gmOnly:raw.gmOnly !== false,
+      disabled:raw.disabled === true
+    }),
+    execute:typeof raw.execute === "function" ? raw.execute : (typeof raw.run === "function" ? raw.run : null)
+  };
+}
+
+async function atSaFirstResult(capability, source, payload = {}) {
+  const rows = await atSaExecute(capability, { ...payload, source });
+  for (const row of rows) {
+    if (row?.error) continue;
+    if (row?.result !== undefined && row?.result !== null) return { adapterId:row.adapterId, result:row.result };
+  }
+  return null;
+}
+
+async function atSaDisplayFields(source, payload = {}) {
+  const rows = await atSaExecute("displayFields", { ...payload, source });
+  const fields = [];
+  for (const row of rows) {
+    const list = Array.isArray(row?.result) ? row.result : Array.isArray(row?.result?.fields) ? row.result.fields : [];
+    list.forEach((field, index) => {
+      const normalized = atSaNormalizeField(field, index, row.adapterId);
+      if (normalized) fields.push(normalized);
+    });
+  }
+  return fields.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+}
+
+async function atSaMapActor(source, payload = {}) {
+  return atSaFirstResult("actorMapping", source, payload);
+}
+
+async function atSaMapItem(source, payload = {}) {
+  return atSaFirstResult("itemMapping", source, payload);
+}
+
+async function atSaActions(source, payload = {}) {
+  const rows = await atSaExecute("actions", { ...payload, source });
+  const actions = [];
+  for (const row of rows) {
+    const adapter = ATSA_REGISTRY.get(String(row?.adapterId || ""));
+    if (!adapter || row?.error) continue;
+    const list = Array.isArray(row?.result) ? row.result : Array.isArray(row?.result?.actions) ? row.result.actions : [];
+    list.forEach((action, index) => {
+      const normalized = atSaNormalizeAction(action, index, adapter);
+      if (!normalized) return;
+      if (normalized.descriptor.gmOnly && !game.user?.isGM) return;
+      actions.push(normalized);
+    });
+  }
+  return actions
+    .sort((a, b) => a.descriptor.order - b.descriptor.order || a.descriptor.label.localeCompare(b.descriptor.label))
+    .map((row) => row.descriptor);
+}
+
+async function atSaInvokeAction(actionKey, payload = {}) {
+  const key = String(actionKey || "").trim();
+  if (!key.includes(":")) throw new Error("Adapter action key must use adapterId:actionId.");
+  const [adapterId, ...rest] = key.split(":");
+  const actionId = rest.join(":");
+  const adapter = ATSA_REGISTRY.get(adapterId);
+  if (!adapter) throw new Error(`Adapter not registered: ${adapterId}`);
+
+  const source = payload?.source || null;
+  if (!adapter.capabilities.includes("actions") || !atSaMatchesSource(adapter, source)) {
+    throw new Error(`Adapter action is not available for the current source: ${key}`);
+  }
+
+  let rawActions = [];
+  try {
+    ATSA_STATS.executions += 1;
+    const result = await adapter.actions({
+      ...payload,
+      source,
+      systemId:atSaSystemId(),
+      game,
+      adapter:atSaPublicDescriptor(adapter)
+    });
+    rawActions = Array.isArray(result) ? result : Array.isArray(result?.actions) ? result.actions : [];
+  } catch (error) {
+    ATSA_STATS.failures += 1;
+    ATSA_STATS.lastError = String(error?.message || error);
+    console.warn(`Adventurer's Tome | Adapter ${adapter.id} actions failed safely`, error);
+    throw error;
+  }
+
+  for (let index = 0; index < rawActions.length; index += 1) {
+    const normalized = atSaNormalizeAction(rawActions[index], index, adapter);
+    if (!normalized || normalized.descriptor.id !== actionId) continue;
+    if (normalized.descriptor.gmOnly && !game.user?.isGM) throw new Error("This adapter action is GM-only.");
+    if (normalized.descriptor.disabled) throw new Error("This adapter action is currently disabled.");
+    if (typeof normalized.execute !== "function") throw new Error(`Adapter action has no executable handler: ${key}`);
+    try {
+      ATSA_STATS.executions += 1;
+      return await normalized.execute({
+        ...payload,
+        source,
+        systemId:atSaSystemId(),
+        game,
+        adapter:atSaPublicDescriptor(adapter),
+        action:normalized.descriptor
+      });
+    } catch (error) {
+      ATSA_STATS.failures += 1;
+      ATSA_STATS.lastError = String(error?.message || error);
+      console.warn(`Adventurer's Tome | Adapter action ${key} failed safely`, error);
+      throw error;
+    }
+  }
+
+  throw new Error(`Adapter action not found: ${key}`);
+}
+
 function atSaAudit() {
   const systemId = atSaSystemId();
   const adapters = atSaList({ details:true });
@@ -235,6 +384,11 @@ const ATSA_PUBLIC_API = Object.freeze({
   supports:atSaSupports,
   execute:atSaExecute,
   enrich:atSaEnrich,
+  displayFields:atSaDisplayFields,
+  mapActor:atSaMapActor,
+  mapItem:atSaMapItem,
+  actions:atSaActions,
+  invokeAction:atSaInvokeAction,
   audit:atSaAudit
 });
 
