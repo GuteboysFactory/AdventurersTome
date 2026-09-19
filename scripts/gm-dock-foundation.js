@@ -9,6 +9,7 @@ let lastFoundryUuid = "";
 let refreshTimer = null;
 let hostedProviderRegistered = false;
 let hostedProviderHostId = "";
+let hostedProviderHost = null;
 let hostedCaptureExpanded = false;
 let hostedCaptureDraft = { title:"", body:"", type:"reminder", target:"" };
 const extraActions = new Map();
@@ -143,6 +144,16 @@ function removeStandaloneDock() {
   document.getElementById(DOCK_ID)?.remove();
   dock = null;
   panel = "";
+}
+
+function clearHostedRegistration() {
+  if (hostedProviderHost && hostedProviderRegistered) {
+    try { hostedProviderHost.unregisterProvider?.(MODULE_ID); }
+    catch (error) { console.warn("Adventurer's Tome | Could not unregister previous GM Dock host safely", error); }
+  }
+  hostedProviderRegistered = false;
+  hostedProviderHostId = "";
+  hostedProviderHost = null;
 }
 
 function hostedCaptureHtml(ctx) {
@@ -366,13 +377,22 @@ function hostedMenu() {
 function registerWithDockHost() {
   if (!game.user?.isGM) return false;
   const host = activeDockHost();
+
   if (!host) {
-    hostedProviderRegistered = false;
-    hostedProviderHostId = "";
+    clearHostedRegistration();
     return false;
   }
 
-  if (!host.hasProvider?.(MODULE_ID) || hostedProviderHostId !== host.id) {
+  if (hostedProviderHost && hostedProviderHost !== host) clearHostedRegistration();
+
+  let hostReportsRegistered = null;
+  if (typeof host.hasProvider === "function") {
+    try { hostReportsRegistered = host.hasProvider(MODULE_ID) === true; }
+    catch (error) { console.warn("Adventurer's Tome | GM Dock host hasProvider failed safely", error); }
+  }
+
+  const locallyRegistered = hostedProviderRegistered && hostedProviderHost === host;
+  if (hostReportsRegistered !== true && !locallyRegistered) {
     host.registerProvider({
       id:MODULE_ID,
       label:"Adventurer's Tome",
@@ -387,6 +407,7 @@ function registerWithDockHost() {
 
   hostedProviderRegistered = true;
   hostedProviderHostId = String(host.id || "");
+  hostedProviderHost = host;
   removeStandaloneDock();
   return true;
 }
@@ -624,6 +645,86 @@ function captureFoundryContext(app) {
   scheduleRefresh();
 }
 
+function releaseGate() {
+  const module = game.modules.get(MODULE_ID);
+  const moduleApi = module?.api || {};
+  const host = activeDockHost();
+  const ctx = currentContext();
+  const pinnedUuid = String(game.settings.get(MODULE_ID, PIN_SETTING) || "").trim();
+  const captureTarget = String(hostedCaptureDraft.target || "").trim();
+  const captureTargetDocument = resolveCaptureTarget(captureTarget);
+  const convergenceAudit = moduleApi.universalDocuments?.convergenceAudit;
+  let convergence = null;
+
+  try {
+    convergence = typeof convergenceAudit === "function" ? convergenceAudit() : null;
+  } catch (error) {
+    convergence = { healthy:false, error:String(error?.message || error) };
+  }
+
+  const generation = Number(game.release?.generation || 0);
+  const build = Number(game.release?.build || 0);
+  const checks = {
+    gmContext: game.user?.isGM === true,
+    moduleActive: module?.active === true,
+    supportedFoundryGeneration: generation >= 13 && generation <= 14,
+    contextResolvable: !ctx.uuid || Boolean(resolveUuid(ctx.uuid)),
+    pinHealthy: !pinnedUuid || Boolean(resolveUuid(pinnedUuid)),
+    captureTargetHealthy: !captureTarget.startsWith("uuid:") || Boolean(captureTargetDocument),
+    privateVaultApi: typeof moduleApi.contextualPrivateVault?.open === "function"
+      && typeof moduleApi.contextualPrivateVault?.addNote === "function",
+    quickCaptureApi: typeof moduleApi.quickCapture === "function",
+    revealQueueApi: typeof moduleApi.openRevealQueue === "function"
+      && typeof moduleApi.getRevealQueue === "function",
+    nextSessionApi: typeof moduleApi.openGmDashboard === "function"
+      && typeof moduleApi.getGmNotebook === "function",
+    universalConvergence: Boolean(convergence?.healthy),
+    hostCompatible: !host || (
+      host.contract === "gbf-gm-dock-host"
+      && Number(host.version || 0) >= 1
+      && typeof host.registerProvider === "function"
+    ),
+    dockModeCoherent: host
+      ? hostedProviderRegistered && !document.getElementById(DOCK_ID)
+      : Boolean(document.getElementById(DOCK_ID))
+  };
+
+  const healthy = Object.values(checks).every(Boolean);
+
+  return {
+    phase:"v1.4-release-hardening-rc-gate",
+    version:String(module?.version || ""),
+    healthy,
+    checks,
+    platform:{
+      generation,
+      build,
+      version:String(game.version || game.release?.version || ""),
+      verifiedBaseline:generation === 13 && build === 351
+    },
+    integration:{
+      systemId:String(game.system?.id || ""),
+      mode:host ? "hosted-provider" : "standalone-fallback",
+      hostContract:host ? String(host.contract || "") : "",
+      hostVersion:host ? Number(host.version || 0) : 0,
+      richMenu:Boolean(host && Number(host.version || 0) >= 2)
+    },
+    context:{
+      uuid:String(ctx.uuid || ""),
+      name:String(ctx.name || ""),
+      documentName:String(ctx.documentName || ""),
+      source:String(ctx.source || ""),
+      pinned:Boolean(pinnedUuid && pinnedUuid === ctx.uuid)
+    },
+    convergence:convergence ? {
+      healthy:Boolean(convergence.healthy),
+      structuralHealthy:Boolean(convergence.structuralHealthy),
+      qaComplete:Boolean(convergence.qaComplete),
+      phase:String(convergence.phase || "")
+    } : null
+  };
+}
+
 function gmDockApi() {
   return Object.freeze({
     version:2,
@@ -646,6 +747,7 @@ function gmDockApi() {
         richMenu:Boolean(host && Number(host.version || 0) >= 2)
       };
     },
+    releaseGate:()=>releaseGate(),
     context:()=>{
       const c=currentContext();
       return {uuid:c.uuid,refKey:c.refKey,name:c.name,documentName:c.documentName,source:c.source,pinned:String(game.settings.get(MODULE_ID,PIN_SETTING)||"")===c.uuid};
@@ -684,8 +786,7 @@ Hooks.once("ready",()=>{
 
 Hooks.on("guteboysFactoryGmDockHostReady",()=>{
   if (!game.user?.isGM) return;
-  hostedProviderRegistered=false;
-  hostedProviderHostId="";
+  clearHostedRegistration();
   refreshDock();
 });
 
