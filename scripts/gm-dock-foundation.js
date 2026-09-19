@@ -12,6 +12,9 @@ let hostedProviderHostId = "";
 let hostedProviderHost = null;
 let hostedCaptureExpanded = false;
 let hostedCaptureDraft = { title:"", body:"", type:"reminder", target:"" };
+let adapterDockSyncTimer = null;
+let adapterDockSignature = "";
+const adapterDockActionIds = new Set();
 const extraActions = new Map();
 
 const api = () => game.modules.get(MODULE_ID)?.api || {};
@@ -84,6 +87,105 @@ function vaultCount(ctx) {
 function recentRows() {
   const refs = Array.isArray(api().getRecentItems?.()) ? api().getRecentItems() : [];
   return refs.slice(0,8).map((ref) => api().getRefMeta?.(ref)).filter(Boolean);
+}
+
+function visibleExtraActions(ctx) {
+  return [...extraActions.values()]
+    .filter((config) => {
+      try { return typeof config.visible === "function" ? config.visible(ctx) !== false : true; }
+      catch (_error) { return false; }
+    })
+    .sort((a, b) => Number(a.order ?? 100) - Number(b.order ?? 100) || String(a.title || a.id).localeCompare(String(b.title || b.id)));
+}
+
+function clearAdapterDockActions() {
+  let changed = false;
+  for (const id of adapterDockActionIds) changed = extraActions.delete(id) || changed;
+  adapterDockActionIds.clear();
+  if (adapterDockSignature) changed = true;
+  adapterDockSignature = "";
+  return changed;
+}
+
+async function syncAdapterDockActions() {
+  if (!game.user?.isGM) return false;
+  const adapters = api().adapters;
+  if (typeof adapters?.actions !== "function" || typeof adapters?.invokeAction !== "function") {
+    const changed = clearAdapterDockActions();
+    if (changed) scheduleRefresh(false);
+    return changed;
+  }
+
+  const ctx = currentContext();
+  let descriptors = [];
+  try {
+    descriptors = await adapters.actions(ctx.document || null, {
+      surface:"gm-dock",
+      context:{ uuid:ctx.uuid, refKey:ctx.refKey, name:ctx.name, documentName:ctx.documentName, source:ctx.source }
+    });
+  } catch (error) {
+    console.warn("Adventurer's Tome | Adapter Dock action discovery failed safely", error);
+    return false;
+  }
+
+  const normalized = (Array.isArray(descriptors) ? descriptors : [])
+    .filter((row) => row?.key && row?.label)
+    .map((row) => ({
+      key:String(row.key),
+      id:`adapter:${String(row.key)}`,
+      title:String(row.label),
+      detail:String(row.detail || ""),
+      icon:String(row.icon || "fa-wand-magic-sparkles"),
+      order:Number.isFinite(Number(row.order)) ? Number(row.order) : 100,
+      disabled:row.disabled === true,
+      group:String(row.group || "system")
+    }));
+
+  const signature = JSON.stringify(normalized.map(({key,title,detail,icon,order,disabled,group}) => ({key,title,detail,icon,order,disabled,group})));
+  if (signature === adapterDockSignature) return false;
+
+  clearAdapterDockActions();
+  adapterDockSignature = signature;
+
+  for (const row of normalized) {
+    const id = row.id;
+    adapterDockActionIds.add(id);
+    extraActions.set(id, {
+      id,
+      title:row.title,
+      detail:row.detail,
+      icon:row.icon,
+      order:row.order,
+      disabled:row.disabled,
+      group:row.group,
+      adapterActionKey:row.key,
+      handler:async ({ context }) => {
+        const live = currentContext();
+        return adapters.invokeAction(row.key, {
+          source:live.document || context?.document || null,
+          surface:"gm-dock",
+          context:{
+            uuid:live.uuid,
+            refKey:live.refKey,
+            name:live.name,
+            documentName:live.documentName,
+            source:live.source
+          }
+        });
+      }
+    });
+  }
+
+  scheduleRefresh(false);
+  return true;
+}
+
+function scheduleAdapterDockSync() {
+  clearTimeout(adapterDockSyncTimer);
+  adapterDockSyncTimer = setTimeout(() => {
+    adapterDockSyncTimer = null;
+    syncAdapterDockActions().catch((error) => console.warn("Adventurer's Tome | Adapter Dock sync failed safely", error));
+  }, 90);
 }
 
 function activeDockHost() {
@@ -340,6 +442,17 @@ function hostedMenu() {
       icon:"fa-solid fa-calendar-day",
       onClick:()=>handleAction("next")
     },
+    ...(visibleExtraActions(ctx).length ? [
+      { separator:true, label:"System actions" },
+      ...visibleExtraActions(ctx).map((row) => ({
+        id:row.id,
+        label:row.title || row.id,
+        detail:row.detail || "Provided by the active system adapter.",
+        icon:`fa-solid ${row.icon || "fa-wand-magic-sparkles"}`,
+        disabled:row.disabled === true,
+        onClick:()=>handleAction(row.id)
+      }))
+    ] : []),
     { separator:true, label:"Recent Tome context" },
     ...recents.map((row,index)=>({
       id:`recent-${index}`,
@@ -423,11 +536,9 @@ function action(id, icon, title, count=0, disabled=false) {
 
 function barHtml(ctx) {
   const pinned = Boolean(ctx.uuid && String(game.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
-  const custom = [...extraActions.values()].map((x) => {
-    let visible = true;
-    try { visible = typeof x.visible === "function" ? x.visible(ctx) !== false : true; } catch (_e) {}
-    return visible ? action(x.id, x.icon || "fa-wand-magic-sparkles", x.title || x.id) : "";
-  }).join("");
+  const custom = visibleExtraActions(ctx)
+    .map((x) => action(x.id, x.icon || "fa-wand-magic-sparkles", x.title || x.id, 0, x.disabled === true))
+    .join("");
 
   return `<div class="at-gmd-bar">
     <button type="button" class="at-gmd-grip" data-gmd-drag title="Drag GM Dock. Right-click to reset."><i class="fa-solid fa-grip-lines"></i></button>
@@ -632,9 +743,10 @@ function refreshDock() {
   renderPanel(ctx);
 }
 
-function scheduleRefresh() {
+function scheduleRefresh(syncAdapters = true) {
   clearTimeout(refreshTimer);
   refreshTimer=setTimeout(()=>{refreshTimer=null;refreshDock();},70);
+  if (syncAdapters) scheduleAdapterDockSync();
 }
 
 function captureFoundryContext(app) {
@@ -757,6 +869,7 @@ function gmDockApi() {
     registerAction(id,config={}){
       const key=String(id||"").trim();
       if (!key) throw new Error("GM Dock action id is required.");
+      if (key.startsWith("adapter:")) throw new Error("GM Dock adapter: namespace is reserved for the Adapter API bridge.");
       if (extraActions.has(key)) throw new Error(`GM Dock action already registered: ${key}`);
       extraActions.set(key,{...config,id:key});
       scheduleRefresh();
@@ -778,7 +891,10 @@ Hooks.once("ready",()=>{
     if (!module.api || typeof module.api !== "object") module.api = {};
     module.api.gmDock = gmDockApi();
   }
-  healPinnedContext().catch((error)=>console.warn("Adventurer's Tome | Could not heal stale pinned context",error)).finally(refreshDock);
+  healPinnedContext().catch((error)=>console.warn("Adventurer's Tome | Could not heal stale pinned context",error)).finally(()=>{
+    refreshDock();
+    scheduleAdapterDockSync();
+  });
   window.addEventListener("resize",()=>{
     if (activeDockHost()) return activeDockHost()?.refresh?.();
     positionDock({left:Number(dock?.dataset.left||savedPosition().left),top:Number(dock?.dataset.top||savedPosition().top)});
@@ -791,6 +907,9 @@ Hooks.on("guteboysFactoryGmDockHostReady",()=>{
   clearHostedRegistration();
   refreshDock();
 });
+
+Hooks.on("adventurersTomeAdapterRegistered",scheduleAdapterDockSync);
+Hooks.on("adventurersTomeAdapterUnregistered",scheduleAdapterDockSync);
 
 Hooks.on("renderApplicationV2",(app)=>captureFoundryContext(app));
 Hooks.on("renderActorSheet",(app)=>captureFoundryContext(app));
