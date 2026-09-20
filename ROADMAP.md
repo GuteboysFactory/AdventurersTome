@@ -759,6 +759,28 @@ Security and independence remain locked:
 
 QA protocol: `docs/V1.6_QA2_SEMANTIC_PROVIDER_HARDENING.md`
 
+## v1.6.0-qa.3 — Semantic Catalog Expansion & Character Intelligence
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.3 broadens the read-only USL character model while preserving the same provenance, authority and visibility boundary.
+
+Added:
+
+- Semantic Catalog v3
+- drives / beliefs / goals / instincts
+- skills / wises / talents / conditions
+- merge-list handling for skills, wises, talents and conditions
+- richer Realm Guard reference mapping from embedded Items and canonical Actor fields
+- automatic richer `inspect()` coverage without exposing raw payloads
+
+Privacy lock:
+
+- Character Notes remain intentionally unmapped until their private/GM visibility semantics are explicitly designed and tested.
+- No write-back or creation is enabled in qa.3.
+
+QA protocol: `docs/V1.6_QA3_CHARACTER_INTELLIGENCE.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -884,7 +906,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.2`  
+**Current QA build:** `v1.6.0-qa.3`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
