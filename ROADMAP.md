@@ -824,6 +824,34 @@ Fixes the public-note semantic source selection for Tome Character Information:
 
 QA protocol: `docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md`
 
+## v1.6.0-qa.6 — Controlled Semantic Write Execution
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.6 enables the first real semantic mutations on top of the verified dry-run write contract.
+
+Added:
+
+- public `semantic.executeWrite(source, plan, options?)`
+- fresh-plan revalidation before every mutation
+- optimistic stale-plan conflict rejection
+- source UUID / provider / target-path / operation tamper protection
+- additive Adapter API capability `semanticWriteApply`
+- targeted `adapters.executeAdapter()` so writes are never broadcast to all providers
+- controlled Realm Guard writes to existing canonical Actor fields
+- controlled Tome Character Information writes to its existing canonical profile field
+- Foundry update loop markers
+- payload-free session-local semantic write audit trail
+
+Scope lock:
+
+- updates existing canonical sources only
+- no Actor/NPC/Item creation yet
+- GM Private Vault remains plan-only in qa.6
+
+Architecture: `docs/USL_CONTROLLED_WRITE_EXECUTION.md`  
+QA protocol: `docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -949,7 +977,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.5`  
+**Current QA build:** `v1.6.0-qa.6`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
