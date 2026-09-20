@@ -22,6 +22,26 @@ const stats = {
   lastError:""
 };
 
+const WRITE_AUDIT_LIMIT = 20;
+const writeAudit = [];
+
+function pushWriteAudit(event = {}) {
+  const row = Object.freeze({
+    at:Date.now(),
+    semantic:String(event.semantic || ""),
+    status:String(event.status || ""),
+    reason:String(event.reason || ""),
+    provider:String(event.provider || ""),
+    targetUuid:String(event.targetUuid || ""),
+    targetPath:String(event.targetPath || ""),
+    userId:String(game.user?.id || "")
+  });
+  writeAudit.unshift(row);
+  if (writeAudit.length > WRITE_AUDIT_LIMIT) writeAudit.length = WRITE_AUDIT_LIMIT;
+  return row;
+}
+
+
 function clone(value) {
   try { return foundry.utils.deepClone(value); }
   catch (_err) {
@@ -741,6 +761,12 @@ async function executeWrite(source, plan, options = {}) {
   if (freshPlan.allowed !== true) {
     if (freshPlan.reason === "permission") stats.writeDenied += 1;
     if (freshPlan.reason === "conflict") stats.writeConflicts += 1;
+    pushWriteAudit({
+      semantic:supplied.semantic,
+      status:"rejected",
+      reason:String(freshPlan.reason || "revalidation-failed"),
+      targetUuid:String(source?.uuid || "")
+    });
     return {
       contract:CONTRACT,
       version:VERSION,
@@ -756,6 +782,12 @@ async function executeWrite(source, plan, options = {}) {
 
   if (!samePlanTarget(supplied, freshPlan)) {
     stats.writeConflicts += 1;
+    pushWriteAudit({
+      semantic:supplied.semantic,
+      status:"rejected",
+      reason:"plan-target-changed",
+      targetUuid:String(source?.uuid || "")
+    });
     return {
       contract:CONTRACT,
       version:VERSION,
@@ -793,6 +825,14 @@ async function executeWrite(source, plan, options = {}) {
     stats.failures += 1;
     stats.lastError = String(error?.message || error);
     console.warn("Adventurer's Tome | Semantic write execution failed safely", error);
+    pushWriteAudit({
+      semantic:freshPlan.semantic,
+      status:"failed",
+      reason:"execution-failed",
+      provider:freshPlan.provider,
+      targetUuid:String(source?.uuid || ""),
+      targetPath:freshPlan.targetPath
+    });
     return {
       contract:CONTRACT,
       version:VERSION,
@@ -806,6 +846,14 @@ async function executeWrite(source, plan, options = {}) {
   }
 
   if (!result?.applied) {
+    pushWriteAudit({
+      semantic:freshPlan.semantic,
+      status:"rejected",
+      reason:"not-applied",
+      provider:freshPlan.provider,
+      targetUuid:String(source?.uuid || ""),
+      targetPath:freshPlan.targetPath
+    });
     return {
       contract:CONTRACT,
       version:VERSION,
@@ -819,6 +867,13 @@ async function executeWrite(source, plan, options = {}) {
 
   const resolved = await resolve(source, freshPlan.semantic, { ...options, user });
   stats.writesApplied += 1;
+  pushWriteAudit({
+    semantic:freshPlan.semantic,
+    status:"applied",
+    provider:freshPlan.provider,
+    targetUuid:String(source?.uuid || ""),
+    targetPath:freshPlan.targetPath
+  });
 
   return {
     contract:CONTRACT,
@@ -885,7 +940,8 @@ function audit() {
     version:VERSION,
     catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
     healthy:stats.failures === 0,
-    stats:{ ...stats }
+    stats:{ ...stats },
+    recentWrites:writeAudit.map((row) => ({ ...row }))
   };
 }
 
