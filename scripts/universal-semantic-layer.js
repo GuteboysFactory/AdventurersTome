@@ -229,11 +229,60 @@ async function resolveViaAdapter(source, semantic, options, user) {
   return aggregateFacts(source, semantic, facts);
 }
 
-function knownInformationPayload(source) {
+function tomeCharacterProfile(source) {
+  const raw = source?.getFlag?.(MODULE_ID, "profile");
+  return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+}
+
+function usesTomeCharacterInformation(source) {
+  if (String(source?.documentName || "") !== "Actor") return false;
+  if (source?.getFlag?.(MODULE_ID, "groupMember") === true) return true;
+  const profile = tomeCharacterProfile(source);
+  return Boolean(
+    profile.title ||
+    profile.subtitle ||
+    profile.summary ||
+    profile.biography ||
+    profile.motto ||
+    profile.heroImage
+  );
+}
+
+function publicInformationPayload(source) {
+  if (usesTomeCharacterInformation(source)) {
+    const profile = tomeCharacterProfile(source);
+    return {
+      value:String(profile.biography || "").trim(),
+      sourcePath:`flags.${MODULE_ID}.profile.biography`,
+      provider:"tome-known-information",
+      format:"plain"
+    };
+  }
+
   const raw = source?.getFlag?.(MODULE_ID, "knownInformation");
-  if (typeof raw === "string") return { html:raw };
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) return { ...raw };
-  return { html:"" };
+  if (typeof raw === "string") {
+    return {
+      value:String(raw || "").trim(),
+      sourcePath:`flags.${MODULE_ID}.knownInformation`,
+      provider:"tome-known-information",
+      format:"html"
+    };
+  }
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return {
+      value:String(raw.html || "").trim(),
+      sourcePath:`flags.${MODULE_ID}.knownInformation.html`,
+      provider:"tome-known-information",
+      format:"html"
+    };
+  }
+
+  return {
+    value:"",
+    sourcePath:`flags.${MODULE_ID}.knownInformation.html`,
+    provider:"tome-known-information",
+    format:"html"
+  };
 }
 
 function resolveTomeNotes(source, semantic, user) {
@@ -257,19 +306,19 @@ function resolveTomeNotes(source, semantic, user) {
   }
 
   if (semantic === "notes.public") {
-    const payload = knownInformationPayload(source);
-    const html = String(payload?.html || "").trim();
-    if (!html) return null;
+    const payload = publicInformationPayload(source);
+    const value = String(payload?.value || "").trim();
+    if (!value) return null;
     return baseResult(source, semantic, {
       status:"resolved",
       authority:"tome",
       confidence:1,
-      provider:"tome-known-information",
-      sourcePath:`flags.${MODULE_ID}.knownInformation.html`,
+      provider:String(payload.provider || "tome-known-information"),
+      sourcePath:String(payload.sourcePath || ""),
       visibility:"player-visible",
       revealState:"revealed",
       writable:Boolean(user?.isGM || canOwn(source, user)),
-      data:html
+      data:value
     });
   }
 
@@ -392,20 +441,20 @@ function genericTomeWritePlan(source, semantic, proposedValue, user) {
   }
 
   if (semantic === "notes.public") {
-    const current = knownInformationPayload(source);
+    const current = publicInformationPayload(source);
     return {
       semantic,
       allowed:Boolean(user?.isGM || canOwn(source, user)),
       authority:"tome",
-      provider:"tome-known-information",
+      provider:String(current.provider || "tome-known-information"),
       visibility:"player-visible",
       revealState:"revealed",
       permission:"OWNER",
       operation:"update",
       targetUuid:String(source?.uuid || ""),
-      targetPath:`flags.${MODULE_ID}.knownInformation.html`,
-      sourcePath:`flags.${MODULE_ID}.knownInformation.html`,
-      currentValue:String(current?.html || ""),
+      targetPath:String(current.sourcePath || ""),
+      sourcePath:String(current.sourcePath || ""),
+      currentValue:String(current.value || ""),
       proposedValue:clone(proposedValue),
       conflict:false
     };

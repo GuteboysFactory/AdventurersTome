@@ -808,6 +808,22 @@ Hard lock:
 Detailed architecture: `docs/USL_PRIVACY_WRITE_CONTRACT.md`  
 QA protocol: `docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md`
 
+## v1.6.0-qa.5 — Public Notes Canonical Source Hotfix
+
+**Status:** QA / LIVE TEST REQUIRED
+
+Focused qa.4 hotfix.
+
+Fixes the public-note semantic source selection for Tome Character Information:
+
+- Tome group-PC Character Information resolves from `flags.adventurers-tome.profile.biography`
+- dry-run `notes.public` write plans target the same canonical field
+- existing Item/legacy Known Information sources retain their current `knownInformation` storage
+- no duplicate public-note authority is introduced
+- Private Vault and owner-private note boundaries are unchanged
+
+QA protocol: `docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -933,7 +949,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.4`  
+**Current QA build:** `v1.6.0-qa.5`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
