@@ -309,6 +309,124 @@ async function resolve(source, semanticId, options = {}) {
   return baseResult(source, semantic, { status:"unavailable" });
 }
 
+function semanticPrivacy(semantic) {
+  return String(semanticCatalogEntry(semantic)?.privacy || "");
+}
+
+function writePermissionFor(visibility) {
+  if (visibility === "gm-only") return "GM";
+  if (visibility === "owner-only") return "OWNER";
+  return "OWNER";
+}
+
+function canWriteVisibility(source, user, visibility) {
+  if (!source || !user) return false;
+  if (user.isGM) return true;
+  if (visibility === "gm-only") return false;
+  return canOwn(source, user);
+}
+
+async function planWrite(source, semanticId, proposedValue, options = {}) {
+  const semantic = String(semanticId || "").trim();
+  const entry = semanticCatalogEntry(semantic);
+  const user = currentUser(options);
+
+  if (!source || !semantic || !entry) {
+    return baseResult(source, semantic, {
+      status:"unavailable",
+      allowed:false,
+      dryRun:true,
+      operation:"none",
+      reason:"unavailable"
+    });
+  }
+
+  const adapters = adapterApi();
+  if (typeof adapters?.execute !== "function" || !adapters.capabilities?.includes?.("semanticWritePlan")) {
+    return baseResult(source, semantic, {
+      status:"unavailable",
+      allowed:false,
+      dryRun:true,
+      operation:"none",
+      reason:"no-write-provider"
+    });
+  }
+
+  let rows = [];
+  try {
+    rows = await adapters.execute("semanticWritePlan", {
+      source,
+      semantic,
+      proposedValue:clone(proposedValue),
+      user,
+      context:clone(options?.context || {})
+    });
+  } catch (error) {
+    stats.failures += 1;
+    stats.lastError = String(error?.message || error);
+    return baseResult(source, semantic, {
+      status:"unavailable",
+      allowed:false,
+      dryRun:true,
+      operation:"none",
+      reason:"provider-error"
+    });
+  }
+
+  for (const row of rows) {
+    if (row?.error || !row?.result || typeof row.result !== "object") continue;
+    const result = row.result;
+    const visibility = String(result.visibility || semanticPrivacy(semantic) || "").trim();
+    if (!visibility) continue;
+
+    const allowed = canWriteVisibility(source, user, visibility) && result.allowed !== false;
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
+      semantic,
+      status:"planned",
+      allowed,
+      dryRun:true,
+      operation:String(result.operation || "update"),
+      reason:allowed ? "" : String(result.reason || "permission"),
+      authority:String(result.authority || "adapter"),
+      provider:String(result.provider || row.adapterId || ""),
+      targetUuid:String(result.targetUuid || source?.uuid || ""),
+      targetPath:String(result.targetPath || result.sourcePath || ""),
+      sourcePath:String(result.sourcePath || result.targetPath || ""),
+      visibility,
+      permission:String(result.permission || writePermissionFor(visibility)),
+      currentValue:clone(result.currentValue ?? null),
+      proposedValue:clone(proposedValue),
+      conflict:Boolean(result.conflict),
+      conflictReason:String(result.conflictReason || ""),
+      writable:allowed
+    };
+  }
+
+  return baseResult(source, semantic, {
+    status:"unavailable",
+    allowed:false,
+    dryRun:true,
+    operation:"none",
+    reason:"no-write-plan"
+  });
+}
+
+async function canWriteSemantic(source, semanticId, options = {}) {
+  const plan = await planWrite(source, semanticId, options?.proposedValue ?? null, options);
+  return {
+    semantic:String(semanticId || ""),
+    allowed:plan.allowed === true,
+    reason:String(plan.reason || ""),
+    provider:String(plan.provider || ""),
+    targetPath:String(plan.targetPath || ""),
+    visibility:String(plan.visibility || ""),
+    permission:String(plan.permission || "")
+  };
+}
+
 async function resolveMany(source, semantics = [], options = {}) {
   const ids = [...new Set((Array.isArray(semantics) ? semantics : []).map((id) => String(id || "").trim()).filter(Boolean))];
   const results = [];
@@ -368,6 +486,8 @@ const publicApi = Object.freeze({
   getCatalogEntry:(id)=>clone(semanticCatalogEntry(id)),
   resolve,
   resolveMany,
+  canWrite:canWriteSemantic,
+  planWrite,
   inspect,
   audit
 });
