@@ -652,6 +652,7 @@ async function inspect(source, options = {}) {
       authority:result.authority,
       provider:result.provider,
       visibility:result.visibility,
+      revealState:result.revealState,
       writable:result.writable,
       sourcePath:result.sourcePath
     });
