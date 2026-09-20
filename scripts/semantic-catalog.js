@@ -1,4 +1,4 @@
-export const AT_SEMANTIC_CATALOG_VERSION = 2;
+export const AT_SEMANTIC_CATALOG_VERSION = 3;
 
 export const AT_SEMANTIC_CATALOG = Object.freeze({
   identity:Object.freeze({
@@ -50,6 +50,55 @@ export const AT_SEMANTIC_CATALOG = Object.freeze({
     label:"Biography",
     aliases:Object.freeze(["biography","bio","history","backstory"]),
     resolution:"single"
+  }),
+  drives:Object.freeze({
+    id:"drives",
+    label:"Drives",
+    aliases:Object.freeze(["drives","motivations","beliefs-goals-instincts"]),
+    resolution:"single",
+    children:Object.freeze(["beliefs","goals","instincts"])
+  }),
+  beliefs:Object.freeze({
+    id:"beliefs",
+    label:"Beliefs",
+    aliases:Object.freeze(["beliefs","belief","ideals","convictions","principles"]),
+    resolution:"single"
+  }),
+  goals:Object.freeze({
+    id:"goals",
+    label:"Goals",
+    aliases:Object.freeze(["goals","goal","objectives","ambitions","agenda"]),
+    resolution:"single"
+  }),
+  instincts:Object.freeze({
+    id:"instincts",
+    label:"Instincts",
+    aliases:Object.freeze(["instincts","instinct","impulses","reflexes"]),
+    resolution:"single"
+  }),
+  skills:Object.freeze({
+    id:"skills",
+    label:"Skills",
+    aliases:Object.freeze(["skills","roles","abilities","proficiencies"]),
+    resolution:"merge"
+  }),
+  wises:Object.freeze({
+    id:"wises",
+    label:"Wises",
+    aliases:Object.freeze(["wises","knowledges","lore","lores"]),
+    resolution:"merge"
+  }),
+  talents:Object.freeze({
+    id:"talents",
+    label:"Talents",
+    aliases:Object.freeze(["talents","feats","perks","edges","features"]),
+    resolution:"merge"
+  }),
+  conditions:Object.freeze({
+    id:"conditions",
+    label:"Conditions",
+    aliases:Object.freeze(["conditions","states","afflictions","injuries"]),
+    resolution:"merge"
   }),
   relationships:Object.freeze({
     id:"relationships",
