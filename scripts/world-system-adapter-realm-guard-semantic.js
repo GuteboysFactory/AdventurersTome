@@ -129,6 +129,22 @@ function atRgBackground(source) {
 function atRgSemanticRead({ source, semantic }) {
   if (String(source?.documentName || "") !== "Actor") return null;
 
+  if (semantic === "notes.private") {
+    const value = atRgText(source.system?.notes);
+    if (!value) return null;
+    return {
+      semantic,
+      status:"resolved",
+      authority:"system",
+      confidence:1,
+      visibility:"owner-only",
+      revealState:"private",
+      sourcePath:"system.notes",
+      writable:false,
+      data:value
+    };
+  }
+
   if (semantic === "drives") {
     const belief = atRgDriveValue(source, "belief");
     const goal = atRgDriveValue(source, "goal");
@@ -369,40 +385,6 @@ function atRgSemanticWritePlan({ source, semantic, proposedValue, user }) {
       targetPath:"system.notes",
       sourcePath:"system.notes",
       currentValue:atRgText(source.system?.notes),
-      proposedValue,
-      conflict:false
-    };
-  }
-
-  if (semantic === "notes.gm") {
-    return {
-      semantic,
-      allowed:Boolean(user?.isGM),
-      authority:"tome",
-      visibility:"gm-only",
-      permission:"GM",
-      operation:"update",
-      targetUuid:String(source?.uuid || ""),
-      targetPath:"flags.adventurers-tome.gmNotes",
-      sourcePath:"flags.adventurers-tome.gmNotes",
-      currentValue:atRgText(source.getFlag?.("adventurers-tome", "gmNotes")),
-      proposedValue,
-      conflict:false
-    };
-  }
-
-  if (semantic === "notes.public") {
-    return {
-      semantic,
-      allowed:Boolean(user?.isGM || source?.testUserPermission?.(user, "OWNER")),
-      authority:"tome",
-      visibility:"player-visible",
-      permission:"OWNER",
-      operation:"update",
-      targetUuid:String(source?.uuid || ""),
-      targetPath:"flags.adventurers-tome.publicNotes",
-      sourcePath:"flags.adventurers-tome.publicNotes",
-      currentValue:atRgText(source.getFlag?.("adventurers-tome", "publicNotes")),
       proposedValue,
       conflict:false
     };
