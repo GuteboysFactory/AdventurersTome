@@ -1322,3 +1322,21 @@ qa.4 is dry-run only. No semantic mutation API is exposed.
 Denied write plans are redacted to prevent privacy side-channels. Authorized plans may use `expectedCurrentValue` for optimistic conflict detection.
 
 Detailed contract: `docs/USL_PRIVACY_WRITE_CONTRACT.md`
+
+---
+
+# 34. Controlled semantic write execution — v1.6.0-qa.6
+
+qa.6 introduces the first real semantic mutation API:
+
+```js
+tome.semantic.executeWrite(source, plan, options)
+```
+
+Execution never trusts a stale plan. It reconstructs a fresh plan against canonical state, checks permissions/conflicts again, verifies provider/path/operation identity, and then invokes exactly one targeted mutation authority.
+
+System-owned values mutate through `semanticWriteApply` on the adapter that produced the canonical plan. Tome-owned Character Information mutates directly against its existing canonical Tome flag source.
+
+GM Private Vault execution is deliberately deferred; it remains plan-only in qa.6.
+
+Detailed contract: `docs/USL_CONTROLLED_WRITE_EXECUTION.md`
