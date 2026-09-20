@@ -379,6 +379,7 @@ function atRgSemanticWritePlan({ source, semantic, proposedValue, user }) {
       allowed:Boolean(user?.isGM || source?.testUserPermission?.(user, "OWNER")),
       authority:"system",
       visibility:"owner-only",
+      revealState:"private",
       permission:"OWNER",
       operation:"update",
       targetUuid:String(source?.uuid || ""),
