@@ -115,13 +115,13 @@ function mergeSemanticData(semantic, facts = []) {
     return groups;
   }
 
-  if (semantic === "traits") {
+  if (["traits", "skills", "wises", "talents", "conditions"].includes(semantic)) {
     const merged = [];
     const seen = new Set();
     for (const fact of facts) {
       const rows = Array.isArray(fact?.data) ? fact.data : [];
       for (const entry of rows) {
-        const key = String(entry?.uuid || entry?.id || entry?.name || JSON.stringify(entry));
+        const key = String(entry?.uuid || entry?.id || `${entry?.type || semantic}:${entry?.name || JSON.stringify(entry)}`);
         if (seen.has(key)) continue;
         seen.add(key);
         merged.push(clone(entry));
