@@ -223,6 +223,9 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.1" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.1 starts the Universal Semantic Layer with a permission-gated read-only foundation, Semantic Catalog v1, identity/relationships/traits vertical slice, additive semanticRead adapter capability, provenance/authority/visibility normalization, and conservative generic Foundry identity fallback. No write-back, creation or broad schema crawling is enabled yet."
           fi
+          if [[ "$VERSION" == "1.6.0-qa.2" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.2 hardens Universal Semantic Layer provider resolution with Semantic Catalog v2 single/merge policies, permission-filtered multi-provider aggregation, preserved provenance, and the first real Realm Guard semantic reference adapter for ancestry, rank, background, biography, relationships and traits. Tome Core remains system-independent and USL is still read-only."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
