@@ -11,7 +11,8 @@ const ATSA_CAPABILITIES = Object.freeze([
   "actions",
   "rules",
   "presentation",
-  "semanticRead"
+  "semanticRead",
+  "semanticWritePlan"
 ]);
 
 const ATSA_STATS = {
