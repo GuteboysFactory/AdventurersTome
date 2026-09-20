@@ -1,4 +1,4 @@
-export const AT_SEMANTIC_CATALOG_VERSION = 3;
+export const AT_SEMANTIC_CATALOG_VERSION = 4;
 
 export const AT_SEMANTIC_CATALOG = Object.freeze({
   identity:Object.freeze({
@@ -100,6 +100,35 @@ export const AT_SEMANTIC_CATALOG = Object.freeze({
     aliases:Object.freeze(["conditions","states","afflictions","injuries"]),
     resolution:"merge"
   }),
+  notes:Object.freeze({
+    id:"notes",
+    label:"Notes",
+    aliases:Object.freeze(["notes","annotations","remarks"]),
+    resolution:"single",
+    privacy:"container",
+    children:Object.freeze(["notes.private","notes.gm","notes.public"])
+  }),
+  "notes.private":Object.freeze({
+    id:"notes.private",
+    label:"Private Notes",
+    aliases:Object.freeze(["private-notes","personal-notes","owner-notes"]),
+    resolution:"single",
+    privacy:"owner-only"
+  }),
+  "notes.gm":Object.freeze({
+    id:"notes.gm",
+    label:"GM Notes",
+    aliases:Object.freeze(["gm-notes","secret-notes","keeper-notes"]),
+    resolution:"single",
+    privacy:"gm-only"
+  }),
+  "notes.public":Object.freeze({
+    id:"notes.public",
+    label:"Player-visible Notes",
+    aliases:Object.freeze(["public-notes","player-notes","revealed-notes"]),
+    resolution:"single",
+    privacy:"player-visible"
+  }),
   relationships:Object.freeze({
     id:"relationships",
     label:"Relationships",
@@ -124,6 +153,7 @@ export function semanticCatalogSnapshot() {
     label:entry.label,
     aliases:[...(entry.aliases || [])],
     children:[...(entry.children || [])],
-    resolution:String(entry.resolution || "single")
+    resolution:String(entry.resolution || "single"),
+    privacy:String(entry.privacy || "")
   }));
 }

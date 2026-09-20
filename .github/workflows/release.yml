@@ -79,6 +79,7 @@ jobs:
           if [[ "$VERSION" == 1.4.* ]]; then test -f docs/V1.4_QA1_GM_DOCK_FOUNDATION.md; fi
           if [[ "$VERSION" == 1.5.* ]]; then test -f docs/V1.5_QA1_FORMAL_ADAPTER_API.md; fi
           if [[ "$VERSION" == 1.6.* ]]; then test -f docs/V1.6_QA1_USL_FOUNDATION.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -130,6 +131,7 @@ jobs:
           if [[ "$VERSION" == 1.4.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.4_QA1_GM_DOCK_FOUNDATION.md'; fi
           if [[ "$VERSION" == 1.5.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.5_QA1_FORMAL_ADAPTER_API.md'; fi
           if [[ "$VERSION" == 1.6.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA1_USL_FOUNDATION.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.4" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/USL_PRIVACY_WRITE_CONTRACT.md'; fi
 
           node <<'NODE'
           const fs = require('fs');

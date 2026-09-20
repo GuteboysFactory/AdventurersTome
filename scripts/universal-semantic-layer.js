@@ -81,6 +81,7 @@ function baseResult(source, semantic, overrides = {}) {
     sourceUuid:String(source?.uuid || ""),
     sourcePath:"",
     visibility:"",
+    revealState:"",
     writable:false,
     data:null,
     ...overrides
@@ -184,6 +185,7 @@ function normalizeAdapterFact(source, semantic, row) {
     sourceUuid:String(result.sourceUuid || source?.uuid || ""),
     sourcePath:String(result.sourcePath || ""),
     visibility,
+    revealState:String(result.revealState || ""),
     writable:result.writable === true,
     data:clone(result.data ?? result.value ?? null)
   });
@@ -225,6 +227,53 @@ async function resolveViaAdapter(source, semantic, options, user) {
   if (!facts.length) return null;
   stats.adapterHits += facts.length;
   return aggregateFacts(source, semantic, facts);
+}
+
+function knownInformationPayload(source) {
+  const raw = source?.getFlag?.(MODULE_ID, "knownInformation");
+  if (typeof raw === "string") return { html:raw };
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) return { ...raw };
+  return { html:"" };
+}
+
+function resolveTomeNotes(source, semantic, user) {
+  if (!source || !user || !canObserve(source, user)) return null;
+
+  if (semantic === "notes.gm") {
+    if (!user.isGM) return null;
+    const notes = game.modules.get(MODULE_ID)?.api?.contextualPrivateVault?.getNotes?.(source) || [];
+    if (!Array.isArray(notes) || !notes.length) return null;
+    return baseResult(source, semantic, {
+      status:"resolved",
+      authority:"tome",
+      confidence:1,
+      provider:"tome-private-vault",
+      sourcePath:"contextualPrivateVault",
+      visibility:"gm-only",
+      revealState:"hidden",
+      writable:true,
+      data:clone(notes)
+    });
+  }
+
+  if (semantic === "notes.public") {
+    const payload = knownInformationPayload(source);
+    const html = String(payload?.html || "").trim();
+    if (!html) return null;
+    return baseResult(source, semantic, {
+      status:"resolved",
+      authority:"tome",
+      confidence:1,
+      provider:"tome-known-information",
+      sourcePath:`flags.${MODULE_ID}.knownInformation.html`,
+      visibility:"player-visible",
+      revealState:"revealed",
+      writable:Boolean(user?.isGM || canOwn(source, user)),
+      data:html
+    });
+  }
+
+  return null;
 }
 
 function resolveGenericIdentity(source, semantic, user) {
@@ -299,6 +348,12 @@ async function resolve(source, semanticId, options = {}) {
   const adapterFact = await resolveViaAdapter(source, semantic, options, user);
   if (adapterFact) return adapterFact;
 
+  const tomeNote = resolveTomeNotes(source, semantic, user);
+  if (tomeNote) {
+    stats.genericHits += 1;
+    return tomeNote;
+  }
+
   const generic = resolveGenericIdentity(source, semantic, user);
   if (generic) {
     stats.genericHits += 1;
@@ -307,6 +362,267 @@ async function resolve(source, semanticId, options = {}) {
 
   stats.unavailable += 1;
   return baseResult(source, semantic, { status:"unavailable" });
+}
+
+function semanticPrivacy(semantic) {
+  return String(semanticCatalogEntry(semantic)?.privacy || "");
+}
+
+function genericTomeWritePlan(source, semantic, proposedValue, user) {
+  if (semantic === "notes.gm") {
+    const notes = user?.isGM
+      ? (game.modules.get(MODULE_ID)?.api?.contextualPrivateVault?.getNotes?.(source) || [])
+      : [];
+    return {
+      semantic,
+      allowed:Boolean(user?.isGM),
+      authority:"tome",
+      provider:"tome-private-vault",
+      visibility:"gm-only",
+      revealState:"hidden",
+      permission:"GM",
+      operation:"vault-update",
+      targetUuid:String(source?.uuid || ""),
+      targetPath:"contextualPrivateVault.notes",
+      sourcePath:"contextualPrivateVault",
+      currentValue:clone(notes),
+      proposedValue:clone(proposedValue),
+      conflict:false
+    };
+  }
+
+  if (semantic === "notes.public") {
+    const current = knownInformationPayload(source);
+    return {
+      semantic,
+      allowed:Boolean(user?.isGM || canOwn(source, user)),
+      authority:"tome",
+      provider:"tome-known-information",
+      visibility:"player-visible",
+      revealState:"revealed",
+      permission:"OWNER",
+      operation:"update",
+      targetUuid:String(source?.uuid || ""),
+      targetPath:`flags.${MODULE_ID}.knownInformation.html`,
+      sourcePath:`flags.${MODULE_ID}.knownInformation.html`,
+      currentValue:String(current?.html || ""),
+      proposedValue:clone(proposedValue),
+      conflict:false
+    };
+  }
+
+  return null;
+}
+
+
+function writePermissionFor(visibility) {
+  if (visibility === "gm-only") return "GM";
+  if (visibility === "owner-only") return "OWNER";
+  return "OWNER";
+}
+
+function canWriteVisibility(source, user, visibility) {
+  if (!source || !user) return false;
+  if (user.isGM) return true;
+  if (visibility === "gm-only") return false;
+  return canOwn(source, user);
+}
+
+function semanticValuesEqual(a, b) {
+  try { return JSON.stringify(a) === JSON.stringify(b); }
+  catch (_error) { return a === b; }
+}
+
+function deniedWritePlan(source, semantic, { visibility = "", permission = "", reason = "permission" } = {}) {
+  return {
+    contract:CONTRACT,
+    version:VERSION,
+    catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
+    semantic,
+    status:"planned",
+    allowed:false,
+    dryRun:true,
+    operation:"none",
+    reason,
+    authority:"",
+    provider:"",
+    targetUuid:String(source?.uuid || ""),
+    targetPath:"",
+    sourcePath:"",
+    visibility:String(visibility || ""),
+    revealState:"",
+    permission:String(permission || writePermissionFor(visibility)),
+    currentValue:null,
+    proposedValue:null,
+    conflict:false,
+    conflictReason:"",
+    writable:false
+  };
+}
+
+
+async function planWrite(source, semanticId, proposedValue, options = {}) {
+  const semantic = String(semanticId || "").trim();
+  const entry = semanticCatalogEntry(semantic);
+  const user = currentUser(options);
+
+  if (!source || !semantic || !entry) {
+    return baseResult(source, semantic, {
+      status:"unavailable",
+      allowed:false,
+      dryRun:true,
+      operation:"none",
+      reason:"unavailable"
+    });
+  }
+
+  const genericPlan = genericTomeWritePlan(source, semantic, proposedValue, user);
+  if (genericPlan) {
+    const permissionAllowed = canWriteVisibility(source, user, genericPlan.visibility) && genericPlan.allowed !== false;
+    if (!permissionAllowed) {
+      return deniedWritePlan(source, semantic, {
+        visibility:String(genericPlan.visibility || semanticPrivacy(semantic) || ""),
+        permission:String(genericPlan.permission || writePermissionFor(genericPlan.visibility)),
+        reason:"permission"
+      });
+    }
+
+    const expectedSupplied = Object.prototype.hasOwnProperty.call(options, "expectedCurrentValue");
+    const conflict = Boolean(genericPlan.conflict) || (
+      expectedSupplied && !semanticValuesEqual(genericPlan.currentValue ?? null, options.expectedCurrentValue)
+    );
+    const conflictReason = conflict
+      ? String(genericPlan.conflictReason || "current-value-mismatch")
+      : "";
+
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
+      semantic,
+      status:"planned",
+      allowed:!conflict,
+      dryRun:true,
+      operation:String(genericPlan.operation || "update"),
+      reason:conflict ? "conflict" : "",
+      authority:String(genericPlan.authority || "tome"),
+      provider:String(genericPlan.provider || ""),
+      targetUuid:String(genericPlan.targetUuid || source?.uuid || ""),
+      targetPath:String(genericPlan.targetPath || ""),
+      sourcePath:String(genericPlan.sourcePath || genericPlan.targetPath || ""),
+      visibility:String(genericPlan.visibility || ""),
+      revealState:String(genericPlan.revealState || ""),
+      permission:String(genericPlan.permission || writePermissionFor(genericPlan.visibility)),
+      currentValue:clone(genericPlan.currentValue ?? null),
+      proposedValue:clone(proposedValue),
+      conflict,
+      conflictReason,
+      writable:!conflict
+    };
+  }
+
+  const adapters = adapterApi();
+  if (typeof adapters?.execute !== "function" || !adapters.capabilities?.includes?.("semanticWritePlan")) {
+    return baseResult(source, semantic, {
+      status:"unavailable",
+      allowed:false,
+      dryRun:true,
+      operation:"none",
+      reason:"no-write-provider"
+    });
+  }
+
+  let rows = [];
+  try {
+    rows = await adapters.execute("semanticWritePlan", {
+      source,
+      semantic,
+      proposedValue:clone(proposedValue),
+      user,
+      context:clone(options?.context || {})
+    });
+  } catch (error) {
+    stats.failures += 1;
+    stats.lastError = String(error?.message || error);
+    return baseResult(source, semantic, {
+      status:"unavailable",
+      allowed:false,
+      dryRun:true,
+      operation:"none",
+      reason:"provider-error"
+    });
+  }
+
+  for (const row of rows) {
+    if (row?.error || !row?.result || typeof row.result !== "object") continue;
+    const result = row.result;
+    const visibility = String(result.visibility || semanticPrivacy(semantic) || "").trim();
+    if (!visibility) continue;
+
+    const permission = String(result.permission || writePermissionFor(visibility));
+    const permissionAllowed = canWriteVisibility(source, user, visibility) && result.allowed !== false;
+    if (!permissionAllowed) {
+      return deniedWritePlan(source, semantic, {
+        visibility,
+        permission,
+        reason:String(result.reason || "permission")
+      });
+    }
+
+    const expectedSupplied = Object.prototype.hasOwnProperty.call(options, "expectedCurrentValue");
+    const conflict = Boolean(result.conflict) || (
+      expectedSupplied && !semanticValuesEqual(result.currentValue ?? null, options.expectedCurrentValue)
+    );
+    const conflictReason = conflict
+      ? String(result.conflictReason || "current-value-mismatch")
+      : "";
+
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
+      semantic,
+      status:"planned",
+      allowed:!conflict,
+      dryRun:true,
+      operation:String(result.operation || "update"),
+      reason:conflict ? "conflict" : "",
+      authority:String(result.authority || "adapter"),
+      provider:String(result.provider || row.adapterId || ""),
+      targetUuid:String(result.targetUuid || source?.uuid || ""),
+      targetPath:String(result.targetPath || result.sourcePath || ""),
+      sourcePath:String(result.sourcePath || result.targetPath || ""),
+      visibility,
+      revealState:String(result.revealState || ""),
+      permission,
+      currentValue:clone(result.currentValue ?? null),
+      proposedValue:clone(proposedValue),
+      conflict,
+      conflictReason,
+      writable:!conflict
+    };
+  }
+
+  return baseResult(source, semantic, {
+    status:"unavailable",
+    allowed:false,
+    dryRun:true,
+    operation:"none",
+    reason:"no-write-plan"
+  });
+}
+
+async function canWriteSemantic(source, semanticId, options = {}) {
+  const plan = await planWrite(source, semanticId, options?.proposedValue ?? null, options);
+  return {
+    semantic:String(semanticId || ""),
+    allowed:plan.allowed === true,
+    reason:String(plan.reason || ""),
+    provider:String(plan.provider || ""),
+    targetPath:String(plan.targetPath || ""),
+    visibility:String(plan.visibility || ""),
+    permission:String(plan.permission || "")
+  };
 }
 
 async function resolveMany(source, semantics = [], options = {}) {
@@ -336,6 +652,7 @@ async function inspect(source, options = {}) {
       authority:result.authority,
       provider:result.provider,
       visibility:result.visibility,
+      revealState:result.revealState,
       writable:result.writable,
       sourcePath:result.sourcePath
     });
@@ -368,6 +685,8 @@ const publicApi = Object.freeze({
   getCatalogEntry:(id)=>clone(semanticCatalogEntry(id)),
   resolve,
   resolveMany,
+  canWrite:canWriteSemantic,
+  planWrite,
   inspect,
   audit
 });

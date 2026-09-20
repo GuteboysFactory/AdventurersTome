@@ -1,8 +1,8 @@
 # Adventurer's Tome — Universal Semantic Layer Architecture
 
-**Status:** DESIGN LOCKED / IMPLEMENTATION DEFERRED  
-**Primary dependency:** Formal Adapter API v1.5  
-**First advanced reference case:** Realm Guard / Torchbearer character relationships and related character data  
+**Status:** IMPLEMENTATION ACTIVE — v1.6 USL QA line  
+**Primary dependency:** Formal Adapter API v1.5 STABLE  
+**First advanced reference case:** Realm Guard / Torchbearer character data — IMPLEMENTED IN USL QA  
 **Purpose:** preserve the complete design direction so development can resume cleanly in a future chat or implementation session.
 
 ---
@@ -1250,21 +1250,23 @@ That is the intended "magic" of the feature.
 
 A new chat continuing this work should know the following immediately:
 
-1. **This architecture is design-locked, not yet fully implemented.**
-2. Current stable Tome baseline remains **v1.4.0**.
-3. Current development line is **v1.5 Formal Adapter API**.
-4. `v1.5.0-qa.1` Adapter API foundation passed live QA.
-5. `v1.5.0-qa.3` startup hotfix passed live QA after fixing early `game.modules` access in the optional Genesys reference adapter.
-6. The broader qa.2 Action Bridge QA was still in progress when this architecture was documented.
-7. The next qa.2 test gate was action discovery + `invokeAction()`, followed by GM Dock adapter-action presentation.
-8. Do **not** bind Tome testing to a particular Realm Guard release number. Realm Guard is only a current reference integration.
-9. Wait until Realm Guard's relationship/character-data model is sufficiently stable before locking exact RG source mappings.
-10. When semantic implementation begins, start with a small Actor vertical slice rather than a complete world crawler.
-11. Security is a first-class architecture requirement: permission filtering must happen before player-facing semantic results.
-12. No GM Notes, Private Vault data or unrevealed system/Tome information may leak through profiles, Search, Graph, Chronicle, backlinks or Campaign Brain.
-13. Read, write and create must all preserve canonical UUID identity and provenance.
-14. Existing World document → compendium reference/import → create new is the preferred acquisition order to avoid duplicates.
-15. Quick NPC, Campaign Graph, Player Chronicle and Campaign Brain should eventually consume this shared semantic layer rather than implement their own system-specific readers.
+1. **This architecture is design-locked and implementation is active.**
+2. Current stable Tome baseline is **v1.5.0 Formal Adapter API**.
+3. Current development line is **v1.6 Universal Semantic Layer**.
+4. `v1.6.0-qa.1` USL Foundation passed live QA.
+5. `v1.6.0-qa.2` Semantic Provider Hardening + first real Realm Guard mapping passed live QA.
+6. `v1.6.0-qa.3` Semantic Catalog Expansion & Character Intelligence passed live QA.
+7. `v1.6.0-qa.4` combines Privacy Semantics with a dry-run Semantic Write Contract.
+8. Do **not** bind Tome testing to a particular Realm Guard release number. Realm Guard remains only a current reference integration.
+9. Realm Guard-specific source paths stay isolated to its optional Tome reference adapter; Tome Core remains system-agnostic.
+10. Current semantic read coverage includes identity, relationships, traits, drives, beliefs, goals, instincts, skills, wises, talents and conditions.
+11. qa.4 adds privacy-safe note semantics: owner-private, GM-private and explicitly player-visible Known Information.
+12. GM-private data must use the Contextual Private Vault; it must never be stored in player-readable Actor flags merely for convenience.
+13. qa.4 write support is **planning only**: `canWrite()` and `planWrite()`; no semantic mutation API exists yet.
+14. Denied write plans must redact current values, provider identity and target/source paths so write planning cannot become a side-channel.
+15. Read, future write and future create operations must preserve canonical UUID identity, provenance, authority and visibility.
+16. Existing World document → compendium reference/import → create new remains the preferred acquisition order to avoid duplicates.
+17. Quick NPC, Campaign Graph, Player Chronicle and Campaign Brain should consume this shared semantic layer rather than implement their own system-specific readers.
 
 ---
 
@@ -1295,3 +1297,28 @@ VISIBILITY
 ```
 
 This is the architectural direction to preserve.
+
+---
+
+# 33. Implemented privacy/write contract — v1.6.0-qa.4
+
+The privacy and write-planning design is now concretely implemented for QA.
+
+Locked note semantics:
+
+- `notes.private` — owner-only, system/adapter-owned where a natural system field exists
+- `notes.gm` — GM-only, Tome Contextual Private Vault
+- `notes.public` — player-visible/revealed, Tome Known Information
+
+The public semantic API now includes:
+
+```js
+tome.semantic.canWrite(source, semantic, options)
+tome.semantic.planWrite(source, semantic, proposedValue, options)
+```
+
+qa.4 is dry-run only. No semantic mutation API is exposed.
+
+Denied write plans are redacted to prevent privacy side-channels. Authorized plans may use `expectedCurrentValue` for optimistic conflict detection.
+
+Detailed contract: `docs/USL_PRIVACY_WRITE_CONTRACT.md`

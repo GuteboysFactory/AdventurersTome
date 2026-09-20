@@ -447,6 +447,10 @@ function gmApi() {
       const record = getRecord(document);
       return { available: true, uuid: canonicalUuid(document), noteCount: record.notes.length, updatedAt: record.updatedAt };
     },
+    getNotes(document) {
+      if (!game.user?.isGM) return [];
+      return deepClone(getRecord(document).notes || []);
+    },
     async addNote(document, note = {}) {
       if (!game.user?.isGM) throw new Error("Only a GM can add private Adventurer's Tome context.");
       if (!canonicalUuid(document)) throw new Error("A stable Foundry UUID is required for contextual GM notes.");

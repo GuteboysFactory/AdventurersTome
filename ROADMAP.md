@@ -781,6 +781,33 @@ Privacy lock:
 
 QA protocol: `docs/V1.6_QA3_CHARACTER_INTELLIGENCE.md`
 
+## v1.6.0-qa.4 — Privacy Semantics & Semantic Write Contract
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.4 deliberately combines privacy semantics with the first write-facing contract so write architecture is privacy-aware from day one.
+
+Added:
+
+- Semantic Catalog v4 note privacy classes
+- `notes.private` owner-only system notes
+- `notes.gm` GM-only Contextual Private Vault semantics
+- `notes.public` player-visible Known Information semantics
+- explicit reveal-state metadata
+- public `semantic.canWrite()`
+- public dry-run `semantic.planWrite()`
+- additive Adapter API capability `semanticWritePlan`
+- Realm Guard dry-run mappings for ancestry, class/rank, biography, beliefs, goals, instincts and private notes
+- denied-plan redaction to prevent side-channel leakage
+- optimistic conflict detection with `expectedCurrentValue`
+
+Hard lock:
+
+> qa.4 exposes no semantic mutation API. Every write result is a plan only.
+
+Detailed architecture: `docs/USL_PRIVACY_WRITE_CONTRACT.md`  
+QA protocol: `docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -906,7 +933,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.3`  
+**Current QA build:** `v1.6.0-qa.4`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
