@@ -80,6 +80,7 @@ jobs:
           if [[ "$VERSION" == 1.5.* ]]; then test -f docs/V1.5_QA1_FORMAL_ADAPTER_API.md; fi
           if [[ "$VERSION" == 1.6.* ]]; then test -f docs/V1.6_QA1_USL_FOUNDATION.md; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -132,6 +133,7 @@ jobs:
           if [[ "$VERSION" == 1.5.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.5_QA1_FORMAL_ADAPTER_API.md'; fi
           if [[ "$VERSION" == 1.6.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA1_USL_FOUNDATION.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/USL_PRIVACY_WRITE_CONTRACT.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.5" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -230,6 +232,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.3" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.3 expands the read-only Universal Semantic Layer to Semantic Catalog v3 with drives, beliefs, goals, instincts, skills, wises, talents and conditions. Realm Guard reference mapping now reads canonical Actor fields and embedded role/wise/talent/condition Items, while merged list semantics preserve provenance and permission filtering. Character Notes remain intentionally unmapped."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.4" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.4 adds privacy-safe note semantics and the first dry-run semantic write contract. Semantic Catalog v4 separates owner-private, GM-private and player-visible notes; GM notes remain in the UUID-backed Contextual Private Vault, public notes reuse Known Information, denied write plans redact hidden values and paths, and planWrite/canWrite support optimistic conflict detection without performing any mutation."
           fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
