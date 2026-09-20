@@ -236,6 +236,9 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.4 adds privacy-safe note semantics and the first dry-run semantic write contract. Semantic Catalog v4 separates owner-private, GM-private and player-visible notes; GM notes remain in the UUID-backed Contextual Private Vault, public notes reuse Known Information, denied write plans redact hidden values and paths, and planWrite/canWrite support optimistic conflict detection without performing any mutation."
           fi
+          if [[ "$VERSION" == "1.6.0-qa.5" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.5 is a focused USL hotfix that resolves player-visible Character Information from its actual canonical Tome profile source, flags.adventurers-tome.profile.biography, and points dry-run public-note write plans to the same field while preserving existing Known Information storage for other document flows."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
