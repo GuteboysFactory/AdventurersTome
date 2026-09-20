@@ -428,6 +428,39 @@ function canWriteVisibility(source, user, visibility) {
   return canOwn(source, user);
 }
 
+function semanticValuesEqual(a, b) {
+  try { return JSON.stringify(a) === JSON.stringify(b); }
+  catch (_error) { return a === b; }
+}
+
+function deniedWritePlan(source, semantic, { visibility = "", permission = "", reason = "permission" } = {}) {
+  return {
+    contract:CONTRACT,
+    version:VERSION,
+    catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
+    semantic,
+    status:"planned",
+    allowed:false,
+    dryRun:true,
+    operation:"none",
+    reason,
+    authority:"",
+    provider:"",
+    targetUuid:String(source?.uuid || ""),
+    targetPath:"",
+    sourcePath:"",
+    visibility:String(visibility || ""),
+    revealState:"",
+    permission:String(permission || writePermissionFor(visibility)),
+    currentValue:null,
+    proposedValue:null,
+    conflict:false,
+    conflictReason:"",
+    writable:false
+  };
+}
+
+
 async function planWrite(source, semanticId, proposedValue, options = {}) {
   const semantic = String(semanticId || "").trim();
   const entry = semanticCatalogEntry(semantic);
@@ -445,17 +478,33 @@ async function planWrite(source, semanticId, proposedValue, options = {}) {
 
   const genericPlan = genericTomeWritePlan(source, semantic, proposedValue, user);
   if (genericPlan) {
-    const allowed = canWriteVisibility(source, user, genericPlan.visibility) && genericPlan.allowed !== false;
+    const permissionAllowed = canWriteVisibility(source, user, genericPlan.visibility) && genericPlan.allowed !== false;
+    if (!permissionAllowed) {
+      return deniedWritePlan(source, semantic, {
+        visibility:String(genericPlan.visibility || semanticPrivacy(semantic) || ""),
+        permission:String(genericPlan.permission || writePermissionFor(genericPlan.visibility)),
+        reason:"permission"
+      });
+    }
+
+    const expectedSupplied = Object.prototype.hasOwnProperty.call(options, "expectedCurrentValue");
+    const conflict = Boolean(genericPlan.conflict) || (
+      expectedSupplied && !semanticValuesEqual(genericPlan.currentValue ?? null, options.expectedCurrentValue)
+    );
+    const conflictReason = conflict
+      ? String(genericPlan.conflictReason || "current-value-mismatch")
+      : "";
+
     return {
       contract:CONTRACT,
       version:VERSION,
       catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
       semantic,
       status:"planned",
-      allowed,
+      allowed:!conflict,
       dryRun:true,
       operation:String(genericPlan.operation || "update"),
-      reason:allowed ? "" : "permission",
+      reason:conflict ? "conflict" : "",
       authority:String(genericPlan.authority || "tome"),
       provider:String(genericPlan.provider || ""),
       targetUuid:String(genericPlan.targetUuid || source?.uuid || ""),
@@ -466,9 +515,9 @@ async function planWrite(source, semanticId, proposedValue, options = {}) {
       permission:String(genericPlan.permission || writePermissionFor(genericPlan.visibility)),
       currentValue:clone(genericPlan.currentValue ?? null),
       proposedValue:clone(proposedValue),
-      conflict:Boolean(genericPlan.conflict),
-      conflictReason:String(genericPlan.conflictReason || ""),
-      writable:allowed
+      conflict,
+      conflictReason,
+      writable:!conflict
     };
   }
 
@@ -510,17 +559,34 @@ async function planWrite(source, semanticId, proposedValue, options = {}) {
     const visibility = String(result.visibility || semanticPrivacy(semantic) || "").trim();
     if (!visibility) continue;
 
-    const allowed = canWriteVisibility(source, user, visibility) && result.allowed !== false;
+    const permission = String(result.permission || writePermissionFor(visibility));
+    const permissionAllowed = canWriteVisibility(source, user, visibility) && result.allowed !== false;
+    if (!permissionAllowed) {
+      return deniedWritePlan(source, semantic, {
+        visibility,
+        permission,
+        reason:String(result.reason || "permission")
+      });
+    }
+
+    const expectedSupplied = Object.prototype.hasOwnProperty.call(options, "expectedCurrentValue");
+    const conflict = Boolean(result.conflict) || (
+      expectedSupplied && !semanticValuesEqual(result.currentValue ?? null, options.expectedCurrentValue)
+    );
+    const conflictReason = conflict
+      ? String(result.conflictReason || "current-value-mismatch")
+      : "";
+
     return {
       contract:CONTRACT,
       version:VERSION,
       catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
       semantic,
       status:"planned",
-      allowed,
+      allowed:!conflict,
       dryRun:true,
       operation:String(result.operation || "update"),
-      reason:allowed ? "" : String(result.reason || "permission"),
+      reason:conflict ? "conflict" : "",
       authority:String(result.authority || "adapter"),
       provider:String(result.provider || row.adapterId || ""),
       targetUuid:String(result.targetUuid || source?.uuid || ""),
@@ -528,12 +594,12 @@ async function planWrite(source, semanticId, proposedValue, options = {}) {
       sourcePath:String(result.sourcePath || result.targetPath || ""),
       visibility,
       revealState:String(result.revealState || ""),
-      permission:String(result.permission || writePermissionFor(visibility)),
+      permission,
       currentValue:clone(result.currentValue ?? null),
       proposedValue:clone(proposedValue),
-      conflict:Boolean(result.conflict),
-      conflictReason:String(result.conflictReason || ""),
-      writable:allowed
+      conflict,
+      conflictReason,
+      writable:!conflict
     };
   }
 
