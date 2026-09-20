@@ -14,6 +14,10 @@ const stats = {
   genericHits:0,
   unavailable:0,
   denied:0,
+  writePlans:0,
+  writesApplied:0,
+  writeConflicts:0,
+  writeDenied:0,
   failures:0,
   lastError:""
 };
@@ -511,6 +515,7 @@ function deniedWritePlan(source, semantic, { visibility = "", permission = "", r
 
 
 async function planWrite(source, semanticId, proposedValue, options = {}) {
+  stats.writePlans += 1;
   const semantic = String(semanticId || "").trim();
   const entry = semanticCatalogEntry(semantic);
   const user = currentUser(options);
@@ -674,6 +679,164 @@ async function canWriteSemantic(source, semanticId, options = {}) {
   };
 }
 
+function samePlanTarget(a, b) {
+  return String(a?.semantic || "") === String(b?.semantic || "")
+    && String(a?.provider || "") === String(b?.provider || "")
+    && String(a?.targetUuid || "") === String(b?.targetUuid || "")
+    && String(a?.targetPath || "") === String(b?.targetPath || "")
+    && String(a?.operation || "") === String(b?.operation || "");
+}
+
+async function applyTomeWrite(source, freshPlan) {
+  if (freshPlan.semantic !== "notes.public") return null;
+  const path = String(freshPlan.targetPath || "");
+  if (!path.startsWith(`flags.${MODULE_ID}.`)) return null;
+
+  await source.update(
+    { [path]:clone(freshPlan.proposedValue) },
+    {
+      render:false,
+      adventurersTomeSemanticWrite:true,
+      adventurersTomeSemantic:freshPlan.semantic
+    }
+  );
+
+  const verify = publicInformationPayload(source);
+  return {
+    semantic:freshPlan.semantic,
+    applied:true,
+    authority:"tome",
+    provider:"tome-known-information",
+    targetUuid:String(source?.uuid || ""),
+    targetPath:path,
+    value:clone(verify.value)
+  };
+}
+
+async function executeWrite(source, plan, options = {}) {
+  const user = currentUser(options);
+  const supplied = plan && typeof plan === "object" ? clone(plan) : null;
+
+  if (!source || !supplied?.semantic || supplied.dryRun !== true) {
+    throw new Error("executeWrite requires a valid dry-run semantic write plan.");
+  }
+  if (supplied.allowed !== true || supplied.conflict === true) {
+    throw new Error("Semantic write plan is not executable.");
+  }
+  if (String(supplied.targetUuid || "") !== String(source?.uuid || "")) {
+    throw new Error("Semantic write source UUID does not match the plan target.");
+  }
+
+  const freshPlan = await planWrite(
+    source,
+    supplied.semantic,
+    clone(supplied.proposedValue),
+    {
+      ...options,
+      user,
+      expectedCurrentValue:clone(supplied.currentValue)
+    }
+  );
+
+  if (freshPlan.allowed !== true) {
+    if (freshPlan.reason === "permission") stats.writeDenied += 1;
+    if (freshPlan.reason === "conflict") stats.writeConflicts += 1;
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      semantic:String(supplied.semantic || ""),
+      applied:false,
+      status:"rejected",
+      reason:String(freshPlan.reason || "revalidation-failed"),
+      conflict:Boolean(freshPlan.conflict),
+      conflictReason:String(freshPlan.conflictReason || ""),
+      targetUuid:String(source?.uuid || "")
+    };
+  }
+
+  if (!samePlanTarget(supplied, freshPlan)) {
+    stats.writeConflicts += 1;
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      semantic:String(supplied.semantic || ""),
+      applied:false,
+      status:"rejected",
+      reason:"plan-target-changed",
+      conflict:true,
+      conflictReason:"plan-target-changed",
+      targetUuid:String(source?.uuid || "")
+    };
+  }
+
+  let result = null;
+  try {
+    if (freshPlan.authority === "tome") {
+      result = await applyTomeWrite(source, freshPlan);
+    } else {
+      const adapters = adapterApi();
+      if (typeof adapters?.executeAdapter !== "function") {
+        throw new Error("Adapter API does not support targeted semantic write execution.");
+      }
+      const row = await adapters.executeAdapter(freshPlan.provider, "semanticWriteApply", {
+        source,
+        semantic:freshPlan.semantic,
+        proposedValue:clone(freshPlan.proposedValue),
+        plan:clone(freshPlan),
+        user,
+        context:clone(options?.context || {})
+      });
+      if (row?.error) throw new Error(row.error);
+      result = row?.result || null;
+    }
+  } catch (error) {
+    stats.failures += 1;
+    stats.lastError = String(error?.message || error);
+    console.warn("Adventurer's Tome | Semantic write execution failed safely", error);
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      semantic:String(freshPlan.semantic || ""),
+      applied:false,
+      status:"failed",
+      reason:"execution-failed",
+      error:String(error?.message || error),
+      targetUuid:String(source?.uuid || "")
+    };
+  }
+
+  if (!result?.applied) {
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      semantic:String(freshPlan.semantic || ""),
+      applied:false,
+      status:"rejected",
+      reason:"not-applied",
+      targetUuid:String(source?.uuid || "")
+    };
+  }
+
+  const resolved = await resolve(source, freshPlan.semantic, { ...options, user });
+  stats.writesApplied += 1;
+
+  return {
+    contract:CONTRACT,
+    version:VERSION,
+    catalogVersion:AT_SEMANTIC_CATALOG_VERSION,
+    semantic:String(freshPlan.semantic || ""),
+    applied:true,
+    status:"applied",
+    authority:String(freshPlan.authority || ""),
+    provider:String(freshPlan.provider || ""),
+    targetUuid:String(source?.uuid || ""),
+    targetPath:String(freshPlan.targetPath || ""),
+    visibility:String(freshPlan.visibility || ""),
+    revealState:String(freshPlan.revealState || ""),
+    value:clone(resolved?.status === "resolved" ? resolved.data : result.value ?? null)
+  };
+}
+
 async function resolveMany(source, semantics = [], options = {}) {
   const ids = [...new Set((Array.isArray(semantics) ? semantics : []).map((id) => String(id || "").trim()).filter(Boolean))];
   const results = [];
@@ -736,6 +899,7 @@ const publicApi = Object.freeze({
   resolveMany,
   canWrite:canWriteSemantic,
   planWrite,
+  executeWrite,
   inspect,
   audit
 });
