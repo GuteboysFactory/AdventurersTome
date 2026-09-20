@@ -87,6 +87,86 @@ function baseResult(source, semantic, overrides = {}) {
   };
 }
 
+function mergeSemanticData(semantic, facts = []) {
+  if (!facts.length) return null;
+  if (semantic === "relationships") {
+    const groups = {
+      parents:[],
+      artisans:[],
+      mentors:[],
+      allies:[],
+      enemies:[],
+      other:[]
+    };
+    for (const fact of facts) {
+      const data = fact?.data;
+      const rows = Array.isArray(data) ? data : (Array.isArray(data?.entries) ? data.entries : []);
+      for (const entry of rows) {
+        const kind = String(entry?.kind || entry?.type || "other").toLowerCase();
+        const row = clone(entry);
+        if (kind === "parent" || kind === "parents" || kind === "family") groups.parents.push(row);
+        else if (kind === "artisan" || kind === "senior-artisan" || kind === "teacher") groups.artisans.push(row);
+        else if (kind === "mentor") groups.mentors.push(row);
+        else if (kind === "ally" || kind === "friend" || kind === "contact") groups.allies.push(row);
+        else if (kind === "enemy" || kind === "rival") groups.enemies.push(row);
+        else groups.other.push(row);
+      }
+    }
+    return groups;
+  }
+
+  if (semantic === "traits") {
+    const merged = [];
+    const seen = new Set();
+    for (const fact of facts) {
+      const rows = Array.isArray(fact?.data) ? fact.data : [];
+      for (const entry of rows) {
+        const key = String(entry?.uuid || entry?.id || entry?.name || JSON.stringify(entry));
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(clone(entry));
+      }
+    }
+    return merged;
+  }
+
+  return clone(facts[0]?.data ?? null);
+}
+
+function aggregateFacts(source, semantic, facts = []) {
+  if (!facts.length) return null;
+  const entry = semanticCatalogEntry(semantic);
+  const policy = String(entry?.resolution || "single");
+  if (policy !== "merge") return facts[0];
+
+  const visibleFacts = facts.filter(Boolean);
+  if (!visibleFacts.length) return null;
+
+  const visibilities = [...new Set(visibleFacts.map((fact) => String(fact.visibility || "")))];
+  const authorities = [...new Set(visibleFacts.map((fact) => String(fact.authority || "")))];
+  const providers = [...new Set(visibleFacts.map((fact) => String(fact.provider || "")))];
+  const paths = visibleFacts.map((fact) => String(fact.sourcePath || "")).filter(Boolean);
+
+  return baseResult(source, semantic, {
+    status:"resolved",
+    authority:authorities.length === 1 ? authorities[0] : "merged",
+    confidence:Math.min(...visibleFacts.map((fact) => Number(fact.confidence ?? 1))),
+    provider:providers.join("+"),
+    sourceUuid:String(source?.uuid || ""),
+    sourcePath:paths.join(" | "),
+    visibility:visibilities.length === 1 ? visibilities[0] : "mixed",
+    writable:false,
+    data:mergeSemanticData(semantic, visibleFacts),
+    sources:visibleFacts.map((fact) => ({
+      provider:fact.provider,
+      sourceUuid:fact.sourceUuid,
+      sourcePath:fact.sourcePath,
+      authority:fact.authority,
+      visibility:fact.visibility
+    }))
+  });
+}
+
 function normalizeAdapterFact(source, semantic, row) {
   const result = row?.result;
   if (!result || typeof result !== "object") return null;
@@ -130,6 +210,7 @@ async function resolveViaAdapter(source, semantic, options, user) {
     return null;
   }
 
+  const facts = [];
   for (const row of rows) {
     if (row?.error) continue;
     const fact = normalizeAdapterFact(source, semantic, row);
@@ -138,10 +219,12 @@ async function resolveViaAdapter(source, semantic, options, user) {
       stats.denied += 1;
       continue;
     }
-    stats.adapterHits += 1;
-    return fact;
+    facts.push(fact);
   }
-  return null;
+
+  if (!facts.length) return null;
+  stats.adapterHits += facts.length;
+  return aggregateFacts(source, semantic, facts);
 }
 
 function resolveGenericIdentity(source, semantic, user) {
