@@ -734,6 +734,31 @@ Security lock:
 
 QA protocol: `docs/V1.6_QA1_USL_FOUNDATION.md`
 
+## v1.6.0-qa.2 — Semantic Provider Hardening & Realm Guard Reference Mapping
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.2 moves USL from synthetic QA-only providers to the first real reference mapping while keeping the entire layer read-only.
+
+Added:
+
+- Semantic Catalog v2 resolution policy
+- deterministic `single` provider semantics
+- permission-filtered `merge` semantics for relationships and traits
+- multi-provider provenance aggregation
+- optional `realm-guard-semantic-reference` adapter
+- real Realm Guard mappings for ancestry, rank/class-like role, background, biography, relationships and embedded trait Items
+
+Security and independence remain locked:
+
+- visibility filtering happens before merge aggregation
+- hidden provider metadata must not leak through merged results
+- Tome Core and USL do not branch on Realm Guard
+- Realm Guard-specific source paths live only in the optional reference adapter
+- no write-back or creation yet
+
+QA protocol: `docs/V1.6_QA2_SEMANTIC_PROVIDER_HARDENING.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -859,7 +884,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.1`  
+**Current QA build:** `v1.6.0-qa.2`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
