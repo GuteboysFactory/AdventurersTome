@@ -411,6 +411,48 @@ function atRgSemanticWritePlan({ source, semantic, proposedValue, user }) {
   };
 }
 
+async function atRgSemanticWriteApply({ source, semantic, proposedValue, plan, user }) {
+  if (String(source?.documentName || "") !== "Actor") return null;
+  if (!(user?.isGM || source?.testUserPermission?.(user, "OWNER"))) {
+    throw new Error("Permission denied for Realm Guard semantic write.");
+  }
+
+  const fields = {
+    "identity.ancestry":"system.ancestry",
+    "identity.class":"system.rank",
+    "identity.biography":"system.biography",
+    beliefs:"system.belief",
+    goals:"system.goal",
+    instincts:"system.instinct",
+    "notes.private":"system.notes"
+  };
+
+  const targetPath = fields[semantic];
+  if (!targetPath) return null;
+  if (String(plan?.targetPath || "") !== targetPath) {
+    throw new Error(`Semantic write target mismatch for ${semantic}.`);
+  }
+
+  await source.update(
+    { [targetPath]:proposedValue },
+    {
+      render:false,
+      adventurersTomeSemanticWrite:true,
+      adventurersTomeSemantic:semantic
+    }
+  );
+
+  const currentValue = targetPath.split(".").slice(1).reduce((value, key) => value?.[key], source.system);
+  return {
+    semantic,
+    applied:true,
+    authority:"system",
+    targetUuid:String(source.uuid || ""),
+    targetPath,
+    value:currentValue ?? ""
+  };
+}
+
 function atRgRegisterSemanticAdapter() {
   const registry = atRgSemanticRegistry();
   if (!registry?.register) return false;
@@ -424,9 +466,10 @@ function atRgRegisterSemanticAdapter() {
     priority:40,
     documentTypes:["Actor"],
     sourceTypes:["character","npc"],
-    capabilities:["semanticRead","semanticWritePlan"],
+    capabilities:["semanticRead","semanticWritePlan","semanticWriteApply"],
     semanticRead:atRgSemanticRead,
-    semanticWritePlan:atRgSemanticWritePlan
+    semanticWritePlan:atRgSemanticWritePlan,
+    semanticWriteApply:atRgSemanticWriteApply
   });
 
   return true;
