@@ -12,7 +12,8 @@ const ATSA_CAPABILITIES = Object.freeze([
   "rules",
   "presentation",
   "semanticRead",
-  "semanticWritePlan"
+  "semanticWritePlan",
+  "semanticWriteApply"
 ]);
 
 const ATSA_STATS = {
@@ -186,6 +187,42 @@ async function atSaExecute(capability, payload = {}) {
   }
 
   return results;
+}
+
+async function atSaExecuteAdapter(adapterId, capability, payload = {}) {
+  const id = String(adapterId || "").trim();
+  const key = String(capability || "").trim();
+  if (!id) throw new Error("Adapter id is required.");
+  if (!ATSA_CAPABILITIES.includes(key)) throw new Error(`Unsupported Tome adapter capability: ${key || "(empty)"}`);
+
+  const adapter = ATSA_REGISTRY.get(id);
+  if (!adapter) throw new Error(`Adapter not registered: ${id}`);
+  if (!adapter.capabilities.includes(key)) throw new Error(`Adapter ${id} does not support capability ${key}.`);
+
+  const source = payload?.source || null;
+  if (!atSaMatchesSource(adapter, source)) {
+    throw new Error(`Adapter ${id} is not available for the current source.`);
+  }
+
+  const handler = adapter[key];
+  if (typeof handler !== "function") throw new Error(`Adapter ${id} has no handler for capability ${key}.`);
+
+  try {
+    ATSA_STATS.executions += 1;
+    const result = await handler({
+      ...payload,
+      source,
+      systemId:atSaSystemId(),
+      game,
+      adapter:atSaPublicDescriptor(adapter)
+    });
+    return { adapterId:id, result };
+  } catch (error) {
+    ATSA_STATS.failures += 1;
+    ATSA_STATS.lastError = String(error?.message || error);
+    console.warn(`Adventurer's Tome | Adapter ${id} capability ${key} failed safely`, error);
+    return { adapterId:id, error:String(error?.message || error) };
+  }
 }
 
 async function atSaEnrich(source) {
@@ -385,6 +422,7 @@ const ATSA_PUBLIC_API = Object.freeze({
   matching:(source, capability = "") => atSaMatchingAdapters(source, capability).map(atSaPublicDescriptor),
   supports:atSaSupports,
   execute:atSaExecute,
+  executeAdapter:atSaExecuteAdapter,
   enrich:atSaEnrich,
   displayFields:atSaDisplayFields,
   mapActor:atSaMapActor,
