@@ -226,6 +226,9 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.2" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.2 hardens Universal Semantic Layer provider resolution with Semantic Catalog v2 single/merge policies, permission-filtered multi-provider aggregation, preserved provenance, and the first real Realm Guard semantic reference adapter for ancestry, rank, background, biography, relationships and traits. Tome Core remains system-independent and USL is still read-only."
           fi
+          if [[ "$VERSION" == "1.6.0-qa.3" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.3 expands the read-only Universal Semantic Layer to Semantic Catalog v3 with drives, beliefs, goals, instincts, skills, wises, talents and conditions. Realm Guard reference mapping now reads canonical Actor fields and embedded role/wise/talent/condition Items, while merged list semantics preserve provenance and permission filtering. Character Notes remain intentionally unmapped."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
