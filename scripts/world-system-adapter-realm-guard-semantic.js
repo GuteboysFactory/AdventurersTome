@@ -11,6 +11,45 @@ function atRgText(value) {
 }
 
 function atRgRelationshipEntries(source) {
+  const m8 = globalThis.game?.realmGuard?.core?.m8;
+  const snapshot = String(source?.type || "") === "character"
+    ? m8?.social?.snapshot?.(source)
+    : null;
+
+  if (snapshot) {
+    const people = new Map(Array.from(snapshot.people || []).map((person) => [String(person?.id || ""), person]));
+    return Array.from(snapshot.relationships || [])
+      .map((relationship) => {
+        const person = people.get(String(relationship?.personId || ""));
+        if (!person) return null;
+        return {
+          id:String(relationship?.id || ""),
+          kind:atRgRelationshipRole(relationship?.role),
+          label:atRgText(relationship?.role).replaceAll("_", " "),
+          value:atRgText(person?.name),
+          name:atRgText(person?.name),
+          personId:String(person?.id || ""),
+          actorUuid:atRgText(person?.actorUuid),
+          profession:atRgText(person?.profession),
+          culture:atRgText(person?.people),
+          location:atRgText(person?.location),
+          status:atRgText(relationship?.status).toLowerCase(),
+          origin:atRgText(relationship?.origin).toLowerCase(),
+          history:Array.from(relationship?.history || []).map((entry) => ({
+            id:String(entry?.id || ""),
+            from:atRgText(entry?.from).toLowerCase(),
+            to:atRgText(entry?.to).toLowerCase(),
+            reason:atRgText(entry?.reason),
+            sessionId:atRgText(entry?.sessionId),
+            timestamp:atRgText(entry?.timestamp),
+            source:atRgText(entry?.source).toLowerCase()
+          })),
+          sourcePath:"game.realmGuard.core.m8.social.snapshot"
+        };
+      })
+      .filter(Boolean);
+  }
+
   const system = source?.system || {};
   const definitions = [
     ["parents", "Parents", "parents"],
@@ -337,7 +376,9 @@ function atRgSemanticRead({ source, semantic }) {
       authority:"system",
       confidence:1,
       visibility:"source",
-      sourcePath:"system.parents | system.seniorArtisan | system.mentor | system.friend | system.enemy",
+      sourcePath:data.some((entry) => entry.sourcePath === "game.realmGuard.core.m8.social.snapshot")
+        ? "game.realmGuard.core.m8.social.snapshot"
+        : "system.parents | system.seniorArtisan | system.mentor | system.friend | system.enemy",
       writable:false,
       data
     };
