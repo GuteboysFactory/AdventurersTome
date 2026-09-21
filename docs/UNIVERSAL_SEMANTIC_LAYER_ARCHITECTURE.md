@@ -1340,3 +1340,26 @@ System-owned values mutate through `semanticWriteApply` on the adapter that prod
 GM Private Vault execution is deliberately deferred; it remains plan-only in qa.6.
 
 Detailed contract: `docs/USL_CONTROLLED_WRITE_EXECUTION.md`
+
+
+---
+
+# 35. Universal Campaign Discovery — v1.6.0-qa.7
+
+qa.7 introduces the first read-only campaign-wide discovery layer above the Universal Document Registry and Adapter API.
+
+The public surface is:
+
+```js
+game.modules.get("adventurers-tome").api.discovery
+```
+
+Core discovers readable Foundry World documents, Folder structure and visible Compendium index entries. System adapters may add generic entities and relationships through the additive `entityDiscovery` capability.
+
+Exact canonical UUID identity is reconciled immediately. Adapter-local entities without a resolvable canonical UUID remain unresolved candidates and are never auto-created in qa.7.
+
+Realm Guard M8 Social Network is the first advanced reference implementation, but all calls to `game.realmGuard.core.m8` remain isolated inside the Realm Guard adapter.
+
+The next stage may add confidence-based reconciliation and acquisition planning. Creation remains last in the World → Compendium → Create order.
+
+Detailed contract: `docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md`

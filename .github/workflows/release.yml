@@ -82,6 +82,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.7" ]]; then test -f docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md; test -f docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -136,6 +137,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/USL_PRIVACY_WRITE_CONTRACT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/USL_CONTROLLED_WRITE_EXECUTION.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.7" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -240,6 +242,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.5 is a focused USL hotfix that resolves player-visible Character Information from its actual canonical Tome profile source, flags.adventurers-tome.profile.biography, and points dry-run public-note write plans to the same field while preserving existing Known Information storage for other document flows."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.7" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.7 starts Universal Campaign Discovery: a read-only, system-independent campaign scan across readable World documents, Folder structure and visible Compendium indexes, with canonical UUID reconciliation, unresolved entity tracking, structural relationships, and the additive entityDiscovery adapter capability. Realm Guard M8 Social Network is included only as the first advanced reference adapter."
           fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber

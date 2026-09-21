@@ -13,7 +13,8 @@ const ATSA_CAPABILITIES = Object.freeze([
   "presentation",
   "semanticRead",
   "semanticWritePlan",
-  "semanticWriteApply"
+  "semanticWriteApply",
+  "entityDiscovery"
 ]);
 
 const ATSA_STATS = {

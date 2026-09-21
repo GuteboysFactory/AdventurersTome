@@ -852,6 +852,39 @@ Scope lock:
 Architecture: `docs/USL_CONTROLLED_WRITE_EXECUTION.md`  
 QA protocol: `docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md`
 
+## v1.6.0-qa.7 — Universal Campaign Discovery Foundation
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.7 starts the read-only campaign-discovery layer that future World Auto-Build, Campaign Graph and Campaign Brain will consume.
+
+Added:
+
+- public `module.api.discovery`
+- generic discovery of readable Actors, Items, Journals, Journal Pages, Scenes and Folders
+- visible Compendium index discovery as reference candidates
+- preserved Foundry folder paths and structural `contains` relationships
+- additive Adapter API capability `entityDiscovery`
+- generic entity / relationship normalization
+- exact canonical UUID reconciliation
+- unresolved entity/reference tracking without creation
+- automatic read-only rescan after registry lifecycle rebuilds
+- first advanced Realm Guard M8 Social Network reference mapping through its adapter only
+
+System-independence lock:
+
+> Tome Core never calls a reference-system API directly. Reference adapters translate system-specific models into the universal discovery contract.
+
+Scope lock:
+
+- discovery/reconciliation is read-only in qa.7
+- no fuzzy name matching yet
+- no create/import/acquire action yet
+- no World Auto-Build mutation yet
+
+Architecture: `docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md`  
+QA protocol: `docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -977,7 +1010,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.6`  
+**Current QA build:** `v1.6.0-qa.7`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
