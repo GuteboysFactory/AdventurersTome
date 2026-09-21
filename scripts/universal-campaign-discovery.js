@@ -328,6 +328,12 @@ function addStructuralRelationships(entityMap) {
 
 async function scan(options = {}) {
   stats.scans += 1;
+  stats.worldDocuments = 0;
+  stats.compendiumEntries = 0;
+  stats.adapterSources = 0;
+  stats.adapterEntities = 0;
+  stats.adapterRelationships = 0;
+  stats.unresolved = 0;
   const user = currentUser(options);
   const includeCompendiums = options?.includeCompendiums !== false;
   const registry = universalDocumentRegistryApi();
