@@ -986,6 +986,39 @@ System-independence lock:
 
 QA protocol: `docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md`
 
+
+## v1.6.0-qa.12 — Relationship Identity & Authority Convergence
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.12 converges contextual relationship presentation by stable target identity instead of target-plus-role.
+
+Added:
+
+- one person/contact card per stable canonical target identity
+- canonical Actor UUID wins when available
+- semantic-only identities remain keyed by semantic/entity identity, never by display name
+- multiple relationship roles are preserved as facets on the same target
+- current system semantic relation presentation takes navigation/authority precedence while Tome-authored relation notes remain preserved as additional facets
+- multiple semantic records that resolve to the same canonical Actor converge into one rendered person
+- generated Semantic Contact projections no longer enter Character Campaign Links through fuzzy text inference
+- generated Contacts appear in Campaign Links only when explicitly linked by Tome
+- ordinary non-projection World Journal inference remains unchanged
+
+Authority lock:
+
+> Legacy/imported/manual evidence may be preserved, but it must not become a second live person identity when a stronger canonical or current semantic identity is available.
+
+Identity lock:
+
+> Display name is evidence, never canonical identity.
+
+System-independence lock:
+
+> Core convergence uses generic Actor UUID, semantic/entity keys, projection metadata and Discovery output. It contains no Realm Guard-specific branch.
+
+QA protocol: `docs/V1.6_QA12_RELATION_IDENTITY_AUTHORITY_CONVERGENCE.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1111,7 +1144,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.11`  
+**Current QA build:** `v1.6.0-qa.12`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

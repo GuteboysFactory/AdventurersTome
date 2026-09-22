@@ -502,6 +502,9 @@
           <span>
             <strong>{{target.name}}</strong>
             <em>{{label}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</em>
+            {{#each details}}
+            <small class="at-relation-detail {{#if semantic}}is-semantic-detail{{/if}}">{{text}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</small>
+            {{/each}}
             {{#if note}}<small>{{note}}</small>{{/if}}
             {{#if sourceBadge}}<small class="at-relation-source">{{sourceBadge}}</small>{{/if}}
           </span>
