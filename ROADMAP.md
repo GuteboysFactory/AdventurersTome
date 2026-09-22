@@ -912,6 +912,40 @@ Hard locks:
 Architecture: `docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md`  
 QA protocol: `docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md`
 
+## v1.6.0-qa.9 — Semantic Contacts World Projection
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.9 introduces the first visible World Auto-Build projection.
+
+Added:
+
+- `semantic-only` entity state for legitimate campaign entities that do not require a Foundry document
+- adapter representation/materialization policy
+- first-class Tome World `Contacts` category
+- public `module.api.contactProjections`
+- automatic GM-side Contact projection from generic discovery relationships
+- stable semantic-key identity for projected Contacts
+- relationship role/status/origin + profession/culture/location projection
+- source-permission mirroring with manual-override protection
+- in-place upgrade when a canonical Actor UUID later appears
+- non-destructive inactive state when semantic source disappears
+- GM edit preservation for custom facts and edited summaries
+
+Authority lock:
+
+> A projected Contact is Tome presentation. The system semantic source remains authoritative for source-owned facts.
+
+Safety lock:
+
+- no automatic Foundry Actor/NPC creation
+- no name-based auto-link
+- no automatic Contact deletion
+- no projection may broaden permissions beyond its source unless the GM changes permissions explicitly
+
+Architecture: `docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md`  
+QA protocol: `docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1037,7 +1071,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.8`  
+**Current QA build:** `v1.6.0-qa.9`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

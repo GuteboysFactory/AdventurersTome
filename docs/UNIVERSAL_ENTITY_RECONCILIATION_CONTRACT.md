@@ -67,3 +67,21 @@ existing World
 ```
 
 qa.8 never performs those actions.
+
+
+## Semantic-only entities
+
+A semantic entity is not automatically a missing Foundry document.
+
+Some systems intentionally model people, contacts, factions, clues or other campaign concepts without materializing them as Foundry documents.
+
+Such entities use:
+
+- `state: semantic-only`
+- a stable semantic key
+- adapter-declared representation metadata
+- an optional materialization policy
+
+Reconciliation may still propose an existing World/Compendium match, but absence of a canonical document is not itself an error.
+
+Tome may project semantic-only entities into its own campaign presentation without claiming Foundry/system authority.

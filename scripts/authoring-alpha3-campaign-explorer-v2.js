@@ -11,6 +11,7 @@ const ATCW_SECTIONS = Object.freeze({
 
 const ATCW_CANONICAL_WORLD = Object.freeze({
   NPCs: { category: "npc", icon: "fa-user-group" },
+  Contacts: { category: "contact", icon: "fa-address-card" },
   Locations: { category: "location", icon: "fa-location-dot" },
   Factions: { category: "faction", icon: "fa-flag" },
   Items: { category: "item", icon: "fa-gem" },

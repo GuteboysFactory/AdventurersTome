@@ -1231,6 +1231,7 @@ function actorView(actor) {
 
 const WORLD_CATEGORIES = Object.freeze({
   npc: { label: "NPC", icon: "fa-user" },
+  contact: { label: "Contact", icon: "fa-address-card" },
   location: { label: "Location", icon: "fa-location-dot" },
   faction: { label: "Faction", icon: "fa-flag" },
   item: { label: "Item", icon: "fa-gem" },
@@ -1242,6 +1243,7 @@ function inferWorldCategory(entry) {
   if (WORLD_CATEGORIES[flagged]) return flagged;
   const names = folderLineageNames(entry?.folder);
   const joined = names.join(" ");
+  if (/contact|relationship|relation/.test(joined)) return "contact";
   if (/npc|people|person|character/.test(joined)) return "npc";
   if (/place|location|region|city|town/.test(joined)) return "location";
   if (/faction|group|organization|organisation/.test(joined)) return "faction";
@@ -2152,6 +2154,7 @@ const IMPORT_MODES = Object.freeze({
 
 const IMPORT_WORLD_CATEGORY_ALIASES = Object.freeze({
   npc: "npc", npcs: "npc", person: "npc", people: "npc", character: "npc", characters: "npc",
+  contact: "contact", contacts: "contact", relation: "contact", relations: "contact", relationship: "contact", relationships: "contact",
   location: "location", locations: "location", place: "location", places: "location", plats: "location", platser: "location",
   faction: "faction", factions: "faction", group: "faction", groups: "faction", fraktion: "faction", fraktioner: "faction",
   item: "item", items: "item", object: "item", objects: "item", föremål: "item", foremal: "item",
@@ -2160,6 +2163,7 @@ const IMPORT_WORLD_CATEGORY_ALIASES = Object.freeze({
 
 const IMPORT_WORLD_SECTIONS = Object.freeze([
   { category: "npc", labels: ["NPC", "NPCs", "People", "Persons", "Personer", "NPCer", "NPC:er"] },
+  { category: "contact", labels: ["Contacts", "Contact", "Relationships", "Relationship", "Relations", "Relation", "Kontakter", "Kontakt"] },
   { category: "location", labels: ["Locations", "Location", "Places", "Place", "Platser", "Plats"] },
   { category: "faction", labels: ["Factions", "Faction", "Groups", "Organizations", "Organisations", "Fraktioner", "Fraktion"] },
   { category: "item", labels: ["Items", "Item", "Objects", "Artifacts", "Artefacts", "Föremål", "Foremal"] },

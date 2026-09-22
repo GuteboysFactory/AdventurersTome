@@ -14,6 +14,7 @@ const stats = {
   adapterSources:0,
   adapterEntities:0,
   adapterRelationships:0,
+  semanticOnly:0,
   unresolved:0,
   failures:0,
   lastError:""
@@ -198,7 +199,11 @@ function upsertEntity(entityMap, uuidIndex, aliasMap, raw, provenance = {}) {
       authority:existing.authority === "foundry" ? existing.authority : clean(raw.authority || existing.authority),
       provenance:mergeProvenance(existing.provenance, incomingProvenance),
       attributes:{ ...(existing.attributes || {}), ...(clone(raw.attributes || {})) },
-      system:raw.system ? { ...(existing.system || {}), ...clone(raw.system) } : existing.system
+      system:raw.system ? { ...(existing.system || {}), ...clone(raw.system) } : existing.system,
+      representation:raw.representation
+        ? { ...(existing.representation || {}), ...clone(raw.representation) }
+        : existing.representation,
+      semanticKeys:[...new Set([...(existing.semanticKeys || []), suppliedKey].filter(Boolean))]
     };
     entityMap.set(key, next);
     if (suppliedKey) aliasMap.set(suppliedKey, key);
@@ -206,19 +211,24 @@ function upsertEntity(entityMap, uuidIndex, aliasMap, raw, provenance = {}) {
     return next;
   }
 
-  const resolved = Boolean(canonicalUuid && uuidIndex.has(canonicalUuid));
+  const representation = raw.representation && typeof raw.representation === "object"
+    ? clone(raw.representation)
+    : null;
+  const semanticOnly = !canonicalUuid && clean(representation?.mode) === "semantic-only";
   const next = {
     key,
     kind:clean(raw.kind || "entity"),
     name:clean(raw.name),
     canonicalUuid,
-    state:resolved ? "resolved" : (canonicalUuid ? "unresolved-reference" : "unresolved"),
+    state:resolved ? "resolved" : (semanticOnly ? "semantic-only" : (canonicalUuid ? "unresolved-reference" : "unresolved")),
     authority:clean(raw.authority || provenance.authority || "adapter"),
     visibility:clean(raw.visibility || provenance.visibility || "source"),
     provenance:mergeProvenance([], incomingProvenance),
     foundry:raw.foundry ? clone(raw.foundry) : null,
     attributes:clone(raw.attributes || {}),
-    system:raw.system ? clone(raw.system) : null
+    system:raw.system ? clone(raw.system) : null,
+    representation,
+    semanticKeys:suppliedKey ? [suppliedKey] : []
   };
   entityMap.set(key, next);
   if (suppliedKey) aliasMap.set(suppliedKey, key);
@@ -244,10 +254,12 @@ function normalizeRelationship(raw, provenance, uuidIndex, aliasMap) {
     kind:"relationship",
     from:{
       key:fromKey,
+      semanticKey:clean(raw.from?.entityKey),
       canonicalUuid:clean(raw.from?.canonicalUuid)
     },
     to:{
       key:toKey,
+      semanticKey:clean(raw.to?.entityKey),
       canonicalUuid:clean(raw.to?.canonicalUuid)
     },
     role:clean(raw.role || "related"),
@@ -333,6 +345,7 @@ async function scan(options = {}) {
   stats.adapterSources = 0;
   stats.adapterEntities = 0;
   stats.adapterRelationships = 0;
+  stats.semanticOnly = 0;
   stats.unresolved = 0;
   const user = currentUser(options);
   const includeCompendiums = options?.includeCompendiums !== false;
@@ -413,7 +426,9 @@ async function scan(options = {}) {
   }
 
   const entities = [...entityMap.values()];
+  const semanticOnly = entities.filter((entity) => entity.state === "semantic-only");
   const unresolved = entities.filter((entity) => entity.state === "unresolved" || entity.state === "unresolved-reference");
+  stats.semanticOnly = semanticOnly.length;
   stats.unresolved = unresolved.length;
 
   lastSnapshot = Object.freeze({
@@ -426,10 +441,12 @@ async function scan(options = {}) {
     includeCompendiums,
     entities:clone(entities),
     relationships:clone(relationships),
+    semanticOnly:clone(semanticOnly),
     unresolved:clone(unresolved),
     summary:{
       entities:entities.length,
       relationships:relationships.length,
+      semanticOnly:semanticOnly.length,
       unresolved:unresolved.length,
       worldDocuments:stats.worldDocuments,
       compendiumEntries:stats.compendiumEntries,
@@ -478,6 +495,7 @@ const publicApi = Object.freeze({
   snapshot,
   get,
   relationshipsFor,
+  semanticOnly:()=>clone(lastSnapshot?.semanticOnly || []),
   unresolved:()=>clone(lastSnapshot?.unresolved || []),
   audit
 });

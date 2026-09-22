@@ -1392,3 +1392,43 @@ Canonical UUID equality is the only exact identity. Name equality alone never au
 No link/import/create mutation is enabled in qa.8.
 
 Detailed contract: `docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md`
+
+
+---
+
+# 37. Semantic-only entities & Contact projection — v1.6.0-qa.9
+
+Live reconciliation QA established an important distinction:
+
+> A semantic entity without a Foundry document is not necessarily unresolved.
+
+Systems may intentionally model Contacts, people, factions, clues or other campaign entities without materializing them as Foundry documents.
+
+qa.9 adds the `semantic-only` state and adapter representation metadata such as:
+
+```js
+{
+  mode: "semantic-only",
+  materialization: "optional",
+  preferredDocumentType: "Actor"
+}
+```
+
+Tome may project such entities into its own World presentation while preserving source authority.
+
+The first implementation is:
+
+```text
+semantic person
+  → World
+    → Contacts
+      → Contact Journal projection
+```
+
+Projection identity uses the stable semantic key, never the display name.
+
+If an Actor link later appears, the same Contact projection upgrades in place rather than duplicating the campaign entity.
+
+The Contact Journal is Tome-owned presentation. System-owned relationship facts remain source-authoritative.
+
+Detailed contract: `docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md`

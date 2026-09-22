@@ -6,7 +6,7 @@ const ATQI_SOURCE_TYPE = "quickImportSourceType";
 const ATQI_PENDING = new Map();
 const ATQI_SUPPORTED = new Set(["Actor", "Item", "Scene", "JournalEntry"]);
 const ATQI_TYPE_CATEGORY = Object.freeze({ Actor: "npc", Item: "item", Scene: "location", JournalEntry: "lore" });
-const ATQI_CATEGORY_FOLDER = Object.freeze({ npc: "NPCs", location: "Locations", faction: "Factions", item: "Items", lore: "Lore" });
+const ATQI_CATEGORY_FOLDER = Object.freeze({ npc: "NPCs", contact: "Contacts", location: "Locations", faction: "Factions", item: "Items", lore: "Lore" });
 const ATQI_INTERNAL_MIMES = new Set([
   "text/x-adventurers-tome-campaign-journal",
   "text/x-adventurers-tome-campaign-folder",
@@ -143,6 +143,7 @@ function atQiCategoryFromNode(node) {
   const explicit = String(node.dataset.atQiCategory || "");
   if (ATQI_CATEGORY_FOLDER[explicit]) return explicit;
   const text = String(node.querySelector?.(".at-world-category-heading")?.textContent || node.textContent || "").toLowerCase();
+  if (/contact|relationship|relation/.test(text)) return "contact";
   if (/npc/.test(text)) return "npc";
   if (/location|place/.test(text)) return "location";
   if (/faction/.test(text)) return "faction";
