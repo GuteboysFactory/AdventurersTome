@@ -946,6 +946,24 @@ Safety lock:
 Architecture: `docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md`  
 QA protocol: `docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md`
 
+## v1.6.0-qa.10 — Discovery Resolved Classification Hotfix
+
+**Status:** QA / FOCUSED HOTFIX
+
+Live qa.9 relationship-NPC creation exposed a missing local `resolved` declaration in Campaign Discovery's new-entity classification path.
+
+qa.10 restores the canonical UUID resolution boolean used by the existing `resolved / semantic-only / unresolved-reference / unresolved` state machine.
+
+Scope is intentionally limited:
+
+- no contract changes
+- no authority/model changes
+- no permission changes
+- no reconciliation scoring changes
+- no Contact projection behavior changes beyond allowing Discovery to complete normally
+
+QA protocol: `docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1071,7 +1089,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.9`  
+**Current QA build:** `v1.6.0-qa.10`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

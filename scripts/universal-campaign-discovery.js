@@ -214,6 +214,7 @@ function upsertEntity(entityMap, uuidIndex, aliasMap, raw, provenance = {}) {
   const representation = raw.representation && typeof raw.representation === "object"
     ? clone(raw.representation)
     : null;
+  const resolved = Boolean(canonicalUuid && uuidIndex.has(canonicalUuid));
   const semanticOnly = !canonicalUuid && clean(representation?.mode) === "semantic-only";
   const next = {
     key,

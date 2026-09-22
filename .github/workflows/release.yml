@@ -85,6 +85,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.7" ]]; then test -f docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md; test -f docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then test -f docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md; test -f docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.9" ]]; then test -f docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md; test -f docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.10" ]]; then test -f docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -142,6 +143,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.7" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.9" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.10" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -252,6 +254,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.9" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.9 adds Semantic Contacts World Projection: legitimate semantic-only relationship people can now manifest automatically as stable Tome World Contacts without requiring Foundry Actors. Contacts use semantic-key identity, preserve system authority/provenance, mirror source permissions, upgrade in place when an Actor link appears, preserve GM edits, and never auto-create or auto-delete Foundry NPCs."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.10" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.10 is a focused Campaign Discovery hotfix restoring the resolved classification boolean accidentally omitted during the qa.9 semantic-only refactor. This removes the ReferenceError seen during live relationship-NPC creation/linking and allows Discovery, Reconciliation, and Contact Projection refreshes to complete without changing their contracts or authority model."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
