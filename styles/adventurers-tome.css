@@ -1582,6 +1582,30 @@
   color: #765f38;
 }
 
+.at-relation-card.is-semantic {
+  border-color: rgba(151, 177, 110, 0.28);
+  background:
+    linear-gradient(145deg, rgba(28, 37, 21, 0.24), rgba(10, 8, 6, 0.42));
+}
+
+.at-relation-card.is-semantic:hover {
+  border-color: rgba(161, 190, 117, 0.56);
+  background:
+    linear-gradient(145deg, rgba(40, 54, 29, 0.34), rgba(24, 17, 10, 0.48));
+}
+
+.at-relation-source {
+  color: #7f8f6a !important;
+  font-size: 9px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.at-relation-card:disabled {
+  cursor: default;
+  opacity: 0.78;
+}
+
 .at-profile-form {
   display: flex;
   flex-direction: column;

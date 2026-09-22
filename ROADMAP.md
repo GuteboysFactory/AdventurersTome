@@ -964,6 +964,28 @@ Scope is intentionally limited:
 
 QA protocol: `docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md`
 
+## v1.6.0-qa.11 — Contextual Relations Consumer
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.11 connects the generic Campaign Discovery graph to the existing Tome character/profile Relations panel.
+
+Added:
+
+- automatic semantic relationship rows on Actor profiles
+- generic role/status/origin presentation
+- semantic-only Contact navigation through Tome World
+- canonical Actor navigation when linked
+- conservative coexistence with manual Tome relations
+- live Tome refresh after Discovery and Contact Projection updates
+- permission-safe target resolution
+
+System-independence lock:
+
+> The profile consumer reads only Tome's generic Discovery/Contact APIs and contains no reference-system logic.
+
+QA protocol: `docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1089,7 +1111,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.10`  
+**Current QA build:** `v1.6.0-qa.11`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

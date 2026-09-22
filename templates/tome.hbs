@@ -497,12 +497,17 @@
       <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relations</h2></div>
       <div class="at-relation-grid">
         {{#each profileView.relations}}
-        <button type="button" class="at-relation-card" data-action="openProfile" data-actor-id="{{target.id}}">
+        <button type="button" class="at-relation-card {{#if semantic}}is-semantic{{/if}}" data-action="{{action}}" {{#if actorId}}data-actor-id="{{actorId}}"{{/if}} {{#if journalId}}data-journal-id="{{journalId}}"{{/if}} {{#unless action}}disabled{{/unless}}>
           <img src="{{target.img}}" alt="{{target.name}}">
-          <span><strong>{{target.name}}</strong><em>{{label}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</em>{{#if note}}<small>{{note}}</small>{{/if}}</span>
-          <i class="fa-solid fa-chevron-right"></i>
+          <span>
+            <strong>{{target.name}}</strong>
+            <em>{{label}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</em>
+            {{#if note}}<small>{{note}}</small>{{/if}}
+            {{#if sourceBadge}}<small class="at-relation-source">{{sourceBadge}}</small>{{/if}}
+          </span>
+          {{#if action}}<i class="fa-solid fa-chevron-right"></i>{{else}}<i class="fa-solid fa-link-slash"></i>{{/if}}
         </button>
-        {{else}}<div class="at-empty at-wide">No relationships have been added yet.</div>{{/each}}
+        {{else}}<div class="at-empty at-wide">No relationships have been discovered yet.</div>{{/each}}
       </div>
     </section>
     {{/if}}

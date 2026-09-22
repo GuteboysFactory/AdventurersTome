@@ -1432,3 +1432,22 @@ If an Actor link later appears, the same Contact projection upgrades in place ra
 The Contact Journal is Tome-owned presentation. System-owned relationship facts remain source-authoritative.
 
 Detailed contract: `docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md`
+
+
+---
+
+# 38. Contextual Relations Consumer — v1.6.0-qa.11
+
+qa.11 makes the campaign graph visible where users expect it: the existing Actor profile Relations panel.
+
+The consumer reads generic Discovery relationship edges and resolves each target to:
+
+1. canonical readable Actor
+2. readable Tome Contact projection
+3. non-clickable semantic fallback
+
+Manual Tome-authored relations remain supported and render before semantic relations.
+
+No system API is called from the profile consumer.
+
+This establishes a reusable presentation pattern for future profile/context consumers of the Campaign Graph.
