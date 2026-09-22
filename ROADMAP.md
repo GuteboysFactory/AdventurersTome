@@ -885,6 +885,33 @@ Scope lock:
 Architecture: `docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md`  
 QA protocol: `docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md`
 
+## v1.6.0-qa.8 — Universal Entity Reconciliation
+
+**Status:** QA / LIVE TEST REQUIRED
+
+qa.8 adds a read-only reconciliation layer above Campaign Discovery.
+
+Added:
+
+- public `module.api.reconciliation`
+- unresolved entity classification against World and Compendium candidates
+- exact / high-confidence / possible / ambiguous / no-match classes
+- conservative name normalization and similarity
+- corroborating evidence from profession, culture, location and Folder context
+- explicit candidate reasons/scores
+- World-first tie-break preference without changing authority
+- lifecycle refresh after discovery updates
+
+Hard locks:
+
+- canonical UUID equality is the only exact identity
+- name equality alone never auto-links
+- no automatic link, import, acquire or create occurs
+- reconciliation consumes permission-filtered Discovery results only
+
+Architecture: `docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md`  
+QA protocol: `docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1010,7 +1037,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.7`  
+**Current QA build:** `v1.6.0-qa.8`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
