@@ -22,6 +22,8 @@ let analyzeTimer = null;
 
 const stats = {
   analyses:0,
+  reconcilable:0,
+  semanticOnly:0,
   unresolved:0,
   exact:0,
   highConfidence:0,
@@ -306,6 +308,8 @@ function classify(unresolved, candidates) {
 }
 
 function resetCounts() {
+  stats.reconcilable = 0;
+  stats.semanticOnly = 0;
   stats.unresolved = 0;
   stats.exact = 0;
   stats.highConfidence = 0;
@@ -325,11 +329,13 @@ async function analyze(options = {}) {
   if (!source || options?.rescan === true) source = await discovery.scan(options?.discovery || {});
   if (!source) throw new Error("Universal Campaign Discovery has no snapshot.");
 
+  const semanticOnly = Array.isArray(source.semanticOnly) ? source.semanticOnly : [];
   const unresolved = Array.isArray(source.unresolved) ? source.unresolved : [];
+  const reconcilable = [...semanticOnly, ...unresolved];
   const candidates = (Array.isArray(source.entities) ? source.entities : [])
     .filter((entity) => entity?.state === "resolved" || entity?.state === "compendium");
 
-  const results = unresolved.map((entity) => {
+  const results = reconcilable.map((entity) => {
     const match = classify(entity, candidates);
     return {
       entity:{
@@ -347,8 +353,10 @@ async function analyze(options = {}) {
     };
   });
 
+  stats.reconcilable = results.length;
+  stats.semanticOnly = semanticOnly.length;
+  stats.unresolved = unresolved.length;
   for (const row of results) {
-    stats.unresolved += 1;
     if (row.classification === CLASSIFICATION.EXACT) stats.exact += 1;
     else if (row.classification === CLASSIFICATION.HIGH) stats.highConfidence += 1;
     else if (row.classification === CLASSIFICATION.POSSIBLE) stats.possible += 1;
@@ -372,6 +380,8 @@ async function analyze(options = {}) {
     },
     results:clone(results),
     summary:{
+      reconcilable:stats.reconcilable,
+      semanticOnly:stats.semanticOnly,
       unresolved:stats.unresolved,
       exact:stats.exact,
       highConfidence:stats.highConfidence,
