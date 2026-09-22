@@ -3,6 +3,7 @@ const ATEM_ROOT = "#adventurers-tome-app";
 const ATEM_SUMMARY_ATTR = "data-at-tome-summary";
 const ATEM_WORLD_CATEGORIES = Object.freeze({
   npc: "NPCs",
+  contact: "Contacts",
   location: "Locations",
   faction: "Factions",
   item: "Items",
