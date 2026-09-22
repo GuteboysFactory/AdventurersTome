@@ -1442,6 +1442,125 @@ function worldEntryView(entry) {
   };
 }
 
+function semanticRelationLabel(value = "") {
+  return String(value || "related")
+    .trim()
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function semanticRelationNote(edge, targetEntity) {
+  const attrs = targetEntity?.attributes || {};
+  const parts = [
+    edge?.status ? semanticRelationLabel(edge.status) : "",
+    edge?.origin ? semanticRelationLabel(edge.origin) : "",
+    attrs.profession ? String(attrs.profession).trim() : "",
+    attrs.culture ? String(attrs.culture).trim() : "",
+    attrs.location ? String(attrs.location).trim() : ""
+  ].filter(Boolean);
+  return [...new Set(parts)].join(" · ");
+}
+
+function contextualSemanticRelationsForActor(actor) {
+  if (!actor) return [];
+
+  const moduleApi = game.modules.get(MODULE_ID)?.api;
+  const discovery = moduleApi?.discovery;
+  if (!discovery?.relationshipsFor || !discovery?.get) return [];
+
+  const contactRows = moduleApi?.contactProjections?.list?.() || [];
+  const contactBySemanticKey = new Map(
+    contactRows
+      .filter((row) => row?.active !== false)
+      .map((row) => [String(row.semanticKey || row.key || "").trim(), row])
+      .filter(([key]) => Boolean(key))
+  );
+
+  const sourceUuid = String(actor.uuid || "").trim();
+  const edges = discovery.relationshipsFor(sourceUuid) || [];
+  const rows = [];
+
+  for (const edge of edges) {
+    if (edge?.kind !== "relationship" || edge?.origin === "foundry-structure") continue;
+    const fromUuid = String(edge?.from?.canonicalUuid || "").trim();
+    if (fromUuid && fromUuid !== sourceUuid) continue;
+
+    const semanticKey = String(edge?.to?.semanticKey || "").trim();
+    const targetEntity = discovery.get(edge?.to?.key)
+      || (edge?.to?.canonicalUuid ? discovery.get(edge.to.canonicalUuid) : null);
+
+    const canonicalUuid = String(targetEntity?.canonicalUuid || edge?.to?.canonicalUuid || "").trim();
+    let targetActor = null;
+    if (canonicalUuid.startsWith("Actor.")) {
+      targetActor = game.actors.get(canonicalUuid.slice(6)) || null;
+      if (targetActor && !canViewInTome(targetActor)) targetActor = null;
+    }
+
+    let action = "";
+    let actorId = "";
+    let journalId = "";
+    let target = null;
+    let sourceBadge = "Campaign Contact";
+
+    if (targetActor) {
+      const view = actorView(targetActor);
+      target = { ...view, img:view.img || "icons/svg/mystery-man.svg" };
+      action = "openProfile";
+      actorId = targetActor.id;
+      sourceBadge = "Linked Actor";
+    } else {
+      const projected = contactBySemanticKey.get(semanticKey) || null;
+      const journal = projected?.journalId ? game.journal.get(projected.journalId) : null;
+      if (journal && canViewInTome(journal)) {
+        const view = worldEntryView(journal);
+        target = {
+          id:journal.id,
+          name:view.name || targetEntity?.name || "Contact",
+          img:view.img || "icons/svg/mystery-man.svg"
+        };
+        action = "openWorldProfile";
+        journalId = journal.id;
+        sourceBadge = "Contact";
+      }
+    }
+
+    if (!target) {
+      const name = String(targetEntity?.name || "").trim();
+      if (!name) continue;
+      target = {
+        id:"",
+        name,
+        img:"icons/svg/mystery-man.svg"
+      };
+    }
+
+    rows.push({
+      semantic:true,
+      semanticKey,
+      relationshipKey:String(edge?.key || "").trim(),
+      provider:String(edge?.provenance?.[0]?.provider || "").trim(),
+      actorId,
+      journalId,
+      action,
+      label:semanticRelationLabel(edge?.role || "related"),
+      note:semanticRelationNote(edge, targetEntity),
+      gmOnly:false,
+      sourceBadge,
+      target
+    });
+  }
+
+  return rows;
+}
+
+function contextualRelationIdentity(relation) {
+  const label = normalizeImportName(relation?.label || "related");
+  if (relation?.actorId) return `actor:${relation.actorId}|${label}`;
+  if (relation?.semanticKey) return `semantic:${relation.semanticKey}|${label}`;
+  return `name:${normalizeImportName(relation?.target?.name || "")}|${label}`;
+}
+
 /**
  * v0.1.0 used a world setting containing Actor IDs. Keep reading it as a
  * backwards-compatible fallback while v0.1.1 moves membership onto Actor flags.
@@ -4215,16 +4334,31 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (profileActor) {
       const profile = getActorProfile(profileActor);
       const base = actorView(profileActor);
-      const relations = profile.relations
+      const manualRelations = profile.relations
         .map((relation) => {
           const target = game.actors.get(relation.actorId);
           if (!target || !canViewInTome(target)) return null;
           return {
             ...relation,
+            semantic:false,
+            action:"openProfile",
+            actorId:target.id,
+            journalId:"",
+            sourceBadge:"",
             target: actorView(target)
           };
         })
         .filter(Boolean);
+
+      const semanticRelations = contextualSemanticRelationsForActor(profileActor);
+      const relationKeys = new Set(manualRelations.map(contextualRelationIdentity));
+      const relations = [...manualRelations];
+      for (const relation of semanticRelations) {
+        const key = contextualRelationIdentity(relation);
+        if (relationKeys.has(key)) continue;
+        relationKeys.add(key);
+        relations.push(relation);
+      }
 
       const firstSession = profile.firstSessionId ? game.journal.get(profile.firstSessionId) : null;
       const actorCampaignSessions = linkedSessionsForTarget(profileActor, base, sessions, "actors", ["Characters", "Character", "People", "Personer", "Companions", "Följeslagare"]);
@@ -7154,4 +7288,6 @@ function scheduleTomeRefresh() {
 for (const hookName of ["createActor", "updateActor", "deleteActor", "createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage"]) {
   Hooks.on(hookName, scheduleTomeRefresh);
 }
+Hooks.on("adventurersTomeCampaignDiscoveryUpdated", scheduleTomeRefresh);
+Hooks.on("adventurersTomeContactProjectionUpdated", scheduleTomeRefresh);
 
