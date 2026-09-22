@@ -315,8 +315,7 @@ async function updateProjection(journal, group, folder) {
       sourceUuid:group.sourceUuid,
       linkedUuid:group.linkedUuid,
       relationshipKeys:group.relationships.map((row) => row.key),
-      generatedSummary:profileData.generatedSummary,
-      lastSeenAt:Date.now()
+      generatedSummary:profileData.generatedSummary
     }
   };
 
@@ -347,6 +346,7 @@ async function updateProjection(journal, group, folder) {
   });
 
   if (before === after) return false;
+  update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].lastSeenAt = Date.now();
   await journal.update(update, { adventurersTomeSemanticProjection:true });
   await ensureOverview(journal, profileData.generatedSummary);
   return true;
