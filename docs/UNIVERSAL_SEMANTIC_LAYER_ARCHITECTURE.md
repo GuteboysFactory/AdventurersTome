@@ -1363,3 +1363,32 @@ Realm Guard M8 Social Network is the first advanced reference implementation, bu
 The next stage may add confidence-based reconciliation and acquisition planning. Creation remains last in the World → Compendium → Create order.
 
 Detailed contract: `docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md`
+
+
+---
+
+# 36. Universal Entity Reconciliation — v1.6.0-qa.8
+
+qa.8 introduces a read-only reconciliation layer above Universal Campaign Discovery.
+
+The public surface is:
+
+```js
+game.modules.get("adventurers-tome").api.reconciliation
+```
+
+Reconciliation classifies unresolved entities against already permission-filtered World and Compendium candidates.
+
+Locked classifications:
+
+- exact
+- high-confidence
+- possible
+- ambiguous
+- no-match
+
+Canonical UUID equality is the only exact identity. Name equality alone never auto-links. High-confidence requires corroborating evidence and uniqueness. Close competing candidates are surfaced as ambiguous.
+
+No link/import/create mutation is enabled in qa.8.
+
+Detailed contract: `docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md`
