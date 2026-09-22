@@ -83,6 +83,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
           if [[ "$VERSION" == "1.6.0-qa.7" ]]; then test -f docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md; test -f docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.8" ]]; then test -f docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md; test -f docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -138,6 +139,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/USL_CONTROLLED_WRITE_EXECUTION.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.7" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA7_UNIVERSAL_CAMPAIGN_DISCOVERY.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/UNIVERSAL_CAMPAIGN_DISCOVERY_CONTRACT.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.8" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -245,6 +247,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.7" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.7 starts Universal Campaign Discovery: a read-only, system-independent campaign scan across readable World documents, Folder structure and visible Compendium indexes, with canonical UUID reconciliation, unresolved entity tracking, structural relationships, and the additive entityDiscovery adapter capability. Realm Guard M8 Social Network is included only as the first advanced reference adapter."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
           fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
