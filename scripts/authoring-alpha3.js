@@ -11,7 +11,7 @@ const ATA3_SECTIONS = Object.freeze({
   quests: { label: "Quests", icon: "fa-diamond" },
   sessions: { label: "Sessions", icon: "fa-book-open" }
 });
-const ATA3_WORLD_CATEGORIES = Object.freeze({ npc: "NPCs", location: "Locations", faction: "Factions", item: "Items", lore: "Lore" });
+const ATA3_WORLD_CATEGORIES = Object.freeze({ npc: "NPCs", contact: "Contacts", location: "Locations", faction: "Factions", item: "Items", lore: "Lore" });
 const ATA3_PENDING = new Map();
 let atA3Queued = false;
 let atA3LastAccessJournalId = "";
