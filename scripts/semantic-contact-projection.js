@@ -250,7 +250,7 @@ async function ensureOverview(journal, summary) {
     name:"Overview",
     type:"text",
     text:{
-      content:`<p data-at-tome-summary="true">${esc(summary || "")}</p><p>This Contact is projected automatically from campaign relationship data. Its source remains authoritative.</p>`,
+      content:`<p data-at-tome-summary="true">${esc(summary || "")}</p><p></p>`,
       format:CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML ?? 1
     },
     sort:100000
