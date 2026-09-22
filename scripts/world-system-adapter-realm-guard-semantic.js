@@ -438,6 +438,11 @@ function atRgEntityDiscovery({ source, user }) {
       canonicalUuid:atRgText(person.actorUuid),
       visibility:"source",
       authority:"system",
+      representation:{
+        mode:atRgText(person.actorUuid) ? "canonical-document" : "semantic-only",
+        materialization:"optional",
+        preferredDocumentType:"Actor"
+      },
       attributes:{
         profession:atRgText(person.profession),
         culture:atRgText(person.people),
