@@ -87,6 +87,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.9" ]]; then test -f docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md; test -f docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.10" ]]; then test -f docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.11" ]]; then test -f docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.12" ]]; then test -f docs/V1.6_QA12_RELATION_IDENTITY_AUTHORITY_CONVERGENCE.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -146,6 +147,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.9" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.10" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.11" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.12" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA12_RELATION_IDENTITY_AUTHORITY_CONVERGENCE.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -262,6 +264,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.11" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.11 connects the generic campaign graph to character profile Relations panels. Semantic relationships now appear contextually beside manual Tome relations, navigate to readable linked Actors or Tome Contact projections, preserve permission boundaries, and refresh live after Discovery/Contact updates without introducing reference-system logic into Core."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.12" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.12 converges relationship presentation by stable target identity. Canonical Actor UUIDs and semantic/entity keys prevent duplicate person cards without name-based merging; multiple roles/notes remain preserved as facets, current semantic navigation takes precedence, and auto-generated Semantic Contacts no longer leak into Character Campaign Links through fuzzy text inference unless explicitly linked."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
