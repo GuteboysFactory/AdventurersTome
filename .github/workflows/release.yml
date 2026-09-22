@@ -86,6 +86,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then test -f docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md; test -f docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.9" ]]; then test -f docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md; test -f docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.10" ]]; then test -f docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.11" ]]; then test -f docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -144,6 +145,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA8_UNIVERSAL_ENTITY_RECONCILIATION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/UNIVERSAL_ENTITY_RECONCILIATION_CONTRACT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.9" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA9_SEMANTIC_CONTACTS_WORLD_PROJECTION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/SEMANTIC_CONTACTS_WORLD_PROJECTION_CONTRACT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.10" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.11" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -257,6 +259,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.10" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.10 is a focused Campaign Discovery hotfix restoring the resolved classification boolean accidentally omitted during the qa.9 semantic-only refactor. This removes the ReferenceError seen during live relationship-NPC creation/linking and allows Discovery, Reconciliation, and Contact Projection refreshes to complete without changing their contracts or authority model."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.11" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.11 connects the generic campaign graph to character profile Relations panels. Semantic relationships now appear contextually beside manual Tome relations, navigate to readable linked Actors or Tome Contact projections, preserve permission boundaries, and refresh live after Discovery/Contact updates without introducing reference-system logic into Core."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
