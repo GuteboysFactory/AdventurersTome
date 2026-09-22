@@ -1490,11 +1490,13 @@ function contextualSemanticRelationsForActor(actor) {
     const targetEntity = discovery.get(edge?.to?.key)
       || (edge?.to?.canonicalUuid ? discovery.get(edge.to.canonicalUuid) : null);
 
+    const targetEntityKey = String(targetEntity?.key || edge?.to?.key || edge?.to?.entityKey || "").trim();
     const canonicalUuid = String(targetEntity?.canonicalUuid || edge?.to?.canonicalUuid || "").trim();
     let targetActor = null;
     if (canonicalUuid.startsWith("Actor.")) {
-      targetActor = game.actors.get(canonicalUuid.slice(6)) || null;
-      if (targetActor && !canViewInTome(targetActor)) targetActor = null;
+      const candidate = game.actors.get(canonicalUuid.slice(6)) || null;
+      if (candidate && !canViewInTome(candidate)) continue;
+      targetActor = candidate;
     }
 
     let action = "";
@@ -1535,11 +1537,27 @@ function contextualSemanticRelationsForActor(actor) {
       };
     }
 
+    const relationshipKey = String(edge?.key || "").trim();
+    const targetUuid = String(targetActor?.uuid || canonicalUuid || "").trim();
+    const targetIdentity = targetUuid
+      ? `uuid:${targetUuid}`
+      : semanticKey
+        ? `semantic:${semanticKey}`
+        : targetEntityKey
+          ? `entity:${targetEntityKey}`
+          : relationshipKey
+            ? `relationship:${relationshipKey}`
+            : "";
+
     rows.push({
       semantic:true,
       semanticKey,
-      relationshipKey:String(edge?.key || "").trim(),
+      targetEntityKey,
+      targetUuid,
+      targetIdentity,
+      relationshipKey,
       provider:String(edge?.provenance?.[0]?.provider || "").trim(),
+      authority:String(edge?.authority || targetEntity?.authority || "system").trim(),
       actorId,
       journalId,
       action,
@@ -1554,11 +1572,151 @@ function contextualSemanticRelationsForActor(actor) {
   return rows;
 }
 
-function contextualRelationIdentity(relation) {
-  const label = normalizeImportName(relation?.label || "related");
-  if (relation?.actorId) return `actor:${relation.actorId}|${label}`;
-  if (relation?.semanticKey) return `semantic:${relation.semanticKey}|${label}`;
-  return `name:${normalizeImportName(relation?.target?.name || "")}|${label}`;
+function contextualRelationTargetIdentity(relation, fallback = "") {
+  const explicit = String(relation?.targetIdentity || "").trim();
+  if (explicit) return explicit;
+
+  const targetUuid = String(relation?.targetUuid || "").trim();
+  if (targetUuid) return `uuid:${targetUuid}`;
+
+  const actorId = String(relation?.actorId || "").trim();
+  if (actorId) {
+    const actor = game.actors.get(actorId);
+    if (actor?.uuid) return `uuid:${actor.uuid}`;
+    return `actor:${actorId}`;
+  }
+
+  const semanticKey = String(relation?.semanticKey || "").trim();
+  if (semanticKey) return `semantic:${semanticKey}`;
+
+  const entityKey = String(relation?.targetEntityKey || "").trim();
+  if (entityKey) return `entity:${entityKey}`;
+
+  const relationshipKey = String(relation?.relationshipKey || "").trim();
+  if (relationshipKey) return `relationship:${relationshipKey}`;
+
+  return fallback;
+}
+
+function contextualRelationNavigationRank(relation) {
+  if (relation?.actorId && relation?.action === "openProfile") return 3;
+  if (relation?.journalId && relation?.action === "openWorldProfile") return 2;
+  return relation?.action ? 1 : 0;
+}
+
+function contextualRelationFacet(relation) {
+  return {
+    label:String(relation?.label || "Related").trim() || "Related",
+    note:String(relation?.note || "").trim(),
+    gmOnly:Boolean(relation?.gmOnly),
+    semantic:Boolean(relation?.semantic),
+    authority:String(relation?.authority || (relation?.semantic ? "system" : "tome-extension")).trim(),
+    provider:String(relation?.provider || "").trim(),
+    relationshipKey:String(relation?.relationshipKey || "").trim()
+  };
+}
+
+/**
+ * Converge presentation by stable target identity, never by display name.
+ *
+ * Structured semantic relations are considered first so current system-owned
+ * navigation/presentation remains primary. Tome-authored/manual relations are
+ * preserved as additional facets/notes on the same person instead of creating
+ * a second person card.
+ */
+function convergeContextualRelations(manualRelations = [], semanticRelations = []) {
+  const groups = new Map();
+  const order = [];
+  const rows = [...semanticRelations, ...manualRelations];
+
+  rows.forEach((relation, index) => {
+    const fallback = `row:${relation?.semantic ? "semantic" : "manual"}:${index}`;
+    const identity = contextualRelationTargetIdentity(relation, fallback);
+    let group = groups.get(identity);
+
+    if (!group) {
+      group = {
+        ...relation,
+        targetIdentity:identity,
+        facets:[],
+        semantic:false,
+        gmOnly:false
+      };
+      groups.set(identity, group);
+      order.push(identity);
+    }
+
+    const currentRank = contextualRelationNavigationRank(group);
+    const candidateRank = contextualRelationNavigationRank(relation);
+    if (candidateRank > currentRank) {
+      group.action = relation.action || "";
+      group.actorId = relation.actorId || "";
+      group.journalId = relation.journalId || "";
+      group.target = relation.target || group.target;
+      group.sourceBadge = relation.sourceBadge || group.sourceBadge || "";
+      group.targetUuid = relation.targetUuid || group.targetUuid || "";
+    } else if (!group.sourceBadge && relation?.sourceBadge) {
+      group.sourceBadge = relation.sourceBadge;
+    }
+
+    const facet = contextualRelationFacet(relation);
+    const facetKey = [
+      normalizeImportName(facet.label),
+      normalizeImportName(facet.note),
+      facet.gmOnly ? "gm" : "players",
+      facet.semantic ? "semantic" : "manual"
+    ].join("|");
+
+    if (!group.facets.some((existing) => existing._key === facetKey)) {
+      group.facets.push({ ...facet, _key:facetKey });
+    }
+
+    group.semantic = group.semantic || Boolean(relation?.semantic);
+  });
+
+  return order.map((identity) => {
+    const group = groups.get(identity);
+    const labels = [];
+    const labelKeys = new Set();
+    const details = [];
+    const detailKeys = new Set();
+
+    for (const facet of group.facets) {
+      const labelKey = normalizeImportName(facet.label);
+      if (labelKey && !labelKeys.has(labelKey)) {
+        labelKeys.add(labelKey);
+        labels.push(facet.label);
+      }
+
+      if (facet.note) {
+        const detailKey = `${normalizeImportName(facet.note)}|${facet.gmOnly ? "gm" : "players"}`;
+        if (!detailKeys.has(detailKey)) {
+          detailKeys.add(detailKey);
+          details.push({
+            text:facet.note,
+            gmOnly:facet.gmOnly,
+            semantic:facet.semantic
+          });
+        }
+      }
+    }
+
+    const facets = group.facets.map(({ _key, ...facet }) => facet);
+    return {
+      ...group,
+      facets,
+      label:labels.join(" · ") || "Related",
+      note:"",
+      details,
+      gmOnly:facets.length > 0 && facets.every((facet) => facet.gmOnly),
+      semantic:facets.some((facet) => facet.semantic)
+    };
+  });
+}
+
+function isAutomaticSemanticContactProjection(document) {
+  const projection = document?.getFlag?.(MODULE_ID, "semanticProjection");
+  return Boolean(projection && typeof projection === "object" && projection.kind === "contact");
 }
 
 /**
@@ -4341,6 +4499,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return {
             ...relation,
             semantic:false,
+            authority:"tome-extension",
+            targetUuid:String(target.uuid || "").trim(),
+            targetIdentity:target.uuid ? `uuid:${target.uuid}` : `actor:${target.id}`,
             action:"openProfile",
             actorId:target.id,
             journalId:"",
@@ -4351,14 +4512,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         .filter(Boolean);
 
       const semanticRelations = contextualSemanticRelationsForActor(profileActor);
-      const relationKeys = new Set(manualRelations.map(contextualRelationIdentity));
-      const relations = [...manualRelations];
-      for (const relation of semanticRelations) {
-        const key = contextualRelationIdentity(relation);
-        if (relationKeys.has(key)) continue;
-        relationKeys.add(key);
-        relations.push(relation);
-      }
+      const relations = convergeContextualRelations(manualRelations, semanticRelations);
 
       const firstSession = profile.firstSessionId ? game.journal.get(profile.firstSessionId) : null;
       const actorCampaignSessions = linkedSessionsForTarget(profileActor, base, sessions, "actors", ["Characters", "Character", "People", "Personer", "Companions", "Följeslagare"]);
@@ -4367,9 +4521,21 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const questEntry = game.journal.get(quest.id);
         return getTomeLinks(questEntry).actors.includes(profileActor.id) || textMentionsName(journalText(questEntry), profileActor.name) || textMentionsName(actorText, quest.name);
       });
+      const profileActorLinks = getTomeLinks(profileActor);
       const actorCampaignWorld = world.filter((worldView) => {
         const worldEntry = game.journal.get(worldView.id);
-        return getTomeLinks(worldEntry).actors.includes(profileActor.id) || textMentionsName(worldProfileText(worldEntry), profileActor.name) || textMentionsName(actorText, worldView.name);
+        const worldLinks = getTomeLinks(worldEntry);
+        const explicitlyLinked = worldLinks.actors.includes(profileActor.id)
+          || profileActorLinks.world.includes(worldEntry.id);
+
+        // Semantic Contact projections are relationship presentation, not fuzzy
+        // Campaign Links. They appear here only when the GM explicitly links
+        // the Contact and Actor in Tome.
+        if (isAutomaticSemanticContactProjection(worldEntry)) return explicitlyLinked;
+
+        return explicitlyLinked
+          || textMentionsName(worldProfileText(worldEntry), profileActor.name)
+          || textMentionsName(actorText, worldView.name);
       });
       const incomingRelations = game.actors.contents
         .filter((candidate) => candidate.id !== profileActor.id && canViewInTome(candidate))
