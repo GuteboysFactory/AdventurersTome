@@ -1063,6 +1063,29 @@ Privacy lock:
 
 QA protocol: `docs/V1.6_QA14_PROJECTION_PERMISSION_ENFORCEMENT.md`
 
+## v1.6.0-qa.15 — Privacy Authority Consolidation
+
+**Status:** QA / ARCHITECTURE HARDENING
+
+Repeated live privacy QA showed that the underlying problem was not one missing UI filter. Generated Contact Journal ownership, viewer-scoped semantic evidence and Discovery could disagree about the same derived person.
+
+qa.15 consolidates privacy authority around evidence before derivation:
+
+- generated Contact visibility is always bounded by live source/target Actor evidence
+- `ownershipManaged` no longer bypasses viewer-scoped semantic privacy
+- stale ownership-signature mismatch no longer silently converts a generated Contact into a permanent manual override
+- generated Contact ownership remains managed unless an explicit override flag exists
+- Foundry inherited/negative ownership values are resolved through the document default before conservative intersection
+- Universal Campaign Discovery filters unreadable canonical adapter entities and relationship endpoints before they enter the viewer graph
+- canonical Foundry UUID facts are GM-only implementation metadata
+- Contact Projection exposes a GM-only permission audit that detects Journal/evidence visibility mismatches
+
+Architecture lock:
+
+> Privacy authority lives in the viewer-scoped evidence graph. Projection Documents and UI consumers may narrow that result, but may never broaden it.
+
+QA protocol: `docs/V1.6_QA15_PRIVACY_AUTHORITY_CONSOLIDATION.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1316,7 +1339,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.14`  
+**Current QA build:** `v1.6.0-qa.15`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

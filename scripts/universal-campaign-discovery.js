@@ -14,6 +14,8 @@ const stats = {
   adapterSources:0,
   adapterEntities:0,
   adapterRelationships:0,
+  permissionFilteredEntities:0,
+  permissionFilteredRelationships:0,
   semanticOnly:0,
   unresolved:0,
   failures:0,
@@ -43,6 +45,17 @@ function canObserve(document, user) {
     if (typeof document.testUserPermission === "function") return document.testUserPermission(user, "OBSERVER") === true;
   } catch (_error) {}
   return Boolean(document.visible);
+}
+
+function canonicalEvidenceVisible(uuid, registry, user) {
+  const value = clean(uuid);
+  if (!value) return true;
+  const document = registry?.resolve?.(value) || null;
+  // Missing/unresolved UUIDs are not automatically secret; they remain subject
+  // to normal unresolved-entity handling. Existing Foundry documents, however,
+  // must be readable by the current viewer before adapter-derived data may use
+  // them as canonical evidence.
+  return document ? canObserve(document, user) : true;
 }
 
 function adapterApi() {
@@ -346,6 +359,8 @@ async function scan(options = {}) {
   stats.adapterSources = 0;
   stats.adapterEntities = 0;
   stats.adapterRelationships = 0;
+  stats.permissionFilteredEntities = 0;
+  stats.permissionFilteredRelationships = 0;
   stats.semanticOnly = 0;
   stats.unresolved = 0;
   const user = currentUser(options);
@@ -412,11 +427,36 @@ async function scan(options = {}) {
           sourcePath:clean(result.sourcePath)
         };
 
+        const permissionFilteredKeys = new Set();
+
         for (const rawEntity of Array.isArray(result.entities) ? result.entities : []) {
+          const canonicalUuid = clean(rawEntity?.canonicalUuid);
+          if (canonicalUuid && !canonicalEvidenceVisible(canonicalUuid, registry, user)) {
+            const suppliedKey = clean(rawEntity?.key);
+            if (suppliedKey) permissionFilteredKeys.add(suppliedKey);
+            stats.permissionFilteredEntities += 1;
+            continue;
+          }
+
           if (upsertEntity(entityMap, uuidIndex, aliasMap, rawEntity, provenance)) stats.adapterEntities += 1;
         }
 
         for (const rawRelationship of Array.isArray(result.relationships) ? result.relationships : []) {
+          const fromEntityKey = clean(rawRelationship?.from?.entityKey);
+          const toEntityKey = clean(rawRelationship?.to?.entityKey);
+          const fromUuid = clean(rawRelationship?.from?.canonicalUuid);
+          const toUuid = clean(rawRelationship?.to?.canonicalUuid);
+
+          const hiddenEndpoint = (fromEntityKey && permissionFilteredKeys.has(fromEntityKey))
+            || (toEntityKey && permissionFilteredKeys.has(toEntityKey))
+            || (fromUuid && !canonicalEvidenceVisible(fromUuid, registry, user))
+            || (toUuid && !canonicalEvidenceVisible(toUuid, registry, user));
+
+          if (hiddenEndpoint) {
+            stats.permissionFilteredRelationships += 1;
+            continue;
+          }
+
           const normalized = normalizeRelationship(rawRelationship, provenance, uuidIndex, aliasMap);
           if (!normalized) continue;
           relationships.push(normalized);
