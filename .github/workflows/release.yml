@@ -88,6 +88,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.10" ]]; then test -f docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.11" ]]; then test -f docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md; fi
           if [[ "$VERSION" == "1.6.0-qa.12" ]]; then test -f docs/V1.6_QA12_RELATION_IDENTITY_AUTHORITY_CONVERGENCE.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.13" ]]; then test -f docs/V1.6_QA13_CONTACT_PROJECTION_PRIVACY.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -148,6 +149,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.10" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA10_DISCOVERY_RESOLVED_HOTFIX.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.11" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA11_CONTEXTUAL_RELATIONS_CONSUMER.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.12" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA12_RELATION_IDENTITY_AUTHORITY_CONVERGENCE.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.13" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA13_CONTACT_PROJECTION_PRIVACY.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -267,6 +269,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.12" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.12 converges relationship presentation by stable target identity. Canonical Actor UUIDs and semantic/entity keys prevent duplicate person cards without name-based merging; multiple roles/notes remain preserved as facets, current semantic navigation takes precedence, and auto-generated Semantic Contacts no longer leak into Character Campaign Links through fuzzy text inference unless explicitly linked."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.13" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.13 hardens Semantic Contact privacy after live player QA. Generated Contacts linked to canonical Actors now use conservative source/target permission intersection, Contact Projection listing is viewer-scoped, and Character Relations no longer synthesize hidden semantic fallback rows when a Contact is unreadable."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
