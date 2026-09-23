@@ -1040,6 +1040,29 @@ Privacy lock:
 
 QA protocol: `docs/V1.6_QA13_CONTACT_PROJECTION_PRIVACY.md`
 
+## v1.6.0-qa.14 — Projection Permission Enforcement
+
+**Status:** QA / FOCUSED PRIVACY HOTFIX
+
+qa.13 removed the hidden linked Actor from Character → Relations, but live player QA proved that the generated Contact Journal itself could remain readable and leak through World, Campaign Explorer and direct Contact profile navigation.
+
+qa.14 adds defense-in-depth enforcement:
+
+- automatic semantic Contacts are live-checked against current viewer permission to their source Actor evidence
+- canonical linked Actor permission is part of that evidence gate
+- `canViewInTome()` applies the projection evidence gate across normal Tome consumers
+- `contactProjections.list()` applies the same viewer-scoped evidence check
+- Actor updates schedule projection ownership refresh so persisted Journal permissions converge after ownership changes
+- stale Journal ownership can no longer by itself make an automatic Contact visible
+- hidden linked Actor UUID metadata is not exposed in player-facing Contact facts
+- explicit GM-diverged Contact permissions remain deliberate overrides rather than being silently rewritten
+
+Privacy lock:
+
+> Automatic derived campaign data must pass both document permission and live evidence permission. Stale projection ownership must never reveal a hidden person or relationship.
+
+QA protocol: `docs/V1.6_QA14_PROJECTION_PERMISSION_ENFORCEMENT.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1293,7 +1316,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.13`  
+**Current QA build:** `v1.6.0-qa.14`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
