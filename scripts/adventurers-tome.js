@@ -1512,30 +1512,28 @@ function contextualSemanticRelationsForActor(actor) {
       actorId = targetActor.id;
       sourceBadge = "Linked Actor";
     } else {
+      // Semantic-only or unresolved relationship targets require a Contact
+      // projection that is readable by the current viewer. Do not synthesize
+      // a fallback from Discovery when the projection is absent from the
+      // viewer-scoped list: that absence may itself be a permission boundary.
       const projected = contactBySemanticKey.get(semanticKey) || null;
+      if (!projected) continue;
+
       const journal = projected?.journalId ? game.journal.get(projected.journalId) : null;
-      if (journal && canViewInTome(journal)) {
-        const view = worldEntryView(journal);
-        target = {
-          id:journal.id,
-          name:view.name || targetEntity?.name || "Contact",
-          img:view.img || "icons/svg/mystery-man.svg"
-        };
-        action = "openWorldProfile";
-        journalId = journal.id;
-        sourceBadge = "Contact";
-      }
+      if (!journal || !canViewInTome(journal)) continue;
+
+      const view = worldEntryView(journal);
+      target = {
+        id:journal.id,
+        name:view.name || targetEntity?.name || "Contact",
+        img:view.img || "icons/svg/mystery-man.svg"
+      };
+      action = "openWorldProfile";
+      journalId = journal.id;
+      sourceBadge = "Contact";
     }
 
-    if (!target) {
-      const name = String(targetEntity?.name || "").trim();
-      if (!name) continue;
-      target = {
-        id:"",
-        name,
-        img:"icons/svg/mystery-man.svg"
-      };
-    }
+    if (!target) continue;
 
     const relationshipKey = String(edge?.key || "").trim();
     const targetUuid = String(targetActor?.uuid || canonicalUuid || "").trim();
