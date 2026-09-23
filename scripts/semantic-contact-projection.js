@@ -105,12 +105,76 @@ function existingProjectionMap() {
   return map;
 }
 
-function managedOwnership(sourceActor) {
-  const fallback = { default:CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0 };
-  if (!sourceActor) return fallback;
-  const ownership = clone(sourceActor.ownership || fallback);
-  if (!Object.hasOwn(ownership, "default")) ownership.default = CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0;
+function canObserve(document, user = game.user) {
+  if (!document || !user) return false;
+  if (user.isGM) return true;
+  try {
+    if (typeof document.testUserPermission === "function") {
+      return document.testUserPermission(user, "OBSERVER") === true;
+    }
+  } catch (_error) {}
+  return Boolean(document.visible);
+}
+
+function ownershipDefault(ownership) {
+  const none = CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0;
+  const value = Number(ownership?.default ?? none);
+  return Number.isFinite(value) ? value : none;
+}
+
+function ownershipLevel(ownership, userId) {
+  const fallback = ownershipDefault(ownership);
+  const key = String(userId || "");
+  const value = key && Object.hasOwn(ownership || {}, key)
+    ? Number(ownership[key])
+    : fallback;
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function intersectOwnership(documents = []) {
+  const none = CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0;
+  const sources = documents.filter(Boolean);
+  if (!sources.length) return { default:none };
+
+  const ownershipSets = sources.map((document) => clone(document.ownership || { default:none }));
+  const defaultLevel = Math.min(...ownershipSets.map(ownershipDefault));
+  const ownership = { default:defaultLevel };
+
+  for (const user of game.users?.contents ?? []) {
+    if (!user?.id || user.isGM) continue;
+    const level = Math.min(...ownershipSets.map((entry) => ownershipLevel(entry, user.id)));
+    if (level !== defaultLevel) ownership[user.id] = level;
+  }
+
   return ownership;
+}
+
+async function actorFromUuid(uuid) {
+  const value = clean(uuid);
+  if (!value) return null;
+
+  if (value.startsWith("Actor.")) {
+    const local = game.actors?.get(value.slice(6)) || null;
+    if (local) return local;
+  }
+
+  const document = await fromUuid(value).catch(() => null);
+  return document?.documentName === "Actor" ? document : null;
+}
+
+async function managedProjectionOwnership(group) {
+  const sourceActor = await actorFromUuid(group?.sourceUuid);
+  const targetActor = await actorFromUuid(group?.linkedUuid);
+  const documents = [];
+
+  if (sourceActor) documents.push(sourceActor);
+  if (targetActor && targetActor.uuid !== sourceActor?.uuid) documents.push(targetActor);
+
+  return {
+    ownership:intersectOwnership(documents),
+    sourceUuids:documents.map((document) => clean(document.uuid)).filter(Boolean),
+    policy:targetActor ? "source-and-target-intersection" : "semantic-source"
+  };
 }
 
 function ownershipSignature(ownership) {
@@ -259,8 +323,8 @@ async function ensureOverview(journal, summary) {
 }
 
 async function createProjection(group, folder) {
-  const sourceActor = group.sourceUuid ? await fromUuid(group.sourceUuid).catch(() => null) : null;
-  const ownership = managedOwnership(sourceActor);
+  const permissions = await managedProjectionOwnership(group);
+  const ownership = permissions.ownership;
   const profileData = projectionProfile(group, {}, {});
   const projection = {
     key:group.key,
@@ -274,6 +338,8 @@ async function createProjection(group, folder) {
     generatedSummary:profileData.generatedSummary,
     ownershipManaged:true,
     lastManagedOwnership:ownershipSignature(ownership),
+    permissionSourceUuids:permissions.sourceUuids,
+    permissionPolicy:permissions.policy,
     lastSeenAt:Date.now()
   };
 
@@ -298,8 +364,8 @@ async function updateProjection(journal, group, folder) {
   const previousProjection = projectionOf(journal) || {};
   const currentProfile = journal.getFlag?.(MODULE_ID, WORLD_PROFILE_FLAG) || {};
   const profileData = projectionProfile(group, currentProfile, previousProjection);
-  const sourceActor = group.sourceUuid ? await fromUuid(group.sourceUuid).catch(() => null) : null;
-  const desiredOwnership = managedOwnership(sourceActor);
+  const permissions = await managedProjectionOwnership(group);
+  const desiredOwnership = permissions.ownership;
 
   const update = {
     name:group.name || journal.name,
@@ -315,7 +381,9 @@ async function updateProjection(journal, group, folder) {
       sourceUuid:group.sourceUuid,
       linkedUuid:group.linkedUuid,
       relationshipKeys:group.relationships.map((row) => row.key),
-      generatedSummary:profileData.generatedSummary
+      generatedSummary:profileData.generatedSummary,
+      permissionSourceUuids:permissions.sourceUuids,
+      permissionPolicy:permissions.policy
     }
   };
 
@@ -450,6 +518,7 @@ function list() {
   return [...(game.journal?.contents ?? [])]
     .map((journal) => ({ journal, projection:projectionOf(journal) }))
     .filter((row) => row.projection?.kind === "contact")
+    .filter((row) => canObserve(row.journal, game.user))
     .map((row) => ({
       journalId:String(row.journal.id || ""),
       journalUuid:String(row.journal.uuid || ""),
