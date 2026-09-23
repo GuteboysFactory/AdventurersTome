@@ -1086,6 +1086,22 @@ Architecture lock:
 
 QA protocol: `docs/V1.6_QA15_PRIVACY_AUTHORITY_CONSOLIDATION.md`
 
+## v1.6.0-qa.16 — Exact Ownership Convergence
+
+**Status:** QA / FOCUSED PERSISTENCE FIX
+
+Live qa.15 diagnostics proved that viewer-scoped privacy was correct while persisted generated Contact Journal ownership could retain stale per-user keys after the desired ownership state changed.
+
+qa.16 fixes the persistence layer:
+
+- managed Contact ownership is written through flattened Foundry ownership paths
+- stale ownership keys absent from the desired state are explicitly deleted with Foundry's `-=key` update syntax
+- ownership comparison uses normalized ownership signatures
+- scope is limited to Tome-managed Semantic Contact projections
+- viewer-scoped evidence privacy, Discovery filtering and identity convergence remain unchanged
+
+QA protocol: `docs/V1.6_QA16_EXACT_OWNERSHIP_CONVERGENCE.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1339,7 +1355,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.15`  
+**Current QA build:** `v1.6.0-qa.16`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
