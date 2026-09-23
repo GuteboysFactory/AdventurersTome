@@ -837,11 +837,9 @@ function semanticContactEvidenceVisible(document, user = game.user) {
   if (!projection || projection.kind !== "contact") return true;
   if (!user || user.isGM) return true;
 
-  // A deliberate GM permission override remains authoritative. Automatically
-  // managed projections, however, must never outlive the permissions of the
-  // Actor evidence that created or resolved them.
-  if (projection.ownershipManaged === false) return true;
-
+  // A Journal permission override never authorizes derived semantic evidence
+  // by itself. Generated Contact visibility is always bounded by the live
+  // Actor evidence that supports the projection.
   const evidenceUuids = Array.from(new Set([
     String(projection.sourceUuid || "").trim(),
     String(projection.linkedUuid || "").trim(),
