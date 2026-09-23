@@ -217,6 +217,32 @@ function ownershipSignature(ownership) {
   return JSON.stringify(entries);
 }
 
+function applyExactOwnershipUpdate(update, currentOwnership = {}, desiredOwnership = {}) {
+  const desired = desiredOwnership && typeof desiredOwnership === "object"
+    ? desiredOwnership
+    : {};
+  const current = currentOwnership && typeof currentOwnership === "object"
+    ? currentOwnership
+    : {};
+
+  const desiredKeys = new Set(Object.keys(desired));
+
+  // Foundry document updates merge nested ownership objects. Writing only the
+  // desired object therefore leaves stale per-user keys behind. Use flattened
+  // ownership paths plus Foundry's -= deletion syntax so the stored ownership
+  // converges exactly to the desired state.
+  for (const [key, value] of Object.entries(desired)) {
+    update[`ownership.${key}`] = Number(value);
+  }
+
+  for (const key of Object.keys(current)) {
+    if (desiredKeys.has(key)) continue;
+    update[`ownership.-=${key}`] = null;
+  }
+
+  return update;
+}
+
 function relationLabel(edge, sourceEntity) {
   const role = titleCase(edge?.role || "Contact");
   const sourceName = clean(sourceEntity?.name);
@@ -429,7 +455,7 @@ async function updateProjection(journal, group, folder) {
   // stop ownership synchronization.
   const explicitPermissionOverride = previousProjection.permissionOverride === true;
   if (!explicitPermissionOverride) {
-    update.ownership = desiredOwnership;
+    applyExactOwnershipUpdate(update, journal.ownership, desiredOwnership);
     update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].ownershipManaged = true;
     update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].lastManagedOwnership = ownershipSignature(desiredOwnership);
   } else {
@@ -440,14 +466,14 @@ async function updateProjection(journal, group, folder) {
   const before = JSON.stringify({
     name:journal.name,
     folder:clean(journal.folder?.id ?? journal.folder),
-    ownership:journal.ownership,
+    ownership:ownershipSignature(journal.ownership),
     profile:currentProfile,
     projection:previousProjection
   });
   const after = JSON.stringify({
     name:update.name,
     folder:update.folder,
-    ownership:update.ownership || journal.ownership,
+    ownership:ownershipSignature(explicitPermissionOverride ? journal.ownership : desiredOwnership),
     profile:profileData.profile,
     projection:update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`]
   });
