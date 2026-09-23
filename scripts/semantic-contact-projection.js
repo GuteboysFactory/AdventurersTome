@@ -116,6 +116,34 @@ function canObserve(document, user = game.user) {
   return Boolean(document.visible);
 }
 
+function actorFromUuidSync(uuid) {
+  const value = clean(uuid);
+  if (!value.startsWith("Actor.")) return null;
+  return game.actors?.get(value.slice(6)) || null;
+}
+
+function projectionEvidenceVisible(journal, projection, user = game.user) {
+  if (!projection || projection.kind !== "contact") return true;
+  if (!user || user.isGM) return true;
+  if (projection.ownershipManaged === false) return true;
+
+  const evidenceUuids = Array.from(new Set([
+    clean(projection.sourceUuid),
+    clean(projection.linkedUuid),
+    ...(Array.isArray(projection.permissionSourceUuids) ? projection.permissionSourceUuids.map(clean) : [])
+  ].filter(Boolean)));
+
+  if (!evidenceUuids.length) return false;
+
+  for (const uuid of evidenceUuids) {
+    if (!uuid.startsWith("Actor.")) continue;
+    const actor = actorFromUuidSync(uuid);
+    if (!actor || !canObserve(actor, user)) return false;
+  }
+
+  return true;
+}
+
 function ownershipDefault(ownership) {
   const none = CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0;
   const value = Number(ownership?.default ?? none);
@@ -519,6 +547,7 @@ function list() {
     .map((journal) => ({ journal, projection:projectionOf(journal) }))
     .filter((row) => row.projection?.kind === "contact")
     .filter((row) => canObserve(row.journal, game.user))
+    .filter((row) => projectionEvidenceVisible(row.journal, row.projection, game.user))
     .map((row) => ({
       journalId:String(row.journal.id || ""),
       journalUuid:String(row.journal.uuid || ""),
@@ -568,12 +597,12 @@ function attach() {
   return true;
 }
 
-function scheduleSync(reason = "discovery-updated", delay = 180) {
+function scheduleSync(reason = "discovery-updated", delay = 180, { rescan = false } = {}) {
   if (!game.user?.isGM) return;
   window.clearTimeout(syncTimer);
   syncTimer = window.setTimeout(() => {
     syncTimer = null;
-    void sync({ reason }).catch(() => {});
+    void sync({ reason, rescan }).catch(() => {});
   }, delay);
 }
 
@@ -584,6 +613,12 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("adventurersTomeCampaignDiscoveryUpdated", () => scheduleSync("discovery-updated", 220));
+
+// Ownership changes on either the relationship source Actor or a linked target
+// Actor must tighten managed Contact Journal ownership without waiting for a
+// later campaign-content edit. The runtime viewer gate above still protects
+// players while this asynchronous persistence refresh completes.
+Hooks.on("updateActor", () => scheduleSync("actor-updated", 160));
 
 Hooks.on("renderApplicationV2", () => {
   if (game.modules.get(MODULE_ID)?.api?.contactProjections !== publicApi) attach();
