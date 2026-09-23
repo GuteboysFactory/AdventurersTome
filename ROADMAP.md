@@ -1019,6 +1019,27 @@ System-independence lock:
 
 QA protocol: `docs/V1.6_QA12_RELATION_IDENTITY_AUTHORITY_CONVERGENCE.md`
 
+## v1.6.0-qa.13 — Contact Projection Privacy Hardening
+
+**Status:** QA / FOCUSED PRIVACY HOTFIX
+
+Live player QA exposed a cross-surface permission leak: an unreadable linked Actor was correctly absent from Character → Relations, but the automatically generated semantic Contact remained visible in World → Contacts with relationship metadata.
+
+qa.13 hardens the existing projection model without changing identity or authority semantics:
+
+- semantic-only Contacts continue to mirror their semantic source Actor
+- Contacts linked to a canonical Actor use the conservative intersection of source Actor and target Actor ownership
+- automatically managed projection ownership tightens in place on refresh
+- explicit GM-diverged Contact permissions remain GM-managed
+- `contactProjections.list()` is viewer-scoped
+- Character Relations require a readable Contact projection for non-canonical semantic targets and no longer synthesize hidden fallback rows
+
+Privacy lock:
+
+> A projected/derived Contact may never be more visible than the permission-appropriate evidence that supports it, and the existence of a hidden relationship must not leak through alternate Tome surfaces.
+
+QA protocol: `docs/V1.6_QA13_CONTACT_PROJECTION_PRIVACY.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1272,7 +1293,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.12`  
+**Current QA build:** `v1.6.0-qa.13`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

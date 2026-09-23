@@ -1,6 +1,6 @@
 # Semantic Contacts World Projection Contract
 
-**Status:** QA IMPLEMENTATION — v1.6.0-qa.9
+**Status:** QA IMPLEMENTATION — introduced v1.6.0-qa.9; privacy hardened v1.6.0-qa.13
 
 ## Purpose
 
@@ -54,9 +54,15 @@ No duplicate Contact is created.
 
 ## Permissions
 
-A projected Contact initially mirrors its semantic source Actor's Foundry ownership.
+Projected Contacts use conservative evidence-scoped ownership.
 
-Automatic permission mirroring stops if the GM manually diverges the Contact Journal's ownership.
+- A semantic-only Contact mirrors its semantic source Actor's Foundry ownership.
+- A Contact that resolves to a canonical Actor uses the intersection of the semantic source Actor and canonical target Actor ownership.
+- Therefore a player must be able to observe both the relationship source and the canonical target before the generated Contact may reveal that linked target.
+- Existing automatically managed projections are tightened in place when the target link or either Actor's ownership changes.
+- The public Contact Projection list is viewer-scoped and does not enumerate unreadable Contact Journals.
+
+Automatic permission mirroring stops if the GM manually diverges the Contact Journal's ownership. An explicit GM permission override remains authoritative.
 
 ## Edit preservation
 
@@ -80,4 +86,4 @@ Automatic projection may create/update Tome World presentation but may not:
 - silently link by name
 - delete a Contact automatically when source disappears
 - overwrite GM-authored custom content indiscriminately
-- grant broader permissions than the source without an explicit GM change
+- grant broader permissions than the permission-appropriate evidence supporting the Contact without an explicit GM change
