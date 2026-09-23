@@ -810,14 +810,71 @@ async function saveTomeAccess(document, { visibility = "inherit", discovered = t
   return getTomeAccess(document);
 }
 
+function semanticProjectionOf(document) {
+  const raw = document?.getFlag?.(MODULE_ID, "semanticProjection");
+  return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
+}
+
+function actorFromWorldUuid(uuid) {
+  const value = String(uuid || "").trim();
+  if (!value.startsWith("Actor.")) return null;
+  return game.actors?.get(value.slice(6)) || null;
+}
+
+function userCanObserveDocument(document, user = game.user) {
+  if (!document || !user) return false;
+  if (user.isGM) return true;
+  const observer = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2;
+  try {
+    return document.testUserPermission?.(user, observer) === true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function semanticContactEvidenceVisible(document, user = game.user) {
+  const projection = semanticProjectionOf(document);
+  if (!projection || projection.kind !== "contact") return true;
+  if (!user || user.isGM) return true;
+
+  // A deliberate GM permission override remains authoritative. Automatically
+  // managed projections, however, must never outlive the permissions of the
+  // Actor evidence that created or resolved them.
+  if (projection.ownershipManaged === false) return true;
+
+  const evidenceUuids = Array.from(new Set([
+    String(projection.sourceUuid || "").trim(),
+    String(projection.linkedUuid || "").trim(),
+    ...(Array.isArray(projection.permissionSourceUuids) ? projection.permissionSourceUuids.map((value) => String(value || "").trim()) : [])
+  ].filter(Boolean)));
+
+  // Automatic semantic Contacts should always retain at least their source
+  // Actor UUID. Fail closed if older/corrupt managed projection metadata does
+  // not provide permission evidence.
+  if (!evidenceUuids.length) return false;
+
+  for (const uuid of evidenceUuids) {
+    if (!uuid.startsWith("Actor.")) continue;
+    const actor = actorFromWorldUuid(uuid);
+    if (!actor || !userCanObserveDocument(actor, user)) return false;
+  }
+
+  return true;
+}
+
 function canViewInTome(document) {
   if (!document) return false;
   if (game.user?.isGM) return true;
   // Tome renders full campaign content, so require Foundry OBSERVER or better.
   // LIMITED visibility is intentionally not enough, which prevents Tome from
   // exposing more content than the underlying Foundry document permission.
-  const observer = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2;
-  if (!document.testUserPermission?.(game.user, observer)) return false;
+  if (!userCanObserveDocument(document, game.user)) return false;
+
+  // Defense in depth for automatic semantic Contact projections: even if a
+  // Journal's persisted ownership is stale, every Tome surface re-checks the
+  // live source/target Actor evidence for the current viewer.
+  if (!semanticContactEvidenceVisible(document, game.user)) return false;
+
   const access = getTomeAccess(document);
   if (access.visibility === "gm") return false;
   if (!access.discovered) return false;
@@ -1268,8 +1325,20 @@ function getWorldProfile(entryOrId) {
     visibility: forcedVisibility || factVisibility(fact?.visibility),
     gmOnly: (forcedVisibility || factVisibility(fact?.visibility)) === "gm"
   });
-  const sharedFacts = Array.isArray(profile.facts) ? profile.facts.map((fact) => normalizeFact(fact)).filter((fact) => fact.label || fact.value) : [];
+  let sharedFacts = Array.isArray(profile.facts) ? profile.facts.map((fact) => normalizeFact(fact)).filter((fact) => fact.label || fact.value) : [];
   const privateFacts = game.user?.isGM ? overlay.facts.map((fact) => normalizeFact(fact, "gm")).filter((fact) => fact.label || fact.value) : [];
+
+  // Never expose a canonical Actor UUID merely because the Contact Journal is
+  // readable. This matters most when a GM has explicitly broadened Contact
+  // visibility while the linked Actor itself remains unreadable.
+  if (!game.user?.isGM) {
+    const projection = semanticProjectionOf(entry);
+    const linkedActor = projection?.kind === "contact" ? actorFromWorldUuid(projection.linkedUuid) : null;
+    if (projection?.kind === "contact" && linkedActor && !userCanObserveDocument(linkedActor, game.user)) {
+      sharedFacts = sharedFacts.filter((fact) => String(fact.label || "").trim().toLowerCase() !== "foundry link");
+    }
+  }
+
   const facts = game.user?.isGM ? [...sharedFacts, ...privateFacts] : sharedFacts.filter((fact) => fact.visibility !== "gm");
   const normalized = {
     category: WORLD_CATEGORIES[String(profile.category ?? "").toLowerCase()] ? String(profile.category).toLowerCase() : inferWorldCategory(entry),
