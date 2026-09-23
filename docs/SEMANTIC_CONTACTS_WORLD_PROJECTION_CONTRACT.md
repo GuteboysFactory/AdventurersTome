@@ -62,7 +62,9 @@ Projected Contacts use conservative evidence-scoped ownership.
 - Existing automatically managed projections are tightened in place when the target link or either Actor's ownership changes.
 - The public Contact Projection list is viewer-scoped and does not enumerate unreadable Contact Journals.
 
-Automatic permission mirroring stops if the GM manually diverges the Contact Journal's ownership. An explicit GM permission override remains authoritative.
+Generated Contact ownership is evidence-managed. Ordinary ownership changes on the generated Journal do not permanently disable synchronization.
+
+If a future explicit permission-override feature is introduced, it may control only the Journal's Foundry ownership. It must never bypass viewer-scoped evidence visibility: derived semantic facts remain bounded by source/target evidence permissions.
 
 ## Edit preservation
 
@@ -86,4 +88,4 @@ Automatic projection may create/update Tome World presentation but may not:
 - silently link by name
 - delete a Contact automatically when source disappears
 - overwrite GM-authored custom content indiscriminately
-- grant broader permissions than the permission-appropriate evidence supporting the Contact without an explicit GM change
+- expose semantic Contact data to a viewer who cannot observe the supporting source/target evidence
