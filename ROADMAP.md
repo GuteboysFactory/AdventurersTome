@@ -1052,6 +1052,134 @@ Potential capability groups:
 
 Guardrail: derive and connect existing campaign truth before asking the GM to maintain duplicate structures.
 
+
+## LOCKED — Campaign Intelligence Foundation
+
+This is a planned architectural block for the v1.7+ Campaign Graph / Campaign Brain path.
+
+Tome should be able to analyse campaign truth from all permission-appropriate evidence available in the current Foundry world, not only from already-structured relationship fields.
+
+### Campaign Evidence Graph
+
+Potential evidence sources include:
+
+- Actors and Actor biographies / notes
+- Journals and Journal Pages
+- Sessions and Quests
+- World entries, Locations and Factions
+- Items and system-owned semantic data
+- Tome-owned profile and campaign-memory data
+- legacy / imported campaign data
+- compatible external modules through explicit Evidence Providers
+
+Evidence is preserved with provenance rather than flattened into anonymous text.
+
+Each evidence record should be able to carry:
+
+- source UUID / provider
+- source type and source path
+- entities mentioned
+- candidate relationship / campaign claim
+- temporal hints when available
+- authority
+- confidence
+- visibility / reveal state
+- provenance
+
+### Evidence Provider API
+
+Other Foundry systems/modules may optionally contribute normalized campaign evidence without Tome Core reading or guessing their private internal schemas.
+
+Examples may include:
+
+- GM notes modules
+- calendar/timeline modules
+- quest/campaign modules
+- system adapters
+- future migration/import providers
+
+Providers must declare visibility and provenance. Tome must remain fully functional without any provider.
+
+### Entity Resolution
+
+Identity resolution remains conservative:
+
+1. canonical Foundry UUID
+2. stable semantic identity
+3. stable external/import identity
+4. corroborating contextual evidence
+5. display name only as supporting evidence
+
+**Display name alone must never merge two campaign entities.**
+
+Tome may surface high-confidence candidate matches for GM review, but uncertain prose-derived identity must not silently auto-merge canonical entities.
+
+### Relationship & History Convergence
+
+Tome should converge structured relationships, historical/legacy evidence and prose-derived evidence into a campaign-facing relationship model without destroying the underlying sources.
+
+Possible states include:
+
+- current relationship
+- former / historical relationship
+- changed status over time
+- conflicting evidence
+- unknown temporal state
+- semantic-only Contact with no Actor materialization
+
+History is optional evidence, not a requirement. When chronology cannot be established, Tome should preserve the supported relationship claim without inventing dates or transitions.
+
+### Derived Campaign Facts
+
+Tome may derive useful campaign claims such as:
+
+- likely same campaign person
+- former/current mentor
+- connection to a Location or Faction
+- relationship change
+- recurring NPC / forgotten connection
+
+Derived claims must retain source provenance and confidence and remain reviewable by the GM when ambiguity matters.
+
+### Privacy-by-design — HARD LOCK
+
+> **A derived fact may never be more visible than the evidence available to the current viewer supports.**
+
+Tome must not compute one unrestricted global campaign truth and merely hide source text afterward.
+
+Instead:
+
+```text
+available evidence for current viewer
+        ↓
+permission / reveal filtering
+        ↓
+viewer-scoped evidence graph
+        ↓
+entity / relationship resolution
+        ↓
+viewer-scoped derived campaign facts
+```
+
+Consequences:
+
+- GM-only evidence may strengthen the GM's graph without leaking its conclusion to players.
+- Player-visible conclusions must be independently supportable by evidence visible to that player.
+- The existence of a hidden relationship/secret is itself protected information and must not leak through badges, counts, candidate links, search, graph edges or Campaign Brain summaries.
+- External Evidence Providers may never broaden source permissions.
+
+### GM review for uncertain conclusions
+
+Where identity or relation evidence is not strong enough for deterministic convergence, Tome should surface a review decision rather than auto-merge:
+
+```text
+Confirm link
+Keep separate
+Ignore
+```
+
+This foundation is intended to feed Campaign Graph, Player Chronicle and Campaign Brain. It may later also be reused by Foundry-bound migration/reconciliation work, but migration UI/transactions remain a separate future track.
+
 ---
 
 # v1.8 — Player Chronicle
