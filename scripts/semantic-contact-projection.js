@@ -125,8 +125,10 @@ function actorFromUuidSync(uuid) {
 function projectionEvidenceVisible(journal, projection, user = game.user) {
   if (!projection || projection.kind !== "contact") return true;
   if (!user || user.isGM) return true;
-  if (projection.ownershipManaged === false) return true;
 
+  // ownershipManaged controls only whether the projection synchronizer may
+  // rewrite Journal ownership. It is never a visibility bypass. Derived data
+  // must remain bounded by the live evidence that supports it.
   const evidenceUuids = Array.from(new Set([
     clean(projection.sourceUuid),
     clean(projection.linkedUuid),
@@ -147,16 +149,19 @@ function projectionEvidenceVisible(journal, projection, user = game.user) {
 function ownershipDefault(ownership) {
   const none = CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0;
   const value = Number(ownership?.default ?? none);
-  return Number.isFinite(value) ? value : none;
+  return Number.isFinite(value) && value >= none ? value : none;
 }
 
 function ownershipLevel(ownership, userId) {
   const fallback = ownershipDefault(ownership);
   const key = String(userId || "");
-  const value = key && Object.hasOwn(ownership || {}, key)
-    ? Number(ownership[key])
-    : fallback;
-  return Number.isFinite(value) ? value : fallback;
+  if (!key || !Object.hasOwn(ownership || {}, key)) return fallback;
+
+  const value = Number(ownership[key]);
+  // Foundry may represent inheritance with a negative level. Resolve that to
+  // the document default before computing a conservative intersection.
+  if (!Number.isFinite(value) || value < 0) return fallback;
+  return value;
 }
 
 function intersectOwnership(documents = []) {
@@ -266,10 +271,10 @@ function buildProjectionGroups(snapshot) {
 
 function generatedFacts(group) {
   const facts = [];
-  const add = (label, value) => {
+  const add = (label, value, visibility = "shared") => {
     const text = clean(value);
     if (!text) return;
-    facts.push({ label, value:text, visibility:"shared", source:GENERATED_FACT_SOURCE });
+    facts.push({ label, value:text, visibility, source:GENERATED_FACT_SOURCE });
   };
 
   const attrs = group?.target?.attributes || {};
@@ -283,7 +288,9 @@ function generatedFacts(group) {
     add("Origin", relation.origin ? titleCase(relation.origin) : "");
   }
 
-  if (group.linkedUuid) add("Foundry Link", group.linkedUuid);
+  // Canonical UUIDs are implementation metadata, not player-facing campaign
+  // knowledge. Keep them GM-only even when the Contact itself is visible.
+  if (group.linkedUuid) add("Foundry Link", group.linkedUuid, "gm");
   return facts;
 }
 
@@ -415,15 +422,19 @@ async function updateProjection(journal, group, folder) {
     }
   };
 
-  const currentOwnershipSig = ownershipSignature(journal.ownership || {});
-  const previousManagedSig = clean(previousProjection.lastManagedOwnership);
-  if (previousProjection.ownershipManaged !== false && (!previousManagedSig || currentOwnershipSig === previousManagedSig)) {
+  // Generated Contact permissions are evidence-managed. Older builds inferred
+  // a "manual override" from any ownership signature mismatch, which could
+  // permanently freeze stale broad permissions after ordinary Foundry changes.
+  // qa.15 removes that heuristic. Only an explicit permissionOverride flag may
+  // stop ownership synchronization.
+  const explicitPermissionOverride = previousProjection.permissionOverride === true;
+  if (!explicitPermissionOverride) {
     update.ownership = desiredOwnership;
     update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].ownershipManaged = true;
     update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].lastManagedOwnership = ownershipSignature(desiredOwnership);
   } else {
     update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].ownershipManaged = false;
-    update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].lastManagedOwnership = previousManagedSig;
+    update[`flags.${MODULE_ID}.${PROJECTION_FLAG}`].lastManagedOwnership = clean(previousProjection.lastManagedOwnership);
   }
 
   const before = JSON.stringify({
@@ -557,6 +568,48 @@ function list() {
     }));
 }
 
+function permissionAudit() {
+  if (!game.user?.isGM) {
+    return {
+      contract:CONTRACT,
+      version:VERSION,
+      skipped:true,
+      reason:"gm-only"
+    };
+  }
+
+  const violations = [];
+  const users = (game.users?.contents || []).filter((user) => !user?.isGM);
+
+  for (const journal of game.journal?.contents ?? []) {
+    const projection = projectionOf(journal);
+    if (projection?.kind !== "contact" || projection.active === false) continue;
+
+    for (const user of users) {
+      const journalVisible = canObserve(journal, user);
+      const evidenceVisible = projectionEvidenceVisible(journal, projection, user);
+      if (!journalVisible || evidenceVisible) continue;
+
+      violations.push({
+        journalId:String(journal.id || ""),
+        name:String(journal.name || ""),
+        userId:String(user.id || ""),
+        userName:String(user.name || ""),
+        sourceUuid:clean(projection.sourceUuid),
+        linkedUuid:clean(projection.linkedUuid),
+        permissionPolicy:clean(projection.permissionPolicy)
+      });
+    }
+  }
+
+  return {
+    contract:CONTRACT,
+    version:VERSION,
+    healthy:violations.length === 0,
+    violations
+  };
+}
+
 function audit() {
   const contacts = list();
   const duplicateKeys = [];
@@ -565,15 +618,19 @@ function audit() {
     if (seen.has(contact.key)) duplicateKeys.push(contact.key);
     seen.add(contact.key);
   }
+  const permissions = permissionAudit();
   return {
     contract:CONTRACT,
     version:VERSION,
-    healthy:stats.failures === 0 && duplicateKeys.length === 0,
+    healthy:stats.failures === 0
+      && duplicateKeys.length === 0
+      && (permissions.skipped === true || permissions.healthy === true),
     gm: Boolean(game.user?.isGM),
     contacts:contacts.length,
     active:contacts.filter((row) => row.active !== false).length,
     inactive:contacts.filter((row) => row.active === false).length,
     duplicateKeys,
+    permissions,
     stats:{ ...stats }
   };
 }
@@ -586,7 +643,8 @@ const publicApi = Object.freeze({
   sync,
   snapshot,
   list,
-  audit
+  audit,
+  permissionAudit
 });
 
 function attach() {
