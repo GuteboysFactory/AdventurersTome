@@ -10,6 +10,27 @@ function atRgText(value) {
   return String(value ?? "").trim();
 }
 
+function atRgNpcSchema() {
+  return {
+    contract:"adventurers-tome-npc-schema",
+    version:1,
+    systemId:"realm-guard",
+    actorType:"npc",
+    label:"Realm Guard NPC",
+    fields:[
+      { id:"concept", label:"Concept", path:"system.concept", type:"string", default:"", required:false, order:10 },
+      { id:"rank", label:"Rank", path:"system.rank", type:"string", default:"", required:false, order:20 },
+      { id:"homeland", label:"Homeland", path:"system.homeland", type:"string", default:"", required:false, order:30 },
+      { id:"ancestry", label:"Ancestry", path:"system.ancestry", type:"string", default:"", required:false, order:40 },
+      { id:"biography", label:"Biography", path:"system.biography", type:"html", default:"", required:false, order:50 },
+      { id:"notes", label:"Notes", path:"system.notes", type:"html", default:"", required:false, order:60 }
+    ],
+    defaults:{
+      img:"systems/realm-guard/assets/actors/npc-creature.webp"
+    }
+  };
+}
+
 function atRgRelationshipEntries(source) {
   const m8 = globalThis.game?.realmGuard?.core?.m8;
   const snapshot = String(source?.type || "") === "character"
@@ -624,7 +645,8 @@ function atRgRegisterSemanticAdapter() {
     priority:40,
     documentTypes:["Actor"],
     sourceTypes:["character","npc"],
-    capabilities:["semanticRead","semanticWritePlan","semanticWriteApply","entityDiscovery"],
+    capabilities:["npcSchema","semanticRead","semanticWritePlan","semanticWriteApply","entityDiscovery"],
+    npcSchema:atRgNpcSchema,
     semanticRead:atRgSemanticRead,
     semanticWritePlan:atRgSemanticWritePlan,
     semanticWriteApply:atRgSemanticWriteApply,
