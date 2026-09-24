@@ -291,6 +291,8 @@ async function open(options = {}) {
         return provider.open({
           initialQuery:clean(options.initialQuery || options.name),
           actorName:clean(options.name),
+          folderName:clean(options.folderName || "NPC"),
+          folderFlag:clean(options.folderFlag || "npcTemplateFolder"),
           closeAfterCreate:options.closeAfterCreate === true
         });
       }
