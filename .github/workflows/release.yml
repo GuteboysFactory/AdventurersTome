@@ -96,6 +96,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.18" ]]; then test -f docs/V1.6_QA18_SYSTEM_AWARE_NPC_CREATION_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.19" ]]; then test -f docs/V1.6_QA19_QUICK_NPC_UI.md; fi
           if [[ "$VERSION" == "1.6.0-qa.21" ]]; then test -f docs/V1.6_QA21_NATIVE_QUICK_NPC_PROVIDER_BRIDGE.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.22" ]]; then test -f docs/V1.6_QA22_UNIVERSAL_FOLDER_QUICK_CREATE.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -166,6 +167,9 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.19" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA19_QUICK_NPC_UI.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.19" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/quick-npc-ui.js'; fi
           if [[ "$VERSION" == "1.6.0-qa.21" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA21_NATIVE_QUICK_NPC_PROVIDER_BRIDGE.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.22" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA22_UNIVERSAL_FOLDER_QUICK_CREATE.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.22" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/universal-folder-quick-create.js'; fi
+          if [[ "$VERSION" == "1.6.0-qa.22" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'styles/universal-folder-quick-create.css'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -312,6 +316,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.21" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.21 adds a Native Quick NPC Provider Bridge. Tome now asks the active system adapter for a system-owned Quick NPC provider and delegates to it when available, while preserving the generic qa.19 schema-based creator as a safe fallback. Realm Guard v1.11.0-qa.10 is the first reference provider."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.22" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.22 adds Universal Folder Quick Create and automatic standard-folder bootstrap. GM worlds now non-destructively ensure NPC, NPC Groups, Contacts, Factions, Items, Locations and Lore under Tome World; matching folders are adopted with stable semantic flags. Right-click Quick Create routes to native system providers or searchable Tome templates, nested folders inherit semantic type, and adapters can declare additional system-specific categories such as Spells, Monsters, Vehicles, Conditions, Careers and Talents."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
