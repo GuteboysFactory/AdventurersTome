@@ -93,6 +93,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.15" ]]; then test -f docs/V1.6_QA15_PRIVACY_AUTHORITY_CONSOLIDATION.md; fi
           if [[ "$VERSION" == "1.6.0-qa.16" ]]; then test -f docs/V1.6_QA16_EXACT_OWNERSHIP_CONVERGENCE.md; fi
           if [[ "$VERSION" == "1.6.0-qa.17" ]]; then test -f docs/V1.6_QA17_PERMISSION_EVIDENCE_AUTHORITY.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.18" ]]; then test -f docs/V1.6_QA18_SYSTEM_AWARE_NPC_CREATION_CONTRACT.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -158,6 +159,8 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.15" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA15_PRIVACY_AUTHORITY_CONSOLIDATION.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.16" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA16_EXACT_OWNERSHIP_CONVERGENCE.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.17" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA17_PERMISSION_EVIDENCE_AUTHORITY.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.18" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA18_SYSTEM_AWARE_NPC_CREATION_CONTRACT.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.18" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/system-aware-npc-creation.js'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -292,6 +295,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.17" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.17 makes normalized permissionSourceUuids authoritative for Semantic Contact visibility. Stale linkedUuid identity metadata no longer creates phantom permission dependencies, while legacy projections use a permission-policy-aware fallback."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.18" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.18 introduces the System-aware NPC Creation Contract: normalized adapter npcSchema support, deterministic mutation-free creation planning, exact World/Compendium duplicate prevention, GM-only explicit apply, schema-bounded system writes, plan signature validation, provenance, and a Realm Guard reference NPC schema. Quick NPC UI remains deferred until QA passes."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."

@@ -1148,7 +1148,7 @@ This closes the read/discovery/reconciliation/privacy foundation of v1.6. The mi
 
 ## v1.6.0-qa.18 — System-aware NPC Creation Contract
 
-**Status:** PLANNED / NEXT
+**Status:** QA / IMPLEMENTED
 
 Next package establishes the creation-side contract before Quick NPC UI is allowed to create system documents.
 
@@ -1164,6 +1164,20 @@ Planned scope:
 - duplicate prevention and explicit provenance
 - Realm Guard as first advanced reference implementation without becoming a runtime dependency
 - no Quick NPC UI until the contract is QA-verified
+
+Implemented in qa.18:
+
+- public `api.npcCreation.schema/plan/apply/audit`
+- normalized `adapters.npcSchema()` helper
+- exact-name/type World Actor duplicate reuse
+- exact-name/type Compendium candidate import
+- ambiguous duplicate blocking
+- immutable signature-checked creation plans
+- GM-only explicit apply
+- creation provenance flagging
+- Realm Guard reference NPC schema (concept, rank, homeland, ancestry, biography, notes)
+
+QA protocol: `docs/V1.6_QA18_SYSTEM_AWARE_NPC_CREATION_CONTRACT.md`
 
 QA target:
 
@@ -1427,7 +1441,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Next planned QA package:** `v1.6.0-qa.18 — System-aware NPC Creation Contract`  
+**Current QA package:** `v1.6.0-qa.18 — System-aware NPC Creation Contract`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
