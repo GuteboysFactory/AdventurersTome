@@ -10,6 +10,24 @@ function atRgText(value) {
   return String(value ?? "").trim();
 }
 
+function atRgNativeQuickNpc() {
+  const provider = globalThis.game?.realmGuard?.quickNpc;
+  if (!provider || provider.contract !== "realm-guard-quick-npc-provider" || typeof provider.open !== "function") return null;
+
+  return {
+    contract:"adventurers-tome-native-quick-npc-provider",
+    version:1,
+    providerId:"realm-guard",
+    label:"Realm Guard Quick NPC Library",
+    systemId:"realm-guard",
+    capabilities:Array.isArray(provider.capabilities) ? [...provider.capabilities] : [],
+    libraryVersion:String(provider.libraryVersion || ""),
+    groupLibraryVersion:String(provider.groupLibraryVersion || ""),
+    open:(options = {}) => provider.open(options),
+    openGroups:typeof provider.openGroups === "function" ? (() => provider.openGroups()) : null
+  };
+}
+
 function atRgNpcSchema() {
   return {
     contract:"adventurers-tome-npc-schema",
@@ -645,8 +663,9 @@ function atRgRegisterSemanticAdapter() {
     priority:40,
     documentTypes:["Actor"],
     sourceTypes:["character","npc"],
-    capabilities:["npcSchema","semanticRead","semanticWritePlan","semanticWriteApply","entityDiscovery"],
+    capabilities:["npcSchema","nativeQuickNpc","semanticRead","semanticWritePlan","semanticWriteApply","entityDiscovery"],
     npcSchema:atRgNpcSchema,
+    nativeQuickNpc:atRgNativeQuickNpc,
     semanticRead:atRgSemanticRead,
     semanticWritePlan:atRgSemanticWritePlan,
     semanticWriteApply:atRgSemanticWriteApply,
