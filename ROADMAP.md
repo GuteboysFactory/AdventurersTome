@@ -1179,6 +1179,26 @@ Implemented in qa.18:
 
 QA protocol: `docs/V1.6_QA18_SYSTEM_AWARE_NPC_CREATION_CONTRACT.md`
 
+## v1.6.0-qa.19 — Quick NPC UI
+
+**Status:** QA / IMPLEMENTED
+
+First usable GM-facing creation UI built strictly on the verified qa.18 creation contract.
+
+Implemented:
+
+- dynamic form rendered from the active adapter `npcSchema`
+- preview-before-apply workflow
+- create-new / reuse-world / import-compendium review states
+- explicit candidate choice for ambiguous exact duplicates
+- Back preserves entered values
+- Cancel never mutates
+- GM-only entry point
+- created/reused Actor sheet opens after Apply
+- no direct UI knowledge of Realm Guard `actor.system`
+
+QA protocol: `docs/V1.6_QA19_QUICK_NPC_UI.md`
+
 QA target:
 
 - Core works without any system adapter
@@ -1441,7 +1461,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.18 — System-aware NPC Creation Contract`  
+**Current QA package:** `v1.6.0-qa.19 — Quick NPC UI`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

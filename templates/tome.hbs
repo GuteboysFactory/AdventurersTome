@@ -521,7 +521,7 @@
   <main class="at-page at-world-page">
     <section class="at-page-heading at-world-heading">
       <div><span class="at-kicker">Lore & discovery</span><h1>World</h1><p>People, places, factions, items, and lore discovered during play.</p></div>
-      {{#if isGM}}<small class="at-world-hint"><i class="fa-solid fa-wand-magic-sparkles"></i> Put Journals in the World folders, then give them a Tome profile here.</small>{{/if}}
+      {{#if isGM}}<div class="at-world-heading-tools"><button type="button" class="at-primary" data-action="openQuickNpc"><i class="fa-solid fa-user-plus"></i> Quick NPC</button><small class="at-world-hint"><i class="fa-solid fa-wand-magic-sparkles"></i> Put Journals in the World folders, then give them a Tome profile here.</small></div>{{/if}}
     </section>
     {{#each worldGroups}}
     <section class="at-world-category">

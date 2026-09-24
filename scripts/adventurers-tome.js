@@ -4083,6 +4083,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       saveSettings: this._onSaveSettings,
       initializeStructure: this._onInitializeStructure,
       openImporter: this._onOpenImporter,
+      openQuickNpc: this._onOpenQuickNpc,
       openExporter: this._onOpenExporter,
       downloadExport: this._onDownloadExport,
       copyExport: this._onCopyExport,
@@ -6854,6 +6855,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     ui.notifications.info("Adventurer's Tome settings saved.");
     this.activeTab = values.defaultLanding === "home" || values.nav[values.defaultLanding] ? values.defaultLanding : "home";
     await this.render({ parts: ["main"] });
+  }
+
+  static async _onOpenQuickNpc() {
+    if (!game.user.isGM) return;
+    const quickNpc = game.modules.get(MODULE_ID)?.api?.quickNpc;
+    if (!quickNpc?.open) return ui.notifications.warn("Adventurer's Tome: Quick NPC is unavailable.");
+    await quickNpc.open();
   }
 
   static async _onOpenImporter(_event, target) {
