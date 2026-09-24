@@ -1199,6 +1199,14 @@ Implemented:
 
 QA protocol: `docs/V1.6_QA19_QUICK_NPC_UI.md`
 
+## v1.6.0-qa.20 — Adapter Hook Init-order Hotfix
+
+**Status:** QA / HOTFIX
+
+Fixes a startup crash introduced by qa.19 where the NPC creation contract listened to `adventurersTomeAdapterRegistered` during Foundry init before `game.modules` existed.
+
+The adapter hook now safely no-ops until the module registry is available; the authoritative API attach still occurs on `ready`.
+
 QA target:
 
 - Core works without any system adapter
@@ -1461,7 +1469,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.19 — Quick NPC UI`  
+**Current QA package:** `v1.6.0-qa.20 — Adapter Hook Init-order Hotfix`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
