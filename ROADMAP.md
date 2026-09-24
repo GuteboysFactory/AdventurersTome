@@ -1104,7 +1104,7 @@ QA protocol: `docs/V1.6_QA16_EXACT_OWNERSHIP_CONVERGENCE.md`
 
 ## v1.6.0-qa.17 — Permission Evidence Authority
 
-**Status:** QA / FINAL PERMISSION AUTHORITY FIX
+**Status:** ✅ VERIFIED / FULL PASS BASELINE
 
 The final regression audit found one stale linked-identity edge being treated as permission evidence despite the projection's active `semantic-source` policy.
 
@@ -1116,6 +1116,62 @@ qa.17 separates permission authority from identity metadata:
 - Contact identity/navigation metadata remains preserved independently
 
 QA protocol: `docs/V1.6_QA17_PERMISSION_EVIDENCE_AUTHORITY.md`
+
+### v1.6 Read Foundation — FULL PASS
+
+Verified on Foundry V13.351 with `v1.6.0-qa.17`.
+
+Final regression gate:
+
+- Contact Projection = healthy
+- Contact duplicate keys = 0
+- Contact permission violations = 0
+- Universal Campaign Discovery = healthy
+- Universal Entity Reconciliation = healthy
+- Universal Semantic Layer = healthy
+- Adapter API = healthy
+- Universal Document Registry = healthy
+- relation/permission structure = healthy
+- takeover convergence = healthy / misses 0
+- lifecycle hardening = healthy
+- import identity hardening = healthy
+- Universal Convergence Gate = structuralHealthy
+- player/privacy gate = PASS
+- same-name identity isolation = PASS
+- ordinary World inference regression = PASS
+
+Architecture lock:
+
+> The viewer-scoped evidence graph is the privacy authority. Identity/navigation metadata may never broaden permission evidence.
+
+This closes the read/discovery/reconciliation/privacy foundation of v1.6. The milestone itself remains active because system-aware creation and Quick NPC are still planned v1.6 work.
+
+## v1.6.0-qa.18 — System-aware NPC Creation Contract
+
+**Status:** PLANNED / NEXT
+
+Next package establishes the creation-side contract before Quick NPC UI is allowed to create system documents.
+
+Planned scope:
+
+- formalize the existing Adapter API `npcSchema` capability
+- normalized creation schema returned by the active system adapter
+- Core-owned schema validation and field normalization
+- GM-only creation planning
+- no uncontrolled direct writes to unknown `actor.system` paths
+- prefer existing World Actor → Compendium candidate → create new
+- stable created Actor UUID returned to Tome
+- duplicate prevention and explicit provenance
+- Realm Guard as first advanced reference implementation without becoming a runtime dependency
+- no Quick NPC UI until the contract is QA-verified
+
+QA target:
+
+- Core works without any system adapter
+- unsupported systems fail safely without creating partial Actors
+- adapter schema is inspectable before creation
+- creation plan is deterministic and read-only until explicitly applied
+- created Actor resolves through Universal Document Registry after write
 
 ## Later v1.6 direction
 
@@ -1370,7 +1426,8 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.17`  
+**Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
+**Next planned QA package:** `v1.6.0-qa.18 — System-aware NPC Creation Contract`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
