@@ -1102,6 +1102,21 @@ qa.16 fixes the persistence layer:
 
 QA protocol: `docs/V1.6_QA16_EXACT_OWNERSHIP_CONVERGENCE.md`
 
+## v1.6.0-qa.17 — Permission Evidence Authority
+
+**Status:** QA / FINAL PERMISSION AUTHORITY FIX
+
+The final regression audit found one stale linked-identity edge being treated as permission evidence despite the projection's active `semantic-source` policy.
+
+qa.17 separates permission authority from identity metadata:
+
+- `permissionSourceUuids` is authoritative when present
+- stale `linkedUuid` values do not broaden permission dependencies
+- legacy projections use policy-aware fallback evidence
+- Contact identity/navigation metadata remains preserved independently
+
+QA protocol: `docs/V1.6_QA17_PERMISSION_EVIDENCE_AUTHORITY.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1355,7 +1370,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Current QA build:** `v1.6.0-qa.16`  
+**Current QA build:** `v1.6.0-qa.17`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
