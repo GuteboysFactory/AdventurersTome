@@ -408,7 +408,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.game?.modules?.get?.(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.npcCreation = publicApi;
@@ -421,5 +421,10 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("adventurersTomeAdapterRegistered", () => {
-  if (game.modules.get(MODULE_ID)?.api?.npcCreation !== publicApi) attach();
+  // Adapter registration may happen during Foundry init, before game.modules
+  // has been constructed. The ready hook remains the authoritative attach
+  // point; this hook only refreshes the API when the module registry exists.
+  const module = globalThis.game?.modules?.get?.(MODULE_ID);
+  if (!module) return;
+  if (module.api?.npcCreation !== publicApi) attach();
 });
