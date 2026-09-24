@@ -319,6 +319,11 @@ async function atSaMapItem(source, payload = {}) {
   return atSaFirstResult("itemMapping", source, payload);
 }
 
+async function atSaNpcSchema(payload = {}) {
+  const source = payload?.source || { documentName:"Actor", type:"npc" };
+  return atSaFirstResult("npcSchema", source, payload);
+}
+
 async function atSaActions(source, payload = {}) {
   const rows = await atSaExecute("actions", { ...payload, source });
   const actions = [];
@@ -428,6 +433,7 @@ const ATSA_PUBLIC_API = Object.freeze({
   displayFields:atSaDisplayFields,
   mapActor:atSaMapActor,
   mapItem:atSaMapItem,
+  npcSchema:atSaNpcSchema,
   actions:atSaActions,
   invokeAction:atSaInvokeAction,
   audit:atSaAudit
