@@ -1263,6 +1263,20 @@ Architecture lock:
 
 QA protocol: `docs/V1.6_QA22_UNIVERSAL_FOLDER_QUICK_CREATE.md`
 
+## v1.6.0-qa.23 — World Index Header Polish
+
+**Status:** QA / IMPLEMENTED
+
+Focused UX cleanup after qa.22:
+
+- Quick NPC removed from the World header because folder Quick Create is now the canonical entry point
+- legacy campaign-Journal helper block removed from the header
+- existing import behavior retained through a compact Import Journals control beside the catalog entry count
+- Create + Editors remain as the only persistent World-header actions
+- responsive spacing/layout hardened for narrow Tome windows
+
+QA protocol: `docs/V1.6_QA23_WORLD_INDEX_HEADER_POLISH.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1517,7 +1531,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.22 — Universal Folder Quick Create + Standard Bootstrap`  
+**Current QA package:** `v1.6.0-qa.23 — World Index Header Polish`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
