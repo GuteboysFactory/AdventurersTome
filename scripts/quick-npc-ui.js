@@ -4,6 +4,8 @@ const VERSION = 1;
 
 const stats = {
   opens:0,
+  nativeProviderOpens:0,
+  fallbackOpens:0,
   previews:0,
   applies:0,
   backs:0,
@@ -26,6 +28,32 @@ function api() {
 
 function creationApi() {
   return api()?.npcCreation || null;
+}
+
+async function nativeProvider(options = {}) {
+  const adapters = api()?.adapters;
+  if (!adapters?.nativeQuickNpc) return null;
+
+  const row = await adapters.nativeQuickNpc({
+    ...options,
+    source:options?.source || { documentName:"Actor", type:"npc" }
+  });
+
+  const provider = row?.result;
+  if (!provider || provider.contract !== "adventurers-tome-native-quick-npc-provider") return null;
+  if (Number(provider.version) !== 1 || typeof provider.open !== "function") return null;
+
+  return Object.freeze({
+    adapterId:String(row.adapterId || ""),
+    providerId:clean(provider.providerId),
+    label:clean(provider.label || "Native Quick NPC"),
+    systemId:clean(provider.systemId || game.system?.id),
+    libraryVersion:clean(provider.libraryVersion),
+    groupLibraryVersion:clean(provider.groupLibraryVersion),
+    capabilities:Object.freeze(Array.isArray(provider.capabilities) ? [...provider.capabilities] : []),
+    open:provider.open,
+    openGroups:typeof provider.openGroups === "function" ? provider.openGroups : null
+  });
 }
 
 function inputValue(form, name) {
@@ -253,13 +281,35 @@ async function open(options = {}) {
     return null;
   }
 
+  stats.opens += 1;
+
+  if (options?.forceGeneric !== true) {
+    try {
+      const provider = await nativeProvider(options);
+      if (provider) {
+        stats.nativeProviderOpens += 1;
+        return provider.open({
+          initialQuery:clean(options.initialQuery || options.name),
+          actorName:clean(options.name),
+          closeAfterCreate:options.closeAfterCreate === true
+        });
+      }
+    } catch (error) {
+      stats.failures += 1;
+      stats.lastError = String(error?.message || error);
+      console.warn("Adventurer's Tome | Native Quick NPC provider failed; using generic fallback", error);
+      ui.notifications.warn("Adventurer's Tome: Native Quick NPC was unavailable. Opening the generic creator instead.");
+    }
+  }
+
+  stats.fallbackOpens += 1;
+
   const creation = creationApi();
   if (!creation?.schema || !creation?.plan || !creation?.apply) {
     ui.notifications.error("Adventurer's Tome: NPC Creation Contract is unavailable.");
     return null;
   }
 
-  stats.opens += 1;
   let schema;
   try {
     schema = await creation.schema(options);
@@ -340,6 +390,24 @@ async function open(options = {}) {
   }
 }
 
+async function providerInfo() {
+  try {
+    const provider = await nativeProvider();
+    if (!provider) return null;
+    return Object.freeze({
+      adapterId:provider.adapterId,
+      providerId:provider.providerId,
+      label:provider.label,
+      systemId:provider.systemId,
+      libraryVersion:provider.libraryVersion,
+      groupLibraryVersion:provider.groupLibraryVersion,
+      capabilities:provider.capabilities
+    });
+  } catch (_error) {
+    return null;
+  }
+}
+
 function audit() {
   return Object.freeze({
     contract:CONTRACT,
@@ -347,11 +415,12 @@ function audit() {
     gmOnly:true,
     healthy:stats.failures === 0,
     npcCreationContract:Boolean(creationApi()?.plan && creationApi()?.apply),
+    nativeProviderCapability:Boolean(api()?.adapters?.nativeQuickNpc),
     stats:Object.freeze({ ...stats })
   });
 }
 
-const publicApi = Object.freeze({ contract:CONTRACT, version:VERSION, open, audit });
+const publicApi = Object.freeze({ contract:CONTRACT, version:VERSION, open, providerInfo, audit });
 
 function attach() {
   const module = game.modules.get(MODULE_ID);

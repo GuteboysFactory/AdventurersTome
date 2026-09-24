@@ -1215,6 +1215,20 @@ QA target:
 - creation plan is deterministic and read-only until explicitly applied
 - created Actor resolves through Universal Document Registry after write
 
+## v1.6.0-qa.21 — Native Quick NPC Provider Bridge
+
+**Status:** QA / IMPLEMENTED
+
+Tome now delegates Quick NPC to a system-owned native provider when the active adapter exposes one, while preserving qa.19's generic creator as the universal fallback.
+
+Realm Guard v1.11.0-qa.10 is the first reference provider and exposes its full template-driven Quick NPC Library through a stable public API.
+
+Architecture lock:
+
+> System-specific Quick NPC UX stays system-owned. Tome discovers and delegates through the Adapter API; it never duplicates the system's template library or rule-specific creation UX.
+
+QA protocol: `docs/V1.6_QA21_NATIVE_QUICK_NPC_PROVIDER_BRIDGE.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1469,7 +1483,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.20 — Adapter Hook Init-order Hotfix`  
+**Current QA package:** `v1.6.0-qa.21 — Native Quick NPC Provider Bridge`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
