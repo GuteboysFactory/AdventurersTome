@@ -126,15 +126,27 @@ function projectionEvidenceVisible(journal, projection, user = game.user) {
   if (!projection || projection.kind !== "contact") return true;
   if (!user || user.isGM) return true;
 
-  // ownershipManaged controls only whether the projection synchronizer may
-  // rewrite Journal ownership. It is never a visibility bypass. Derived data
-  // must remain bounded by the live evidence that supports it.
-  const evidenceUuids = Array.from(new Set([
-    clean(projection.sourceUuid),
-    clean(projection.linkedUuid),
-    ...(Array.isArray(projection.permissionSourceUuids) ? projection.permissionSourceUuids.map(clean) : [])
-  ].filter(Boolean)));
+  // permissionSourceUuids is the authority produced by
+  // managedProjectionOwnership(). linkedUuid is identity/navigation metadata
+  // and may legitimately survive after its Actor stops resolving. Do not let a
+  // stale identity link become a phantom permission dependency.
+  const managedEvidence = Array.isArray(projection.permissionSourceUuids)
+    ? projection.permissionSourceUuids.map(clean).filter(Boolean)
+    : [];
 
+  let evidenceUuids = managedEvidence;
+
+  // Backward-compatible fallback for projections created before
+  // permissionSourceUuids existed. Respect the recorded permission policy
+  // rather than blindly treating linkedUuid as evidence.
+  if (!evidenceUuids.length) {
+    const policy = clean(projection.permissionPolicy);
+    evidenceUuids = policy === "source-and-target-intersection"
+      ? [clean(projection.sourceUuid), clean(projection.linkedUuid)].filter(Boolean)
+      : [clean(projection.sourceUuid)].filter(Boolean);
+  }
+
+  evidenceUuids = Array.from(new Set(evidenceUuids));
   if (!evidenceUuids.length) return false;
 
   for (const uuid of evidenceUuids) {

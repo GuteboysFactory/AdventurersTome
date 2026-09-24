@@ -92,6 +92,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.14" ]]; then test -f docs/V1.6_QA14_PROJECTION_PERMISSION_ENFORCEMENT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.15" ]]; then test -f docs/V1.6_QA15_PRIVACY_AUTHORITY_CONSOLIDATION.md; fi
           if [[ "$VERSION" == "1.6.0-qa.16" ]]; then test -f docs/V1.6_QA16_EXACT_OWNERSHIP_CONVERGENCE.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.17" ]]; then test -f docs/V1.6_QA17_PERMISSION_EVIDENCE_AUTHORITY.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -156,6 +157,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.14" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA14_PROJECTION_PERMISSION_ENFORCEMENT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.15" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA15_PRIVACY_AUTHORITY_CONSOLIDATION.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.16" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA16_EXACT_OWNERSHIP_CONVERGENCE.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.17" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA17_PERMISSION_EVIDENCE_AUTHORITY.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -287,6 +289,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.16" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.16 fixes persisted Semantic Contact ownership convergence. Managed Contact Journal updates now write desired ownership through flattened paths and explicitly delete stale per-user keys with Foundry's deletion syntax, so document permissions converge exactly to the evidence-derived ownership state."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.17" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.17 makes normalized permissionSourceUuids authoritative for Semantic Contact visibility. Stale linkedUuid identity metadata no longer creates phantom permission dependencies, while legacy projections use a permission-policy-aware fallback."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
