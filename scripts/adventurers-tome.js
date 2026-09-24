@@ -7089,16 +7089,19 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onInitializeStructure() {
     if (!game.user.isGM) return;
-    const root = await createJournalFolder("Adventurer's Tome");
-    let worldFolder = null;
-    for (const name of ["Sessions", "Quests", "World", "Rules"]) {
-      const folder = await createJournalFolder(name, root);
-      if (name === "World") worldFolder = folder;
+    const bootstrap = game.modules.get(MODULE_ID)?.api?.folderQuickCreate?.bootstrap;
+    if (bootstrap) {
+      const result = await bootstrap();
+      if (!result) return;
+    } else {
+      const root = await createJournalFolder("Adventurer's Tome");
+      const worldFolder = await createJournalFolder("World", root);
+      for (const name of ["Sessions", "Quests", "Rules"]) await createJournalFolder(name, root);
+      for (const name of ["NPC", "NPC Groups", "Contacts", "Factions", "Items", "Locations", "Lore"]) {
+        await createJournalFolder(name, worldFolder);
+      }
     }
-    if (worldFolder) {
-      for (const name of ["NPCs", "Locations", "Factions", "Items", "Lore"]) await createJournalFolder(name, worldFolder);
-    }
-    ui.notifications.info("Adventurer's Tome journal folders are ready.");
+    ui.notifications.info("Adventurer's Tome standard campaign folders are ready.");
     await this.render({ parts: ["main"] });
   }
 }

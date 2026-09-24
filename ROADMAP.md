@@ -1229,6 +1229,40 @@ Architecture lock:
 
 QA protocol: `docs/V1.6_QA21_NATIVE_QUICK_NPC_PROVIDER_BRIDGE.md`
 
+## v1.6.0-qa.22 — Universal Folder Quick Create + Standard Bootstrap
+
+**Status:** QA / IMPLEMENTED
+
+Tome now treats Campaign Explorer folders as semantic creation surfaces.
+
+Locked Core standard folders:
+
+- NPC
+- NPC Groups
+- Contacts
+- Factions
+- Items
+- Locations
+- Lore
+
+GM world-ready bootstrap creates only missing folders, adopts matching existing folders, marks them with stable semantic Tome flags, and never automatically deletes/moves/renames campaign structure.
+
+Right-click Quick Create routes by semantic folder type:
+
+- system-native provider when available
+- Tome generic searchable templates otherwise
+- blank creation as a direct option where supported
+
+Nested folders inherit their nearest semantic ancestor, so custom organization remains compatible with Quick Create.
+
+Adapter expansion adds `quickCreateFolders` and `quickCreate`, allowing systems to declare extra categories such as Spells, Monsters, Vehicles, Conditions, Careers and Talents without bloating Tome Core defaults.
+
+Architecture lock:
+
+> **Core owns the semantic folder framework. Systems own rule-specific creation. Providers extend the catalog; Tome does not duplicate system content libraries.**
+
+QA protocol: `docs/V1.6_QA22_UNIVERSAL_FOLDER_QUICK_CREATE.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1483,7 +1517,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.21 — Native Quick NPC Provider Bridge`  
+**Current QA package:** `v1.6.0-qa.22 — Universal Folder Quick Create + Standard Bootstrap`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

@@ -9,6 +9,8 @@ const ATSA_CAPABILITIES = Object.freeze([
   "displayFields",
   "npcSchema",
   "nativeQuickNpc",
+  "quickCreateFolders",
+  "quickCreate",
   "actions",
   "rules",
   "presentation",
@@ -330,6 +332,26 @@ async function atSaNativeQuickNpc(payload = {}) {
   return atSaFirstResult("nativeQuickNpc", source, payload);
 }
 
+async function atSaQuickCreateFolders(payload = {}) {
+  const rows = await atSaExecute("quickCreateFolders", { ...payload, source:payload?.source || null });
+  const folders = [];
+  for (const row of rows) {
+    if (row?.error) continue;
+    const list = Array.isArray(row?.result) ? row.result : Array.isArray(row?.result?.folders) ? row.result.folders : [];
+    for (const folder of list) {
+      if (!folder || typeof folder !== "object") continue;
+      folders.push(Object.freeze({ ...folder, adapterId:row.adapterId }));
+    }
+  }
+  return folders;
+}
+
+async function atSaQuickCreate(type, payload = {}) {
+  const semanticType = String(type || payload?.semanticType || "").trim();
+  if (!semanticType) throw new Error("Quick Create semantic type is required.");
+  return atSaFirstResult("quickCreate", payload?.source || null, { ...payload, semanticType });
+}
+
 async function atSaActions(source, payload = {}) {
   const rows = await atSaExecute("actions", { ...payload, source });
   const actions = [];
@@ -441,6 +463,8 @@ const ATSA_PUBLIC_API = Object.freeze({
   mapItem:atSaMapItem,
   npcSchema:atSaNpcSchema,
   nativeQuickNpc:atSaNativeQuickNpc,
+  quickCreateFolders:atSaQuickCreateFolders,
+  quickCreate:atSaQuickCreate,
   actions:atSaActions,
   invokeAction:atSaInvokeAction,
   audit:atSaAudit
