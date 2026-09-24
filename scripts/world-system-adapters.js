@@ -8,6 +8,7 @@ const ATSA_CAPABILITIES = Object.freeze([
   "itemMapping",
   "displayFields",
   "npcSchema",
+  "nativeQuickNpc",
   "actions",
   "rules",
   "presentation",
@@ -324,6 +325,11 @@ async function atSaNpcSchema(payload = {}) {
   return atSaFirstResult("npcSchema", source, payload);
 }
 
+async function atSaNativeQuickNpc(payload = {}) {
+  const source = payload?.source || { documentName:"Actor", type:"npc" };
+  return atSaFirstResult("nativeQuickNpc", source, payload);
+}
+
 async function atSaActions(source, payload = {}) {
   const rows = await atSaExecute("actions", { ...payload, source });
   const actions = [];
@@ -434,6 +440,7 @@ const ATSA_PUBLIC_API = Object.freeze({
   mapActor:atSaMapActor,
   mapItem:atSaMapItem,
   npcSchema:atSaNpcSchema,
+  nativeQuickNpc:atSaNativeQuickNpc,
   actions:atSaActions,
   invokeAction:atSaInvokeAction,
   audit:atSaAudit
