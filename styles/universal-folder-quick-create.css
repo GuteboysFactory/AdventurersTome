@@ -1,0 +1,202 @@
+.at-fq-context-menu{
+  position:fixed;
+  z-index:100000;
+  min-width:300px;
+  max-width:360px;
+  padding:8px;
+  border:1px solid rgba(194,157,84,.46);
+  border-radius:8px;
+  background:rgba(20,18,15,.98);
+  box-shadow:0 14px 40px rgba(0,0,0,.55);
+  color:var(--color-text-light-highlight,#f2ead9);
+}
+.at-fq-context-head{
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr);
+  gap:9px;
+  align-items:center;
+  padding:8px 9px 10px;
+  border-bottom:1px solid rgba(194,157,84,.2);
+  margin-bottom:6px;
+}
+.at-fq-context-head>i{
+  display:grid;
+  place-items:center;
+  width:30px;
+  height:30px;
+  border:1px solid rgba(194,157,84,.3);
+  border-radius:6px;
+}
+.at-fq-context-head strong,
+.at-fq-context-head small{
+  display:block;
+}
+.at-fq-context-head small{
+  margin-top:2px;
+  opacity:.62;
+  font-size:.68rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.at-fq-context-menu>button{
+  width:100%;
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr);
+  gap:8px;
+  align-items:center;
+  text-align:left;
+  border:0;
+  background:transparent;
+  padding:9px;
+}
+.at-fq-context-menu>button:hover{
+  background:rgba(194,157,84,.11);
+}
+.at-fq-context-menu>button>i{
+  text-align:center;
+}
+.at-fq-context-menu>button strong,
+.at-fq-context-menu>button small{
+  display:block;
+}
+.at-fq-context-menu>button small{
+  opacity:.62;
+  margin-top:2px;
+  font-size:.68rem;
+}
+
+.at-fq-template-library{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  min-width:0;
+}
+.at-fq-brand{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  font-size:.72rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  opacity:.82;
+}
+.at-fq-template-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+}
+.at-fq-template-heading h2{
+  margin:0;
+}
+.at-fq-template-heading p{
+  margin:4px 0 0;
+  opacity:.72;
+}
+.at-fq-template-heading>strong{
+  white-space:nowrap;
+  font-size:.78rem;
+  opacity:.72;
+}
+.at-fq-search{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:8px 10px;
+  border:1px solid rgba(194,157,84,.28);
+  background:rgba(0,0,0,.13);
+}
+.at-fq-search input{
+  width:100%;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+.at-fq-template-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  max-height:510px;
+  overflow:auto;
+  padding-right:4px;
+}
+.at-fq-template-card{
+  display:grid;
+  grid-template-columns:52px minmax(0,1fr) 18px;
+  gap:12px;
+  align-items:center;
+  text-align:left;
+  min-height:112px;
+  padding:12px;
+  border:1px solid rgba(194,157,84,.24);
+  background:rgba(0,0,0,.13);
+}
+.at-fq-template-card:hover{
+  border-color:rgba(194,157,84,.56);
+  background:rgba(194,157,84,.075);
+}
+.at-fq-template-icon{
+  display:grid;
+  place-items:center;
+  width:48px;
+  height:48px;
+  border:1px solid rgba(194,157,84,.3);
+  border-radius:50%;
+  font-size:1.15rem;
+}
+.at-fq-template-card strong,
+.at-fq-template-card small{
+  display:block;
+}
+.at-fq-template-card small{
+  margin-top:2px;
+  opacity:.65;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-size:.65rem;
+}
+.at-fq-template-card p{
+  margin:6px 0 0;
+  opacity:.76;
+  font-size:.78rem;
+  line-height:1.35;
+}
+.at-fq-template-empty{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  padding:38px;
+  opacity:.62;
+}
+.at-fq-create-form{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.at-fq-create-form label{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.at-fq-create-form label>span{
+  font-size:.76rem;
+  letter-spacing:.04em;
+}
+.at-fq-destination,
+.at-fq-create-note{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  padding:9px 11px;
+  border:1px solid rgba(194,157,84,.24);
+  background:rgba(0,0,0,.12);
+}
+.at-fq-create-note{
+  border-color:rgba(112,155,92,.28);
+  background:rgba(64,90,50,.12);
+}
+@media(max-width:780px){
+  .at-fq-template-grid{grid-template-columns:1fr}
+}
