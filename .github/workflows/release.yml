@@ -305,6 +305,9 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.19" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.19 adds the first Quick NPC UI on top of the verified System-aware NPC Creation Contract. The GM gets a dynamic adapter-driven form, preview-before-apply review, duplicate reuse/import/create states, explicit ambiguous-candidate choice, Back/Cancel safety, and post-apply Actor opening without any direct system-specific UI writes."
           fi
+          if [[ "$VERSION" == "1.6.0-qa.20" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.20 is a startup hotfix for qa.19. The NPC creation contract now guards early adapter registration hooks when Foundry has not created game.modules yet; ready remains the authoritative API attach point."
+          fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
           fi
