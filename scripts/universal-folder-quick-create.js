@@ -458,6 +458,8 @@ async function atFqQuickCreate(folderOrId, options = {}) {
         atFqStats.nativeDelegations += 1;
         return quickNpc.open({
           initialQuery:atFqClean(options.initialQuery),
+          folderName:folder.name,
+          folderFlag:"tomeQuickCreateNpcFolder",
           closeAfterCreate:false
         });
       }
