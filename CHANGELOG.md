@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 1.7.0-qa.3 — Prose Mention Precision Hotfix
+
+- Live qa.2 verified the Session/Quest scanner pipeline, including explicit canonical refs, prose-name detection, read-only behavior and cleanup.
+- Tightens single-token prose-name matching to case-sensitive exact matching so ordinary lowercase words do not collide with title-cased entity names such as `Test`.
+- Multi-word canonical entity names remain case-insensitive exact phrase matches.
+- No identity-resolution, privacy, Campaign Link persistence or authority behavior changes.
+
+
 ## 1.7.0-qa.2 — Session / Quest Semantic Mention Discovery
 
 - Promotes the qa.1 Campaign Mention identity resolver to VERIFIED after live canonical, name-only and same-name ambiguity tests.
