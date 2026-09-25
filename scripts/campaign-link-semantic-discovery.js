@@ -195,9 +195,14 @@ function boundaryOkay(text, start, length) {
 }
 
 function exactNameOccurrences(text, name) {
-  const haystack = String(text ?? "").toLocaleLowerCase();
-  const needle = clean(name).toLocaleLowerCase();
-  if (!needle || needle.length < 3) return [];
+  const source = String(text ?? "");
+  const canonical = clean(name);
+  if (!canonical || canonical.length < 3) return [];
+
+  const singleToken = !/\s/u.test(canonical);
+  const haystack = singleToken ? source : source.toLocaleLowerCase();
+  const needle = singleToken ? canonical : canonical.toLocaleLowerCase();
+
   const out = [];
   let offset = 0;
   while (offset < haystack.length) {
