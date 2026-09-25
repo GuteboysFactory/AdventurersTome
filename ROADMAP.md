@@ -1384,9 +1384,9 @@ Before Campaign Graph work expands further, Tome will prioritize:
 
 ## v1.7.0-qa.1 — Campaign Links / Semantic Mention Foundation
 
-**Status:** QA / IMPLEMENTED
+**Status:** ✅ VERIFIED
 
-This first v1.7 build locks the mention identity contract before prose scanning begins.
+Live QA verified canonical UUID resolution, name-only review safety, and same-type duplicate-name ambiguity. This first v1.7 build locks the mention identity contract before prose scanning begins.
 
 Implemented foundation:
 
@@ -1401,6 +1401,27 @@ Implemented foundation:
 
 Contract: `docs/CAMPAIGN_LINK_SEMANTIC_MENTION_CONTRACT.md`  
 QA: `docs/V1.7_QA1_CAMPAIGN_LINK_SEMANTIC_MENTION_FOUNDATION.md`
+
+
+## v1.7.0-qa.2 — Session / Quest Semantic Mention Discovery
+
+**Status:** QA / IMPLEMENTED
+
+Adds the first real prose-discovery pass on top of the verified qa.1 resolver.
+
+Implemented:
+
+- viewer-scoped scanning of readable Session and Quest Journal text pages
+- non-GM secret stripping before extraction
+- explicit Foundry ref detection
+- exact visible entity-name mention detection
+- every finding resolved through the qa.1 conservative identity contract
+- unreadable targets suppressed from derived output
+- disposable runtime mention snapshot with no Campaign Link writes
+- automatic persistence remains OFF
+
+Contract: `docs/SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY_CONTRACT.md`  
+QA: `docs/V1.7_QA2_SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY.md`
 
 
 # v1.7 — SCC 2.0 / Campaign Graph & Memory Expansion
@@ -1644,7 +1665,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.1` — Campaign Links / Semantic Mention Foundation  
+**Current development build:** `v1.7.0-qa.2` — Session / Quest Semantic Mention Discovery  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
