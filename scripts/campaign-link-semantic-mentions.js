@@ -76,7 +76,7 @@ function normalizeKind(value) {
   const aliases = {
     pc:"character",
     player:"character",
-    player-character:"character",
+    "player-character":"character",
     character:"character",
     npc:"npc",
     person:"npc",
