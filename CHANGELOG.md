@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.4 — Projection-aware Identity Resolution
+
+- Live QA confirmed that a canonical Actor and its active Tome Semantic Contact Journal projection could appear as two same-name candidates even though the projection's `linkedUuid` points to that exact Actor.
+- Campaign Mention resolution now collapses an active Contact projection onto its visible linked canonical identity before same-name ambiguity is evaluated.
+- Projection collapse requires a visible linked target in the current viewer-scoped Discovery snapshot and never broadens permissions.
+- Genuine separate same-name identities remain ambiguous.
+- Display-name-only evidence still requires review and never becomes auto-link eligible solely because a projection was collapsed.
+- No Campaign Link writes, projection mutations, Contact lifecycle changes or Migration Workspace behavior are introduced.
+
+
 ## 1.7.0-qa.3 — Prose Mention Precision Hotfix
 
 - Live qa.2 verified the Session/Quest scanner pipeline, including explicit canonical refs, prose-name detection, read-only behavior and cleanup.

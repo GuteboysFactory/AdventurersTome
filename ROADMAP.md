@@ -1433,6 +1433,21 @@ Live qa.2 proved the scanner works but exposed generic-word false positives for 
 QA: `docs/V1.7_QA3_PROSE_MENTION_PRECISION.md`
 
 
+## v1.7.0-qa.4 — Projection-aware Identity Resolution
+
+**Status:** QA / IMPLEMENTED
+
+Live QA proved that a Tome-generated Contact Journal and its linked Foundry Actor can be two representations of the same campaign identity. qa.4 makes Campaign Mention resolution projection-aware:
+
+- active Contact projections with a visible `linkedUuid` collapse onto that canonical target
+- Actor + its Contact projection therefore count as one identity candidate
+- separate same-name Actors remain separate and ambiguous
+- display-name-only matches remain review-only
+- projection collapse is read-only and viewer-scoped
+
+QA: `docs/V1.7_QA4_PROJECTION_AWARE_IDENTITY.md`
+
+
 # v1.7 — SCC 2.0 / Campaign Graph & Memory Expansion
 
 ## Goal
@@ -1674,7 +1689,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.3` — Prose Mention Precision Hotfix  
+**Current development build:** `v1.7.0-qa.4` — Projection-aware Identity Resolution  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

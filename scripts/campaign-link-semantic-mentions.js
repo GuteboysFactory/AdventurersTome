@@ -45,6 +45,7 @@ const stats = {
   ambiguous:0,
   unresolved:0,
   unavailable:0,
+  projectionAliasesCollapsed:0,
   failures:0,
   lastError:""
 };
@@ -255,6 +256,41 @@ function tokenSimilarity(a, b) {
   return overlap / Math.max(left.size, right.size);
 }
 
+
+function journalDocumentForEntity(entity) {
+  if (entityDocumentName(entity) !== "JournalEntry") return null;
+  const id = clean(entity?.foundry?.id);
+  if (id) return game.journal?.get(id) || null;
+  const match = /^JournalEntry\.([^.]+)$/.exec(clean(entity?.canonicalUuid));
+  return match ? game.journal?.get(match[1]) || null : null;
+}
+
+function projectionRepresentative(entity, entityByUuid) {
+  const journal = journalDocumentForEntity(entity);
+  if (!journal) return null;
+
+  const projection = journal.getFlag?.(MODULE_ID, "semanticProjection");
+  if (!projection || typeof projection !== "object") return null;
+  if (clean(projection.kind).toLowerCase() !== "contact") return null;
+  if (projection.active === false) return null;
+
+  const linkedUuid = clean(projection.linkedUuid);
+  if (!linkedUuid) return null;
+
+  const target = entityByUuid.get(linkedUuid) || null;
+  if (!target) return null;
+
+  return {
+    entity:target,
+    projection:{
+      journalUuid:clean(entity?.canonicalUuid),
+      linkedUuid,
+      semanticKey:clean(projection.semanticKey || projection.key),
+      provider:clean(projection.provider)
+    }
+  };
+}
+
 function exactAttributeSignals(candidate, entity) {
   const source = candidate.context?.attributes || {};
   const target = entity?.attributes || {};
@@ -377,14 +413,23 @@ function contextualMatches(candidate, entities) {
   const sourceName = candidate.normalizedText;
   if (!sourceName) return [];
 
-  return entities.map((entity) => {
-    const targetName = normalizeText(entity?.name);
-    if (!targetName) return null;
+  const entityByUuid = new Map(
+    entities
+      .map((entity) => [clean(entity?.canonicalUuid), entity])
+      .filter(([uuid]) => Boolean(uuid))
+  );
+  const grouped = new Map();
+
+  for (const sourceEntity of entities) {
+    const targetName = normalizeText(sourceEntity?.name);
+    if (!targetName) continue;
 
     const exactName = sourceName === targetName;
     const similarity = exactName ? 1 : tokenSimilarity(sourceName, targetName);
-    if (!exactName && similarity < NAME_SIMILARITY_REVIEW) return null;
+    if (!exactName && similarity < NAME_SIMILARITY_REVIEW) continue;
 
+    const representative = projectionRepresentative(sourceEntity, entityByUuid);
+    const entity = representative?.entity || sourceEntity;
     const contextSignals = exactAttributeSignals(candidate, entity);
     const score = (exactName ? 45 : Math.round(similarity * 30))
       + contextSignals.reduce((sum, signal) => sum + Number(signal.weight || 0), 0);
@@ -398,8 +443,53 @@ function contextualMatches(candidate, entities) {
       ...contextSignals
     ];
 
-    return { entity, score, exactName, similarity, contextSignals, reasons };
-  }).filter(Boolean).sort((a, b) => {
+    if (representative) {
+      reasons.push({
+        type:"projection-linked-identity",
+        detail:`active Tome contact projection aliases ${representative.projection.journalUuid} to ${representative.projection.linkedUuid}`,
+        weight:0
+      });
+    }
+
+    const identityKey = clean(entity?.canonicalUuid || entity?.key);
+    if (!identityKey) continue;
+
+    const current = grouped.get(identityKey);
+    if (!current) {
+      grouped.set(identityKey, {
+        entity,
+        score,
+        exactName,
+        similarity,
+        contextSignals,
+        reasons,
+        projectionAliases:representative ? [representative.projection] : []
+      });
+      if (representative) stats.projectionAliasesCollapsed += 1;
+      continue;
+    }
+
+    if (representative) {
+      current.projectionAliases.push(representative.projection);
+      stats.projectionAliasesCollapsed += 1;
+    }
+    current.exactName = current.exactName || exactName;
+    current.similarity = Math.max(current.similarity, similarity);
+    if (score > current.score) {
+      current.score = score;
+      current.contextSignals = contextSignals;
+    }
+
+    const reasonKeys = new Set(current.reasons.map((reason) => [reason.type, reason.detail].join("|")));
+    for (const reason of reasons) {
+      const key = [reason.type, reason.detail].join("|");
+      if (reasonKeys.has(key)) continue;
+      reasonKeys.add(key);
+      current.reasons.push(reason);
+    }
+  }
+
+  return [...grouped.values()].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return clean(a.entity?.canonicalUuid || a.entity?.key).localeCompare(clean(b.entity?.canonicalUuid || b.entity?.key));
   });
@@ -517,6 +607,9 @@ function audit() {
       contextBeforeName:true,
       displayNameAloneAutoLinks:false,
       sameNameMerges:false,
+      projectionAwareIdentityCollapse:true,
+      projectionCollapseRequiresActiveContact:true,
+      projectionCollapseRequiresVisibleLinkedTarget:true,
       minimumCorroboratingContextSignalsForAutoLink:HIGH_CONTEXT_SIGNALS,
       reviewDecisions:Object.values(REVIEW_DECISIONS)
     },
