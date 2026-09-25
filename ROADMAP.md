@@ -1424,6 +1424,15 @@ Contract: `docs/SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY_CONTRACT.md`
 QA: `docs/V1.7_QA2_SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY.md`
 
 
+## v1.7.0-qa.3 — Prose Mention Precision Hotfix
+
+**Status:** QA / IMPLEMENTED
+
+Live qa.2 proved the scanner works but exposed generic-word false positives for single-token entity names. qa.3 tightens single-token prose matching to case-sensitive exact matching while preserving multi-word exact phrase discovery.
+
+QA: `docs/V1.7_QA3_PROSE_MENTION_PRECISION.md`
+
+
 # v1.7 — SCC 2.0 / Campaign Graph & Memory Expansion
 
 ## Goal
@@ -1665,7 +1674,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.2` — Session / Quest Semantic Mention Discovery  
+**Current development build:** `v1.7.0-qa.3` — Prose Mention Precision Hotfix  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
