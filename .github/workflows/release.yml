@@ -101,6 +101,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.24" ]]; then test -f docs/V1.6_QA24_WORLD_LIBRARY_LIVE_FILTER.md; fi
           if [[ "$VERSION" == "1.6.0-qa.25" ]]; then test -f docs/V1.6_QA25_TOME_LIBRARY_UX_POLISH.md; fi
           if [[ "$VERSION" == "1.6.0-qa.26" ]]; then test -f docs/V1.6_QA26_UNIFIED_DETAIL_TOOLBAR.md; fi
+          if [[ "$VERSION" == "1.6.0" ]]; then test -f docs/V1.6_STABLE_RELEASE.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -185,6 +186,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.26" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA26_UNIFIED_DETAIL_TOOLBAR.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.26" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/unified-detail-toolbar.js'; fi
           if [[ "$VERSION" == "1.6.0-qa.26" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'styles/unified-detail-toolbar.css'; fi
+          if [[ "$VERSION" == "1.6.0" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_STABLE_RELEASE.md'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -346,6 +348,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.26" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.26 standardizes Character, Quest and Rule detail toolbars. Source, favorite and text-share actions stay directly available while GM-only administrative actions move into a compact GM Tools menu, reducing toolbar noise without replacing existing action implementations."
+          fi
+          if [[ "$VERSION" == "1.6.0" ]]; then
+            NOTES="Adventurer's Tome v1.6.0 is the stable Universal Semantic Layer Foundation & System-aware Creation release. It includes permission-safe semantic discovery and reconciliation, viewer-scoped privacy authority, controlled semantic writes, system-aware and native Quick NPC creation, semantic folder bootstrap and Quick Create, plus the completed World/Sessions/Quests/Rules/Search UX polish line. The next major priority is Campaign Links hardening and Migration Workspace once the Realm Guard target schema is stable."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
