@@ -99,6 +99,7 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.22" ]]; then test -f docs/V1.6_QA22_UNIVERSAL_FOLDER_QUICK_CREATE.md; fi
           if [[ "$VERSION" == "1.6.0-qa.23" ]]; then test -f docs/V1.6_QA23_WORLD_INDEX_HEADER_POLISH.md; fi
           if [[ "$VERSION" == "1.6.0-qa.24" ]]; then test -f docs/V1.6_QA24_WORLD_LIBRARY_LIVE_FILTER.md; fi
+          if [[ "$VERSION" == "1.6.0-qa.25" ]]; then test -f docs/V1.6_QA25_TOME_LIBRARY_UX_POLISH.md; fi
           test ! -f assets/Bree.webp
 
       - name: Verify release URLs
@@ -177,6 +178,9 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.23" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'styles/world-index-header-polish.css'; fi
           if [[ "$VERSION" == "1.6.0-qa.24" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA24_WORLD_LIBRARY_LIVE_FILTER.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.24" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'styles/world-library-live-filter.css'; fi
+          if [[ "$VERSION" == "1.6.0-qa.25" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA25_TOME_LIBRARY_UX_POLISH.md'; fi
+          if [[ "$VERSION" == "1.6.0-qa.25" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/library-ux-polish.js'; fi
+          if [[ "$VERSION" == "1.6.0-qa.25" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'styles/library-ux-polish.css'; fi
 
           node <<'NODE'
           const fs = require('fs');
@@ -332,6 +336,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.6.0-qa.24" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.24 adds a local World Library Live Filter. Search World filters the current World catalog in place, supports Current folder and All World scopes, AND matching across multiple terms, deep matching across profile content, facts, Journal text and folder paths, live result counts, and X/Escape clearing without leaving the page."
+          fi
+          if [[ "$VERSION" == "1.6.0-qa.25" ]]; then
+            NOTES="Adventurer's Tome v1.6.0-qa.25 brings Sessions, Quests, Rules and global Search up to the World library UX standard. Local search/import controls now live beside their catalogs, Rule Tools collapse into compact actions, live counts stay visible, and global Search opens with its search toolbox immediately under the page heading."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
