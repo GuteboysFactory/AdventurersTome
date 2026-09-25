@@ -81,6 +81,7 @@ jobs:
           if [[ "$VERSION" == 1.6.* ]]; then test -f docs/V1.6_QA1_USL_FOUNDATION.md; fi
           if [[ "$VERSION" == 1.7.* ]]; then test -f docs/V1.7_QA1_CAMPAIGN_LINK_SEMANTIC_MENTION_FOUNDATION.md; fi
           if [[ "$VERSION" == "1.7.0-qa.1" ]]; then test -f docs/CAMPAIGN_LINK_SEMANTIC_MENTION_CONTRACT.md; test -f scripts/campaign-link-semantic-mentions.js; fi
+          if [[ "$VERSION" == "1.7.0-qa.2" ]]; then test -f docs/V1.7_QA2_SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY.md; test -f docs/SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY_CONTRACT.md; test -f scripts/campaign-link-semantic-discovery.js; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
@@ -157,6 +158,7 @@ jobs:
           if [[ "$VERSION" == 1.6.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA1_USL_FOUNDATION.md'; fi
           if [[ "$VERSION" == 1.7.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.7_QA1_CAMPAIGN_LINK_SEMANTIC_MENTION_FOUNDATION.md'; fi
           if [[ "$VERSION" == "1.7.0-qa.1" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/CAMPAIGN_LINK_SEMANTIC_MENTION_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/campaign-link-semantic-mentions.js'; fi
+          if [[ "$VERSION" == "1.7.0-qa.2" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.7_QA2_SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/campaign-link-semantic-discovery.js'; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/USL_PRIVACY_WRITE_CONTRACT.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md'; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/USL_CONTROLLED_WRITE_EXECUTION.md'; fi
@@ -358,6 +360,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.7.0-qa.1" ]]; then
             NOTES="Adventurer's Tome v1.7.0-qa.1 starts Campaign Links / Semantic Mention Discovery with a read-only identity-resolution foundation. MentionCandidate resolution follows canonical UUID, semantic identity, external/import identity and corroborating context; display name alone never auto-links or merges same-name entities. Text scanning and Campaign Link writes remain deliberately disabled until this contract passes live QA."
+          fi
+          if [[ "$VERSION" == "1.7.0-qa.2" ]]; then
+            NOTES="Adventurer's Tome v1.7.0-qa.2 adds read-only Session/Quest Semantic Mention Discovery. Readable Journal text is scanned for explicit Foundry refs and exact visible entity names, every finding is passed through the verified qa.1 conservative resolver, and the runtime snapshot remains viewer-scoped with Campaign Link persistence still disabled."
           fi
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
