@@ -1382,6 +1382,26 @@ Before Campaign Graph work expands further, Tome will prioritize:
 2. Migration Workspace after the Realm Guard target schema is stable
 3. first reference migration provider into Realm Guard
 
+## v1.7.0-qa.1 — Campaign Links / Semantic Mention Foundation
+
+**Status:** QA / IMPLEMENTED
+
+This first v1.7 build locks the mention identity contract before prose scanning begins.
+
+Implemented foundation:
+
+- normalized MentionCandidate model for Character, NPC, Location, Faction, Item, Lore, Quest and Session mentions
+- resolver priority: canonical UUID → semantic identity → external/import identity → corroborating context
+- display name remains supporting evidence only and can never auto-link by itself
+- same-name entities remain separate identities
+- contextual auto-link eligibility requires multiple independent corroborating signals
+- uncertain results remain GM-review decisions: Confirm link / Keep separate / Ignore
+- resolver reads only the current viewer-scoped Campaign Discovery snapshot
+- text scanning, link persistence and Migration Workspace remain OFF in qa.1
+
+Contract: `docs/CAMPAIGN_LINK_SEMANTIC_MENTION_CONTRACT.md`  
+QA: `docs/V1.7_QA1_CAMPAIGN_LINK_SEMANTIC_MENTION_FOUNDATION.md`
+
 
 # v1.7 — SCC 2.0 / Campaign Graph & Memory Expansion
 
@@ -1624,6 +1644,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
+**Current development build:** `v1.7.0-qa.1` — Campaign Links / Semantic Mention Foundation  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

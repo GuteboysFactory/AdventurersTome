@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.1 — Campaign Links / Semantic Mention Foundation
+
+- Starts the v1.7 Campaign Graph line from stable v1.6.0 with a read-only Campaign Mention resolver contract.
+- Adds normalized MentionCandidate support for Characters, NPCs, Locations, Factions, Items, Lore, Quests and Sessions.
+- Locks conservative identity order: canonical UUID → semantic identity → external/import identity → corroborating context; display name remains supporting evidence only.
+- Same-name entities never auto-merge, and name-only matches require GM review rather than automatic Campaign Links.
+- Contextual auto-link eligibility requires multiple independent corroborating signals.
+- Resolution operates only against the current viewer-scoped Campaign Discovery snapshot; no hidden evidence is broadened or exposed.
+- Text scanning and Campaign Link persistence remain OFF in qa.1. The next QA step may add Session/Quest mention extraction on top of this contract.
+
+
 ## 1.1.0 — Tome Authoring & Journal Takeover
 
 - Promoted the fully approved `v1.1.0-rc.1` baseline to stable without runtime feature changes.
