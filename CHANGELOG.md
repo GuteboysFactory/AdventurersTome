@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.2 — Session / Quest Semantic Mention Discovery
+
+- Promotes the qa.1 Campaign Mention identity resolver to VERIFIED after live canonical, name-only and same-name ambiguity tests.
+- Adds viewer-scoped read-only scanning for Session and Quest Journal text pages.
+- Detects explicit Foundry refs and exact visible entity names in prose, then routes every candidate through the qa.1 conservative identity resolver.
+- Non-GM scans strip secret HTML and only use targets present in the current viewer-scoped Campaign Discovery snapshot.
+- Explicit refs to unreadable targets are suppressed from the derived mention snapshot.
+- Campaign Link writes, persistence, entity creation and Migration Workspace remain OFF.
+
+
 ## 1.7.0-qa.1 — Campaign Links / Semantic Mention Foundation
 
 - Starts the v1.7 Campaign Graph line from stable v1.6.0 with a read-only Campaign Mention resolver contract.
