@@ -22,6 +22,8 @@ let atCwRefreshTimer = null;
 let atCwMountTimer = null;
 let atCwActiveDrag = null;
 let atCwRefreshPending = false;
+let atCwWorldSearchQuery = "";
+let atCwWorldSearchScope = "current";
 
 function atCwEscape(value) {
   return String(value ?? "")
@@ -202,6 +204,85 @@ function atCwUpdateCount(container, selector, count) {
   if (counter) counter.textContent = String(count);
 }
 
+function atCwPlainText(value) {
+  const host = document.createElement("div");
+  host.innerHTML = String(value ?? "");
+  return String(host.textContent || host.innerText || "").replace(/\s+/g, " ").trim();
+}
+
+function atCwWorldSearchText(journal) {
+  if (!journal) return "";
+  const profile = journal.getFlag?.(ATCW_MODULE_ID, "worldProfile") || {};
+  const facts = Array.isArray(profile.facts)
+    ? profile.facts.flatMap((fact) => [fact?.label, fact?.value])
+    : [];
+  const pages = [...(journal.pages?.contents ?? [])].flatMap((page) => [
+    page?.name,
+    page?.type === "text" ? page?.text?.content : "",
+    page?.type === "image" ? page?.image?.caption : ""
+  ]);
+  const folder = journal.folder || game.folders?.get(String(journal.folder?.id ?? journal.folder ?? ""));
+  return [
+    journal.name,
+    profile.subtitle,
+    profile.summary,
+    profile.body,
+    profile.category,
+    ...facts,
+    ...pages,
+    folder ? atCwFolderPath(folder) : ""
+  ]
+    .map(atCwPlainText)
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase(game.i18n?.lang || undefined);
+}
+
+function atCwWorldSearchMatches(journal, query) {
+  const terms = String(query || "")
+    .trim()
+    .toLocaleLowerCase(game.i18n?.lang || undefined)
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!terms.length) return true;
+  const haystack = atCwWorldSearchText(journal);
+  return terms.every((term) => haystack.includes(term));
+}
+
+function atCwWorldAllowedIds(selectedFolder, allEntryIds) {
+  const folderAllowed = atCwAllowedIds(selectedFolder, allEntryIds);
+  const query = String(atCwWorldSearchQuery || "").trim();
+  if (!query) return { allowed:folderAllowed, base:folderAllowed };
+
+  const base = atCwWorldSearchScope === "all"
+    ? new Set(allEntryIds)
+    : folderAllowed;
+
+  const allowed = new Set(
+    [...(game.journal?.contents ?? [])]
+      .filter((journal) => base.has(journal.id) && atCwWorldSearchMatches(journal, query))
+      .map((journal) => journal.id)
+  );
+  return { allowed, base };
+}
+
+function atCwWorldSearchMarkup() {
+  const query = atCwEscape(atCwWorldSearchQuery);
+  const currentActive = atCwWorldSearchScope !== "all";
+  const allActive = atCwWorldSearchScope === "all";
+  return `<div class="at-cw-world-search">
+    <label class="at-cw-world-searchbox">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="search" data-at-cw-world-search value="${query}" placeholder="Search World…" autocomplete="off" spellcheck="false">
+      <button type="button" data-at-cw-world-search-clear title="Clear World search" ${query ? "" : "hidden"}><i class="fa-solid fa-xmark"></i></button>
+    </label>
+    <div class="at-cw-world-search-scope" role="group" aria-label="World search scope">
+      <button type="button" data-at-cw-world-search-scope="current" class="${currentActive ? "is-active" : ""}">Current folder</button>
+      <button type="button" data-at-cw-world-search-scope="all" class="${allActive ? "is-active" : ""}">All World</button>
+    </div>
+  </div>`;
+}
+
 function atCwFilterWorld(catalog, allowed) {
   for (const card of catalog.querySelectorAll('.at-world-card[data-journal-id]')) {
     const visible = allowed.has(String(card.dataset.journalId || ""));
@@ -266,7 +347,10 @@ function atCwBreadcrumb(selected, roots) {
 }
 
 function atCwApplyFilter(section, catalog, selectedFolder, roots, allEntryIds) {
-  const allowed = atCwAllowedIds(selectedFolder, allEntryIds);
+  const folderAllowed = atCwAllowedIds(selectedFolder, allEntryIds);
+  const worldSearch = section === "world" ? atCwWorldAllowedIds(selectedFolder, allEntryIds) : null;
+  const allowed = worldSearch?.allowed || folderAllowed;
+
   if (section === "world") atCwFilterWorld(catalog, allowed);
   else if (section === "quests") atCwFilterQuests(catalog, allowed);
   else atCwFilterSessions(catalog, allowed);
@@ -277,8 +361,44 @@ function atCwApplyFilter(section, catalog, selectedFolder, roots, allEntryIds) {
     bar.className = "at-cw-filterbar";
     catalog.prepend(bar);
   }
-  bar.innerHTML = `<div>${atCwBreadcrumb(selectedFolder, roots)}</div><span class="at-cw-filter-count">${allowed.size} ${allowed.size === 1 ? "entry" : "entries"}</span>`;
+
+  const countText = section === "world" && atCwWorldSearchQuery.trim()
+    ? `${allowed.size} of ${worldSearch.base.size} ${worldSearch.base.size === 1 ? "entry" : "entries"}`
+    : `${allowed.size} ${allowed.size === 1 ? "entry" : "entries"}`;
+
+  bar.innerHTML = `<div class="at-cw-filter-context">${atCwBreadcrumb(selectedFolder, roots)}</div>${section === "world" ? atCwWorldSearchMarkup() : ""}<span class="at-cw-filter-count">${countText}</span>`;
   return allowed;
+}
+
+function atCwApplyWorldSearchLive() {
+  const sectionPage = atCwSectionFromPage();
+  if (!sectionPage || sectionPage.section !== "world") return;
+
+  const layout = sectionPage.page.querySelector(":scope > .at-cw-catalog-layout");
+  const catalog = layout?.querySelector(":scope > .at-cw-catalog");
+  const explorer = layout?.querySelector(":scope > .at-cw-explorer");
+  if (!catalog || !explorer) return;
+
+  const allEntryIds = atCwAllEntryIds(catalog, ATCW_SECTIONS.world);
+  const selectedId = String(explorer.dataset.atCwSelected || "");
+  const selectedFolder = selectedId ? game.folders?.get(selectedId) : null;
+  const result = atCwWorldAllowedIds(selectedFolder, allEntryIds);
+
+  atCwFilterWorld(catalog, result.allowed);
+
+  const count = catalog.querySelector(".at-cw-filter-count");
+  if (count) {
+    count.textContent = atCwWorldSearchQuery.trim()
+      ? `${result.allowed.size} of ${result.base.size} ${result.base.size === 1 ? "entry" : "entries"}`
+      : `${result.allowed.size} ${result.allowed.size === 1 ? "entry" : "entries"}`;
+  }
+
+  const clear = catalog.querySelector("[data-at-cw-world-search-clear]");
+  if (clear) clear.hidden = !atCwWorldSearchQuery.trim();
+
+  for (const button of catalog.querySelectorAll("[data-at-cw-world-search-scope]")) {
+    button.classList.toggle("is-active", String(button.dataset.atCwWorldSearchScope || "") === atCwWorldSearchScope);
+  }
 }
 
 function atCwRestoreLegacyContent(page, catalog) {
@@ -663,7 +783,46 @@ function atCwClearDragUi() {
 }
 
 function atCwInstallInteractionHandlers() {
+  document.addEventListener("input", (event) => {
+    const input = event.target.closest?.(`${ATCW_ROOT} .at-world-page [data-at-cw-world-search]`);
+    if (!input) return;
+    atCwWorldSearchQuery = String(input.value || "");
+    atCwApplyWorldSearchLive();
+  }, true);
+
+  document.addEventListener("keydown", (event) => {
+    const input = event.target.closest?.(`${ATCW_ROOT} .at-world-page [data-at-cw-world-search]`);
+    if (!input || event.key !== "Escape") return;
+    event.preventDefault();
+    atCwWorldSearchQuery = "";
+    input.value = "";
+    atCwApplyWorldSearchLive();
+  }, true);
+
   document.addEventListener("click", (event) => {
+    const scope = event.target.closest?.(`${ATCW_ROOT} .at-world-page [data-at-cw-world-search-scope]`);
+    if (scope) {
+      event.preventDefault();
+      event.stopPropagation();
+      atCwWorldSearchScope = String(scope.dataset.atCwWorldSearchScope || "") === "all" ? "all" : "current";
+      atCwApplyWorldSearchLive();
+      return;
+    }
+
+    const clear = event.target.closest?.(`${ATCW_ROOT} .at-world-page [data-at-cw-world-search-clear]`);
+    if (clear) {
+      event.preventDefault();
+      event.stopPropagation();
+      atCwWorldSearchQuery = "";
+      const input = clear.closest(".at-cw-world-search")?.querySelector("[data-at-cw-world-search]");
+      if (input) {
+        input.value = "";
+        input.focus();
+      }
+      atCwApplyWorldSearchLive();
+      return;
+    }
+
     const explorer = event.target.closest?.(`${ATCW_ROOT} .at-cw-explorer`);
     if (!explorer) {
       const nav = event.target.closest?.(`${ATCW_ROOT} [data-action="navigate"]`);

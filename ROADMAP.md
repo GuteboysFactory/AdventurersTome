@@ -1277,6 +1277,30 @@ Focused UX cleanup after qa.22:
 
 QA protocol: `docs/V1.6_QA23_WORLD_INDEX_HEADER_POLISH.md`
 
+## v1.6.0-qa.24 — World Library Live Filter
+
+**Status:** QA / IMPLEMENTED
+
+Adds a local World-library search that filters in-place instead of navigating to global Search.
+
+Implemented:
+
+- prominent Search World field in the catalog filter bar
+- live filtering while typing
+- Current folder / All World scope
+- AND matching across multiple terms
+- searches name, World profile content, structured facts, Journal text and folder path
+- category visibility/counts update with results
+- X / Escape clearing
+- live result counts such as 3 of 17 entries
+- existing folder selection remains intact when broadening to All World
+
+Architecture principle:
+
+> **Global Search finds campaign content. Local World Search filters the library you are already working in.**
+
+QA protocol: `docs/V1.6_QA24_WORLD_LIBRARY_LIVE_FILTER.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1531,7 +1555,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.23 — World Index Header Polish`  
+**Current QA package:** `v1.6.0-qa.24 — World Library Live Filter`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

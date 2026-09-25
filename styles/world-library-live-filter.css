@@ -1,0 +1,125 @@
+#adventurers-tome-app .at-world-page .at-cw-filterbar{
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) minmax(320px,520px) auto;
+  gap:14px;
+  align-items:center;
+}
+
+#adventurers-tome-app .at-cw-filter-context{
+  min-width:0;
+}
+
+#adventurers-tome-app .at-cw-world-search{
+  display:flex !important;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+
+#adventurers-tome-app .at-cw-world-searchbox{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  flex:1 1 auto;
+  height:34px;
+  padding:0 34px 0 10px;
+  border:1px solid rgba(199,153,67,.28);
+  border-radius:6px;
+  background:rgba(0,0,0,.16);
+}
+
+#adventurers-tome-app .at-cw-world-searchbox>i{
+  opacity:.62;
+  flex:0 0 auto;
+}
+
+#adventurers-tome-app .at-cw-world-searchbox input{
+  min-width:0;
+  width:100%;
+  height:30px;
+  border:0;
+  outline:0;
+  box-shadow:none !important;
+  background:transparent;
+  color:inherit;
+}
+
+#adventurers-tome-app .at-cw-world-searchbox input::placeholder{
+  color:rgba(220,200,160,.46);
+}
+
+#adventurers-tome-app .at-cw-world-searchbox button{
+  position:absolute;
+  right:4px;
+  top:4px;
+  width:26px;
+  min-width:26px;
+  height:26px !important;
+  padding:0 !important;
+  border:0;
+  background:transparent;
+  color:inherit;
+  opacity:.62;
+}
+
+#adventurers-tome-app .at-cw-world-searchbox button:hover{
+  opacity:1;
+  background:rgba(199,153,67,.08);
+}
+
+#adventurers-tome-app .at-cw-world-search-scope{
+  display:flex !important;
+  align-items:center;
+  gap:0;
+  flex:0 0 auto;
+  border:1px solid rgba(199,153,67,.24);
+  border-radius:6px;
+  overflow:hidden;
+}
+
+#adventurers-tome-app .at-cw-world-search-scope button{
+  min-height:32px !important;
+  height:32px !important;
+  padding:0 9px !important;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  color:inherit;
+  font-size:.68rem !important;
+  white-space:nowrap;
+  opacity:.7;
+}
+
+#adventurers-tome-app .at-cw-world-search-scope button+button{
+  border-left:1px solid rgba(199,153,67,.2);
+}
+
+#adventurers-tome-app .at-cw-world-search-scope button:hover,
+#adventurers-tome-app .at-cw-world-search-scope button.is-active{
+  background:rgba(199,153,67,.12);
+  opacity:1;
+}
+
+@container (max-width:1080px){
+  #adventurers-tome-app .at-world-page .at-cw-filterbar{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+
+  #adventurers-tome-app .at-cw-world-search{
+    grid-column:1/-1;
+    grid-row:2;
+  }
+}
+
+@container (max-width:680px){
+  #adventurers-tome-app .at-cw-world-search{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  #adventurers-tome-app .at-cw-world-search-scope{
+    width:max-content;
+  }
+}
