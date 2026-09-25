@@ -1301,6 +1301,23 @@ Architecture principle:
 
 QA protocol: `docs/V1.6_QA24_WORLD_LIBRARY_LIVE_FILTER.md`
 
+## v1.6.0-qa.25 — Tome Library UX Polish
+
+**Status:** QA / IMPLEMENTED
+
+Extends the World library interaction hierarchy to the remaining major library pages without introducing new subsystems.
+
+Implemented:
+
+- Sessions search/import moved from page header into the catalog bar
+- Quests search/import moved into the catalog bar with live status-group counts
+- Rules permanent Rule Tools panel collapsed into compact New Rule / Link Existing actions
+- Rules search promoted to the primary library toolbar
+- global Search toolbox moved directly below the page heading
+- existing search, importer, create and link implementations remain authoritative
+
+QA protocol: `docs/V1.6_QA25_TOME_LIBRARY_UX_POLISH.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1555,7 +1572,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.24 — World Library Live Filter`  
+**Current QA package:** `v1.6.0-qa.25 — Tome Library UX Polish`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status

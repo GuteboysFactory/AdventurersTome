@@ -1,0 +1,223 @@
+#adventurers-tome-app .at-lup-parking{display:none!important}
+
+#adventurers-tome-app .at-sessions-page>.at-page-heading,
+#adventurers-tome-app .at-quests-page>.at-page-heading,
+#adventurers-tome-app .at-rules-page>.at-page-heading{
+  align-items:flex-start;
+  min-height:116px;
+}
+
+#adventurers-tome-app .at-page-tools:empty{display:none}
+
+#adventurers-tome-app .at-sessions-page .at-cw-filterbar,
+#adventurers-tome-app .at-quests-page .at-cw-filterbar{
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) minmax(340px,560px) auto;
+  align-items:center;
+  gap:14px;
+  min-height:54px;
+}
+
+#adventurers-tome-app .at-lup-library-tools{
+  display:flex!important;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  min-width:0;
+}
+
+#adventurers-tome-app .at-lup-searchbox{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:220px;
+  flex:1 1 340px;
+  height:34px;
+  padding:0 34px 0 10px;
+  border:1px solid rgba(199,153,67,.28);
+  border-radius:6px;
+  background:rgba(0,0,0,.16);
+}
+
+#adventurers-tome-app .at-lup-searchbox>i{
+  opacity:.62;
+  flex:0 0 auto;
+}
+
+#adventurers-tome-app .at-lup-searchbox input{
+  width:100%;
+  min-width:0;
+  height:30px!important;
+  border:0!important;
+  outline:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  color:inherit;
+}
+
+#adventurers-tome-app .at-lup-searchbox input::placeholder{
+  color:rgba(220,200,160,.46);
+}
+
+#adventurers-tome-app .at-lup-searchbox>button{
+  position:absolute;
+  right:4px;
+  top:4px;
+  width:26px;
+  min-width:26px;
+  height:26px!important;
+  padding:0!important;
+  border:0;
+  background:transparent;
+  color:inherit;
+  opacity:.62;
+}
+
+#adventurers-tome-app .at-lup-searchbox>button:hover{
+  opacity:1;
+  background:rgba(199,153,67,.08);
+}
+
+#adventurers-tome-app .at-lup-import-button{
+  min-height:32px!important;
+  height:32px!important;
+  padding:0 10px!important;
+  white-space:nowrap;
+  font-size:.72rem!important;
+}
+
+#adventurers-tome-app .at-lup-empty-group{display:none!important}
+
+#adventurers-tome-app .at-lup-rule-toolbar{
+  position:relative;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 0 14px;
+  padding:9px 12px;
+  border:1px solid rgba(199,153,67,.18);
+  background:rgba(12,8,5,.38);
+}
+
+#adventurers-tome-app .at-lup-rule-searchbox{
+  max-width:560px;
+  flex:1 1 420px;
+}
+
+#adventurers-tome-app .at-lup-rule-action{
+  position:relative;
+  flex:0 0 auto;
+}
+
+#adventurers-tome-app .at-lup-rule-action>button{
+  min-height:32px!important;
+  height:32px!important;
+  padding:0 10px!important;
+  white-space:nowrap;
+}
+
+#adventurers-tome-app .at-lup-rule-panel{
+  display:none;
+  position:absolute;
+  z-index:90;
+  top:calc(100% + 7px);
+  right:0;
+  width:min(370px,72vw);
+  padding:12px;
+  gap:10px;
+  border:1px solid rgba(214,178,108,.4);
+  border-radius:6px;
+  background:rgba(13,10,7,.99);
+  box-shadow:0 14px 34px rgba(0,0,0,.55);
+}
+
+#adventurers-tome-app .at-lup-rule-panel.is-open{display:grid}
+
+#adventurers-tome-app .at-lup-rule-panel label{
+  display:grid;
+  gap:5px;
+  color:rgba(224,202,159,.82);
+  font-size:.72rem;
+}
+
+#adventurers-tome-app .at-lup-rule-panel input,
+#adventurers-tome-app .at-lup-rule-panel select{
+  min-width:0;
+  width:100%;
+}
+
+#adventurers-tome-app .at-lup-count{
+  margin-left:auto;
+  flex:0 0 auto;
+  color:inherit;
+  opacity:.62;
+  font-size:.72rem;
+  white-space:nowrap;
+}
+
+#adventurers-tome-app .at-search-page>.at-search-heading{
+  margin-bottom:14px;
+}
+
+#adventurers-tome-app .at-search-page>.at-search-toolbox.at-lup-search-primary{
+  margin-top:0;
+  margin-bottom:20px;
+}
+
+@container (max-width:980px){
+  #adventurers-tome-app .at-sessions-page .at-cw-filterbar,
+  #adventurers-tome-app .at-quests-page .at-cw-filterbar{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+
+  #adventurers-tome-app .at-lup-library-tools{
+    grid-column:1/-1;
+    grid-row:2;
+    justify-content:flex-start;
+  }
+
+  #adventurers-tome-app .at-lup-rule-toolbar{
+    flex-wrap:wrap;
+  }
+
+  #adventurers-tome-app .at-lup-rule-searchbox{
+    flex-basis:100%;
+    max-width:none;
+  }
+}
+
+@container (max-width:620px){
+  #adventurers-tome-app .at-lup-library-tools{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  #adventurers-tome-app .at-lup-searchbox{
+    min-width:0;
+    width:100%;
+    flex-basis:auto;
+  }
+
+  #adventurers-tome-app .at-lup-import-button{
+    width:100%;
+  }
+
+  #adventurers-tome-app .at-lup-rule-toolbar{
+    align-items:stretch;
+  }
+
+  #adventurers-tome-app .at-lup-rule-action{
+    flex:1 1 auto;
+  }
+
+  #adventurers-tome-app .at-lup-rule-action>button{
+    width:100%;
+  }
+
+  #adventurers-tome-app .at-lup-count{
+    width:100%;
+    margin-left:0;
+  }
+}
