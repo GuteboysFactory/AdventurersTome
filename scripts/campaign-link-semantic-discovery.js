@@ -94,6 +94,12 @@ function stripSecrets(html, user = game.user) {
   return host.innerHTML;
 }
 
+function removeFoundryInlineRefs(value) {
+  return String(value ?? "")
+    .replace(/@UUID\[[^\]]+\](?:\{[^}]+\})?/gi, " ")
+    .replace(/@(Actor|Item|JournalEntry|Scene)\[[^\]]+\](?:\{[^}]+\})?/gi, " ");
+}
+
 function plainText(html) {
   const host = document.createElement("div");
   host.innerHTML = String(html ?? "");
@@ -269,8 +275,9 @@ async function scan(options = {}) {
       stats.pages += 1;
 
       const safeHtml = stripSecrets(page.text.content, user);
-      const text = plainText(safeHtml);
-      if (!text) continue;
+      const text = plainText(removeFoundryInlineRefs(safeHtml));
+      const hasInlineRefs = foundryInlineRefs(safeHtml).length > 0;
+      if (!text && !hasInlineRefs) continue;
 
       const sourceBase = {
         uuid:journal.uuid,
