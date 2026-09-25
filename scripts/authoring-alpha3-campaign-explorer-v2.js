@@ -824,7 +824,6 @@ function atCwInstallInteractionHandlers() {
     }
 
     const explorer = event.target.closest?.(`${ATCW_ROOT} .at-cw-explorer`);
-    const explorer = event.target.closest?.(`${ATCW_ROOT} .at-cw-explorer`);
     if (!explorer) {
       const nav = event.target.closest?.(`${ATCW_ROOT} [data-action="navigate"]`);
       const tab = String(nav?.dataset?.tab || "");
