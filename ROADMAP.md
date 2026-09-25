@@ -685,7 +685,7 @@ Other GuteboysFactory systems/modules may expose an optional Tome-aware action.
 
 ---
 
-# CURRENT — v1.6 Universal Semantic Layer Foundation & System-aware Creation
+# COMPLETED — v1.6 Universal Semantic Layer Foundation & System-aware Creation
 
 ## Goal
 
@@ -1350,6 +1350,39 @@ After the read foundation is verified:
 
 ---
 
+
+## v1.6.0 — Stable
+
+**Status:** ⭐ STABLE
+
+v1.6.0 closes the Universal Semantic Layer Foundation & System-aware Creation milestone.
+
+Stable scope includes:
+
+- permission-safe semantic discovery and reconciliation
+- viewer-scoped privacy authority
+- semantic Contact projection
+- controlled semantic writes
+- system-aware NPC creation
+- native Quick NPC provider delegation
+- Universal Folder Quick Create + semantic standard-folder bootstrap
+- World local search and catalog polish
+- Sessions / Quests / Rules / Search UX polish
+- unified low-noise detail toolbars
+
+**Stable release:** `v1.6.0`
+
+Release record: `docs/V1.6_STABLE_RELEASE.md`
+
+### Next priority
+
+Before Campaign Graph work expands further, Tome will prioritize:
+
+1. semantic Campaign Links hardening for Sessions/Quests
+2. Migration Workspace after the Realm Guard target schema is stable
+3. first reference migration provider into Realm Guard
+
+
 # v1.7 — SCC 2.0 / Campaign Graph & Memory Expansion
 
 ## Goal
@@ -1588,9 +1621,9 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable baseline:** `v1.5.0`  
 **Verified QA source:** `v1.5.0-qa.3`  
 **Verified Foundry baseline:** `V13.351`  
-**Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
+**Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.26 — Unified Detail Toolbar`  
+**Stable baseline:** `v1.6.0`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
