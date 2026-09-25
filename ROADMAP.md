@@ -1318,6 +1318,24 @@ Implemented:
 
 QA protocol: `docs/V1.6_QA25_TOME_LIBRARY_UX_POLISH.md`
 
+## v1.6.0-qa.26 — Unified Detail Toolbar
+
+**Status:** QA / IMPLEMENTED
+
+Standardizes Character, Quest and Rule detail toolbars around the same low-noise action hierarchy already proven on World profiles.
+
+Implemented:
+
+- Back/breadcrumb navigation remains untouched
+- source/personal/share actions stay directly available
+- GM-only administrative actions collapse into a compact GM Tools menu
+- no action implementation is replaced; existing buttons are relocated
+- player view never shows an empty GM Tools control
+- World keeps its dedicated actionbar implementation
+- Session detail remains unchanged because its icon-level controls are already compact
+
+QA protocol: `docs/V1.6_QA26_UNIFIED_DETAIL_TOOLBAR.md`
+
 ## Later v1.6 direction
 
 After the read foundation is verified:
@@ -1572,7 +1590,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Verified Foundry baseline:** `V13.351`  
 **Active milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Current QA package:** `v1.6.0-qa.25 — Tome Library UX Polish`  
+**Current QA package:** `v1.6.0-qa.26 — Unified Detail Toolbar`  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
