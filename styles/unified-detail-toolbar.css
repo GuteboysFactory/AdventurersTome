@@ -1,0 +1,170 @@
+#adventurers-tome-app .at-profile-page .at-detail-toolbar.at-detail-toolbar-polished,
+#adventurers-tome-app .at-quest-detail-page .at-detail-toolbar.at-detail-toolbar-polished,
+#adventurers-tome-app .at-rule-detail-page .at-detail-toolbar.at-detail-toolbar-polished{
+  align-items:center;
+  gap:12px;
+  padding-top:8px;
+  padding-bottom:8px;
+}
+
+#adventurers-tome-app .at-detail-toolbar-polished .at-detail-nav{
+  flex:0 1 auto;
+  min-width:0;
+}
+
+#adventurers-tome-app .at-detail-action-groups{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex:1 1 auto;
+  min-width:0;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+#adventurers-tome-app .at-detail-action-group{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  min-width:0;
+}
+
+#adventurers-tome-app .at-detail-action-group+.at-detail-action-group,
+#adventurers-tome-app .at-detail-action-group+.at-detail-gm-tools,
+#adventurers-tome-app .at-detail-gm-tools+.at-detail-action-group{
+  padding-left:8px;
+  border-left:1px solid rgba(214,178,108,.17);
+}
+
+#adventurers-tome-app .at-detail-action-button{
+  min-height:32px!important;
+  height:32px;
+  padding:0 10px!important;
+  white-space:nowrap;
+  font-size:12px!important;
+}
+
+#adventurers-tome-app .at-detail-action-button i{
+  margin-right:5px;
+}
+
+#adventurers-tome-app .at-detail-action-share .at-detail-action-button{
+  background:rgba(151,111,43,.08);
+}
+
+#adventurers-tome-app .at-detail-gm-tools{
+  position:relative;
+  flex:0 0 auto;
+}
+
+#adventurers-tome-app .at-detail-gm-tools>summary{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:32px;
+  padding:0 11px;
+  border:1px solid rgba(214,178,108,.48);
+  border-radius:4px;
+  background:linear-gradient(180deg,rgba(43,33,19,.92),rgba(23,18,12,.96));
+  color:var(--at-gold,#d6b26c);
+  cursor:pointer;
+  font-family:var(--at-serif,serif);
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.02em;
+  list-style:none;
+  user-select:none;
+}
+
+#adventurers-tome-app .at-detail-gm-tools>summary::-webkit-details-marker{display:none}
+
+#adventurers-tome-app .at-detail-gm-tools>summary:hover,
+#adventurers-tome-app .at-detail-gm-tools[open]>summary{
+  border-color:rgba(232,196,119,.78);
+  background:linear-gradient(180deg,rgba(62,46,24,.96),rgba(28,21,13,.98));
+}
+
+#adventurers-tome-app .at-detail-gm-caret{
+  margin-left:2px;
+  font-size:9px;
+  opacity:.72;
+  transition:transform .15s ease;
+}
+
+#adventurers-tome-app .at-detail-gm-tools[open] .at-detail-gm-caret{
+  transform:rotate(180deg);
+}
+
+#adventurers-tome-app .at-detail-gm-menu{
+  position:absolute;
+  z-index:90;
+  top:calc(100% + 7px);
+  right:0;
+  display:grid;
+  min-width:220px;
+  padding:7px;
+  gap:4px;
+  border:1px solid rgba(214,178,108,.38);
+  border-radius:5px;
+  background:rgba(13,10,7,.985);
+  box-shadow:0 14px 34px rgba(0,0,0,.55);
+}
+
+#adventurers-tome-app .at-detail-gm-menu::before{
+  content:"GM TOOLS";
+  display:block;
+  padding:4px 7px 6px;
+  color:rgba(214,178,108,.63);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.12em;
+}
+
+#adventurers-tome-app .at-detail-gm-menu .at-detail-action-button{
+  width:100%;
+  height:auto;
+  min-height:34px!important;
+  justify-content:flex-start;
+  text-align:left;
+  margin:0;
+}
+
+#adventurers-tome-app .at-detail-gm-menu .at-detail-action-button.at-primary{
+  border-color:rgba(214,178,108,.58);
+}
+
+@media(max-width:1180px){
+  #adventurers-tome-app .at-detail-toolbar-polished{
+    align-items:flex-start!important;
+    flex-direction:column;
+  }
+
+  #adventurers-tome-app .at-detail-action-groups{
+    width:100%;
+    justify-content:flex-start;
+  }
+
+  #adventurers-tome-app .at-detail-gm-menu{
+    left:0;
+    right:auto;
+  }
+}
+
+@media(max-width:760px){
+  #adventurers-tome-app .at-detail-action-groups{gap:5px}
+
+  #adventurers-tome-app .at-detail-action-group+.at-detail-action-group,
+  #adventurers-tome-app .at-detail-action-group+.at-detail-gm-tools,
+  #adventurers-tome-app .at-detail-gm-tools+.at-detail-action-group{
+    padding-left:0;
+    border-left:0;
+  }
+
+  #adventurers-tome-app .at-detail-action-button{
+    padding:0 8px!important;
+  }
+
+  #adventurers-tome-app .at-detail-action-button i{
+    margin-right:3px;
+  }
+}
