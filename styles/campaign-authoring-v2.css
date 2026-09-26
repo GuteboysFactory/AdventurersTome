@@ -1,0 +1,70 @@
+#adventurers-tome-app .at-ca2-create-strip {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin:0 0 18px;
+  padding:16px 18px;
+  border:1px solid color-mix(in srgb, var(--at-accent, #b99655) 38%, transparent);
+  border-radius:14px;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--at-accent, #b99655) 12%, transparent), rgba(0,0,0,.14));
+  box-shadow:0 8px 28px rgba(0,0,0,.12);
+}
+
+#adventurers-tome-app .at-ca2-create-copy {
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+#adventurers-tome-app .at-ca2-create-copy strong {
+  font-size:1.05rem;
+  line-height:1.25;
+}
+
+#adventurers-tome-app .at-ca2-create-copy small {
+  opacity:.72;
+  line-height:1.35;
+}
+
+#adventurers-tome-app .at-ca2-new {
+  flex:0 0 auto;
+  min-width:150px;
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+
+#adventurers-tome-app .at-ca2-dialog {
+  width:min(520px, calc(100vw - 48px));
+}
+
+#adventurers-tome-app .at-ca2-dialog-note {
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  margin:4px 0 2px;
+  padding:11px 12px;
+  border-radius:10px;
+  background:rgba(255,255,255,.045);
+  line-height:1.4;
+}
+
+#adventurers-tome-app .at-ca2-dialog-note i {
+  margin-top:2px;
+  opacity:.8;
+}
+
+@media (max-width:760px) {
+  #adventurers-tome-app .at-ca2-create-strip {
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  #adventurers-tome-app .at-ca2-new {
+    width:100%;
+  }
+}

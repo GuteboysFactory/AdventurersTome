@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.6 — Campaign Authoring 2.0: Sessions + Quests
+
+- Adds direct GM-facing **New Session** and **New Quest** actions on their normal Tome pages.
+- Normal creation no longer requires selecting an Explorer folder first.
+- Sessions automatically resolve/create the canonical Sessions folder, suggest the next Session number, store draft/date/number metadata, create a Chronicle page, open the new Session, and hand editing to the existing Journal-backed autosave flow.
+- Quests resolve/create the canonical Quests folder, preserve the existing Quest status flag, store structured Quest metadata, create an Overview page, open the new Quest, and reuse the same Journal-backed authoring flow.
+- Chronicle and Overview remain canonical Foundry JournalEntryPage text; no parallel Tome body storage is introduced.
+- Existing Explorer management and legacy Sessions/Quests remain compatible.
+- Campaign Link persistence and Semantic Mention behavior remain unchanged.
+
+
 ## 1.7.0-qa.5 — Mention Confidence Gate
 
 - Separates mention detection confidence from identity confidence for Session/Quest semantic mention discovery.

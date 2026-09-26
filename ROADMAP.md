@@ -1464,6 +1464,35 @@ qa.5 separates detection confidence from identity confidence before Campaign Lin
 
 QA: `docs/V1.7_QA5_MENTION_CONFIDENCE_GATE.md`
 
+## v1.7.0-qa.6 — Campaign Authoring 2.0: Sessions + Quests
+
+**Status:** QA / IMPLEMENTED
+
+This work runs in parallel with Campaign Intelligence. It does not replace the Semantic Mention roadmap; it gives Sessions and Quests a usable task-first authoring workflow on top of the same canonical Journal data.
+
+### Sessions
+- direct **New Session** from the Sessions page
+- Explorer folder selection no longer required
+- next Session number suggested automatically
+- title + date + draft metadata
+- canonical `Adventurer's Tome / Sessions` folder resolution
+- canonical `Chronicle` JournalEntryPage
+- open-and-focus handoff to existing Tome inline authoring/autosave
+
+### Quests
+- direct **New Quest** from the Quests page
+- Explorer folder selection no longer required
+- title + status
+- canonical `Adventurer's Tome / Quests` folder resolution
+- canonical `Overview` JournalEntryPage
+- open-and-focus handoff to existing Tome inline authoring/autosave
+
+Hard lock: Chronicle/Overview text stays in `JournalEntryPage.text.content`. No parallel Tome body store is introduced.
+
+Campaign Intelligence continues in parallel after qa.6: unknown proper-noun/new-entity discovery, publish/analysis preview, review actions, then controlled Campaign Link persistence.
+
+QA: `docs/V1.7_QA6_CAMPAIGN_AUTHORING_V2.md`
+
 
 # v1.7 — SCC 2.0 / Campaign Graph & Memory Expansion
 
@@ -1706,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.5` — Mention Confidence Gate  
+**Current development build:** `v1.7.0-qa.6` — Campaign Authoring 2.0: Sessions + Quests  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
