@@ -2,6 +2,14 @@ const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-semantic-mention-discovery";
 const VERSION = 1;
 
+const CONFIDENCE_BANDS = Object.freeze({
+  DETERMINISTIC:"deterministic",
+  HIGH:"high-confidence",
+  REVIEW:"review",
+  WEAK:"weak",
+  SUPPRESSED:"suppressed"
+});
+
 let lastSnapshot = null;
 let scanTimer = null;
 
@@ -10,7 +18,12 @@ const stats = {
   sources:0,
   pages:0,
   explicitMentions:0,
+  proseCandidates:0,
   proseMentions:0,
+  deterministicMentions:0,
+  highConfidenceMentions:0,
+  weakMentions:0,
+  suppressedMentions:0,
   resolvedCanonical:0,
   review:0,
   ambiguous:0,
@@ -224,6 +237,190 @@ function mentionKey(row) {
   ].join("|");
 }
 
+
+function tokenCount(value) {
+  return clean(value).split(/\s+/u).filter(Boolean).length;
+}
+
+function firstLetter(value) {
+  return [...clean(value)].find((char) => /\p{L}/u.test(char)) || "";
+}
+
+function properNameShape(value) {
+  const letter = firstLetter(value);
+  if (!letter) return false;
+  return letter === letter.toLocaleUpperCase() && letter !== letter.toLocaleLowerCase();
+}
+
+function lowercaseSingleToken(value) {
+  const canonical = clean(value);
+  if (!canonical || tokenCount(canonical) !== 1) return false;
+  const letter = firstLetter(canonical);
+  if (!letter) return false;
+  return canonical === canonical.toLocaleLowerCase()
+    && canonical !== canonical.toLocaleUpperCase();
+}
+
+function pageExplicitAnchors(refs, index) {
+  const anchors = new Map();
+
+  for (const ref of refs || []) {
+    const target = index.byUuid.get(clean(ref?.uuid)) || null;
+    if (!target) continue;
+
+    const keys = new Set([
+      normalizeText(ref?.label),
+      normalizeText(target?.name)
+    ].filter(Boolean));
+
+    for (const key of keys) {
+      if (!anchors.has(key)) anchors.set(key, new Set());
+      anchors.get(key).add(clean(target.canonicalUuid));
+    }
+  }
+
+  return anchors;
+}
+
+function resolutionTargetUuids(resolution) {
+  return new Set([
+    clean(resolution?.selectedTarget?.canonicalUuid),
+    ...(resolution?.candidates || []).map((row) => clean(row?.target?.canonicalUuid))
+  ].filter(Boolean));
+}
+
+function identityAssessment(resolution, anchoredUuid = "") {
+  const decision = clean(resolution?.decision);
+  const baseScore = Number(resolution?.confidence || 0);
+  const signals = decision ? [`resolver:${decision}`] : [];
+
+  if (anchoredUuid) {
+    signals.push("source-local-explicit-anchor");
+    return {
+      score:Math.max(0.95, baseScore),
+      band:CONFIDENCE_BANDS.HIGH,
+      signals
+    };
+  }
+
+  if (["resolved-canonical","resolved-semantic","resolved-external"].includes(decision)) {
+    return {
+      score:Math.max(0.98, baseScore),
+      band:CONFIDENCE_BANDS.DETERMINISTIC,
+      signals
+    };
+  }
+
+  if (decision === "resolved-corroborated") {
+    return {
+      score:Math.max(0.85, baseScore),
+      band:CONFIDENCE_BANDS.HIGH,
+      signals
+    };
+  }
+
+  if (decision === "ambiguous") {
+    return { score:0, band:CONFIDENCE_BANDS.REVIEW, signals };
+  }
+
+  if (decision === "review") {
+    return { score:Math.max(0.4, baseScore), band:CONFIDENCE_BANDS.REVIEW, signals };
+  }
+
+  return { score:baseScore, band:CONFIDENCE_BANDS.WEAK, signals };
+}
+
+function proseAssessment({ displayName, occurrenceCount, resolution, anchors }) {
+  const normalizedName = normalizeText(displayName);
+  const multiToken = tokenCount(displayName) > 1;
+  const properSingle = !multiToken && properNameShape(displayName);
+  const lowerSingle = lowercaseSingleToken(displayName);
+  const anchorUuids = anchors?.get(normalizedName) || new Set();
+  const resolutionUuids = resolutionTargetUuids(resolution);
+  const anchoredUuid = anchorUuids.size === 1
+    ? [...anchorUuids][0]
+    : "";
+  const anchorMatchesResolution = Boolean(anchoredUuid && resolutionUuids.has(anchoredUuid));
+
+  const detectionSignals = ["exact-name-boundary-match"];
+  let detectionScore = multiToken ? 0.82 : properSingle ? 0.72 : 0.35;
+
+  if (multiToken) detectionSignals.push("multi-token-name");
+  if (properSingle) detectionSignals.push("proper-name-shape");
+  if (occurrenceCount > 1) {
+    detectionScore += 0.08;
+    detectionSignals.push("repeated-on-source-page");
+  }
+  if (anchorMatchesResolution) {
+    detectionScore += 0.16;
+    detectionSignals.push("source-local-explicit-anchor");
+  }
+
+  detectionScore = Math.min(0.98, detectionScore);
+  const identity = identityAssessment(resolution, anchorMatchesResolution ? anchoredUuid : "");
+
+  if (lowerSingle && !anchorMatchesResolution) {
+    return {
+      detection:{
+        score:Math.min(0.25, detectionScore),
+        band:CONFIDENCE_BANDS.WEAK,
+        signals:[...detectionSignals, "lowercase-single-token"]
+      },
+      identity,
+      disposition:CONFIDENCE_BANDS.SUPPRESSED,
+      suppressed:true,
+      reason:"weak-lowercase-single-token",
+      persistenceEligible:false
+    };
+  }
+
+  if (anchorMatchesResolution && identity.score >= 0.95) {
+    return {
+      detection:{ score:detectionScore, band:CONFIDENCE_BANDS.HIGH, signals:detectionSignals },
+      identity,
+      disposition:CONFIDENCE_BANDS.HIGH,
+      suppressed:false,
+      reason:"source-local-canonical-corroboration",
+      persistenceEligible:false
+    };
+  }
+
+  if (detectionScore >= 0.7 && identity.band !== CONFIDENCE_BANDS.WEAK) {
+    return {
+      detection:{ score:detectionScore, band:CONFIDENCE_BANDS.HIGH, signals:detectionSignals },
+      identity,
+      disposition:CONFIDENCE_BANDS.REVIEW,
+      suppressed:false,
+      reason:"mention-detected-identity-review",
+      persistenceEligible:false
+    };
+  }
+
+  return {
+    detection:{ score:detectionScore, band:CONFIDENCE_BANDS.WEAK, signals:detectionSignals },
+    identity,
+    disposition:CONFIDENCE_BANDS.WEAK,
+    suppressed:false,
+    reason:"weak-prose-mention",
+    persistenceEligible:false
+  };
+}
+
+function explicitAssessment(resolution) {
+  return {
+    detection:{
+      score:1,
+      band:CONFIDENCE_BANDS.DETERMINISTIC,
+      signals:["explicit-foundry-reference"]
+    },
+    identity:identityAssessment(resolution),
+    disposition:CONFIDENCE_BANDS.DETERMINISTIC,
+    suppressed:false,
+    reason:"explicit-foundry-reference",
+    persistenceEligible:false
+  };
+}
+
 function summarizeResolution(resolution) {
   return {
     decision:clean(resolution?.decision),
@@ -241,7 +438,12 @@ async function scan(options = {}) {
   stats.sources = 0;
   stats.pages = 0;
   stats.explicitMentions = 0;
+  stats.proseCandidates = 0;
   stats.proseMentions = 0;
+  stats.deterministicMentions = 0;
+  stats.highConfidenceMentions = 0;
+  stats.weakMentions = 0;
+  stats.suppressedMentions = 0;
   stats.resolvedCanonical = 0;
   stats.review = 0;
   stats.ambiguous = 0;
@@ -265,6 +467,7 @@ async function scan(options = {}) {
 
   const index = visibleEntityIndex(discoverySnapshot);
   const rows = [];
+  const suppressedRows = [];
   const seen = new Set();
 
   for (const source of campaignSources(user)) {
@@ -280,8 +483,9 @@ async function scan(options = {}) {
       stats.pages += 1;
 
       const safeHtml = stripSecrets(page.text.content, user);
+      const inlineRefs = foundryInlineRefs(safeHtml);
       const text = plainText(removeFoundryInlineRefs(safeHtml));
-      const hasInlineRefs = foundryInlineRefs(safeHtml).length > 0;
+      const hasInlineRefs = inlineRefs.length > 0;
       if (!text && !hasInlineRefs) continue;
 
       const sourceBase = {
@@ -291,7 +495,9 @@ async function scan(options = {}) {
         path:`${kind}/${clean(journal.name)}/${clean(page.name)}`
       };
 
-      for (const ref of foundryInlineRefs(safeHtml)) {
+      const explicitAnchors = pageExplicitAnchors(inlineRefs, index);
+
+      for (const ref of inlineRefs) {
         const target = index.byUuid.get(ref.uuid) || null;
         if (!target) {
           stats.permissionFiltered += 1;
@@ -318,6 +524,7 @@ async function scan(options = {}) {
         seen.add(key);
 
         const resolution = resolver.resolve(candidate);
+        const assessment = explicitAssessment(resolution);
         if (resolution?.decision === "resolved-canonical") stats.resolvedCanonical += 1;
         rows.push({
           id:candidate.id,
@@ -330,9 +537,11 @@ async function scan(options = {}) {
           text:candidate.text,
           kindHint:candidate.kindHint,
           source:clone(candidate.source),
+          assessment:clone(assessment),
           resolution:summarizeResolution(resolution)
         });
         stats.explicitMentions += 1;
+        stats.deterministicMentions += 1;
       }
 
       for (const [normalizedName, entities] of index.byName.entries()) {
@@ -363,11 +572,15 @@ async function scan(options = {}) {
           seen.add(key);
 
           const resolution = resolver.resolve(candidate);
-          if (resolution?.decision === "review") stats.review += 1;
-          else if (resolution?.decision === "ambiguous") stats.ambiguous += 1;
-          else if (resolution?.decision === "unresolved") stats.unresolved += 1;
+          const assessment = proseAssessment({
+            displayName,
+            occurrenceCount:positions.length,
+            resolution,
+            anchors:explicitAnchors
+          });
+          stats.proseCandidates += 1;
 
-          rows.push({
+          const row = {
             id:candidate.id,
             sourceKind:kind,
             sourceJournalUuid:journal.uuid,
@@ -378,9 +591,24 @@ async function scan(options = {}) {
             text:candidate.text,
             kindHint:candidate.kindHint,
             source:clone(candidate.source),
+            assessment:clone(assessment),
             resolution:summarizeResolution(resolution)
-          });
+          };
+
+          if (assessment.suppressed) {
+            suppressedRows.push(row);
+            stats.suppressedMentions += 1;
+            continue;
+          }
+
+          if (resolution?.decision === "review") stats.review += 1;
+          else if (resolution?.decision === "ambiguous") stats.ambiguous += 1;
+          else if (resolution?.decision === "unresolved") stats.unresolved += 1;
+
+          rows.push(row);
           stats.proseMentions += 1;
+          if (assessment.disposition === CONFIDENCE_BANDS.HIGH) stats.highConfidenceMentions += 1;
+          else if (assessment.disposition === CONFIDENCE_BANDS.WEAK) stats.weakMentions += 1;
         }
       }
     }
@@ -396,13 +624,20 @@ async function scan(options = {}) {
     writesPerformed:false,
     autoPersistence:false,
     sourceScope:["session","quest"],
+    confidenceModel:"detection-and-identity-separated",
     mentions:clone(rows),
+    suppressedMentions:clone(suppressedRows),
     summary:{
       sources:stats.sources,
       pages:stats.pages,
       mentions:rows.length,
       explicitMentions:stats.explicitMentions,
+      proseCandidates:stats.proseCandidates,
       proseMentions:stats.proseMentions,
+      deterministicMentions:stats.deterministicMentions,
+      highConfidenceMentions:stats.highConfidenceMentions,
+      weakMentions:stats.weakMentions,
+      suppressedMentions:stats.suppressedMentions,
       resolvedCanonical:stats.resolvedCanonical,
       review:stats.review,
       ambiguous:stats.ambiguous,
@@ -426,6 +661,13 @@ function mentionsForSource(uuid) {
   ));
 }
 
+function suppressedForSource(uuid) {
+  const wanted = clean(uuid);
+  return clone((lastSnapshot?.suppressedMentions || []).filter((row) =>
+    row.sourceJournalUuid === wanted || row.sourcePageUuid === wanted
+  ));
+}
+
 function audit() {
   return {
     contract:CONTRACT,
@@ -438,6 +680,17 @@ function audit() {
     writesPerformed:false,
     autoPersistence:false,
     privacyModel:"viewer-scoped-source-and-target-evidence",
+    confidenceModel:"detection-and-identity-separated",
+    policy:{
+      explicitFoundryRefsDeterministic:true,
+      multiTokenExactNamesDetected:true,
+      properNameSingleTokensDetected:true,
+      lowercaseSingleTokensSuppressedWithoutCanonicalAnchor:true,
+      sourceLocalExplicitAnchorCorroboration:true,
+      repeatedMentionsBoostDetectionOnly:true,
+      displayNameAloneAutoLinks:false,
+      autoPersistence:false
+    },
     summary:clone(lastSnapshot?.summary || {}),
     stats:{ ...stats }
   };
@@ -450,9 +703,11 @@ const publicApi = Object.freeze({
   textScanning:true,
   writesPerformed:false,
   autoPersistence:false,
+  confidenceBands:Object.freeze({ ...CONFIDENCE_BANDS }),
   scan,
   snapshot,
   mentionsForSource,
+  suppressedForSource,
   audit
 });
 
