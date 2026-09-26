@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 1.7.0-qa.5 — Mention Confidence Gate
+
+- Separates mention detection confidence from identity confidence for Session/Quest semantic mention discovery.
+- Adds confidence bands: deterministic, high-confidence, review, weak and suppressed.
+- Suppresses lowercase single-token prose entities such as `test` unless the same page provides an explicit visible canonical anchor for that identity.
+- Keeps proper-name single tokens such as Aldari, Bree and Angmar detectable.
+- Repeated mentions strengthen detection only and never prove identity.
+- Explicit Foundry references remain deterministic.
+- Same-page explicit canonical references can corroborate matching prose mentions.
+- Campaign Link persistence remains OFF; all qa.5 classifications are read-only evidence only.
+
+
 ## 1.7.0-qa.4 — Projection-aware Identity Resolution
 
 - Live QA confirmed that a canonical Actor and its active Tome Semantic Contact Journal projection could appear as two same-name candidates even though the projection's `linkedUuid` points to that exact Actor.
