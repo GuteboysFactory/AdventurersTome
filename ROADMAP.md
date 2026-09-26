@@ -1447,6 +1447,23 @@ Live QA proved that a Tome-generated Contact Journal and its linked Foundry Acto
 
 QA: `docs/V1.7_QA4_PROJECTION_AWARE_IDENTITY.md`
 
+## v1.7.0-qa.5 — Mention Confidence Gate
+
+**Status:** QA / IMPLEMENTED
+
+qa.5 separates detection confidence from identity confidence before Campaign Link persistence is allowed.
+
+- explicit Foundry refs remain deterministic
+- multi-token exact names remain detectable
+- proper-name single tokens remain detectable
+- lowercase single-token prose noise is suppressed unless the same page supplies a visible canonical explicit anchor
+- repetition boosts detection only
+- same-page explicit canonical refs can corroborate matching prose mentions
+- identity safety from qa.1–qa.4 remains unchanged
+- Campaign Link persistence remains OFF
+
+QA: `docs/V1.7_QA5_MENTION_CONFIDENCE_GATE.md`
+
 
 # v1.7 — SCC 2.0 / Campaign Graph & Memory Expansion
 
@@ -1689,7 +1706,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.4` — Projection-aware Identity Resolution  
+**Current development build:** `v1.7.0-qa.5` — Mention Confidence Gate  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
