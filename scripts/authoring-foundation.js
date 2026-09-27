@@ -290,14 +290,14 @@ function atAfBegin(node, event) {
   if (!journal || !atAfCanEdit(journal)) return;
   event?.preventDefault?.();
   event?.stopImmediatePropagation?.();
-  node.dataset.atAfEditing = "true";
-  node.classList.add("is-editing");
-  atAfSetEditingCount(1, node);
   if (node.dataset.atAfMode === "rich") {
     const page = journal.pages?.get(String(node.dataset.atAfPageId || ""));
     if (!page) return;
     node.innerHTML = String(page?.text?.content ?? "<p></p>");
   }
+  node.dataset.atAfEditing = "true";
+  node.classList.add("is-editing");
+  atAfSetEditingCount(1, node);
   node.contentEditable = "true";
   node.spellcheck = true;
   node.focus();
