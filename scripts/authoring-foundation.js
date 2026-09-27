@@ -46,8 +46,19 @@ function atAfCanViewPage(page, journal) {
 
 function atAfSetBulk(value) {
   const app = atAfApp();
-  if (app) app._bulkUpdating = value;
-  if (!value) Hooks.callAll("adventurersTomeAuthoringSaveSettled", { source:"authoring-foundation" });
+  if (!app) return;
+  if (value) {
+    app._bulkUpdating = true;
+    return;
+  }
+  // A live editor owns the render lock for its entire editing session.
+  // Autosave completion must never release that lock underneath the caret.
+  if (Number(app._atRichEditingCount || 0) > 0) {
+    app._bulkUpdating = true;
+    return;
+  }
+  app._bulkUpdating = false;
+  Hooks.callAll("adventurersTomeAuthoringSaveSettled", { source:"authoring-foundation" });
 }
 
 function atAfSetEditingCount(delta, node = null) {
@@ -56,6 +67,17 @@ function atAfSetEditingCount(delta, node = null) {
   const current = Math.max(0, Number(app._atRichEditingCount || 0));
   const next = Math.max(0, current + Number(delta || 0));
   app._atRichEditingCount = next;
+
+  if (next > 0) {
+    app._bulkUpdating = true;
+  } else {
+    window.setTimeout(() => {
+      if (Number(app._atRichEditingCount || 0) > 0) return;
+      app._bulkUpdating = false;
+      Hooks.callAll("adventurersTomeAuthoringSaveSettled", { source:"authoring-foundation", reason:"editor-session-ended" });
+    }, 120);
+  }
+
   Hooks.callAll("adventurersTomeAuthoringEditingChanged", {
     active:next > 0,
     count:next,
@@ -79,7 +101,8 @@ function atAfState(state, text = "") {
   const badge = atAfBadge();
   if (!badge) return;
   const icon = state === "saving" ? "fa-arrows-rotate" : state === "error" ? "fa-triangle-exclamation" : state === "editing" ? "fa-pen" : "fa-check";
-  const label = text || ({ editing: "Editing…", saving: "Saving…", saved: "Saved", error: "Save failed" })[state] || "Saved";
+  const active = Number(atAfApp()?._atRichEditingCount || 0) > 0;
+  const label = text || ({ editing: "Editing…", saving: "Saving…", saved: active ? "Saved — keep writing" : "Saved", error: "Save failed" })[state] || "Saved";
   badge.dataset.state = state;
   badge.innerHTML = `<i class="fa-solid ${icon}"></i><span>${atAfEscape(label)}</span>`;
   badge.classList.add("is-visible");
@@ -451,7 +474,17 @@ async function atAfOpenAddPage(journalId) {
 
 function atAfAddCreateButtons(root) {
   if (!atAfCanCreate()) return;
-  const configs = [["sessions", root.querySelector(".at-sessions-page .at-page-tools")], ["quests", root.querySelector(".at-quests-page .at-page-tools")], ["world", root.querySelector(".at-world-page .at-world-heading")]];
+
+  // Sessions and Quests now have task-specific Authoring 2.0 creators for GMs.
+  // Keep the generic creator for delegated non-GM editors and for World.
+  if (game.user?.isGM) {
+    root.querySelectorAll('[data-at-af-create="sessions"], [data-at-af-create="quests"]').forEach((node) => node.remove());
+  }
+
+  const configs = game.user?.isGM
+    ? [["world", root.querySelector(".at-world-page .at-world-heading")]]
+    : [["sessions", root.querySelector(".at-sessions-page .at-page-tools")], ["quests", root.querySelector(".at-quests-page .at-page-tools")], ["world", root.querySelector(".at-world-page .at-world-heading")]];
+
   for (const [section, host] of configs) {
     if (!host || host.querySelector(`[data-at-af-create="${section}"]`)) continue;
     const button = document.createElement("button");
@@ -465,7 +498,15 @@ function atAfAddCreateButtons(root) {
 
 function atAfAddPageButton(detail) {
   if (!detail || !atAfCanEdit(detail.journal)) return;
-  const host = detail.section === "sessions" ? detail.container.querySelector(".at-session-detail-head") : detail.container.querySelector(".at-profile-toolbar-actions");
+
+  // Session / Quest normal authoring is task-first. Additional Journal pages
+  // remain available through Advanced Pages instead of toolbar button spam.
+  if (detail.section === "sessions" || detail.section === "quests") {
+    detail.container.querySelectorAll("[data-at-af-add-page], .at-authoring-add-page").forEach((node) => node.remove());
+    return;
+  }
+
+  const host = detail.container.querySelector(".at-profile-toolbar-actions");
   if (!host || host.querySelector(`[data-at-af-add-page="${CSS.escape(detail.journal.id)}"]`)) return;
   const button = document.createElement("button");
   button.type = "button";
@@ -504,6 +545,11 @@ async function atAfEnhance() {
   atAfAddCreateButtons(root);
   const detail = atAfDetail(root);
   if (!detail) return;
+
+  if (detail.section === "sessions" || detail.section === "quests") {
+    detail.container.querySelectorAll("[data-at-af-add-page], .at-authoring-add-page").forEach((node) => node.remove());
+  }
+
   atAfAddPageButton(detail);
   atAfEnhanceInline(detail);
   await atAfRenderPages(detail);
