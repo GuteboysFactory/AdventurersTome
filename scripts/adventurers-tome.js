@@ -7518,18 +7518,64 @@ Hooks.once("ready", async () => {
 // Keep an open Tome in sync with generic Foundry document changes. Debounce
 // external bulk edits so a large import or another module cannot trigger a
 // render storm across dozens of create/update hooks.
+//
+// IMPORTANT: autosave must never end a live authoring session. Journal updates
+// can fan out through Registry -> Discovery -> Campaign refresh hooks. While any
+// Tome rich-text editor owns focus, queue that refresh instead of replacing the
+// DOM under the caret. The queued refresh runs once editing has genuinely ended.
 let tomeRefreshTimer = null;
+let tomeRefreshPending = false;
+
+function tomeHasActiveAuthoring() {
+  if (Number(tomeApp?._atRichEditingCount || 0) > 0) return true;
+  const root = document.querySelector("#adventurers-tome-app");
+  return Boolean(root?.querySelector(
+    "[data-at-af-editing='true'], [data-at-ep-editing='true'], [data-at-wie-rich-editing='true'], .at-wie-rich-editor[contenteditable='true'], [data-at-ep-editor][contenteditable='true']"
+  ));
+}
+
 function scheduleTomeRefresh() {
-  if (!tomeApp?.rendered || tomeApp._bulkUpdating) return;
+  if (!tomeApp?.rendered) return;
+
+  if (tomeApp._bulkUpdating || tomeHasActiveAuthoring()) {
+    tomeRefreshPending = true;
+    clearTimeout(tomeRefreshTimer);
+    tomeRefreshTimer = null;
+    return;
+  }
+
   clearTimeout(tomeRefreshTimer);
   tomeRefreshTimer = setTimeout(() => {
     tomeRefreshTimer = null;
-    if (tomeApp?.rendered && !tomeApp._bulkUpdating) tomeApp.render({ parts: ["main"] }).catch((error) => console.error("Adventurer's Tome | Background refresh failed", error));
+
+    if (!tomeApp?.rendered) {
+      tomeRefreshPending = false;
+      return;
+    }
+
+    if (tomeApp._bulkUpdating || tomeHasActiveAuthoring()) {
+      tomeRefreshPending = true;
+      return;
+    }
+
+    tomeRefreshPending = false;
+    tomeApp.render({ parts: ["main"] }).catch((error) => console.error("Adventurer's Tome | Background refresh failed", error));
   }, 90);
 }
+
+function flushQueuedTomeRefresh() {
+  if (!tomeRefreshPending || !tomeApp?.rendered) return;
+  if (tomeApp._bulkUpdating || tomeHasActiveAuthoring()) return;
+  scheduleTomeRefresh();
+}
+
 for (const hookName of ["createActor", "updateActor", "deleteActor", "createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage"]) {
   Hooks.on(hookName, scheduleTomeRefresh);
 }
 Hooks.on("adventurersTomeCampaignDiscoveryUpdated", scheduleTomeRefresh);
 Hooks.on("adventurersTomeContactProjectionUpdated", scheduleTomeRefresh);
+Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
+  if (!active) window.setTimeout(flushQueuedTomeRefresh, 0);
+});
+Hooks.on("adventurersTomeAuthoringSaveSettled", () => window.setTimeout(flushQueuedTomeRefresh, 0));
 
