@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.9 — Universal Tome Authoring Convergence
+
+- Converges Tome authoring around the World editor-session model instead of leaving World as a special case.
+- A live Journal-backed editor now owns the Tome render lock for the full editing session; autosave no longer releases the lock underneath the caret.
+- Generic Session/Quest Create controls are removed for GMs in favor of New Session / New Quest.
+- Generic Session/Quest Page toolbar controls are removed from normal detail UX; extra pages remain available through Advanced Pages.
+- Rules now participate in the shared Tome editor lifecycle so their overlay is protected from background rerenders while active.
+- World rich-text editing continues using the existing editor bridge.
+- Campaign Intelligence and Campaign Link persistence are unchanged.
+
+
 ## 1.7.0-qa.8 — Editor Continuity Guard
 
 - Fixes Session Chronicle / Quest Overview autosave ending the active writing session through downstream Tome background renders.
