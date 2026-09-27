@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.6.1 — Campaign Authoring Body-first Hotfix
+
+- Adds a large Chronicle field directly to New Session so the GM can write or paste the full session log during creation.
+- Adds a matching Quest Overview field directly to New Quest.
+- Initial Chronicle/Overview text is written straight into the canonical JournalEntryPage.text.content; no parallel Tome body storage is introduced.
+- Simplifies normal Session/Quest detail presentation around the primary writing surface and moves generic page-management UI behind an Advanced Pages action.
+- Hides the competing legacy GM create control on Sessions/Quests so the task-specific Authoring 2.0 flow is the normal GM path; delegated-editor behavior remains untouched.
+- Semantic Mention behavior and Campaign Link persistence remain unchanged.
+
+
 ## 1.7.0-qa.6 — Campaign Authoring 2.0: Sessions + Quests
 
 - Adds direct GM-facing **New Session** and **New Quest** actions on their normal Tome pages.
