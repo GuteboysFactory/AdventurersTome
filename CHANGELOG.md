@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.12 — Unknown / New Entity Discovery
+
+- Adds a read-only Campaign Intelligence layer that detects likely proper-name entities in Session and Quest prose when they do not resolve to an existing canonical campaign identity.
+- Separates detection confidence, entity-type confidence and identity confidence.
+- Filters known canonical names and likely known single-token aliases before producing new-entity candidates.
+- Adds contextual classification for Character/NPC, Location, Faction, Item, Lore and Unknown candidates.
+- Repeated mentions strengthen detection only and do not create identity certainty.
+- Exposes campaignNewEntityDiscovery scan/snapshot/candidatesForSource/audit APIs.
+- No Actors, Journals, Items, Campaign Links or other campaign data are created or modified.
+
+
 ## 1.7.0-qa.11 — Source Parity Live-Authoring Render Guard
 
 - Fixes the verified remaining autosave interruption caused by legacy Foundry Source Parity issuing an unconditional full Tome render after JournalEntryPage updates.
