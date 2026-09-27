@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1.7.0-qa.11 — Source Parity Live-Authoring Render Guard
+
+- Fixes the verified remaining autosave interruption caused by legacy Foundry Source Parity issuing an unconditional full Tome render after JournalEntryPage updates.
+- Source Parity now defers its render while Tome authoring is active or the app is bulk-updating.
+- A single pending Source Parity refresh resumes only after the editor session has ended and save state has settled.
+- Source Parity synchronization itself remains enabled.
+- Campaign Intelligence and Campaign Link persistence are unchanged.
+
+
 ## 1.7.0-qa.10 — Live Authoring DOM Preservation
 
 - Fixes the remaining Session/Quest autosave focus loss at its actual local-render root cause.

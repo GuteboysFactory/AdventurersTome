@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.10` — Live Authoring DOM Preservation
+**Current development build:** `v1.7.0-qa.11` — Source Parity Live-Authoring Render Guard
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1831,3 +1831,18 @@ QA: `docs/V1.7_QA9_UNIVERSAL_TOME_AUTHORING.md`
 - World and Campaign Intelligence behavior are unchanged
 
 QA: `docs/V1.7_QA10_LIVE_AUTHORING_DOM_PRESERVATION.md`
+
+
+## v1.7.0-qa.11 — Source Parity Live-Authoring Render Guard
+
+**Status:** QA / IMPLEMENTED
+
+Runtime tracing identified legacy Foundry Source Parity as the remaining component performing a full Tome render during Session/Quest autosave.
+
+- Source Parity now respects the shared live-authoring render lock
+- JournalEntryPage autosaves queue Source Parity refresh instead of rendering immediately
+- one pending refresh resumes after deliberate edit exit / save settle
+- Source Parity data synchronization remains enabled
+- Campaign Intelligence remains unchanged
+
+QA: `docs/V1.7_QA11_SOURCE_PARITY_LIVE_AUTHORING_GUARD.md`
