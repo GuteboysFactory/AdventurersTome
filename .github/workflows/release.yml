@@ -90,6 +90,7 @@ jobs:
           if [[ "$VERSION" == "1.7.0-qa.8" ]]; then test -f docs/V1.7_QA8_EDITOR_CONTINUITY_GUARD.md; test -f scripts/authoring-foundation.js; test -f scripts/adventurers-tome.js; fi
           if [[ "$VERSION" == "1.7.0-qa.9" ]]; then test -f docs/V1.7_QA9_UNIVERSAL_TOME_AUTHORING.md; test -f scripts/authoring-foundation.js; test -f scripts/campaign-authoring-v2.js; test -f scripts/structured-journals.js; fi
           if [[ "$VERSION" == "1.7.0-qa.10" ]]; then test -f docs/V1.7_QA10_LIVE_AUTHORING_DOM_PRESERVATION.md; test -f scripts/authoring-foundation.js; test -f scripts/authoring-alpha6-page-polish.js; fi
+          if [[ "$VERSION" == "1.7.0-qa.11" ]]; then test -f docs/V1.7_QA11_SOURCE_PARITY_LIVE_AUTHORING_GUARD.md; test -f scripts/foundry-source-parity.js; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
