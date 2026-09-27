@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.6.1` — Campaign Authoring 2.0 body-first hotfix  
+**Current development build:** `v1.7.0-qa.7` — Campaign Authoring 2.0 body-first hotfix  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1776,7 +1776,7 @@ Foundry V14 runtime verification is still pending and must be completed separate
 > **Conquer Foundry first. Extend beyond Foundry second.**
 
 
-## v1.7.0-qa.6.1 — Campaign Authoring 2.0 body-first hotfix
+## v1.7.0-qa.7 — Campaign Authoring 2.0 body-first hotfix
 
 **Status:** QA / IMPLEMENTED
 
