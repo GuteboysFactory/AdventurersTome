@@ -92,6 +92,7 @@ jobs:
           if [[ "$VERSION" == "1.7.0-qa.10" ]]; then test -f docs/V1.7_QA10_LIVE_AUTHORING_DOM_PRESERVATION.md; test -f scripts/authoring-foundation.js; test -f scripts/authoring-alpha6-page-polish.js; fi
           if [[ "$VERSION" == "1.7.0-qa.11" ]]; then test -f docs/V1.7_QA11_SOURCE_PARITY_LIVE_AUTHORING_GUARD.md; test -f scripts/foundry-source-parity.js; fi
           if [[ "$VERSION" == "1.7.0-qa.12" ]]; then test -f docs/V1.7_QA12_NEW_ENTITY_DISCOVERY.md; test -f scripts/campaign-new-entity-discovery.js; fi
+          if [[ "$VERSION" == "1.7.0-qa.13" ]]; then test -f docs/V1.7_QA13_NEW_ENTITY_CANDIDATE_PRECISION.md; test -f scripts/campaign-new-entity-discovery.js; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
