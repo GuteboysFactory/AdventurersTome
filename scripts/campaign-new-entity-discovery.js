@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-new-entity-discovery";
-const VERSION = 4;
+const VERSION = 5;
 
 const BANDS = Object.freeze({
   HIGH:"high-confidence",
@@ -36,12 +36,13 @@ const CHARACTER_TITLES = new Set([
 const LOCATION_SUFFIXES = new Set([
   "ford","pass","ruins","keep","marsh","pines","road","gate","tower","bridge","crossing","hollow","wood","woods","forest",
   "vale","valley","hill","hills","mount","mountain","mountains","river","lake","mere","moor","village","town","city","fort",
-  "fortress","castle","cave","caves","mine","mines","isle","island","coast","harbor","harbour","bay","reach","watch"
+  "fortress","castle","cave","caves","mine","mines","isle","island","coast","harbor","harbour","bay","reach","watch",
+  "abbey","temple","monastery","shrine","sanctuary","citadel","stronghold","manor","palace","camp","outpost","chapel"
 ]);
 
 const FACTION_SUFFIXES = new Set([
   "company","order","guild","clan","tribe","hand","guard","guards","brotherhood","sisterhood","circle","council","host","legion",
-  "army","cult","league","banner","wolves","riders"
+  "army","cult","league","banner","wolves","riders","choir"
 ]);
 
 const ITEM_SUFFIXES = new Set([
@@ -346,8 +347,8 @@ function scoreClassification(text, context) {
   if (/\b(reached|arrived|entered|left|through|toward|towards|beneath|above|near|at|in|from|crossing|road|ruins|fortress|village|town|city)\b/u.test(ctx)) {
     add("location", 0.22, "location-context");
   }
-  if (/\b(soldiers? of|members? of|mark of|servants? of|warriors? of|faction|guild|clan|tribe|order|company|cult)\b/u.test(ctx)) {
-    add("faction", 0.36, "faction-context");
+  if (/\b(soldiers? of|members? of|mark of|servants? of|warriors? of|agents? of|followers? of|faction|guild|clan|tribe|order|company|cult)\b/u.test(ctx)) {
+    add("faction", 0.52, "faction-context");
   }
   if (/\b(carried|carry|object|artifact|weapon|key|sword|ring|book|map|relic|item|open|unlock)\b/u.test(ctx)) {
     add("item", 0.30, "item-context");
@@ -697,6 +698,9 @@ function audit() {
       leadingContextWordsTrimmed:true,
       questionAuxiliaryStartersTrimmed:true,
       localNlpBoundaryProvider:true,
+      genericVerbCannotTrimFantasyName:true,
+      fantasyLocationVocabulary:true,
+      contextualFactionSemanticsStrengthened:true,
       knownAliasRecheckedAfterBoundaryTrim:true,
       oneOffUnknownSingletonsSuppressed:true,
       longestProperNameRuns:true,
