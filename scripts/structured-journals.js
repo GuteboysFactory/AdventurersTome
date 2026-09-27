@@ -2,6 +2,44 @@ const AT_MODULE_ID = "adventurers-tome";
 const AT_RULE_FLAG = "ruleLink";
 const AT_TOME_ROOT = "#adventurers-tome-app";
 
+function atTomeApp() {
+  try { return game.modules.get(AT_MODULE_ID)?.api?.app?.(); } catch (_error) { return null; }
+}
+
+function atAcquireEditorSession(owner = "structured-journal") {
+  const app = atTomeApp();
+  if (!app) return false;
+  app._atRichEditingCount = Math.max(0, Number(app._atRichEditingCount || 0)) + 1;
+  app._bulkUpdating = true;
+  Hooks.callAll("adventurersTomeAuthoringEditingChanged", {
+    active:true,
+    count:Number(app._atRichEditingCount || 0),
+    owner
+  });
+  return true;
+}
+
+function atReleaseEditorSession(owner = "structured-journal") {
+  const app = atTomeApp();
+  if (!app) return;
+  app._atRichEditingCount = Math.max(0, Number(app._atRichEditingCount || 0) - 1);
+  const count = Number(app._atRichEditingCount || 0);
+  Hooks.callAll("adventurersTomeAuthoringEditingChanged", {
+    active:count > 0,
+    count,
+    owner
+  });
+  if (count > 0) return;
+  window.setTimeout(() => {
+    if (Number(app._atRichEditingCount || 0) > 0) return;
+    app._bulkUpdating = false;
+    Hooks.callAll("adventurersTomeAuthoringSaveSettled", {
+      source:"structured-journals",
+      reason:"editor-session-ended"
+    });
+  }, 120);
+}
+
 function atEscapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -254,7 +292,11 @@ function atEditorPageRow(page, index) {
 }
 
 function atCloseTomeEditor(root) {
-  root?.querySelector(".at-tome-editor-overlay")?.remove();
+  const overlay = root?.querySelector(".at-tome-editor-overlay");
+  if (!overlay) return;
+  const held = overlay.dataset.atEditorSessionHeld === "true";
+  overlay.remove();
+  if (held) atReleaseEditorSession("rule-editor");
 }
 
 async function atOpenRuleEditor(journal) {
@@ -268,6 +310,7 @@ async function atOpenRuleEditor(journal) {
   const overlay = document.createElement("div");
   overlay.className = "at-tome-editor-overlay";
   overlay.dataset.journalId = journal.id;
+  overlay.dataset.atEditorSessionHeld = atAcquireEditorSession("rule-editor") ? "true" : "false";
   overlay.innerHTML = `
     <section class="at-tome-editor-shell">
       <header class="at-tome-editor-header">
