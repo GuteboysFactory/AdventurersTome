@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 1.7.0-qa.6.1 — Campaign Authoring Body-first Hotfix
+## 1.7.0-qa.7 — Campaign Authoring Body-first Hotfix
 
 - Adds a large Chronicle field directly to New Session so the GM can write or paste the full session log during creation.
 - Adds a matching Quest Overview field directly to New Quest.
