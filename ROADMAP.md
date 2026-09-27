@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.14` — Session / Quest Analysis Preview
+**Current development build:** `v1.7.0-qa.15` — Question & Alias Boundary Precision
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1900,3 +1900,20 @@ Campaign Intelligence is now visible in the Tome UI:
 Next after verification: Review / Confirm / Ignore workflow.
 
 QA: `docs/V1.7_QA14_SESSION_QUEST_ANALYSIS_PREVIEW.md`
+
+
+## v1.7.0-qa.15 — Question & Alias Boundary Precision
+
+**Status:** QA / IMPLEMENTED
+
+Focused precision fix from the live qa.14 Analysis Preview:
+
+- trim question/auxiliary starters before entity evaluation
+- re-run existing canonical-name / alias filtering on the trimmed candidate
+- eliminate false candidates such as `Is Dev`
+- preserve qa.13 verified new-entity detection
+- remain read-only
+
+After verification: Review / Confirm / Ignore workflow.
+
+QA: `docs/V1.7_QA15_QUESTION_ALIAS_BOUNDARY_PRECISION.md`

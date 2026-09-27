@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 1.7.0-qa.15 — Question & Alias Boundary Precision
+
+- Fixes the live qa.14 edge case where question/auxiliary starters such as "Is" could become part of a proper-name candidate, producing noise like "Is Dev".
+- Trims common question/auxiliary starters before canonical-name and known-alias filtering.
+- Preserves qa.13 verified Character/NPC, Location, Faction, Item and Lore candidates.
+- Remains read-only with no entity creation, Campaign Link writes or persistent alias learning.
+
+
 ## 1.7.0-qa.14 — Session / Quest Analysis Preview
 
 - Adds a GM-only, read-only Campaign Analysis panel directly to Session and Quest detail views.
