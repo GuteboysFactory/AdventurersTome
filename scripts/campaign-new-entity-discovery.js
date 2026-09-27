@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-new-entity-discovery";
-const VERSION = 2;
+const VERSION = 3;
 
 const BANDS = Object.freeze({
   HIGH:"high-confidence",
@@ -15,13 +15,17 @@ const LEADING_CONTEXT_WORDS = new Set([
   "before","after","during","behind","beside","beneath","above","near","on","in","at","from","to","toward","towards",
   "through","across","within","outside","inside","around","shortly","later","meanwhile","rather","according","with","without",
   "by","beyond","under","over",
-  "före","efter","under","bakom","bredvid","nära","på","i","från","till","mot","genom","över","med","utan"
+  "is","are","was","were","did","does","do","has","have","had","can","could","would","should","might","must",
+  "före","efter","under","bakom","bredvid","nära","på","i","från","till","mot","genom","över","med","utan",
+  "ar","var","kan","ska","skall","har","hade","vill","bor"
 ]);
 const COMMON_SINGLETONS = new Set([
   "the","a","an","and","but","or","before","after","during","according","near","on","in","at","from","to","toward","towards",
   "shortly","somewhere","meanwhile","later","then","when","while","there","here","this","that","these","those","he","she","they",
   "his","her","their","it","its","we","our","you","your","i","my","yes","no",
-  "den","det","en","ett","och","men","eller","före","efter","under","nära","på","i","från","till","mot","senare","där","här"
+  "is","are","was","were","did","does","do","has","have","had","can","could","would","should","might","must",
+  "den","det","en","ett","och","men","eller","före","efter","under","nära","på","i","från","till","mot","senare","där","här",
+  "ar","var","kan","ska","skall","har","hade","vill","bor"
 ]);
 
 const CHARACTER_TITLES = new Set([
@@ -668,6 +672,8 @@ function audit() {
       knownCanonicalNamesFiltered:true,
       knownSingleTokenAliasesFiltered:true,
       leadingContextWordsTrimmed:true,
+      questionAuxiliaryStartersTrimmed:true,
+      knownAliasRecheckedAfterBoundaryTrim:true,
       oneOffUnknownSingletonsSuppressed:true,
       longestProperNameRuns:true,
       repeatedMentionsBoostDetectionOnly:true,
