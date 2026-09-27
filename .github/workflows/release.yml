@@ -88,6 +88,7 @@ jobs:
           if [[ "$VERSION" == "1.7.0-qa.6" ]]; then test -f docs/V1.7_QA6_CAMPAIGN_AUTHORING_V2.md; test -f scripts/campaign-authoring-v2.js; test -f styles/campaign-authoring-v2.css; fi
           if [[ "$VERSION" == "1.7.0-qa.7" ]]; then test -f docs/V1.7_QA6_CAMPAIGN_AUTHORING_V2.md; test -f scripts/campaign-authoring-v2.js; test -f styles/campaign-authoring-v2.css; fi
           if [[ "$VERSION" == "1.7.0-qa.8" ]]; then test -f docs/V1.7_QA8_EDITOR_CONTINUITY_GUARD.md; test -f scripts/authoring-foundation.js; test -f scripts/adventurers-tome.js; fi
+          if [[ "$VERSION" == "1.7.0-qa.9" ]]; then test -f docs/V1.7_QA9_UNIVERSAL_TOME_AUTHORING.md; test -f scripts/authoring-foundation.js; test -f scripts/campaign-authoring-v2.js; test -f scripts/structured-journals.js; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
