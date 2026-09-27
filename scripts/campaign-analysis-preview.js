@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-analysis-preview";
-const VERSION = 1;
+const VERSION = 2;
 
 const TYPE_META = Object.freeze({
   character:{ label:"Character / NPC", icon:"fa-user" },
@@ -100,6 +100,10 @@ function newApi() {
   return game.modules.get(MODULE_ID)?.api?.campaignNewEntityDiscovery || null;
 }
 
+function learningApi() {
+  return game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+}
+
 function decisionRank(decision) {
   const key = clean(decision);
   if (["resolved-canonical","resolved-semantic","resolved-external"].includes(key)) return 5;
@@ -183,7 +187,8 @@ function newRowsForSource(uuid) {
       typeConfidence:Number(row?.classification?.confidence || 0),
       disposition:clean(row?.disposition),
       mentionCount:Number(row?.mentionCount || 1),
-      identityStatus:clean(row?.identity?.status || "no-existing-canonical-match")
+      identityStatus:clean(row?.identity?.status || "no-existing-canonical-match"),
+      learning:clone(row?.learning || null)
     }))
     .filter((row) => row.text)
     .sort((a, b) =>
@@ -200,9 +205,11 @@ function snapshotForSource(uuid) {
     contract:CONTRACT,
     version:VERSION,
     sourceUuid:clean(uuid),
-    readOnly:true,
+    readOnly:false,
     writesPerformed:false,
-    reviewActionsEnabled:false,
+    campaignDataWrites:false,
+    learningWritesEnabled:true,
+    reviewActionsEnabled:true,
     known:clone(known),
     possibleNew:clone(possibleNew),
     summary:{
@@ -235,12 +242,32 @@ function newCard(row) {
   const detection = percent(row.detectionConfidence);
   const typeConfidence = percent(row.typeConfidence);
   const confidenceClass = row.disposition === "high-confidence" ? "is-high" : row.disposition === "review" ? "is-review" : "is-weak";
+  const learned = clean(row?.learning?.action);
+  const learnedLabel = learned === "confirmed"
+    ? '<span class="at-analysis-learned is-confirmed"><i class="fa-solid fa-circle-check"></i> Confirmed</span>'
+    : learned === "linked"
+      ? `<span class="at-analysis-learned is-linked"><i class="fa-solid fa-link"></i> Linked to ${escapeHtml(row?.learning?.targetName || "existing")}</span>`
+      : "";
+
+  const actions = learned
+    ? `<div class="at-analysis-actions">
+        <button type="button" data-at-ci-action="clear" data-at-ci-text="${escapeHtml(row.text)}" title="Clear learned decision"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+      </div>`
+    : `<div class="at-analysis-actions">
+        <button type="button" data-at-ci-action="confirm" data-at-ci-text="${escapeHtml(row.text)}" data-at-ci-kind="${escapeHtml(row.kind)}" title="Confirm as a real campaign entity"><i class="fa-solid fa-check"></i> Confirm</button>
+        <button type="button" data-at-ci-action="ignore-once" data-at-ci-text="${escapeHtml(row.text)}" title="Ignore only in this Session / Quest"><i class="fa-solid fa-eye-slash"></i> Ignore once</button>
+        <button type="button" data-at-ci-action="suppress" data-at-ci-text="${escapeHtml(row.text)}" title="Suppress this name in this campaign"><i class="fa-solid fa-ban"></i> Suppress</button>
+        <button type="button" data-at-ci-action="link" data-at-ci-text="${escapeHtml(row.text)}" title="Teach Tome that this name refers to an existing entity"><i class="fa-solid fa-link"></i> Link existing</button>
+      </div>`;
+
   return `
-    <article class="at-analysis-entity at-analysis-new ${confidenceClass}">
+    <article class="at-analysis-entity at-analysis-new ${confidenceClass}" data-at-ci-candidate="${escapeHtml(row.text)}">
       <span class="at-analysis-entity-icon"><i class="fa-solid ${meta.icon}"></i></span>
       <span class="at-analysis-entity-copy">
         <strong>${escapeHtml(row.text)}</strong>
         <small>${escapeHtml(meta.label)} · ${row.mentionCount} mention${row.mentionCount === 1 ? "" : "s"}</small>
+        ${learnedLabel}
+        ${actions}
       </span>
       <span class="at-analysis-confidence" title="Detection ${detection}% · Type ${typeConfidence}%">
         <b>${Math.max(detection, typeConfidence)}%</b><em>${escapeHtml(row.disposition || "candidate")}</em>
@@ -261,9 +288,9 @@ function panelHtml(source, data) {
     <section class="at-campaign-analysis-preview" data-at-campaign-analysis-preview data-source-uuid="${escapeHtml(source.uuid)}">
       <header class="at-analysis-header">
         <div>
-          <span class="at-kicker">Campaign Intelligence · Read-only</span>
+          <span class="at-kicker">Campaign Intelligence · GM Review</span>
           <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Campaign Analysis</h3>
-          <p>Direct mentions from this ${source.kind === "quest" ? "Quest" : "Session"} only. No campaign data is changed.</p>
+          <p>Review detected entities from this ${source.kind === "quest" ? "Quest" : "Session"}. Feedback teaches this campaign; no entity is created yet.</p>
         </div>
         <div class="at-analysis-summary">
           <span><strong>${data.summary.known}</strong><small>known</small></span>
@@ -290,8 +317,8 @@ function panelHtml(source, data) {
       </div>
 
       <footer class="at-analysis-footer">
-        <i class="fa-solid fa-shield-halved"></i>
-        Analysis Preview only · Confirm / Ignore / Create actions are intentionally disabled in qa.14.
+        <i class="fa-solid fa-brain"></i>
+        GM feedback is stored per campaign. Confirm / Ignore / Suppress / Link Existing do not create entities or write Campaign Links in qa.18.
       </footer>
     </section>`;
 }
@@ -315,6 +342,99 @@ function mountTarget(source) {
     host:detail,
     before:detail.querySelector(".at-quest-detail-grid")
   };
+}
+
+async function chooseLinkTarget(candidateText) {
+  const api = learningApi();
+  const targets = api?.linkTargets?.() || [];
+  if (!targets.length) {
+    ui.notifications.warn("Adventurer's Tome: No visible existing campaign entities are available to link.");
+    return null;
+  }
+
+  const options = targets.map((target) =>
+    `<option value="${escapeHtml(target.uuid)}">${escapeHtml(target.name)} · ${escapeHtml(target.kind)}</option>`
+  ).join("");
+
+  const result = await foundry.applications.api.DialogV2.wait({
+    window:{ title:`Campaign Intelligence · Link "${clean(candidateText)}"`, resizable:true },
+    position:{ width:620, height:"auto" },
+    content:`<form class="at-analysis-link-dialog">
+      <p>Teach Tome that <strong>${escapeHtml(candidateText)}</strong> refers to an existing campaign entity.</p>
+      <label><span>Existing entity</span><select name="targetUuid">${options}</select></label>
+      <p class="hint">This stores campaign learning only. It does not create a Campaign Link yet.</p>
+    </form>`,
+    modal:false,
+    rejectClose:false,
+    buttons:[
+      {
+        action:"link",
+        label:"Link Existing",
+        icon:"fa-solid fa-link",
+        default:true,
+        callback:(_event, button) => clean(button.form?.elements?.targetUuid?.value)
+      },
+      { action:"cancel", label:"Cancel", callback:() => null }
+    ]
+  });
+  return clean(result);
+}
+
+async function applyLearningAction(button, source) {
+  if (!(button instanceof HTMLElement) || !source?.uuid) return false;
+  const api = learningApi();
+  if (!api) throw new Error("Campaign Review Learning API is unavailable.");
+
+  const action = clean(button.dataset.atCiAction);
+  const text = clean(button.dataset.atCiText);
+  const kind = clean(button.dataset.atCiKind || "unknown");
+  if (!text) return false;
+
+  button.disabled = true;
+  try {
+    if (action === "confirm") {
+      await api.confirm({ text, kind, sourceUuid:source.uuid });
+      ui.notifications.info(`Campaign Intelligence: confirmed ${text}.`);
+    } else if (action === "ignore-once") {
+      await api.ignoreOnce({ text, sourceUuid:source.uuid });
+      ui.notifications.info(`Campaign Intelligence: ignored ${text} for this source.`);
+    } else if (action === "suppress") {
+      await api.suppress({ text });
+      ui.notifications.info(`Campaign Intelligence: suppressed ${text} for this campaign.`);
+    } else if (action === "link") {
+      const targetUuid = await chooseLinkTarget(text);
+      if (!targetUuid) return false;
+      await api.linkExisting({ text, sourceUuid:source.uuid, targetUuid });
+      const learned = api.decisionFor(text, { sourceUuid:source.uuid });
+      ui.notifications.info(`Campaign Intelligence: ${text} linked to ${learned?.targetName || "existing entity"}.`);
+    } else if (action === "clear") {
+      await api.clear({ text, sourceUuid:source.uuid, scope:"global" });
+      ui.notifications.info(`Campaign Intelligence: cleared learned decision for ${text}.`);
+    } else {
+      return false;
+    }
+
+    await newApi()?.scan?.({ rescanDiscovery:false, rescanMentions:false });
+    scheduleRender(0);
+    return true;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function wireReviewActions(panel, source) {
+  panel?.querySelectorAll?.("[data-at-ci-action]")?.forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      applyLearningAction(button, source).catch((error) => {
+        failures += 1;
+        lastError = String(error?.message || error);
+        console.error("Adventurer's Tome | Campaign review action failed", error);
+        ui.notifications.error(`Campaign Intelligence: ${lastError}`);
+      });
+    });
+  });
 }
 
 function renderPreview() {
@@ -349,6 +469,7 @@ function renderPreview() {
   if (target.before) target.host.insertBefore(panel, target.before);
   else target.host.append(panel);
 
+  wireReviewActions(panel, source);
   renders += 1;
   pending = false;
   return true;
@@ -377,9 +498,11 @@ function audit() {
     version:VERSION,
     healthy:failures === 0,
     gmOnlyPreview:true,
-    readOnly:true,
+    readOnly:false,
     writesPerformed:false,
-    reviewActionsEnabled:false,
+    campaignDataWrites:false,
+    learningWritesEnabled:true,
+    reviewActionsEnabled:true,
     respectsLiveAuthoring:true,
     source:source ? { kind:source.kind, uuid:source.uuid, name:source.journal.name } : null,
     mounted:Boolean(document.querySelector("[data-at-campaign-analysis-preview]")),
@@ -393,9 +516,11 @@ function audit() {
 const publicApi = Object.freeze({
   contract:CONTRACT,
   version:VERSION,
-  readOnly:true,
+  readOnly:false,
   writesPerformed:false,
-  reviewActionsEnabled:false,
+  campaignDataWrites:false,
+  learningWritesEnabled:true,
+  reviewActionsEnabled:true,
   snapshotForSource,
   refresh:() => scheduleRender(0),
   audit
@@ -422,6 +547,7 @@ Hooks.on("renderApplicationV2", () => {
 
 Hooks.on("adventurersTomeSemanticMentionDiscoveryUpdated", () => scheduleRender(60));
 Hooks.on("adventurersTomeNewEntityDiscoveryUpdated", () => scheduleRender(60));
+Hooks.on("adventurersTomeCampaignLearningUpdated", () => scheduleRender(60));
 Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
   if (!active && pending) scheduleRender(140);
 });
