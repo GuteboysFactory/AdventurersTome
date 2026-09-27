@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.12` — Unknown / New Entity Discovery
+**Current development build:** `v1.7.0-qa.13` — New Entity Candidate Precision
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1865,3 +1865,20 @@ Campaign Intelligence now extends beyond known-name mention discovery:
 Primary live QA source: **Session QA — The Broken Road to Hollowwatch**.
 
 QA: `docs/V1.7_QA12_NEW_ENTITY_DISCOVERY.md`
+
+
+## v1.7.0-qa.13 — New Entity Candidate Precision
+
+**Status:** QA / IMPLEMENTED
+
+Focused precision pass over qa.12 live results:
+
+- trims leading context/preposition words from candidate runs
+- suppresses one-off unknown single-token prose noise
+- preserves meaningful Character/NPC, Location, Faction, Item and Lore candidates
+- exposes suppressed candidates for diagnostics
+- remains read-only
+
+Next after verification: Session / Quest Analysis Preview.
+
+QA: `docs/V1.7_QA13_NEW_ENTITY_CANDIDATE_PRECISION.md`
