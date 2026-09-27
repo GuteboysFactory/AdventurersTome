@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.13 — New Entity Candidate Precision
+
+- Tightens qa.12 Unknown/New Entity Discovery using the live Session 7 baseline.
+- Trims leading context/preposition words before proper-name candidate evaluation.
+- Suppresses one-off single-token candidates when they have no meaningful entity-type evidence.
+- Keeps suppressed noise available through a diagnostic suppressedForSource(uuid) API.
+- Preserves useful Character/NPC, Location, Faction, Item and Lore detection.
+- Remains read-only with no entity creation or Campaign Link writes.
+
+
 ## 1.7.0-qa.12 — Unknown / New Entity Discovery
 
 - Adds a read-only Campaign Intelligence layer that detects likely proper-name entities in Session and Quest prose when they do not resolve to an existing canonical campaign identity.
