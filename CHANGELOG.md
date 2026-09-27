@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.8 — Editor Continuity Guard
+
+- Fixes Session Chronicle / Quest Overview autosave ending the active writing session through downstream Tome background renders.
+- Tracks active Tome editors centrally and keeps autosave independent from edit-mode lifetime.
+- Registry, Campaign Discovery and Mention Discovery may continue updating while the GM writes, but full Tome background renders are deferred while an editor owns the caret.
+- Deferred refreshes coalesce and resume after the user deliberately exits editing and the save lock settles.
+- Applies centrally to the shared Journal-backed authoring path instead of special-casing Sessions or Quests.
+- Campaign Link persistence remains off.
+
+
 ## 1.7.0-qa.7 — Campaign Authoring Body-first Hotfix
 
 - Adds a large Chronicle field directly to New Session so the GM can write or paste the full session log during creation.
