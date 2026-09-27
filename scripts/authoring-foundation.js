@@ -47,6 +47,22 @@ function atAfCanViewPage(page, journal) {
 function atAfSetBulk(value) {
   const app = atAfApp();
   if (app) app._bulkUpdating = value;
+  if (!value) Hooks.callAll("adventurersTomeAuthoringSaveSettled", { source:"authoring-foundation" });
+}
+
+function atAfSetEditingCount(delta, node = null) {
+  const app = atAfApp();
+  if (!app) return;
+  const current = Math.max(0, Number(app._atRichEditingCount || 0));
+  const next = Math.max(0, current + Number(delta || 0));
+  app._atRichEditingCount = next;
+  Hooks.callAll("adventurersTomeAuthoringEditingChanged", {
+    active:next > 0,
+    count:next,
+    journalId:String(node?.dataset?.atAfJournalId || ""),
+    pageId:String(node?.dataset?.atAfPageId || ""),
+    kind:String(node?.dataset?.atAfKind || "")
+  });
 }
 
 function atAfBadge(root = document.querySelector(ATAF_ROOT)) {
@@ -276,6 +292,7 @@ function atAfBegin(node, event) {
   event?.stopImmediatePropagation?.();
   node.dataset.atAfEditing = "true";
   node.classList.add("is-editing");
+  atAfSetEditingCount(1, node);
   if (node.dataset.atAfMode === "rich") {
     const page = journal.pages?.get(String(node.dataset.atAfPageId || ""));
     if (!page) return;
@@ -304,14 +321,23 @@ function atAfScheduleNode(node) {
 
 async function atAfFinish(node) {
   if (!node || node.dataset.atAfEditing !== "true") return;
-  await atAfFlush(atAfKey(node));
-  node.contentEditable = "false";
-  node.dataset.atAfEditing = "false";
-  node.classList.remove("is-editing");
-  if (node.dataset.atAfMode === "rich") {
-    const journal = game.journal?.get(String(node.dataset.atAfJournalId || ""));
-    const page = journal?.pages?.get(String(node.dataset.atAfPageId || ""));
-    if (page) node.innerHTML = await atAfEnrich(page);
+  try {
+    await atAfFlush(atAfKey(node));
+    node.contentEditable = "false";
+    node.dataset.atAfEditing = "false";
+    node.classList.remove("is-editing");
+    if (node.dataset.atAfMode === "rich") {
+      const journal = game.journal?.get(String(node.dataset.atAfJournalId || ""));
+      const page = journal?.pages?.get(String(node.dataset.atAfPageId || ""));
+      if (page) node.innerHTML = await atAfEnrich(page);
+    }
+  } finally {
+    if (node.dataset.atAfEditing === "true") {
+      node.contentEditable = "false";
+      node.dataset.atAfEditing = "false";
+      node.classList.remove("is-editing");
+    }
+    atAfSetEditingCount(-1, node);
   }
 }
 
