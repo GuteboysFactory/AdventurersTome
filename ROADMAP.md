@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.8` — Editor Continuity Guard
+**Current development build:** `v1.7.0-qa.9` — Universal Tome Authoring Convergence
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1803,3 +1803,18 @@ Central authoring-lifecycle hardening for Journal-backed Tome editors:
 - covers Session Chronicle and Quest Overview through the same shared authoring path
 
 QA: `docs/V1.7_QA8_EDITOR_CONTINUITY_GUARD.md`
+
+
+## v1.7.0-qa.9 — Universal Tome Authoring Convergence
+
+**Status:** QA / IMPLEMENTED
+
+- World editor-session behavior becomes the reference model for Tome authoring.
+- Session/Quest Journal-backed editors keep the render lock through autosave.
+- GM-facing generic Create controls are removed from Sessions/Quests.
+- Generic Page buttons are removed from normal Session/Quest detail toolbars.
+- Advanced Pages remains the path for extra Journal pages.
+- Rules participate in the same render-lock lifecycle.
+- Campaign Intelligence remains unchanged and continues after authoring convergence is verified.
+
+QA: `docs/V1.7_QA9_UNIVERSAL_TOME_AUTHORING.md`

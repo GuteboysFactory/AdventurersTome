@@ -433,10 +433,8 @@ function enhancePage(page, section) {
 
   // The old Alpha 3 creator remains available to delegated Editors, but GMs get
   // the task-specific Authoring 2.0 flow instead of two competing creators.
-  for (const legacy of page.querySelectorAll(`[data-at-a3-create="${section}"]`)) {
-    legacy.classList.add("at-ca2-retired-create");
-    legacy.setAttribute("aria-hidden", "true");
-    legacy.tabIndex = -1;
+  for (const legacy of page.querySelectorAll(`[data-at-a3-create="${section}"], [data-at-af-create="${section}"]`)) {
+    legacy.remove();
   }
 
   page.querySelector(`[data-at-ca2-strip="${section}"]`)?.remove();
@@ -562,7 +560,7 @@ function audit() {
     explorerSelectionRequired:false,
     creationBodyInput:true,
     taskFocusedDetail:true,
-    legacyGmCreatorHidden:true,
+    legacyGmCreatorHidden:!Boolean(root?.querySelector('[data-at-af-create="sessions"], [data-at-af-create="quests"], [data-at-a3-create="sessions"], [data-at-a3-create="quests"]')),
     canonicalStorage:{
       sessions:"JournalEntry -> Chronicle JournalEntryPage.text.content",
       quests:"JournalEntry -> Overview JournalEntryPage.text.content"
