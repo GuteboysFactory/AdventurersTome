@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.16` — NLP Provider Foundation
+**Current development build:** `v1.7.0-qa.17` — NLP Arbitration & Fantasy Entity Semantics
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1938,3 +1938,21 @@ This reduces the need for a growing hand-maintained grammar/regex list while pre
 After verification: Review / Confirm / Ignore workflow.
 
 QA: `docs/V1.7_QA16_NLP_PROVIDER_FOUNDATION.md`
+
+
+## v1.7.0-qa.17 — NLP Arbitration & Fantasy Entity Semantics
+
+**Status:** QA / IMPLEMENTED
+
+- generic Verb tags can no longer trim fantasy name boundaries
+- stronger closed-class / auxiliary grammar tags retain trim authority
+- fantasy Location semantic vocabulary expanded
+- contextual Faction evidence strengthened
+- Compromise remains advisory and Tome remains identity authority
+- no writes introduced
+
+Live regression target: `Sister Vaela / Frostgate Abbey / Silver Choir`.
+
+After verification: Review / Confirm / Ignore workflow.
+
+QA: `docs/V1.7_QA17_NLP_ARBITRATION_FANTASY_SEMANTICS.md`
