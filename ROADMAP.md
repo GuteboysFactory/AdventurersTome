@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.11` — Source Parity Live-Authoring Render Guard
+**Current development build:** `v1.7.0-qa.12` — Unknown / New Entity Discovery
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1846,3 +1846,22 @@ Runtime tracing identified legacy Foundry Source Parity as the remaining compone
 - Campaign Intelligence remains unchanged
 
 QA: `docs/V1.7_QA11_SOURCE_PARITY_LIVE_AUTHORING_GUARD.md`
+
+
+## v1.7.0-qa.12 — Unknown / New Entity Discovery
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Intelligence now extends beyond known-name mention discovery:
+
+- scan viewer-visible Session / Quest prose for proper-name shaped candidates
+- filter known canonical campaign identities
+- keep Detection, Entity Type and Identity confidence separate
+- classify likely Character/NPC, Location, Faction, Item and Lore candidates from lexical/context signals
+- aggregate repeated mentions without turning repetition into identity certainty
+- expose read-only candidates through `campaignNewEntityDiscovery`
+- no entity creation and no Campaign Link persistence
+
+Primary live QA source: **Session QA — The Broken Road to Hollowwatch**.
+
+QA: `docs/V1.7_QA12_NEW_ENTITY_DISCOVERY.md`
