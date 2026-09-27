@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.7` — Campaign Authoring 2.0 body-first hotfix  
+**Current development build:** `v1.7.0-qa.8` — Editor Continuity Guard
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1787,3 +1787,19 @@ Foundry V14 runtime verification is still pending and must be completed separate
 - Generic page management remains available through Advanced Pages.
 - Competing legacy GM create UI is hidden on Sessions/Quests while delegated-editor behavior remains unchanged.
 - Campaign Intelligence and Campaign Link persistence are unchanged.
+
+
+## v1.7.0-qa.8 — Editor Continuity Guard
+
+**Status:** QA / IMPLEMENTED
+
+Central authoring-lifecycle hardening for Journal-backed Tome editors:
+
+- autosave no longer implies end-edit
+- active editor count guards full Tome background renders
+- background Registry / Discovery / Mention work remains enabled
+- render requests coalesce while authoring is active
+- one pending refresh resumes after deliberate edit exit
+- covers Session Chronicle and Quest Overview through the same shared authoring path
+
+QA: `docs/V1.7_QA8_EDITOR_CONTINUITY_GUARD.md`
