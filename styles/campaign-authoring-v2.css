@@ -68,3 +68,138 @@
     width:100%;
   }
 }
+
+
+/* qa.6.1 — task-first Chronicle / Quest body authoring */
+#adventurers-tome-app .at-ca2-dialog {
+  width:min(760px, calc(100vw - 48px));
+  max-height:min(86vh, 920px);
+  overflow:auto;
+}
+
+#adventurers-tome-app .at-ca2-body-field {
+  display:grid;
+  gap:6px;
+}
+
+#adventurers-tome-app .at-ca2-body-field > span {
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+}
+
+#adventurers-tome-app .at-ca2-body-field small {
+  opacity:.68;
+  font-size:.74rem;
+  font-weight:400;
+  text-transform:none;
+  letter-spacing:0;
+}
+
+#adventurers-tome-app .at-ca2-body-field textarea {
+  width:100%;
+  min-height:260px;
+  resize:vertical;
+  line-height:1.55;
+  padding:12px 14px;
+}
+
+#adventurers-tome-app .at-ca2-heading-new {
+  margin-left:8px;
+}
+
+#adventurers-tome-app .at-ca2-retired-create {
+  display:none !important;
+}
+
+#adventurers-tome-app .at-ca2-task-detail .at-ca2-advanced-only {
+  display:none !important;
+}
+
+#adventurers-tome-app .at-ca2-task-detail .at-authoring-pages {
+  margin-top:18px;
+  border-color:rgba(214,178,108,.28);
+}
+
+#adventurers-tome-app .at-ca2-task-detail .at-af-pages-head {
+  display:none;
+}
+
+#adventurers-tome-app .at-ca2-task-detail .at-af-pages-layout {
+  display:block;
+  min-height:300px;
+}
+
+#adventurers-tome-app .at-ca2-task-detail .at-af-pages-layout > nav {
+  display:none;
+}
+
+#adventurers-tome-app .at-ca2-task-detail .at-af-pages-document {
+  max-height:none;
+  min-height:300px;
+  padding:18px 20px 22px;
+  overflow:visible;
+}
+
+#adventurers-tome-app .at-ca2-primary-writing-surface > header {
+  margin-bottom:14px;
+}
+
+#adventurers-tome-app .at-ca2-primary-writing-surface > header span {
+  display:none;
+}
+
+#adventurers-tome-app .at-ca2-primary-writing-surface > header h3 {
+  font-size:1.35rem;
+}
+
+#adventurers-tome-app .at-ca2-primary-writing-surface .at-af-page-text {
+  min-height:220px;
+  font-size:1rem;
+  line-height:1.65;
+}
+
+#adventurers-tome-app .at-ca2-empty-writing {
+  width:100%;
+  min-height:150px;
+  margin:0 0 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  border:1px dashed rgba(214,178,108,.32);
+  background:rgba(214,178,108,.035);
+  color:#d8bd7b;
+}
+
+#adventurers-tome-app .at-ca2-empty-writing > i {
+  font-size:1.35rem;
+}
+
+#adventurers-tome-app .at-ca2-empty-writing > span {
+  display:grid;
+  gap:4px;
+  text-align:left;
+}
+
+#adventurers-tome-app .at-ca2-empty-writing small {
+  opacity:.72;
+  font-weight:400;
+}
+
+#adventurers-tome-app .at-ca2-page-tools {
+  display:flex;
+  justify-content:flex-end;
+  padding:0 16px 14px;
+}
+
+#adventurers-tome-app .at-ca2-page-tools button {
+  opacity:.8;
+}
+
+@media (max-width:760px) {
+  #adventurers-tome-app .at-ca2-body-field textarea {
+    min-height:220px;
+  }
+}
