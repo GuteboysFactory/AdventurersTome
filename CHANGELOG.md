@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.10 — Live Authoring DOM Preservation
+
+- Fixes the remaining Session/Quest autosave focus loss at its actual local-render root cause.
+- Session/Quest Journal page shells are no longer removed/rebuilt while they contain a live editor, even when autosave changes JournalEntryPage modifiedTime.
+- Alpha6 page-navigation rebuilds are also deferred while authoring is active.
+- Deferred structural refresh resumes after the user deliberately exits editing.
+- World authoring remains unchanged; Rules keep qa.9 editor-session protection.
+- Campaign Intelligence and Campaign Link persistence are unchanged.
+
+
 ## 1.7.0-qa.9 — Universal Tome Authoring Convergence
 
 - Converges Tome authoring around the World editor-session model instead of leaving World as a special case.

@@ -257,13 +257,40 @@ async function atAfEnrich(page) {
   try { return await TextEditor.enrichHTML(host.innerHTML, { async: true, documents: true, secrets: false, relativeTo: page }); } catch (_err) { return host.innerHTML; }
 }
 
+function atAfHasLiveEditor(container) {
+  if (!container) return false;
+  const active = container.querySelector(
+    "[data-at-af-editing='true'], [data-at-ep-editing='true'], [data-at-wie-rich-editing='true'], .at-wie-rich-editor[contenteditable='true'], [data-at-ep-editor][contenteditable='true'], [contenteditable='true'].is-editing"
+  );
+  if (active) return true;
+
+  const focused = document.activeElement;
+  if (!focused || !container.contains(focused)) return false;
+  return Boolean(
+    focused.isContentEditable
+    || focused.closest?.("[data-at-af-editing='true'], [data-at-ep-editing='true'], [data-at-wie-rich-editing='true'], [contenteditable='true']")
+  );
+}
+
 async function atAfRenderPages(detail) {
   if (!detail || detail.section === "world") return;
   const { container, journal, section } = detail;
   const pages = [...(journal.pages?.contents ?? [])].filter((page) => atAfCanViewPage(page, journal)).sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   const stamp = `${journal.id}:${pages.map((page) => `${page.id}:${page._stats?.modifiedTime || page.sort || 0}`).join("|")}`;
   const existing = container.querySelector(`.at-authoring-pages[data-journal-id="${CSS.escape(journal.id)}"]`);
-  if (existing?.dataset?.stamp === stamp) return;
+
+  // Live authoring owns this DOM subtree until the user deliberately exits.
+  // Autosave changes JournalEntryPage modifiedTime, but that must not cause the
+  // page shell containing the active contenteditable/caret to be removed.
+  if (existing && atAfHasLiveEditor(existing)) {
+    existing.dataset.atAfDeferredRefresh = "true";
+    return;
+  }
+
+  if (existing?.dataset?.stamp === stamp) {
+    existing.removeAttribute("data-at-af-deferred-refresh");
+    return;
+  }
   existing?.remove();
 
   const shell = document.createElement("section");
@@ -596,3 +623,7 @@ Hooks.once("ready", () => {
 for (const hookName of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage", "createFolder", "updateFolder", "deleteFolder"]) {
   Hooks.on(hookName, () => window.setTimeout(atAfQueue, 40));
 }
+
+Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
+  if (!active) window.setTimeout(atAfQueue, 140);
+});

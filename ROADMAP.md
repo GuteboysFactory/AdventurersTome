@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.9` — Universal Tome Authoring Convergence
+**Current development build:** `v1.7.0-qa.10` — Live Authoring DOM Preservation
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1818,3 +1818,16 @@ QA: `docs/V1.7_QA8_EDITOR_CONTINUITY_GUARD.md`
 - Campaign Intelligence remains unchanged and continues after authoring convergence is verified.
 
 QA: `docs/V1.7_QA9_UNIVERSAL_TOME_AUTHORING.md`
+
+
+## v1.7.0-qa.10 — Live Authoring DOM Preservation
+
+**Status:** QA / IMPLEMENTED
+
+- preserves the exact Session/Quest page-shell DOM while a live editor is active
+- autosave revision changes no longer permit `atAfRenderPages()` to remove the active contenteditable node
+- Alpha6 page-navigation rebuilds are deferred during live authoring
+- deferred structural refresh resumes after deliberate editor exit
+- World and Campaign Intelligence behavior are unchanged
+
+QA: `docs/V1.7_QA10_LIVE_AUTHORING_DOM_PRESERVATION.md`
