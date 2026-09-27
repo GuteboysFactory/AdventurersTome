@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-new-entity-discovery";
-const VERSION = 1;
+const VERSION = 2;
 
 const BANDS = Object.freeze({
   HIGH:"high-confidence",
@@ -11,6 +11,12 @@ const BANDS = Object.freeze({
 
 const CONNECTORS = new Set(["of","the","de","da","del","van","von","af","av"]);
 const LEADING_ARTICLES = new Set(["the","a","an","den","det","en","ett"]);
+const LEADING_CONTEXT_WORDS = new Set([
+  "before","after","during","behind","beside","beneath","above","near","on","in","at","from","to","toward","towards",
+  "through","across","within","outside","inside","around","shortly","later","meanwhile","rather","according","with","without",
+  "by","beyond","under","over",
+  "före","efter","under","bakom","bredvid","nära","på","i","från","till","mot","genom","över","med","utan"
+]);
 const COMMON_SINGLETONS = new Set([
   "the","a","an","and","but","or","before","after","during","according","near","on","in","at","from","to","toward","towards",
   "shortly","somewhere","meanwhile","later","then","when","while","there","here","this","that","these","those","he","she","they",
@@ -53,6 +59,7 @@ const stats = {
   rawCandidates:0,
   knownFiltered:0,
   commonFiltered:0,
+  precisionFiltered:0,
   aliasMerged:0,
   candidates:0,
   highConfidence:0,
@@ -184,9 +191,17 @@ function tokenize(text) {
   return rows;
 }
 
-function stripLeadingArticle(tokens) {
+function stripLeadingContext(tokens) {
   const out = [...tokens];
-  while (out.length > 1 && LEADING_ARTICLES.has(out[0].normalized)) out.shift();
+
+  while (out.length > 1 && LEADING_CONTEXT_WORDS.has(out[0].normalized)) {
+    out.shift();
+  }
+
+  while (out.length && LEADING_ARTICLES.has(out[0].normalized)) {
+    out.shift();
+  }
+
   return out;
 }
 
@@ -212,7 +227,7 @@ function candidateRuns(text) {
       lastEnd = tokens[j].end;
     }
 
-    const trimmed = stripLeadingArticle(run);
+    const trimmed = stripLeadingContext(run);
     if (!trimmed.length) continue;
 
     const first = trimmed[0];
@@ -440,6 +455,7 @@ async function scan(options = {}) {
   stats.rawCandidates = 0;
   stats.knownFiltered = 0;
   stats.commonFiltered = 0;
+  stats.precisionFiltered = 0;
   stats.aliasMerged = 0;
   stats.candidates = 0;
   stats.highConfidence = 0;
@@ -467,6 +483,7 @@ async function scan(options = {}) {
 
   const knownIndex = knownIdentityIndex(discoverySnapshot, mentionSnapshot);
   const candidates = [];
+  const suppressedCandidates = [];
 
   for (const source of campaignSources(user)) {
     const { journal, kind } = source;
@@ -513,6 +530,35 @@ async function scan(options = {}) {
           classification
         };
         const detection = detectionAssessment(representative, occurrences.length);
+
+        // Conservative precision gate: a one-off, single-token capitalized word
+        // with no classifiable entity evidence is much more likely to be a
+        // sentence-start noun/adverb/verb than a campaign entity. Keep it in a
+        // suppressed diagnostic bucket instead of presenting it as a candidate.
+        if (
+          grouped.tokenCount === 1
+          && occurrences.length === 1
+          && classification.kind === "unknown"
+          && classification.confidence < 0.45
+        ) {
+          suppressedCandidates.push({
+            id:`suppressed:${page.uuid}:${grouped.normalized}`,
+            sourceKind:kind,
+            sourceJournalUuid:journal.uuid,
+            sourcePageUuid:page.uuid,
+            sourceName:journal.name,
+            pageName:page.name,
+            text:grouped.text,
+            normalized:grouped.normalized,
+            mentionCount:1,
+            detection,
+            classification,
+            reason:"one-off-single-token-without-entity-evidence",
+            readOnly:true
+          });
+          stats.precisionFiltered += 1;
+          continue;
+        }
 
         const disposition = detection.band === BANDS.HIGH && classification.confidence >= 0.45
           ? BANDS.HIGH
@@ -570,6 +616,7 @@ async function scan(options = {}) {
     sourceScope:["session","quest"],
     confidenceModel:"detection-type-and-identity-separated",
     candidates:clone(candidates),
+    suppressedCandidates:clone(suppressedCandidates),
     summary:{
       sources:stats.sources,
       pages:stats.pages,
@@ -579,6 +626,7 @@ async function scan(options = {}) {
       weak:stats.weak,
       knownFiltered:stats.knownFiltered,
       commonFiltered:stats.commonFiltered,
+      precisionFiltered:stats.precisionFiltered,
       aliasMerged:stats.aliasMerged
     }
   });
@@ -598,6 +646,13 @@ function candidatesForSource(uuid) {
   ));
 }
 
+function suppressedForSource(uuid) {
+  const wanted = clean(uuid);
+  return clone((lastSnapshot?.suppressedCandidates || []).filter((row) =>
+    row.sourceJournalUuid === wanted || row.sourcePageUuid === wanted
+  ));
+}
+
 function audit() {
   return {
     contract:CONTRACT,
@@ -612,6 +667,8 @@ function audit() {
     policy:{
       knownCanonicalNamesFiltered:true,
       knownSingleTokenAliasesFiltered:true,
+      leadingContextWordsTrimmed:true,
+      oneOffUnknownSingletonsSuppressed:true,
       longestProperNameRuns:true,
       repeatedMentionsBoostDetectionOnly:true,
       contextualTypeClassification:true,
@@ -633,6 +690,7 @@ const publicApi = Object.freeze({
   scan,
   snapshot,
   candidatesForSource,
+  suppressedForSource,
   audit
 });
 
