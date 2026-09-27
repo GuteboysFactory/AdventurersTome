@@ -142,9 +142,21 @@ function atA6NavigatorMarkup(detail) {
   </section>`;
 }
 
+function atA6HasLiveEditor(container) {
+  if (!container) return false;
+  const active = container.querySelector(
+    "[data-at-af-editing='true'], [data-at-ep-editing='true'], [data-at-wie-rich-editing='true'], .at-wie-rich-editor[contenteditable='true'], [data-at-ep-editor][contenteditable='true'], [contenteditable='true'].is-editing"
+  );
+  if (active) return true;
+  const focused = document.activeElement;
+  if (!focused || !container.contains(focused)) return false;
+  return Boolean(focused.isContentEditable || focused.closest?.("[contenteditable='true'], [data-at-af-editing='true'], [data-at-ep-editing='true'], [data-at-wie-rich-editing='true']"));
+}
+
 function atA6EnhanceDetail() {
   const detail = atA6Detail();
   if (!detail) return;
+  if (atA6HasLiveEditor(detail.container)) return;
 
   const existing = detail.container.querySelector(":scope > .at-a6-page-navigator, .at-a6-page-navigator");
   const signature = atA6Pages(detail).map((page) => `${page.id}:${page.name}:${page.type}:${page.sort}:${page._stats?.modifiedTime || 0}`).join("|");
@@ -277,3 +289,7 @@ Hooks.once("ready", () => {
 for (const hookName of ["renderApplication", "renderApplicationV2", "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage", "updateJournalEntry"]) {
   Hooks.on(hookName, () => atA6Schedule(140));
 }
+
+Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
+  if (!active) atA6Schedule(160);
+});
