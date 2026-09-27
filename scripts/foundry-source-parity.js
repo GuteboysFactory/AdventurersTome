@@ -10,6 +10,7 @@ const ATP_ACTOR_GUARD = new Set();
 let atpVaultGuard = false;
 let atpVaultTimer = null;
 let atpRenderTimer = null;
+let atpRenderPending = false;
 
 function atpClone(v) { try { return foundry.utils.deepClone(v); } catch (_e) { return JSON.parse(JSON.stringify(v ?? null)); } }
 function atpEsc(v) { return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
@@ -95,7 +96,49 @@ async function atpMigrateLinks() {
   }
   if (linked||missing) console.info(`Adventurer's Tome | Source Parity: ${linked} Actor link(s) normalized, ${missing} missing source(s) marked.`);
 }
-function atpScheduleRender() { clearTimeout(atpRenderTimer); atpRenderTimer=setTimeout(()=>{try{game.modules.get(ATP_ID)?.api?.app?.()?.render?.({parts:["main"]});}catch(_e){}},100); }
+function atpApp() {
+  try { return game.modules.get(ATP_ID)?.api?.app?.() || null; } catch (_e) { return null; }
+}
+
+function atpAuthoringActive(app = atpApp()) {
+  if (!app) return false;
+  if (app._bulkUpdating || Number(app._atRichEditingCount || 0) > 0) return true;
+  const root = document.querySelector("#adventurers-tome-app");
+  return Boolean(root?.querySelector(
+    "[data-at-af-editing='true'], [data-at-ep-editing='true'], [data-at-wie-rich-editing='true'], .at-wie-rich-editor[contenteditable='true'], [data-at-ep-editor][contenteditable='true'], [contenteditable='true'].is-editing"
+  ));
+}
+
+function atpRunScheduledRender() {
+  atpRenderTimer = null;
+  const app = atpApp();
+  if (!app?.rendered) {
+    atpRenderPending = false;
+    return;
+  }
+  if (atpAuthoringActive(app)) {
+    atpRenderPending = true;
+    return;
+  }
+  atpRenderPending = false;
+  try {
+    app.render({ parts:["main"] });
+  } catch (_e) {}
+}
+
+function atpScheduleRender() {
+  atpRenderPending = true;
+  clearTimeout(atpRenderTimer);
+  atpRenderTimer = setTimeout(atpRunScheduledRender, 100);
+}
+
+function atpFlushPendingRender() {
+  if (!atpRenderPending) return;
+  const app = atpApp();
+  if (!app?.rendered || atpAuthoringActive(app)) return;
+  clearTimeout(atpRenderTimer);
+  atpRenderTimer = setTimeout(atpRunScheduledRender, 0);
+}
 
 function atpVaultData() {
   if (!game.user?.isGM) return {schema:"adventurers-tome.private-vault",version:2,records:{},migration:{}};
@@ -158,5 +201,7 @@ Hooks.on("deleteActor",a=>{if(atpLeaderGM())Promise.all(atpLinked(a).map(j=>atpM
 Hooks.on("updateJournalEntry",(j,c)=>atpTomeToActor(j,c).catch(e=>console.error("Adventurer's Tome | Tome -> Actor parity failed safely",e)));
 Hooks.on("createJournalEntry",j=>{if(atpLeaderGM()&&atpWorld(j))setTimeout(()=>atpTomeToActor(j,{}).catch(()=>{}),120);});
 for(const h of ["createJournalEntryPage","updateJournalEntryPage","deleteJournalEntryPage"])Hooks.on(h,atpScheduleRender);
+Hooks.on("adventurersTomeAuthoringEditingChanged",({active}={})=>{if(!active)setTimeout(atpFlushPendingRender,0);});
+Hooks.on("adventurersTomeAuthoringSaveSettled",()=>setTimeout(atpFlushPendingRender,0));
 Hooks.on("updateSetting",s=>{const k=String(s?.key||s?.id||"");if(!atpVaultGuard&&k===`${ATP_ID}.${ATP_VAULT}`)atpScheduleVaultSync(50);});
 Hooks.on("renderApplicationV2",(app,el)=>{try{const root=atpAppRoot(el);atpInstallTomeUi(app,root);atpInstallSheetUi(app,root);}catch(e){console.error("Adventurer's Tome | Source Parity UI failed safely",e);}});
