@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.13` — New Entity Candidate Precision
+**Current development build:** `v1.7.0-qa.14` — Session / Quest Analysis Preview
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1882,3 +1882,21 @@ Focused precision pass over qa.12 live results:
 Next after verification: Session / Quest Analysis Preview.
 
 QA: `docs/V1.7_QA13_NEW_ENTITY_CANDIDATE_PRECISION.md`
+
+
+## v1.7.0-qa.14 — Session / Quest Analysis Preview
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Intelligence is now visible in the Tome UI:
+
+- GM-only Campaign Analysis panel for current Session / Quest
+- Known mentions from semantic mention discovery
+- Possible new entities from qa.13 precision output
+- type/confidence/mention-count presentation
+- read-only contract with no Confirm / Ignore / Create actions yet
+- preview refresh deferred while authoring is active
+
+Next after verification: Review / Confirm / Ignore workflow.
+
+QA: `docs/V1.7_QA14_SESSION_QUEST_ANALYSIS_PREVIEW.md`

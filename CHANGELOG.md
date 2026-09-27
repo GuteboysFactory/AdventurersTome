@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.14 — Session / Quest Analysis Preview
+
+- Adds a GM-only, read-only Campaign Analysis panel directly to Session and Quest detail views.
+- Presents known direct mentions from Semantic Mention Discovery without broad relation-graph expansion.
+- Presents qa.13 possible-new-entity candidates with inferred type, confidence and mention count.
+- Keeps Confirm / Ignore / Create actions intentionally disabled.
+- Defers analysis-panel refresh while live authoring is active so qa.11 editor continuity remains protected.
+- No entity creation, Campaign Link writes or Session/Quest text mutations are introduced.
+
+
 ## 1.7.0-qa.13 — New Entity Candidate Precision
 
 - Tightens qa.12 Unknown/New Entity Discovery using the live Session 7 baseline.
