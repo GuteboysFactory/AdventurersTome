@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.6` — Campaign Authoring 2.0: Sessions + Quests  
+**Current development build:** `v1.7.0-qa.6.1` — Campaign Authoring 2.0 body-first hotfix  
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1774,3 +1774,16 @@ The project remains **v14-first, v13-compatible** in architecture policy.
 Foundry V14 runtime verification is still pending and must be completed separately before V14 compatibility is described as verified.
 
 > **Conquer Foundry first. Extend beyond Foundry second.**
+
+
+## v1.7.0-qa.6.1 — Campaign Authoring 2.0 body-first hotfix
+
+**Status:** QA / IMPLEMENTED
+
+- New Session includes a large Chronicle field.
+- New Quest includes a large Quest Overview field.
+- Initial body content writes directly to canonical JournalEntryPage.text.content.
+- Session/Quest detail prioritizes the primary writing surface.
+- Generic page management remains available through Advanced Pages.
+- Competing legacy GM create UI is hidden on Sessions/Quests while delegated-editor behavior remains unchanged.
+- Campaign Intelligence and Campaign Link persistence are unchanged.

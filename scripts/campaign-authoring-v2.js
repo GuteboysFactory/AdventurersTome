@@ -1,7 +1,7 @@
 const MODULE_ID = "adventurers-tome";
 const ROOT = "#adventurers-tome-app";
 const CONTRACT = "adventurers-tome-campaign-authoring-v2";
-const VERSION = 1;
+const VERSION = 2;
 
 let enhanceTimer = null;
 let pendingOpen = null;
@@ -12,6 +12,7 @@ const stats = {
   questsCreated:0,
   canonicalFoldersCreated:0,
   primaryPagesCreated:0,
+  initialBodiesCreated:0,
   openAndFocusAttempts:0,
   failures:0,
   lastError:""
@@ -32,6 +33,30 @@ function escapeHtml(value) {
 
 function htmlFormat() {
   return CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML ?? 1;
+}
+
+function escapeBodyText(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function bodyToHtml(value) {
+  const source = String(value ?? "").replace(/\r\n?/g, "\n").trim();
+  if (!source) return '<p data-at-tome-summary="true"></p><p></p>';
+  const paragraphs = source
+    .split(/\n{2,}/)
+    .map((block) => `<p>${escapeBodyText(block).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+  return `<p data-at-tome-summary="true"></p>${paragraphs}`;
+}
+
+function pageBodyIsEmpty(page) {
+  const host = document.createElement("div");
+  host.innerHTML = String(page?.text?.content ?? "");
+  host.querySelectorAll("[data-at-tome-summary]").forEach((node) => node.remove());
+  return !String(host.textContent || "").replace(/\u00a0/g, " ").trim();
 }
 
 function localDateValue(date = new Date()) {
@@ -144,6 +169,7 @@ function dialogMarkup(section) {
         <label><span>Session number</span><input name="number" type="number" min="1" step="1" value="${nextSessionNumber()}" required></label>
         <label><span>Title</span><input name="title" autocomplete="off" placeholder="The Road Beyond Greyhaven" required></label>
         <label><span>Date</span><input name="date" type="date" value="${localDateValue()}"></label>
+        <label class="at-ca2-body-field"><span>Chronicle <small>write or paste the full session log</small></span><textarea name="body" rows="12" placeholder="Write or paste the events, story, decisions and notes from the session here..."></textarea></label>
         <div class="at-ca2-dialog-note"><i class="fa-solid fa-feather-pointed"></i><span>Tome creates the Foundry Journal and Chronicle page automatically. No Explorer folder selection is required.</span></div>
         <footer>
           <button type="button" class="at-secondary" data-at-ca2-close>Cancel</button>
@@ -168,6 +194,7 @@ function dialogMarkup(section) {
       </header>
       <label><span>Title</span><input name="title" autocomplete="off" placeholder="Shadows Over the North" required></label>
       <label><span>Status</span><select name="status">${statuses.map(([id,label]) => `<option value="${id}" ${id === defaultStatus ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label class="at-ca2-body-field"><span>Quest Overview <small>write or paste the quest details</small></span><textarea name="body" rows="12" placeholder="Write or paste the quest premise, goals, developments and other campaign details here..."></textarea></label>
       <div class="at-ca2-dialog-note"><i class="fa-solid fa-diamond"></i><span>Tome creates the Foundry Journal and Overview page automatically. No Explorer folder selection is required.</span></div>
       <footer>
         <button type="button" class="at-secondary" data-at-ca2-close>Cancel</button>
@@ -201,12 +228,14 @@ function openCreateDialog(section) {
         await createSession({
           number:Number(data.get("number") || 0),
           title:clean(data.get("title")),
-          date:clean(data.get("date"))
+          date:clean(data.get("date")),
+          body:String(data.get("body") || "")
         });
       } else {
         await createQuest({
           title:clean(data.get("title")),
-          status:clean(data.get("status")) || "active"
+          status:clean(data.get("status")) || "active",
+          body:String(data.get("body") || "")
         });
       }
       closeDialog();
@@ -225,20 +254,20 @@ function openCreateDialog(section) {
   }, 0);
 }
 
-function primaryPageTemplate(section) {
+function primaryPageTemplate(section, body = "") {
   const title = section === "sessions" ? "Chronicle" : "Overview";
   return {
     name:title,
     type:"text",
     text:{
-      content:'<p data-at-tome-summary="true"></p><p></p>',
+      content:bodyToHtml(body),
       format:htmlFormat()
     },
     sort:100000
   };
 }
 
-async function createSession({ number, title, date } = {}) {
+async function createSession({ number, title, date, body = "" } = {}) {
   if (!game.user?.isGM) throw new Error("Only a GM can create Sessions.");
   const sessionNumber = Number(number || 0);
   if (!Number.isFinite(sessionNumber) || sessionNumber < 1) throw new Error("Enter a valid Session number.");
@@ -267,18 +296,19 @@ async function createSession({ number, title, date } = {}) {
     }
   });
 
-  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("sessions")]);
+  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("sessions", body)]);
   const page = created?.[0] || null;
   if (!page) throw new Error("Session was created, but its Chronicle page could not be created.");
 
   stats.sessionsCreated += 1;
   stats.primaryPagesCreated += 1;
+  if (clean(body)) stats.initialBodiesCreated += 1;
   ui.notifications.info(`Adventurer's Tome: Created ${name}.`);
   await openCreatedEntry("sessions", journal, page);
   return { journal, page };
 }
 
-async function createQuest({ title, status } = {}) {
+async function createQuest({ title, status, body = "" } = {}) {
   if (!game.user?.isGM) throw new Error("Only a GM can create Quests.");
   const cleanTitle = clean(title);
   if (!cleanTitle) throw new Error("Enter a Quest title.");
@@ -303,12 +333,13 @@ async function createQuest({ title, status } = {}) {
     }
   });
 
-  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("quests")]);
+  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("quests", body)]);
   const page = created?.[0] || null;
   if (!page) throw new Error("Quest was created, but its Overview page could not be created.");
 
   stats.questsCreated += 1;
   stats.primaryPagesCreated += 1;
+  if (clean(body)) stats.initialBodiesCreated += 1;
   ui.notifications.info(`Adventurer's Tome: Created ${cleanTitle}.`);
   await openCreatedEntry("quests", journal, page);
   return { journal, page };
@@ -389,10 +420,75 @@ function toolbarMarkup(section) {
     </section>`;
 }
 
+function taskButtonMarkup(section) {
+  const isSession = section === "sessions";
+  return `<button type="button" class="at-primary at-ca2-new at-ca2-heading-new" data-at-ca2-new="${section}">
+    <i class="fa-solid ${isSession ? "fa-book-open" : "fa-diamond"}"></i>
+    ${isSession ? "New Session" : "New Quest"}
+  </button>`;
+}
+
 function enhancePage(page, section) {
   if (!game.user?.isGM || !page) return;
-  if (page.querySelector(`[data-at-ca2-strip="${section}"]`)) return;
-  page.insertAdjacentHTML("afterbegin", toolbarMarkup(section));
+
+  // The old Alpha 3 creator remains available to delegated Editors, but GMs get
+  // the task-specific Authoring 2.0 flow instead of two competing creators.
+  for (const legacy of page.querySelectorAll(`[data-at-a3-create="${section}"]`)) {
+    legacy.classList.add("at-ca2-retired-create");
+    legacy.setAttribute("aria-hidden", "true");
+    legacy.tabIndex = -1;
+  }
+
+  page.querySelector(`[data-at-ca2-strip="${section}"]`)?.remove();
+
+  const host = page.querySelector(".at-page-tools") || page.querySelector(":scope > .at-page-heading");
+  if (host && !host.querySelector(`[data-at-ca2-new="${section}"]`)) {
+    host.insertAdjacentHTML("beforeend", taskButtonMarkup(section));
+  }
+}
+
+function detailJournal(detail) {
+  const button = detail?.querySelector('[data-action="openJournal"][data-journal-id], .at-session-open-full[data-journal-id]');
+  return game.journal?.get(clean(button?.dataset?.journalId)) || null;
+}
+
+function enhanceTaskDetail(detail, section) {
+  if (!game.user?.isGM || !detail) return;
+  const journal = detailJournal(detail);
+  if (!journal) return;
+  detail.classList.add("at-ca2-task-detail", `at-ca2-${section}-detail`);
+
+  const navigator = detail.querySelector(".at-a6-page-navigator");
+  if (navigator) navigator.classList.add("at-ca2-advanced-only");
+
+  const pagesShell = detail.querySelector(".at-authoring-pages");
+  if (!pagesShell) return;
+  pagesShell.classList.add("at-ca2-primary-workspace");
+
+  const primary = [...(journal.pages?.contents || [])]
+    .sort((a,b) => Number(a.sort || 0) - Number(b.sort || 0))
+    .find((page) => String(page.type || "text").toLowerCase() === "text") || null;
+  if (!primary) return;
+
+  const article = pagesShell.querySelector(`.at-af-page[data-page-id="${CSS.escape(primary.id)}"]`);
+  if (!article) return;
+  article.classList.add("at-ca2-primary-writing-surface");
+
+  const text = article.querySelector(".at-af-page-text");
+  if (text && pageBodyIsEmpty(primary) && !article.querySelector("[data-at-ca2-edit-primary]")) {
+    text.insertAdjacentHTML("beforebegin", `<button type="button" class="at-ca2-empty-writing" data-at-ca2-edit-primary="${escapeHtml(primary.id)}">
+      <i class="fa-solid fa-pen-nib"></i>
+      <span><strong>${section === "sessions" ? "Write the Chronicle" : "Write the Quest Overview"}</strong><small>Click here to start writing or paste your text.</small></span>
+    </button>`);
+  }
+
+  if (!pagesShell.querySelector("[data-at-ca2-advanced-pages]")) {
+    pagesShell.insertAdjacentHTML("beforeend", `<div class="at-ca2-page-tools">
+      <button type="button" class="at-secondary" data-at-ca2-advanced-pages="${escapeHtml(journal.id)}" title="Advanced Journal page management">
+        <i class="fa-solid fa-layer-group"></i> Advanced Pages
+      </button>
+    </div>`);
+  }
 }
 
 function enhance() {
@@ -400,6 +496,8 @@ function enhance() {
   if (!root || !game.user?.isGM) return;
   enhancePage(root.querySelector(".at-sessions-page"), "sessions");
   enhancePage(root.querySelector(".at-quests-page"), "quests");
+  enhanceTaskDetail(root.querySelector(".at-session-detail"), "sessions");
+  enhanceTaskDetail(root.querySelector(".at-quest-detail-page"), "quests");
   if (pendingOpen) window.setTimeout(tryPendingOpen, 40);
 }
 
@@ -414,10 +512,34 @@ function scheduleEnhance(delay = 80) {
 function installHandlers() {
   document.addEventListener("click", (event) => {
     const button = event.target.closest?.(`${ROOT} [data-at-ca2-new]`);
-    if (!button) return;
-    event.preventDefault();
-    event.stopPropagation();
-    openCreateDialog(clean(button.dataset.atCa2New));
+    if (button) {
+      event.preventDefault();
+      event.stopPropagation();
+      openCreateDialog(clean(button.dataset.atCa2New));
+      return;
+    }
+
+    const editPrimary = event.target.closest?.(`${ROOT} [data-at-ca2-edit-primary]`);
+    if (editPrimary) {
+      event.preventDefault();
+      event.stopPropagation();
+      const detail = editPrimary.closest(".at-session-detail, .at-quest-detail-page");
+      const target = detail?.querySelector(`.at-af-page[data-page-id="${CSS.escape(clean(editPrimary.dataset.atCa2EditPrimary))}"] .at-af-page-text`);
+      target?.click();
+      window.setTimeout(() => target?.focus?.(), 0);
+      return;
+    }
+
+    const advanced = event.target.closest?.(`${ROOT} [data-at-ca2-advanced-pages]`);
+    if (advanced) {
+      event.preventDefault();
+      event.stopPropagation();
+      const journalId = clean(advanced.dataset.atCa2AdvancedPages);
+      const detail = advanced.closest(".at-session-detail, .at-quest-detail-page");
+      const manager = detail?.querySelector(`[data-at-a2-page-manager="${CSS.escape(journalId)}"], [data-at-wj-action="editPages"][data-journal-id="${CSS.escape(journalId)}"]`);
+      if (manager) manager.click();
+      else ui.notifications.warn("Adventurer's Tome: Advanced Page Manager is not available for this entry.");
+    }
   }, true);
 }
 
@@ -438,6 +560,9 @@ function audit() {
     healthy:stats.failures === 0,
     gmOnlyCreation:true,
     explorerSelectionRequired:false,
+    creationBodyInput:true,
+    taskFocusedDetail:true,
+    legacyGmCreatorHidden:true,
     canonicalStorage:{
       sessions:"JournalEntry -> Chronicle JournalEntryPage.text.content",
       quests:"JournalEntry -> Overview JournalEntryPage.text.content"
@@ -464,6 +589,7 @@ const api = Object.freeze({
   nextSessionNumber,
   createSession,
   createQuest,
+  openCreateDialog,
   audit
 });
 
