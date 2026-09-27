@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-new-entity-discovery";
-const VERSION = 3;
+const VERSION = 4;
 
 const BANDS = Object.freeze({
   HIGH:"high-confidence",
@@ -64,6 +64,7 @@ const stats = {
   knownFiltered:0,
   commonFiltered:0,
   precisionFiltered:0,
+  nlpBoundaryRefined:0,
   aliasMerged:0,
   candidates:0,
   highConfidence:0,
@@ -172,6 +173,10 @@ function mentionDiscoveryApi() {
   return game.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
 }
 
+function nlpProviderApi() {
+  return game.modules.get(MODULE_ID)?.api?.nlpProvider || null;
+}
+
 function properToken(value) {
   const token = stripPossessive(value);
   const first = [...token].find((char) => /\p{L}/u.test(char)) || "";
@@ -237,15 +242,30 @@ function candidateRuns(text) {
     const first = trimmed[0];
     const last = trimmed[trimmed.length - 1];
     const display = String(text).slice(first.start, last.end).replace(/[’']s$/iu, "");
-    const normalized = normalizeText(display);
+
+    const provider = nlpProviderApi();
+    const refinement = provider?.refineBoundary?.(display) || null;
+    const refinedText = clean(refinement?.text || display);
+    const relativeStart = refinement?.changed ? display.indexOf(refinedText) : 0;
+    const safeRelativeStart = relativeStart >= 0 ? relativeStart : 0;
+    const candidateText = refinedText || display;
+    const normalized = normalizeText(candidateText);
     if (!normalized) continue;
 
+    if (refinement?.changed) stats.nlpBoundaryRefined += 1;
+
     rows.push({
-      text:display,
+      text:candidateText,
       normalized,
-      start:first.start,
-      end:last.end,
-      tokenCount:trimmed.length
+      start:first.start + safeRelativeStart,
+      end:first.start + safeRelativeStart + candidateText.length,
+      tokenCount:wordParts(candidateText).length,
+      nlp:{
+        provider:clean(refinement?.provider),
+        providerVersion:clean(refinement?.providerVersion),
+        changed:Boolean(refinement?.changed),
+        signals:clone(refinement?.signals || [])
+      }
     });
 
     i += Math.max(0, run.length - 1);
@@ -460,6 +480,7 @@ async function scan(options = {}) {
   stats.knownFiltered = 0;
   stats.commonFiltered = 0;
   stats.precisionFiltered = 0;
+  stats.nlpBoundaryRefined = 0;
   stats.aliasMerged = 0;
   stats.candidates = 0;
   stats.highConfidence = 0;
@@ -584,7 +605,8 @@ async function scan(options = {}) {
             text:occurrence.text,
             start:occurrence.start,
             end:occurrence.end,
-            context:occurrence.context
+            context:occurrence.context,
+            nlp:clone(occurrence.nlp || null)
           })),
           detection,
           classification,
@@ -631,6 +653,7 @@ async function scan(options = {}) {
       knownFiltered:stats.knownFiltered,
       commonFiltered:stats.commonFiltered,
       precisionFiltered:stats.precisionFiltered,
+      nlpBoundaryRefined:stats.nlpBoundaryRefined,
       aliasMerged:stats.aliasMerged
     }
   });
@@ -673,6 +696,7 @@ function audit() {
       knownSingleTokenAliasesFiltered:true,
       leadingContextWordsTrimmed:true,
       questionAuxiliaryStartersTrimmed:true,
+      localNlpBoundaryProvider:true,
       knownAliasRecheckedAfterBoundaryTrim:true,
       oneOffUnknownSingletonsSuppressed:true,
       longestProperNameRuns:true,

@@ -143,3 +143,5 @@ Adventurer's Tome is **proprietary software — All Rights Reserved**.
 The public repository is available for transparency, testing, compatibility work, issue reporting, and community review. Public source visibility does not make the project open source and does not grant redistribution or derivative-work rights beyond the permissions stated in `LICENSE`.
 
 Copyright (c) 2026 Per / GuteboysFactory.
+
+Third-party components, where present, remain under their own licenses. See `THIRD_PARTY_NOTICES.md` and the corresponding license files bundled with the module.

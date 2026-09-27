@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.15` — Question & Alias Boundary Precision
+**Current development build:** `v1.7.0-qa.16` — NLP Provider Foundation
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1917,3 +1917,24 @@ Focused precision fix from the live qa.14 Analysis Preview:
 After verification: Review / Confirm / Ignore workflow.
 
 QA: `docs/V1.7_QA15_QUESTION_ALIAS_BOUNDARY_PRECISION.md`
+
+
+## v1.7.0-qa.16 — NLP Provider Foundation
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Intelligence now has a local advisory language layer:
+
+- vendored Compromise 14.17.0 under MIT
+- explicit third-party notices and license preservation
+- NLP Provider API independent of campaign identity authority
+- grammatical candidate-boundary refinement
+- canonical / alias filtering still runs after NLP refinement
+- no cloud dependency and no text leaves Foundry
+- no campaign writes
+
+This reduces the need for a growing hand-maintained grammar/regex list while preserving Tome's own authority model.
+
+After verification: Review / Confirm / Ignore workflow.
+
+QA: `docs/V1.7_QA16_NLP_PROVIDER_FOUNDATION.md`

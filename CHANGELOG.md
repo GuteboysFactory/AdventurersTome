@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.16 — NLP Provider Foundation
+
+- Adds a local advisory NLP provider layer using vendored Compromise 14.17.0 (MIT).
+- Records third-party attribution and the upstream MIT license in-repo.
+- Uses grammatical tagging to refine candidate boundaries before canonical-name / alias filtering.
+- Fixes grammar-edge candidates such as "Is Dev" and "TrueBlood the" without turning the NLP provider into identity authority.
+- Preserves Tome's deterministic scanner, identity resolver and GM-controlled write boundary.
+- Runs locally with no external NLP service or campaign-text transmission.
+
+
 ## 1.7.0-qa.15 — Question & Alias Boundary Precision
 
 - Fixes the live qa.14 edge case where question/auxiliary starters such as "Is" could become part of a proper-name candidate, producing noise like "Is Dev".

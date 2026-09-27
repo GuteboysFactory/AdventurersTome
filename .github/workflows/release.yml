@@ -95,6 +95,7 @@ jobs:
           if [[ "$VERSION" == "1.7.0-qa.13" ]]; then test -f docs/V1.7_QA13_NEW_ENTITY_CANDIDATE_PRECISION.md; test -f scripts/campaign-new-entity-discovery.js; fi
           if [[ "$VERSION" == "1.7.0-qa.14" ]]; then test -f docs/V1.7_QA14_SESSION_QUEST_ANALYSIS_PREVIEW.md; test -f scripts/campaign-analysis-preview.js; test -f styles/campaign-analysis-preview.css; fi
           if [[ "$VERSION" == "1.7.0-qa.15" ]]; then test -f docs/V1.7_QA15_QUESTION_ALIAS_BOUNDARY_PRECISION.md; test -f scripts/campaign-new-entity-discovery.js; fi
+          if [[ "$VERSION" == "1.7.0-qa.16" ]]; then test -f docs/V1.7_QA16_NLP_PROVIDER_FOUNDATION.md; test -f scripts/nlp-provider.js; test -f vendor/compromise-14.17.0.js; test -f vendor/compromise-LICENSE.txt; test -f THIRD_PARTY_NOTICES.md; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
@@ -170,6 +171,7 @@ jobs:
           if [[ "$VERSION" == 1.5.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.5_QA1_FORMAL_ADAPTER_API.md'; fi
           if [[ "$VERSION" == 1.6.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.6_QA1_USL_FOUNDATION.md'; fi
           if [[ "$VERSION" == 1.7.* ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.7_QA1_CAMPAIGN_LINK_SEMANTIC_MENTION_FOUNDATION.md'; fi
+          if [[ "$VERSION" == "1.7.0-qa.16" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.7_QA16_NLP_PROVIDER_FOUNDATION.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/nlp-provider.js'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'vendor/compromise-14.17.0.js'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'vendor/compromise-LICENSE.txt'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'THIRD_PARTY_NOTICES.md'; fi
           if [[ "$VERSION" == "1.7.0-qa.9" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.7_QA9_UNIVERSAL_TOME_AUTHORING.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/authoring-foundation.js'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/campaign-authoring-v2.js'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/structured-journals.js'; fi
           if [[ "$VERSION" == "1.7.0-qa.1" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/CAMPAIGN_LINK_SEMANTIC_MENTION_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/campaign-link-semantic-mentions.js'; fi
           if [[ "$VERSION" == "1.7.0-qa.2" ]]; then unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/V1.7_QA2_SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'docs/SESSION_QUEST_SEMANTIC_MENTION_DISCOVERY_CONTRACT.md'; unzip -Z1 "$GITHUB_WORKSPACE/dist/adventurers-tome.zip" | grep -qx 'scripts/campaign-link-semantic-discovery.js'; fi
@@ -217,7 +219,7 @@ jobs:
           const listed = cp.execFileSync('unzip', ['-Z1', 'dist/adventurers-tome.zip'], { cwd: process.env.GITHUB_WORKSPACE, encoding: 'utf8' })
             .split(/\r?\n/).filter(Boolean);
           const files = new Set(listed);
-          for (const file of [...(m.esmodules || []), ...(m.styles || []), ...((m.languages || []).map((entry) => entry.path).filter(Boolean))]) {
+          for (const file of [...(m.scripts || []), ...(m.esmodules || []), ...(m.styles || []), ...((m.languages || []).map((entry) => entry.path).filter(Boolean))]) {
             if (!files.has(file)) throw new Error(`Release ZIP is missing manifest runtime file: ${file}`);
           }
           const forbiddenPrefixes = ['.git/', '.github/', 'dist/', 'release/', 'channels/'];
@@ -245,6 +247,9 @@ jobs:
           PRERELEASE_ARGS=()
           if [[ "$VERSION" == *-* ]]; then PRERELEASE_ARGS+=(--prerelease); fi
           NOTES="Adventurer's Tome $VERSION test build."
+          if [[ "$VERSION" == "1.7.0-qa.16" ]]; then
+            NOTES="Adventurer's Tome v1.7.0-qa.16 adds a local advisory NLP provider using vendored Compromise 14.17.0 under MIT. Candidate boundaries receive grammatical refinement before Tome canonical-name and alias filters; identity and write authority remain inside Tome and no campaign text is sent externally."
+          fi
           if [[ "$VERSION" == "1.2.0-qa.5" ]]; then
             NOTES="v1.2.0-qa.5 adds the GM-only campaign-wide Private Vault Browser with canonical Actor/helper-Journal deduplication, search and filters, contextual Tome links/backlinks, safe missing-source display, and source-opening navigation. It preserves the verified qa.2 Source Parity foundation and qa.3/qa.4 DialogV2/header polish."
           fi
