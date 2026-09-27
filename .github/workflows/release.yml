@@ -87,6 +87,7 @@ jobs:
           if [[ "$VERSION" == "1.7.0-qa.5" ]]; then test -f docs/V1.7_QA5_MENTION_CONFIDENCE_GATE.md; test -f scripts/campaign-link-semantic-discovery.js; fi
           if [[ "$VERSION" == "1.7.0-qa.6" ]]; then test -f docs/V1.7_QA6_CAMPAIGN_AUTHORING_V2.md; test -f scripts/campaign-authoring-v2.js; test -f styles/campaign-authoring-v2.css; fi
           if [[ "$VERSION" == "1.7.0-qa.7" ]]; then test -f docs/V1.7_QA6_CAMPAIGN_AUTHORING_V2.md; test -f scripts/campaign-authoring-v2.js; test -f styles/campaign-authoring-v2.css; fi
+          if [[ "$VERSION" == "1.7.0-qa.8" ]]; then test -f docs/V1.7_QA8_EDITOR_CONTINUITY_GUARD.md; test -f scripts/authoring-foundation.js; test -f scripts/adventurers-tome.js; fi
           if [[ "$VERSION" == "1.6.0-qa.4" ]]; then test -f docs/V1.6_QA4_PRIVACY_WRITE_CONTRACT.md; test -f docs/USL_PRIVACY_WRITE_CONTRACT.md; fi
           if [[ "$VERSION" == "1.6.0-qa.5" ]]; then test -f docs/V1.6_QA5_PUBLIC_NOTES_SOURCE_HOTFIX.md; fi
           if [[ "$VERSION" == "1.6.0-qa.6" ]]; then test -f docs/V1.6_QA6_CONTROLLED_WRITE_EXECUTION.md; test -f docs/USL_CONTROLLED_WRITE_EXECUTION.md; fi
@@ -385,6 +386,9 @@ jobs:
           fi
           if [[ "$VERSION" == "1.7.0-qa.7" ]]; then
             NOTES="Adventurer's Tome v1.7.0-qa.7 adds body-first Session and Quest authoring. New Session now includes the Chronicle text field and New Quest includes the Quest Overview text field; both write directly into canonical JournalEntryPage text. Normal detail views prioritize the primary writing surface while Advanced Pages preserves full page management."
+          fi
+          if [[ "$VERSION" == "1.7.0-qa.8" ]]; then
+            NOTES="Adventurer's Tome v1.7.0-qa.8 adds an editor continuity guard. Journal-backed autosave continues while Session Chronicle or Quest Overview stays actively editable; downstream Registry/Discovery refreshes no longer replace the live editor DOM, and a deferred refresh resumes only after the user deliberately exits editing."
           fi
           if [[ "$VERSION" == "1.7.0-qa.5" ]]; then
             NOTES="Adventurer's Tome v1.7.0-qa.5 adds a read-only Mention Confidence Gate. Detection confidence is separated from identity confidence; lowercase single-token prose noise is suppressed unless canonically anchored on the same page, proper-name and multi-token mentions remain detectable, explicit Foundry refs remain deterministic, and Campaign Link persistence stays off."
