@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1.7.0-qa.17 — NLP Arbitration & Fantasy Entity Semantics
+
+- Hardens the qa.16 NLP provider so generic Verb tagging can no longer destructively trim a fantasy proper-name candidate.
+- Keeps stronger grammar classes (Auxiliary, Copula, Modal, Preposition, Determiner, QuestionWord, Conjunction) as boundary evidence.
+- Adds fantasy-domain Location semantics such as Abbey, Temple, Monastery, Shrine, Citadel, Stronghold, Manor, Palace, Camp, Outpost and Chapel.
+- Strengthens contextual Faction evidence for phrases such as soldiers/members/agents/followers/warriors of X and adds Choir as a faction-like semantic suffix.
+- Keeps Compromise advisory only; Tome remains identity authority and no campaign writes are introduced.
+
+
 ## 1.7.0-qa.16 — NLP Provider Foundation
 
 - Adds a local advisory NLP provider layer using vendored Compromise 14.17.0 (MIT).

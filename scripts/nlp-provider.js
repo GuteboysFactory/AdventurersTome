@@ -1,11 +1,11 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-nlp-provider";
-const VERSION = 1;
+const VERSION = 2;
 const PROVIDER = "compromise";
 const PROVIDER_VERSION = "14.17.0";
 
 const LEADING_BOUNDARY_TAGS = new Set([
-  "Verb","Auxiliary","Copula","Modal","Preposition","Determiner","QuestionWord","Conjunction"
+  "Auxiliary","Copula","Modal","Preposition","Determiner","QuestionWord","Conjunction"
 ]);
 const TRAILING_BOUNDARY_TAGS = new Set([
   "Auxiliary","Copula","Modal","Preposition","Determiner","QuestionWord","Conjunction"
@@ -188,6 +188,10 @@ function audit() {
     advisoryOnly:true,
     identityAuthority:false,
     writeAuthority:false,
+    boundaryPolicy:{
+      strongGrammarTagsOnly:true,
+      genericVerbCannotTrimCandidate:true
+    },
     license:"MIT",
     calls,
     refinements,
