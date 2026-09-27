@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-new-entity-discovery";
-const VERSION = 5;
+const VERSION = 6;
 
 const BANDS = Object.freeze({
   HIGH:"high-confidence",
@@ -71,6 +71,10 @@ const stats = {
   highConfidence:0,
   review:0,
   weak:0,
+  learningSuppressed:0,
+  learningSourceIgnored:0,
+  learningConfirmed:0,
+  learningLinked:0,
   failures:0,
   lastError:""
 };
@@ -176,6 +180,10 @@ function mentionDiscoveryApi() {
 
 function nlpProviderApi() {
   return game.modules.get(MODULE_ID)?.api?.nlpProvider || null;
+}
+
+function reviewLearningApi() {
+  return game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
 }
 
 function properToken(value) {
@@ -487,6 +495,10 @@ async function scan(options = {}) {
   stats.highConfidence = 0;
   stats.review = 0;
   stats.weak = 0;
+  stats.learningSuppressed = 0;
+  stats.learningSourceIgnored = 0;
+  stats.learningConfirmed = 0;
+  stats.learningLinked = 0;
 
   const user = options.user || game.user;
   const discovery = discoveryApi();
@@ -592,6 +604,50 @@ async function scan(options = {}) {
             ? BANDS.WEAK
             : BANDS.REVIEW;
 
+        const learning = reviewLearningApi()?.decisionFor?.(grouped.text, { sourceUuid:journal.uuid }) || null;
+        if (learning?.action === "suppressed") {
+          suppressedCandidates.push({
+            id:`learning-suppressed:${page.uuid}:${grouped.normalized}`,
+            sourceKind:kind,
+            sourceJournalUuid:journal.uuid,
+            sourcePageUuid:page.uuid,
+            sourceName:journal.name,
+            pageName:page.name,
+            text:grouped.text,
+            normalized:grouped.normalized,
+            mentionCount:occurrences.length,
+            detection,
+            classification,
+            learning:clone(learning),
+            reason:"gm-campaign-suppression",
+            readOnly:true
+          });
+          stats.learningSuppressed += 1;
+          continue;
+        }
+        if (learning?.action === "source-ignored") {
+          suppressedCandidates.push({
+            id:`learning-source-ignored:${page.uuid}:${grouped.normalized}`,
+            sourceKind:kind,
+            sourceJournalUuid:journal.uuid,
+            sourcePageUuid:page.uuid,
+            sourceName:journal.name,
+            pageName:page.name,
+            text:grouped.text,
+            normalized:grouped.normalized,
+            mentionCount:occurrences.length,
+            detection,
+            classification,
+            learning:clone(learning),
+            reason:"gm-source-ignore",
+            readOnly:true
+          });
+          stats.learningSourceIgnored += 1;
+          continue;
+        }
+        if (learning?.action === "confirmed") stats.learningConfirmed += 1;
+        if (learning?.action === "linked") stats.learningLinked += 1;
+
         const row = {
           id:`unknown:${page.uuid}:${grouped.normalized}`,
           sourceKind:kind,
@@ -617,6 +673,7 @@ async function scan(options = {}) {
             canonicalTarget:null
           },
           disposition,
+          learning:clone(learning),
           createEligible:false,
           persistenceEligible:false,
           readOnly:true
@@ -655,7 +712,11 @@ async function scan(options = {}) {
       commonFiltered:stats.commonFiltered,
       precisionFiltered:stats.precisionFiltered,
       nlpBoundaryRefined:stats.nlpBoundaryRefined,
-      aliasMerged:stats.aliasMerged
+      aliasMerged:stats.aliasMerged,
+      learningSuppressed:stats.learningSuppressed,
+      learningSourceIgnored:stats.learningSourceIgnored,
+      learningConfirmed:stats.learningConfirmed,
+      learningLinked:stats.learningLinked
     }
   });
 
@@ -701,6 +762,11 @@ function audit() {
       genericVerbCannotTrimFantasyName:true,
       fantasyLocationVocabulary:true,
       contextualFactionSemanticsStrengthened:true,
+      gmReviewLearningApplied:true,
+      explicitCampaignSuppressionApplied:true,
+      sourceIgnoreApplied:true,
+      confirmedCandidateMemoryApplied:true,
+      linkedCandidateMemoryApplied:true,
       knownAliasRecheckedAfterBoundaryTrim:true,
       oneOffUnknownSingletonsSuppressed:true,
       longestProperNameRuns:true,
@@ -768,6 +834,7 @@ Hooks.on("updateJournalEntryPage", (page) => {
   if (kind === "session" || kind === "quest") scheduleScan("page-updated");
 });
 Hooks.on("adventurersTomeSemanticMentionDiscoveryUpdated", () => scheduleScan("known-mentions-updated"));
+Hooks.on("adventurersTomeCampaignLearningUpdated", () => scheduleScan("campaign-learning-updated"));
 Hooks.on("renderApplicationV2", () => {
   if (game.modules.get(MODULE_ID)?.api?.campaignNewEntityDiscovery !== publicApi) attach();
 });

@@ -1,4 +1,4 @@
-/* v1.7.0-qa.14 — Session / Quest Analysis Preview */
+/* v1.7.0-qa.18 — GM Review & Campaign Learning */
 
 #adventurers-tome-app .at-campaign-analysis-preview {
   margin: 16px 0;
@@ -206,4 +206,80 @@
   #adventurers-tome-app .at-analysis-header {
     flex-direction: column;
   }
+}
+
+
+/* qa.18 review controls */
+#adventurers-tome-app .at-analysis-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+#adventurers-tome-app .at-analysis-actions button {
+  width: auto;
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid rgba(181, 135, 47, .30);
+  background: rgba(0, 0, 0, .20);
+  color: inherit;
+  font: inherit;
+  font-size: .61rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+#adventurers-tome-app .at-analysis-actions button:hover {
+  border-color: rgba(222, 178, 83, .62);
+  background: rgba(181, 135, 47, .12);
+}
+
+#adventurers-tome-app .at-analysis-actions button:disabled {
+  opacity: .45;
+  cursor: wait;
+}
+
+#adventurers-tome-app .at-analysis-actions button i {
+  margin-right: 3px;
+}
+
+#adventurers-tome-app .at-analysis-learned {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 2px 6px;
+  border: 1px solid rgba(181, 135, 47, .28);
+  font-size: .60rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+#adventurers-tome-app .at-analysis-learned.is-confirmed {
+  border-color: rgba(116, 158, 79, .58);
+}
+
+#adventurers-tome-app .at-analysis-learned.is-linked {
+  border-color: rgba(104, 143, 183, .58);
+}
+
+.at-analysis-link-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.at-analysis-link-dialog label {
+  display: grid;
+  gap: 5px;
+}
+
+.at-analysis-link-dialog select {
+  width: 100%;
+}
+
+.at-analysis-link-dialog .hint {
+  margin: 0;
+  opacity: .68;
+  font-size: .82rem;
 }

@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.18 — GM Review & Campaign Learning Foundation
+
+- Adds explicit GM review actions to Campaign Analysis: Confirm, Ignore once, Suppress and Link existing.
+- Stores review decisions in a hidden world-scoped Campaign Intelligence learning setting.
+- Applies campaign suppressions and source-local ignores to future new-entity scans.
+- Preserves confirmed and linked decisions as explicit learned state in Campaign Analysis.
+- Link Existing records a candidate-to-canonical-UUID teaching decision only; it does not write Tome Campaign Links yet.
+- No entity creation, prose mutation, automatic self-learning or silent campaign writes are introduced.
+
+
 ## 1.7.0-qa.17 — NLP Arbitration & Fantasy Entity Semantics
 
 - Hardens the qa.16 NLP provider so generic Verb tagging can no longer destructively trim a fantasy proper-name candidate.

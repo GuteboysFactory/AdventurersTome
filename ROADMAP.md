@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.17` — NLP Arbitration & Fantasy Entity Semantics
+**Current development build:** `v1.7.0-qa.18` — GM Review & Campaign Learning Foundation
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1956,3 +1956,23 @@ Live regression target: `Sister Vaela / Frostgate Abbey / Silver Choir`.
 After verification: Review / Confirm / Ignore workflow.
 
 QA: `docs/V1.7_QA17_NLP_ARBITRATION_FANTASY_SEMANTICS.md`
+
+
+## v1.7.0-qa.18 — GM Review & Campaign Learning Foundation
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Intelligence now supports explicit GM feedback:
+
+- Confirm candidate
+- Ignore once for current Session / Quest
+- Suppress name across this campaign
+- Link candidate text to an existing canonical campaign entity
+- persistent world-scoped learning
+- no automatic learning from confidence/model output
+- no entity creation
+- no normal Campaign Link writes
+
+This establishes the feedback/memory layer needed before controlled entity creation and persistent campaign graph writes.
+
+QA: `docs/V1.7_QA18_GM_REVIEW_CAMPAIGN_LEARNING.md`
