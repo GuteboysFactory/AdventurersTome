@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-analysis-preview";
-const VERSION = 2;
+const VERSION = 3;
 
 const TYPE_META = Object.freeze({
   character:{ label:"Character / NPC", icon:"fa-user" },
@@ -102,6 +102,10 @@ function newApi() {
 
 function learningApi() {
   return game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+}
+
+function creationApi() {
+  return game.modules.get(MODULE_ID)?.api?.campaignEntityCreation || null;
 }
 
 function decisionRank(decision) {
@@ -207,7 +211,9 @@ function snapshotForSource(uuid) {
     sourceUuid:clean(uuid),
     readOnly:false,
     writesPerformed:false,
-    campaignDataWrites:false,
+    campaignDataWrites:true,
+    controlledEntityCreation:true,
+    campaignLinkWrites:false,
     learningWritesEnabled:true,
     reviewActionsEnabled:true,
     known:clone(known),
@@ -249,16 +255,22 @@ function newCard(row) {
       ? `<span class="at-analysis-learned is-linked"><i class="fa-solid fa-link"></i> Linked to ${escapeHtml(row?.learning?.targetName || "existing")}</span>`
       : "";
 
-  const actions = learned
+  const actions = learned === "confirmed"
     ? `<div class="at-analysis-actions">
+        <button type="button" data-at-ci-action="create" data-at-ci-text="${escapeHtml(row.text)}" data-at-ci-kind="${escapeHtml(row.kind)}" title="Create a canonical Tome entity and record its UUID"><i class="fa-solid fa-wand-magic-sparkles"></i> Create & Link</button>
+        <button type="button" data-at-ci-action="link" data-at-ci-text="${escapeHtml(row.text)}" title="Teach Tome that this name refers to an existing entity"><i class="fa-solid fa-link"></i> Link existing</button>
         <button type="button" data-at-ci-action="clear" data-at-ci-text="${escapeHtml(row.text)}" title="Clear learned decision"><i class="fa-solid fa-rotate-left"></i> Reset</button>
       </div>`
-    : `<div class="at-analysis-actions">
-        <button type="button" data-at-ci-action="confirm" data-at-ci-text="${escapeHtml(row.text)}" data-at-ci-kind="${escapeHtml(row.kind)}" title="Confirm as a real campaign entity"><i class="fa-solid fa-check"></i> Confirm</button>
-        <button type="button" data-at-ci-action="ignore-once" data-at-ci-text="${escapeHtml(row.text)}" title="Ignore only in this Session / Quest"><i class="fa-solid fa-eye-slash"></i> Ignore once</button>
-        <button type="button" data-at-ci-action="suppress" data-at-ci-text="${escapeHtml(row.text)}" title="Suppress this name in this campaign"><i class="fa-solid fa-ban"></i> Suppress</button>
-        <button type="button" data-at-ci-action="link" data-at-ci-text="${escapeHtml(row.text)}" title="Teach Tome that this name refers to an existing entity"><i class="fa-solid fa-link"></i> Link existing</button>
-      </div>`;
+    : learned
+      ? `<div class="at-analysis-actions">
+          <button type="button" data-at-ci-action="clear" data-at-ci-text="${escapeHtml(row.text)}" title="Clear learned decision"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+        </div>`
+      : `<div class="at-analysis-actions">
+          <button type="button" data-at-ci-action="confirm" data-at-ci-text="${escapeHtml(row.text)}" data-at-ci-kind="${escapeHtml(row.kind)}" title="Confirm as a real campaign entity"><i class="fa-solid fa-check"></i> Confirm</button>
+          <button type="button" data-at-ci-action="ignore-once" data-at-ci-text="${escapeHtml(row.text)}" title="Ignore only in this Session / Quest"><i class="fa-solid fa-eye-slash"></i> Ignore once</button>
+          <button type="button" data-at-ci-action="suppress" data-at-ci-text="${escapeHtml(row.text)}" title="Suppress this name in this campaign"><i class="fa-solid fa-ban"></i> Suppress</button>
+          <button type="button" data-at-ci-action="link" data-at-ci-text="${escapeHtml(row.text)}" title="Teach Tome that this name refers to an existing entity"><i class="fa-solid fa-link"></i> Link existing</button>
+        </div>`;
 
   return `
     <article class="at-analysis-entity at-analysis-new ${confidenceClass}" data-at-ci-candidate="${escapeHtml(row.text)}">
@@ -318,7 +330,7 @@ function panelHtml(source, data) {
 
       <footer class="at-analysis-footer">
         <i class="fa-solid fa-brain"></i>
-        GM feedback is stored per campaign. Confirm / Ignore / Suppress / Link Existing do not create entities or write Campaign Links in qa.18.
+        GM feedback is stored per campaign. Confirmed candidates can be Create & Linked to a canonical Tome entity; normal Campaign Link writes remain disabled in qa.19.
       </footer>
     </section>`;
 }
@@ -380,6 +392,57 @@ async function chooseLinkTarget(candidateText) {
   return clean(result);
 }
 
+async function chooseCreationPlan(candidateText, candidateKind, sourceUuid) {
+  const api = creationApi();
+  if (!api?.plan || !api?.apply) throw new Error("Confirmed Entity Creation API is unavailable.");
+
+  const prepared = api.plan({
+    text:candidateText,
+    kind:candidateKind,
+    sourceUuid
+  });
+
+  const duplicateHtml = prepared.duplicateBlocked
+    ? `<div class="at-analysis-create-warning"><i class="fa-solid fa-triangle-exclamation"></i><span>An existing canonical entity already has this exact name. Use Link Existing instead.</span></div>`
+    : "";
+
+  const options = (prepared.semanticTypes || []).map((entry) =>
+    `<option value="${escapeHtml(entry.type)}"${entry.type === prepared.semanticType ? " selected" : ""}>${escapeHtml(entry.label)}</option>`
+  ).join("");
+
+  const result = await foundry.applications.api.DialogV2.wait({
+    window:{ title:`Campaign Intelligence · Create "${clean(candidateText)}"`, resizable:true },
+    position:{ width:620, height:"auto" },
+    content:`<form class="at-analysis-create-dialog">
+      <p>Create a canonical campaign entity for <strong>${escapeHtml(candidateText)}</strong>.</p>
+      <label><span>Entity type</span><select name="semanticType">${options}</select></label>
+      ${duplicateHtml}
+      <p class="hint">Tome delegates to the existing Quick Create / native system provider. You will review its creation form before anything is created.</p>
+    </form>`,
+    modal:false,
+    rejectClose:false,
+    buttons:[
+      {
+        action:"create",
+        label:"Continue to Create",
+        icon:"fa-solid fa-wand-magic-sparkles",
+        default:!prepared.duplicateBlocked,
+        disabled:prepared.duplicateBlocked,
+        callback:(_event, button) => ({
+          semanticType:clean(button.form?.elements?.semanticType?.value)
+        })
+      },
+      { action:"cancel", label:"Cancel", callback:() => null }
+    ]
+  });
+
+  if (!result?.semanticType) return null;
+  return {
+    ...prepared,
+    semanticType:result.semanticType
+  };
+}
+
 async function applyLearningAction(button, source) {
   if (!(button instanceof HTMLElement) || !source?.uuid) return false;
   const api = learningApi();
@@ -401,6 +464,19 @@ async function applyLearningAction(button, source) {
     } else if (action === "suppress") {
       await api.suppress({ text });
       ui.notifications.info(`Campaign Intelligence: suppressed ${text} for this campaign.`);
+    } else if (action === "create") {
+      const prepared = await chooseCreationPlan(text, kind, source.uuid);
+      if (!prepared) return false;
+
+      const result = await creationApi().apply({
+        text,
+        kind,
+        sourceUuid:source.uuid,
+        semanticType:prepared.semanticType
+      });
+      if (result?.cancelled) return false;
+
+      ui.notifications.info(`Campaign Intelligence: created ${result?.targetName || text} and recorded its canonical identity.`);
     } else if (action === "link") {
       const targetUuid = await chooseLinkTarget(text);
       if (!targetUuid) return false;
@@ -518,7 +594,9 @@ const publicApi = Object.freeze({
   version:VERSION,
   readOnly:false,
   writesPerformed:false,
-  campaignDataWrites:false,
+  campaignDataWrites:true,
+  controlledEntityCreation:true,
+  campaignLinkWrites:false,
   learningWritesEnabled:true,
   reviewActionsEnabled:true,
   snapshotForSource,

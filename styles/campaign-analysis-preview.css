@@ -1,4 +1,4 @@
-/* v1.7.0-qa.18 — GM Review & Campaign Learning */
+/* v1.7.0-qa.19 — Confirmed Entity Creation & Canonical Identity */
 
 #adventurers-tome-app .at-campaign-analysis-preview {
   margin: 16px 0;
@@ -282,4 +282,40 @@
   margin: 0;
   opacity: .68;
   font-size: .82rem;
+}
+
+
+/* qa.19 controlled entity creation */
+.at-analysis-create-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.at-analysis-create-dialog label {
+  display: grid;
+  gap: 5px;
+}
+
+.at-analysis-create-dialog select {
+  width: 100%;
+}
+
+.at-analysis-create-dialog .hint {
+  margin: 0;
+  opacity: .68;
+  font-size: .82rem;
+}
+
+.at-analysis-create-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 9px 10px;
+  border: 1px solid rgba(196, 157, 72, .55);
+  background: rgba(130, 87, 25, .12);
+}
+
+#adventurers-tome-app .at-analysis-actions [data-at-ci-action="create"] {
+  border-color: rgba(116, 158, 79, .58);
+  background: rgba(78, 118, 54, .10);
 }

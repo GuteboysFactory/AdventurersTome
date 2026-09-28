@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.19 — Confirmed Entity Creation & Canonical Identity
+
+- Adds the first controlled Campaign Intelligence entity-creation path.
+- Explicitly Confirmed candidates gain Create & Link alongside Link Existing and Reset.
+- Reuses Tome's existing Universal Folder Quick Create and native Quick NPC/system-provider stack rather than introducing a separate creation engine.
+- Prefills the confirmed candidate name into delegated creation flows.
+- Records the successfully created canonical UUID in world-scoped Campaign Learning.
+- Blocks silent exact-name duplicate creation and requires explicit GM confirmation.
+- Normal Session/Quest Campaign Link writes remain disabled.
+
+
 ## 1.7.0-qa.18 — GM Review & Campaign Learning Foundation
 
 - Adds explicit GM review actions to Campaign Analysis: Confirm, Ignore once, Suppress and Link existing.
