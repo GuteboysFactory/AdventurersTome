@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.18` — GM Review & Campaign Learning Foundation
+**Current development build:** `v1.7.0-qa.19` — Confirmed Entity Creation & Canonical Identity
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1976,3 +1976,22 @@ Campaign Intelligence now supports explicit GM feedback:
 This establishes the feedback/memory layer needed before controlled entity creation and persistent campaign graph writes.
 
 QA: `docs/V1.7_QA18_GM_REVIEW_CAMPAIGN_LEARNING.md`
+
+
+## v1.7.0-qa.19 — Confirmed Entity Creation & Canonical Identity
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Intelligence can now perform its first controlled canonical write:
+
+- explicit Confirm required
+- Create & Link action for confirmed candidates
+- type review before creation
+- delegates to existing Tome Quick Create / native provider stack
+- candidate name prefilled
+- exact-name duplicate guard
+- canonical UUID required and recorded in Campaign Learning
+- future discovery can converge on the created identity
+- normal Campaign Link writes remain disabled
+
+QA: `docs/V1.7_QA19_CONFIRMED_ENTITY_CREATION.md`
