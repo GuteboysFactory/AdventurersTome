@@ -323,8 +323,9 @@ function atFqTemplateFacts(template) {
   })).filter((fact) => fact.label || fact.value);
 }
 
-async function atFqEditGenericEntry(type, spec, template, folder) {
-  const defaultName = template?.id === "blank" ? "" : template?.name || "";
+async function atFqEditGenericEntry(type, spec, template, folder, options = {}) {
+  const requestedName = atFqClean(options.initialName || options.name);
+  const defaultName = requestedName || (template?.id === "blank" ? "" : template?.name || "");
   const choice = await foundry.applications.api.DialogV2.wait({
     window:{ title:`Adventurer's Tome · New ${spec.label}`, resizable:true },
     position:{ width:720, height:"auto" },
@@ -457,14 +458,19 @@ async function atFqQuickCreate(folderOrId, options = {}) {
       if (native) {
         atFqStats.nativeDelegations += 1;
         return quickNpc.open({
-          initialQuery:atFqClean(options.initialQuery),
+          initialQuery:atFqClean(options.initialQuery || options.initialName || options.name),
+          name:atFqClean(options.initialName || options.name),
           folderName:folder.name,
           folderFlag:"tomeQuickCreateNpcFolder",
-          closeAfterCreate:false
+          closeAfterCreate:options.closeAfterCreate === true
         });
       }
     }
-    return quickNpc?.open?.({ forceGeneric:true });
+    return quickNpc?.open?.({
+      forceGeneric:true,
+      name:atFqClean(options.initialName || options.name),
+      initialQuery:atFqClean(options.initialQuery || options.initialName || options.name)
+    });
   }
 
   if (type === "npc-group") {
@@ -494,7 +500,7 @@ async function atFqQuickCreate(folderOrId, options = {}) {
   if (!template) return null;
 
   try {
-    return await atFqEditGenericEntry(type, spec, template, folder);
+    return await atFqEditGenericEntry(type, spec, template, folder, options);
   } catch (error) {
     atFqStats.failures += 1;
     atFqStats.lastError = String(error?.message || error);
