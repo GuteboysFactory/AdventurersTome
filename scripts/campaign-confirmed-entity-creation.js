@@ -183,6 +183,7 @@ async function apply(input = {}) {
       initialQuery:prepared.text,
       closeAfterCreate:true,
       openAfterCreate:false,
+      awaitCreation:true,
       source:"campaign-intelligence",
       sourceUuid:prepared.sourceUuid
     });
