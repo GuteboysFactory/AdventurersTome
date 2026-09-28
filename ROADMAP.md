@@ -1735,7 +1735,7 @@ System-independence rule: **Reference-system versions must never become Tome run
 **Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
 **Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
 **Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.19` — Confirmed Entity Creation & Canonical Identity
+**Current development build:** `v1.7.0-qa.20` — Canonical Convergence & Campaign Links
 **v1.5 feature state:** STABLE
 
 ## v1.3 final status
@@ -1995,3 +1995,20 @@ Campaign Intelligence can now perform its first controlled canonical write:
 - normal Campaign Link writes remain disabled
 
 QA: `docs/V1.7_QA19_CONFIRMED_ENTITY_CREATION.md`
+
+
+## v1.7.0-qa.20 — Canonical Convergence & Campaign Links
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Intelligence now converges explicit GM decisions into the real campaign graph:
+
+- Create & Link persists current Session/Quest -> canonical target
+- Link Existing persists the same canonical graph edge
+- Actor targets use canonical Actor UUID links plus compatibility projection
+- Journal-backed World targets use canonical entity UUID links plus existing World link projection
+- reciprocal Session/Quest references are written to the target
+- convergence can be verified through `campaignEntityCreation.verify()`
+- all graph writes remain GM-explicit
+
+QA: `docs/V1.7_QA20_CANONICAL_CONVERGENCE_CAMPAIGN_LINKS.md`
