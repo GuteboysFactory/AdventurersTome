@@ -5,6 +5,9 @@ const VERSION = 1;
 const stats = {
   opens:0,
   nativeProviderOpens:0,
+  nativeProviderWaits:0,
+  nativeProviderCompletions:0,
+  nativeProviderCancels:0,
   fallbackOpens:0,
   previews:0,
   applies:0,
@@ -275,6 +278,106 @@ async function review(plan) {
   });
 }
 
+function nativeCompletionResult(value) {
+  if (!value) return null;
+  const actor = value?.documentName === "Actor" ? value : value?.actor;
+  const actorUuid = clean(actor?.uuid || value?.actorUuid);
+  if (!actorUuid) return null;
+
+  return Object.freeze({
+    action:clean(value?.action || "native-create") || "native-create",
+    actorId:clean(actor?.id || value?.actorId),
+    actorUuid,
+    actorName:clean(actor?.name || value?.actorName),
+    created:value?.created !== false,
+    sourceUuid:clean(value?.sourceUuid)
+  });
+}
+
+async function openNativeProviderAndWait(provider, nativeOptions = {}, callerOptions = {}) {
+  let observer = null;
+  let settled = false;
+  let resolveCompletion;
+  const completion = new Promise((resolve) => { resolveCompletion = resolve; });
+
+  const finish = (value) => {
+    if (settled) return;
+    settled = true;
+    try { observer?.disconnect?.(); } catch (_error) {}
+    resolveCompletion(value);
+  };
+
+  const cancel = () => {
+    if (settled) return;
+    stats.nativeProviderCancels += 1;
+    finish(null);
+  };
+
+  const callerOnCreated = typeof callerOptions?.onCreated === "function"
+    ? callerOptions.onCreated
+    : null;
+
+  const onCreated = async (actor) => {
+    try { await callerOnCreated?.(actor); }
+    catch (error) {
+      console.warn("Adventurer's Tome | Native Quick NPC caller onCreated callback failed safely", error);
+    }
+
+    const normalized = nativeCompletionResult(actor);
+    if (!normalized) return;
+    stats.nativeProviderCompletions += 1;
+    finish(normalized);
+  };
+
+  let opened;
+  try {
+    opened = await provider.open({
+      ...nativeOptions,
+      onCreated
+    });
+  } catch (error) {
+    finish(null);
+    throw error;
+  }
+
+  const direct = nativeCompletionResult(opened);
+  if (direct) {
+    stats.nativeProviderCompletions += 1;
+    finish(direct);
+    return completion;
+  }
+
+  if (!opened) {
+    cancel();
+    return completion;
+  }
+
+  const root = opened?.element;
+  if (root && typeof MutationObserver !== "undefined") {
+    observer = new MutationObserver(() => {
+      if (!root.isConnected) cancel();
+    });
+    observer.observe(document.body, { childList:true, subtree:true });
+    queueMicrotask(() => {
+      if (!root.isConnected) cancel();
+    });
+  } else if (typeof opened?.close === "function") {
+    const originalClose = opened.close.bind(opened);
+    try {
+      opened.close = async (...args) => {
+        try { return await originalClose(...args); }
+        finally { cancel(); }
+      };
+    } catch (_error) {
+      cancel();
+    }
+  } else {
+    cancel();
+  }
+
+  return completion;
+}
+
 async function open(options = {}) {
   if (!game.user?.isGM) {
     ui.notifications.warn("Adventurer's Tome: Quick NPC is GM-only.");
@@ -288,13 +391,20 @@ async function open(options = {}) {
       const provider = await nativeProvider(options);
       if (provider) {
         stats.nativeProviderOpens += 1;
-        return provider.open({
+        const nativeOptions = {
           initialQuery:clean(options.initialQuery || options.name),
           actorName:clean(options.name),
           folderName:clean(options.folderName || "NPC"),
           folderFlag:clean(options.folderFlag || "npcTemplateFolder"),
           closeAfterCreate:options.closeAfterCreate === true
-        });
+        };
+
+        if (options.awaitCreation === true) {
+          stats.nativeProviderWaits += 1;
+          return openNativeProviderAndWait(provider, nativeOptions, options);
+        }
+
+        return provider.open(nativeOptions);
       }
     } catch (error) {
       stats.failures += 1;
