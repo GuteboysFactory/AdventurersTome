@@ -261,6 +261,45 @@ async function apply(input = {}) {
   }
 }
 
+async function verify({ text, sourceUuid = "" } = {}) {
+  const decision = learningApi()?.decisionFor?.(text, { sourceUuid }) || null;
+  const targetUuid = clean(decision?.targetUuid);
+  if (!targetUuid) {
+    return Object.freeze({
+      text:clean(text),
+      sourceUuid:clean(sourceUuid),
+      targetUuid:"",
+      targetResolves:false,
+      canonicalVisible:false,
+      campaignLinked:false,
+      converged:false,
+      reason:"no-learned-canonical-target"
+    });
+  }
+
+  let document = null;
+  try { document = await fromUuid(targetUuid); }
+  catch (_error) { document = null; }
+
+  const exact = visibleExactMatches(document?.name || text);
+  const canonicalVisible = exact.some((row) => row.uuid === targetUuid);
+  const campaignLinked = Boolean(campaignLinksApi()?.hasCanonicalLink?.({
+    sourceUuid,
+    targetUuid
+  }));
+
+  return Object.freeze({
+    text:clean(text),
+    sourceUuid:clean(sourceUuid),
+    targetUuid,
+    targetName:clean(document?.name || decision?.targetName),
+    targetResolves:Boolean(document?.uuid),
+    canonicalVisible,
+    campaignLinked,
+    converged:Boolean(document?.uuid && canonicalVisible && campaignLinked)
+  });
+}
+
 function audit() {
   return Object.freeze({
     contract:CONTRACT,
@@ -285,6 +324,7 @@ const publicApi = Object.freeze({
   semanticTypes:clone(SEMANTIC_TYPES),
   plan,
   apply,
+  verify,
   audit
 });
 
