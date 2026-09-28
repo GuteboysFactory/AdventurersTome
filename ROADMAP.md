@@ -2012,3 +2012,20 @@ Campaign Intelligence now converges explicit GM decisions into the real campaign
 - all graph writes remain GM-explicit
 
 QA: `docs/V1.7_QA20_CANONICAL_CONVERGENCE_CAMPAIGN_LINKS.md`
+
+## v1.7.0-qa.21 — Native Creation Completion / Canonical UUID Hotfix
+
+**Status:** QA / IMPLEMENTED
+
+Focused qa.20 integration hotfix:
+
+- Campaign Intelligence no longer treats opening a native Quick NPC Library as completed Actor creation
+- completion-aware native Quick NPC delegation waits for the provider's actual `onCreated(actor)` callback
+- canonical Actor UUID resolution therefore starts only after a real Actor exists
+- Universal Folder Quick Create forwards this waiting mode only when explicitly requested by the caller
+- native-library close/cancel before creation returns a safe cancellation with no Campaign Learning or Campaign Link mutation
+- normal Quick NPC use outside Campaign Intelligence keeps its prior non-blocking/open-library behavior
+- Journal-backed World Create & Link and Link Existing remain unchanged
+- all Campaign Graph writes remain GM-explicit
+
+QA: `docs/V1.7_QA21_NATIVE_CREATION_COMPLETION_HOTFIX.md`

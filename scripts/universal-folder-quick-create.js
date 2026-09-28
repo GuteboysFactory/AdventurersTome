@@ -464,7 +464,9 @@ async function atFqQuickCreate(folderOrId, options = {}) {
           name:atFqClean(options.initialName || options.name),
           folderName:folder.name,
           folderFlag:"tomeQuickCreateNpcFolder",
-          closeAfterCreate:options.closeAfterCreate === true
+          closeAfterCreate:options.closeAfterCreate === true,
+          awaitCreation:options.awaitCreation === true,
+          onCreated:typeof options.onCreated === "function" ? options.onCreated : null
         });
       }
     }

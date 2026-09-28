@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1.7.0-qa.21 — Native Creation Completion / Canonical UUID Hotfix
+
+- Fixes Campaign Intelligence Character/NPC Create & Link treating the opened native Quick NPC Library as if Actor creation had already completed.
+- Adds an explicit completion-aware native Quick NPC path that waits for the provider's real `onCreated(actor)` callback before canonical UUID resolution continues.
+- Forwards `awaitCreation` through Universal Folder Quick Create only when explicitly requested.
+- Preserves normal native Quick NPC behavior outside Campaign Intelligence.
+- Closing the native library without creating an Actor resolves as cancellation with no learned canonical target or Campaign Link write.
+- Keeps canonical UUID authority, GM-explicit graph writes and qa.20 World-entity convergence unchanged.
+
 ## 1.7.0-qa.20 — Canonical Convergence & Campaign Links
 
 - Persists real Session/Quest Campaign Links after explicit Create & Link or Link Existing actions.
