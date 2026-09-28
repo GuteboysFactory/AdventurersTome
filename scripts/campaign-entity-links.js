@@ -38,7 +38,10 @@ function atCelNormalizeUuids(value) {
 function atCelCanonical(journal) {
   const raw = journal?.getFlag?.(ATCEL_ID, ATCEL_FLAG);
   const links = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
-  return { actorUuids: atCelNormalizeUuids(links.actorUuids) };
+  return {
+    actorUuids: atCelNormalizeUuids(links.actorUuids),
+    entityUuids: atCelNormalizeUuids(links.entityUuids)
+  };
 }
 
 function atCelLegacy(journal) {
@@ -102,7 +105,10 @@ async function atCelSetActorLink(journal, actor, linked) {
   }
 
   await journal.update({
-    [`flags.${ATCEL_ID}.${ATCEL_FLAG}`]: { actorUuids: [...uuids] },
+    [`flags.${ATCEL_ID}.${ATCEL_FLAG}`]: {
+      actorUuids: [...uuids],
+      entityUuids: atCelCanonical(journal).entityUuids
+    },
     [`flags.${ATCEL_ID}.${ATCEL_LEGACY_FLAG}`]: {
       ...legacy,
       actors: [...actorIds]
@@ -110,6 +116,108 @@ async function atCelSetActorLink(journal, actor, linked) {
   });
 
   return linked;
+}
+
+async function atCelResolveUuid(uuid) {
+  const value = String(uuid || "").trim();
+  if (!value) return null;
+  try {
+    const resolver = game.modules.get(ATCEL_ID)?.api?.universalDocuments?.resolveCanonical;
+    if (typeof resolver === "function") {
+      const resolved = await resolver(value, { consumer:"campaign-entity-links" });
+      if (resolved) return resolved;
+    }
+  } catch (_error) {}
+  try { return await fromUuid(value); }
+  catch (_error) { return null; }
+}
+
+async function atCelSetLegacyReciprocal(document, key, id, linked = true) {
+  if (!document?.update) return false;
+  const legacy = atCelLegacy(document);
+  const values = new Set((legacy[key] || []).map((value) => String(value || "")).filter(Boolean));
+  if (linked) values.add(String(id || ""));
+  else values.delete(String(id || ""));
+  await document.update({
+    [`flags.${ATCEL_ID}.${ATCEL_LEGACY_FLAG}`]: {
+      ...legacy,
+      [key]: [...values]
+    }
+  });
+  return true;
+}
+
+async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
+  if (!game.user?.isGM) throw new Error("GM permission required.");
+
+  const source = await atCelResolveUuid(sourceUuid);
+  const target = await atCelResolveUuid(targetUuid);
+  if (!source || source.documentName !== "JournalEntry") throw new Error("Session or Quest source Journal not found.");
+  if (!target || !["Actor","JournalEntry"].includes(target.documentName)) throw new Error("Campaign link target must be an Actor or JournalEntry.");
+
+  const sourceKind = atCelJournalKind(source);
+  if (!["session","quest"].includes(sourceKind)) throw new Error("Campaign link source must be a Session or Quest.");
+
+  if (target.documentName === "Actor") {
+    await atCelSetActorLink(source, target, linked);
+    await atCelSetLegacyReciprocal(target, sourceKind === "session" ? "sessions" : "quests", source.id, linked);
+  } else {
+    const canonical = atCelCanonical(source);
+    const entityUuids = new Set(canonical.entityUuids);
+    const sourceLegacy = atCelLegacy(source);
+    const worldIds = new Set(sourceLegacy.world.map(String));
+
+    if (linked) {
+      entityUuids.add(target.uuid);
+      worldIds.add(target.id);
+    } else {
+      entityUuids.delete(target.uuid);
+      worldIds.delete(target.id);
+    }
+
+    await source.update({
+      [`flags.${ATCEL_ID}.${ATCEL_FLAG}`]: {
+        actorUuids:canonical.actorUuids,
+        entityUuids:[...entityUuids]
+      },
+      [`flags.${ATCEL_ID}.${ATCEL_LEGACY_FLAG}`]: {
+        ...sourceLegacy,
+        world:[...worldIds]
+      }
+    });
+
+    await atCelSetLegacyReciprocal(target, sourceKind === "session" ? "sessions" : "quests", source.id, linked);
+  }
+
+  Hooks.callAll("adventurersTomeCampaignEntityLinkChanged", {
+    linked:Boolean(linked),
+    sourceUuid:source.uuid,
+    sourceKind,
+    targetUuid:target.uuid,
+    targetDocumentName:target.documentName,
+    targetName:String(target.name || "")
+  });
+
+  return {
+    linked:Boolean(linked),
+    sourceUuid:source.uuid,
+    sourceKind,
+    targetUuid:target.uuid,
+    targetName:String(target.name || ""),
+    targetDocumentName:target.documentName
+  };
+}
+
+function atCelHasCanonicalLink(sourceUuid, targetUuid) {
+  const source = typeof sourceUuid === "string" ? game.journal?.get(sourceUuid.replace(/^JournalEntry\./, "")) : sourceUuid;
+  const target = String(targetUuid || "").trim();
+  if (!source || !target) return false;
+  const canonical = atCelCanonical(source);
+  if (canonical.actorUuids.includes(target) || canonical.entityUuids.includes(target)) return true;
+  const legacy = atCelLegacy(source);
+  if (target.startsWith("Actor.")) return legacy.actors.includes(target.slice(6));
+  if (target.startsWith("JournalEntry.")) return legacy.world.includes(target.slice("JournalEntry.".length));
+  return false;
 }
 
 function atCelFolderNames(folder) {
@@ -585,7 +693,7 @@ function atCelAudit() {
   for (const journal of [...sessions, ...quests]) {
     const canonical = atCelCanonical(journal);
     const legacy = atCelLegacy(journal);
-    canonicalLinks += canonical.actorUuids.length;
+    canonicalLinks += canonical.actorUuids.length + canonical.entityUuids.length;
     legacyLinks += legacy.actors.length;
     for (const uuid of canonical.actorUuids) {
       if (!atCelActorFromUuid(uuid)) dangling.push({ journal: journal.uuid, actorUuid: uuid });
@@ -595,7 +703,9 @@ function atCelAudit() {
         journalUuid: journal.uuid,
         kind: atCelJournalKind(journal),
         canonicalActors: canonical.actorUuids.length,
-        projectedActorIds: legacy.actors.length
+        canonicalEntities: canonical.entityUuids.length,
+        projectedActorIds: legacy.actors.length,
+        projectedWorldIds: legacy.world.length
       });
     }
   }
@@ -618,7 +728,16 @@ function atCelAudit() {
 Hooks.once("ready", () => {
   atCelInstallStyles();
   const module = game.modules.get(ATCEL_ID);
-  if (module?.api) module.api.campaignEntityLinksAudit = atCelAudit;
+  if (module?.api) {
+    module.api.campaignEntityLinksAudit = atCelAudit;
+    module.api.campaignEntityLinks = Object.freeze({
+      version:2,
+      linkCanonical:({ sourceUuid, targetUuid }) => atCelLinkCanonical(sourceUuid, targetUuid, true),
+      unlinkCanonical:({ sourceUuid, targetUuid }) => atCelLinkCanonical(sourceUuid, targetUuid, false),
+      hasCanonicalLink:({ sourceUuid, targetUuid }) => atCelHasCanonicalLink(sourceUuid, targetUuid),
+      audit:atCelAudit
+    });
+  }
 
   document.addEventListener("click", (event) => {
     const manager = event.target.closest?.("[data-at-cel-manager]");
