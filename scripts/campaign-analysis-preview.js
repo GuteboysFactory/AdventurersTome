@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-analysis-preview";
-const VERSION = 3;
+const VERSION = 4;
 
 const TYPE_META = Object.freeze({
   character:{ label:"Character / NPC", icon:"fa-user" },
@@ -108,6 +108,10 @@ function creationApi() {
   return game.modules.get(MODULE_ID)?.api?.campaignEntityCreation || null;
 }
 
+function campaignLinksApi() {
+  return game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
+}
+
 function decisionRank(decision) {
   const key = clean(decision);
   if (["resolved-canonical","resolved-semantic","resolved-external"].includes(key)) return 5;
@@ -213,7 +217,8 @@ function snapshotForSource(uuid) {
     writesPerformed:false,
     campaignDataWrites:true,
     controlledEntityCreation:true,
-    campaignLinkWrites:false,
+    campaignLinkWrites:true,
+    explicitCampaignLinkWritesOnly:true,
     learningWritesEnabled:true,
     reviewActionsEnabled:true,
     known:clone(known),
@@ -330,7 +335,7 @@ function panelHtml(source, data) {
 
       <footer class="at-analysis-footer">
         <i class="fa-solid fa-brain"></i>
-        GM feedback is stored per campaign. Confirmed candidates can be Create & Linked to a canonical Tome entity; normal Campaign Link writes remain disabled in qa.19.
+        GM feedback is stored per campaign. Create & Link and Link Existing now persist canonical Session/Quest Campaign Links after explicit GM action.
       </footer>
     </section>`;
 }
@@ -476,13 +481,28 @@ async function applyLearningAction(button, source) {
       });
       if (result?.cancelled) return false;
 
-      ui.notifications.info(`Campaign Intelligence: created ${result?.targetName || text} and recorded its canonical identity.`);
+      if (result?.campaignLinked) {
+        ui.notifications.info(`Campaign Intelligence: created ${result?.targetName || text}, recorded canonical identity, and linked it to this ${source.kind === "quest" ? "Quest" : "Session"}.`);
+      } else {
+        ui.notifications.warn(`Campaign Intelligence: created ${result?.targetName || text}, but Campaign Link convergence needs review. ${result?.campaignLinkError || ""}`);
+      }
     } else if (action === "link") {
       const targetUuid = await chooseLinkTarget(text);
       if (!targetUuid) return false;
       await api.linkExisting({ text, sourceUuid:source.uuid, targetUuid });
+      const linkApi = campaignLinksApi();
+      if (!linkApi?.linkCanonical) throw new Error("Campaign Entity Links API is unavailable.");
+      await linkApi.linkCanonical({
+        sourceUuid:source.uuid,
+        targetUuid
+      });
+      await api.markCampaignLinked?.({
+        text,
+        sourceUuid:source.uuid,
+        targetUuid
+      });
       const learned = api.decisionFor(text, { sourceUuid:source.uuid });
-      ui.notifications.info(`Campaign Intelligence: ${text} linked to ${learned?.targetName || "existing entity"}.`);
+      ui.notifications.info(`Campaign Intelligence: ${text} linked to ${learned?.targetName || "existing entity"} and persisted as a Campaign Link.`);
     } else if (action === "clear") {
       await api.clear({ text, sourceUuid:source.uuid, scope:"global" });
       ui.notifications.info(`Campaign Intelligence: cleared learned decision for ${text}.`);
@@ -596,7 +616,8 @@ const publicApi = Object.freeze({
   writesPerformed:false,
   campaignDataWrites:true,
   controlledEntityCreation:true,
-  campaignLinkWrites:false,
+  campaignLinkWrites:true,
+  explicitCampaignLinkWritesOnly:true,
   learningWritesEnabled:true,
   reviewActionsEnabled:true,
   snapshotForSource,
