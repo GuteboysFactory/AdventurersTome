@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-confirmed-entity-creation";
-const VERSION = 1;
+const VERSION = 2;
 
 const SEMANTIC_TYPES = Object.freeze([
   Object.freeze({ type:"npc", label:"Character / NPC", icon:"fa-user" }),
@@ -48,6 +48,10 @@ function moduleApi() {
 
 function learningApi() {
   return moduleApi()?.campaignReviewLearning || null;
+}
+
+function campaignLinksApi() {
+  return moduleApi()?.campaignEntityLinks || null;
 }
 
 function defaultSemanticType(kind) {
@@ -207,6 +211,28 @@ async function apply(input = {}) {
       semanticType
     });
 
+    let campaignLinked = false;
+    let campaignLinkError = "";
+    if (prepared.sourceUuid) {
+      try {
+        const linkApi = campaignLinksApi();
+        if (!linkApi?.linkCanonical) throw new Error("Campaign Entity Links API is unavailable.");
+        await linkApi.linkCanonical({
+          sourceUuid:prepared.sourceUuid,
+          targetUuid:document.uuid
+        });
+        campaignLinked = true;
+        await learningApi()?.markCampaignLinked?.({
+          text:prepared.text,
+          sourceUuid:prepared.sourceUuid,
+          targetUuid:document.uuid
+        });
+      } catch (error) {
+        campaignLinkError = String(error?.message || error);
+        console.warn("Adventurer's Tome | Entity created but Campaign Link convergence failed", error);
+      }
+    }
+
     await refreshDiscovery();
     creates += 1;
     Hooks.callAll("adventurersTomeCampaignEntityCreated", {
@@ -224,7 +250,9 @@ async function apply(input = {}) {
       semanticType,
       targetUuid:document.uuid,
       targetName:clean(document.name),
-      documentName:clean(document.documentName)
+      documentName:clean(document.documentName),
+      campaignLinked,
+      campaignLinkError
     });
   } catch (error) {
     failures += 1;
@@ -244,7 +272,8 @@ function audit() {
     delegatesToQuickCreate:true,
     canonicalUuidRequired:true,
     campaignLearningRecorded:true,
-    campaignLinkWrites:false,
+    campaignLinkWrites:true,
+    sourceToCanonicalLinkAfterCreate:true,
     supportedTypes:SEMANTIC_TYPES.map((entry) => entry.type),
     stats:{ plans, applies, creates, cancels, duplicateBlocks, failures, lastError }
   });
