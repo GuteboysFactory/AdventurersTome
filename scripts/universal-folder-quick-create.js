@@ -399,16 +399,18 @@ async function atFqEditGenericEntry(type, spec, template, folder, options = {}) 
   atFqStats.genericCreates += 1;
   if (template?.id === "blank") atFqStats.blanks += 1;
 
-  try {
-    const app = atFqModuleApi()?.app?.();
-    if (app) {
-      app.activeWorldId = entry.id;
-      app.activeTab = "worldProfile";
-      app.worldEditing = true;
-      await app.render({ parts:["main"] });
-    } else entry.sheet?.render?.(true);
-  } catch (_error) {
-    entry.sheet?.render?.(true);
+  if (options.openAfterCreate !== false) {
+    try {
+      const app = atFqModuleApi()?.app?.();
+      if (app) {
+        app.activeWorldId = entry.id;
+        app.activeTab = "worldProfile";
+        app.worldEditing = true;
+        await app.render({ parts:["main"] });
+      } else entry.sheet?.render?.(true);
+    } catch (_error) {
+      entry.sheet?.render?.(true);
+    }
   }
 
   return entry;
