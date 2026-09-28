@@ -1,12 +1,13 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-review-learning";
-const VERSION = 1;
+const VERSION = 2;
 const SETTING_KEY = "campaignIntelligenceLearning";
 
 const ACTIONS = Object.freeze({
   CONFIRMED:"confirmed",
   SUPPRESSED:"suppressed",
   LINKED:"linked",
+  CREATED:"created",
   SOURCE_IGNORED:"source-ignored"
 });
 
@@ -111,6 +112,7 @@ function summary(state = readState()) {
     confirmed:decisions.filter((row) => row?.action === ACTIONS.CONFIRMED).length,
     suppressed:decisions.filter((row) => row?.action === ACTIONS.SUPPRESSED).length,
     linked:decisions.filter((row) => row?.action === ACTIONS.LINKED).length,
+    created:decisions.filter((row) => row?.action === ACTIONS.CREATED).length,
     sourceIgnored:sourceIgnoreCount
   };
 }
@@ -209,6 +211,36 @@ async function linkExisting({ text, sourceUuid = "", targetUuid } = {}) {
   return writeState(state, "link-existing");
 }
 
+async function recordCreated({ text, sourceUuid = "", targetUuid, targetName = "", targetKind = "", semanticType = "" } = {}) {
+  const key = normalize(text);
+  const uuid = clean(targetUuid);
+  if (!key || !uuid) throw new Error("Candidate name and created target UUID are required.");
+
+  let document = null;
+  try { document = await fromUuid(uuid); }
+  catch (_error) { document = null; }
+  if (!document?.uuid) throw new Error("Created target no longer resolves by canonical UUID.");
+
+  const state = readState();
+  state.decisions[key] = gmStamp({
+    action:ACTIONS.CREATED,
+    text:clean(text),
+    sourceUuid:clean(sourceUuid),
+    targetUuid:document.uuid,
+    targetName:clean(targetName || document.name),
+    targetKind:clean(targetKind || document.documentName),
+    semanticType:clean(semanticType),
+    created:true
+  });
+
+  if (sourceUuid && state.sourceIgnores?.[sourceUuid]?.[key]) {
+    delete state.sourceIgnores[sourceUuid][key];
+    if (!Object.keys(state.sourceIgnores[sourceUuid]).length) delete state.sourceIgnores[sourceUuid];
+  }
+
+  return writeState(state, "created");
+}
+
 async function clear({ text, sourceUuid = "", scope = "global" } = {}) {
   const key = normalize(text);
   if (!key) throw new Error("A candidate name is required.");
@@ -240,7 +272,8 @@ function audit() {
     storageScope:"world",
     explicitFeedbackOnly:true,
     autoLearning:false,
-    entityCreation:false,
+    entityCreation:true,
+    controlledEntityCreation:true,
     campaignLinkWrites:false,
     actions:Object.values(ACTIONS),
     summary:summary(state),
@@ -259,6 +292,7 @@ const publicApi = Object.freeze({
   suppress,
   ignoreOnce,
   linkExisting,
+  recordCreated,
   clear,
   linkTargets,
   all,
