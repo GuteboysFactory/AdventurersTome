@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-review-learning";
-const VERSION = 2;
+const VERSION = 3;
 const SETTING_KEY = "campaignIntelligenceLearning";
 
 const ACTIONS = Object.freeze({
@@ -113,6 +113,7 @@ function summary(state = readState()) {
     suppressed:decisions.filter((row) => row?.action === ACTIONS.SUPPRESSED).length,
     linked:decisions.filter((row) => row?.action === ACTIONS.LINKED).length,
     created:decisions.filter((row) => row?.action === ACTIONS.CREATED).length,
+    campaignLinked:decisions.filter((row) => row?.campaignLinked === true).length,
     sourceIgnored:sourceIgnoreCount
   };
 }
@@ -241,6 +242,30 @@ async function recordCreated({ text, sourceUuid = "", targetUuid, targetName = "
   return writeState(state, "created");
 }
 
+async function markCampaignLinked({ text, sourceUuid = "", targetUuid = "" } = {}) {
+  const key = normalize(text);
+  if (!key) throw new Error("Candidate name is required.");
+  const state = readState();
+  const current = state.decisions[key] || null;
+  if (!current) throw new Error("No learned Campaign Intelligence decision exists for this candidate.");
+
+  const expectedTarget = clean(current.targetUuid);
+  const actualTarget = clean(targetUuid);
+  if (expectedTarget && actualTarget && expectedTarget !== actualTarget) {
+    throw new Error("Campaign Link target does not match the learned canonical target.");
+  }
+
+  state.decisions[key] = gmStamp({
+    ...current,
+    sourceUuid:clean(sourceUuid || current.sourceUuid),
+    targetUuid:actualTarget || expectedTarget,
+    campaignLinked:true,
+    campaignLinkedAt:Date.now()
+  });
+
+  return writeState(state, "campaign-linked");
+}
+
 async function clear({ text, sourceUuid = "", scope = "global" } = {}) {
   const key = normalize(text);
   if (!key) throw new Error("A candidate name is required.");
@@ -293,6 +318,7 @@ const publicApi = Object.freeze({
   ignoreOnce,
   linkExisting,
   recordCreated,
+  markCampaignLinked,
   clear,
   linkTargets,
   all,

@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1.7.0-qa.20 — Canonical Convergence & Campaign Links
+
+- Persists real Session/Quest Campaign Links after explicit Create & Link or Link Existing actions.
+- Extends canonical Session/Quest link storage with generic entity UUIDs while preserving existing Actor UUID and legacy compatibility projections.
+- Writes reciprocal Session/Quest references to created/linked Actor or World targets.
+- Adds canonical convergence verification: target resolves, is visible in Campaign Discovery, and is persistently linked.
+- Keeps all graph writes GM-explicit; no confidence-driven automatic linking is introduced.
+
+
 ## 1.7.0-qa.19 — Confirmed Entity Creation & Canonical Identity
 
 - Adds the first controlled Campaign Intelligence entity-creation path.

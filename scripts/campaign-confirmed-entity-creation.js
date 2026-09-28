@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-confirmed-entity-creation";
-const VERSION = 1;
+const VERSION = 2;
 
 const SEMANTIC_TYPES = Object.freeze([
   Object.freeze({ type:"npc", label:"Character / NPC", icon:"fa-user" }),
@@ -48,6 +48,10 @@ function moduleApi() {
 
 function learningApi() {
   return moduleApi()?.campaignReviewLearning || null;
+}
+
+function campaignLinksApi() {
+  return moduleApi()?.campaignEntityLinks || null;
 }
 
 function defaultSemanticType(kind) {
@@ -207,6 +211,28 @@ async function apply(input = {}) {
       semanticType
     });
 
+    let campaignLinked = false;
+    let campaignLinkError = "";
+    if (prepared.sourceUuid) {
+      try {
+        const linkApi = campaignLinksApi();
+        if (!linkApi?.linkCanonical) throw new Error("Campaign Entity Links API is unavailable.");
+        await linkApi.linkCanonical({
+          sourceUuid:prepared.sourceUuid,
+          targetUuid:document.uuid
+        });
+        campaignLinked = true;
+        await learningApi()?.markCampaignLinked?.({
+          text:prepared.text,
+          sourceUuid:prepared.sourceUuid,
+          targetUuid:document.uuid
+        });
+      } catch (error) {
+        campaignLinkError = String(error?.message || error);
+        console.warn("Adventurer's Tome | Entity created but Campaign Link convergence failed", error);
+      }
+    }
+
     await refreshDiscovery();
     creates += 1;
     Hooks.callAll("adventurersTomeCampaignEntityCreated", {
@@ -224,13 +250,54 @@ async function apply(input = {}) {
       semanticType,
       targetUuid:document.uuid,
       targetName:clean(document.name),
-      documentName:clean(document.documentName)
+      documentName:clean(document.documentName),
+      campaignLinked,
+      campaignLinkError
     });
   } catch (error) {
     failures += 1;
     lastError = String(error?.message || error);
     throw error;
   }
+}
+
+async function verify({ text, sourceUuid = "" } = {}) {
+  const decision = learningApi()?.decisionFor?.(text, { sourceUuid }) || null;
+  const targetUuid = clean(decision?.targetUuid);
+  if (!targetUuid) {
+    return Object.freeze({
+      text:clean(text),
+      sourceUuid:clean(sourceUuid),
+      targetUuid:"",
+      targetResolves:false,
+      canonicalVisible:false,
+      campaignLinked:false,
+      converged:false,
+      reason:"no-learned-canonical-target"
+    });
+  }
+
+  let document = null;
+  try { document = await fromUuid(targetUuid); }
+  catch (_error) { document = null; }
+
+  const exact = visibleExactMatches(document?.name || text);
+  const canonicalVisible = exact.some((row) => row.uuid === targetUuid);
+  const campaignLinked = Boolean(campaignLinksApi()?.hasCanonicalLink?.({
+    sourceUuid,
+    targetUuid
+  }));
+
+  return Object.freeze({
+    text:clean(text),
+    sourceUuid:clean(sourceUuid),
+    targetUuid,
+    targetName:clean(document?.name || decision?.targetName),
+    targetResolves:Boolean(document?.uuid),
+    canonicalVisible,
+    campaignLinked,
+    converged:Boolean(document?.uuid && canonicalVisible && campaignLinked)
+  });
 }
 
 function audit() {
@@ -244,7 +311,8 @@ function audit() {
     delegatesToQuickCreate:true,
     canonicalUuidRequired:true,
     campaignLearningRecorded:true,
-    campaignLinkWrites:false,
+    campaignLinkWrites:true,
+    sourceToCanonicalLinkAfterCreate:true,
     supportedTypes:SEMANTIC_TYPES.map((entry) => entry.type),
     stats:{ plans, applies, creates, cancels, duplicateBlocks, failures, lastError }
   });
@@ -256,6 +324,7 @@ const publicApi = Object.freeze({
   semanticTypes:clone(SEMANTIC_TYPES),
   plan,
   apply,
+  verify,
   audit
 });
 
