@@ -180,7 +180,7 @@ async function apply(input = {}) {
       blank:true,
       initialName:prepared.text,
       name:prepared.text,
-      initialQuery:prepared.text,
+      initialQuery:"",
       closeAfterCreate:true,
       openAfterCreate:false,
       awaitCreation:true,
