@@ -391,8 +391,9 @@ async function open(options = {}) {
       const provider = await nativeProvider(options);
       if (provider) {
         stats.nativeProviderOpens += 1;
+        const hasExplicitInitialQuery = Object.prototype.hasOwnProperty.call(options, "initialQuery");
         const nativeOptions = {
-          initialQuery:clean(options.initialQuery || options.name),
+          initialQuery:hasExplicitInitialQuery ? clean(options.initialQuery) : clean(options.name),
           actorName:clean(options.name),
           folderName:clean(options.folderName || "NPC"),
           folderFlag:clean(options.folderFlag || "npcTemplateFolder"),

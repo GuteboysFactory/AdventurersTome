@@ -2045,3 +2045,18 @@ Focused native creation UX hotfix after qa.21:
 - all Campaign Graph writes remain GM-explicit
 
 QA: `docs/V1.7_QA22_NATIVE_NPC_TEMPLATE_QUERY_SEPARATION.md`
+
+## v1.7.0-qa.23 — Native Empty Query Preservation Hotfix
+
+**Status:** QA / IMPLEMENTED
+
+Focused final native-NPC query fix:
+
+- Quick NPC bridge now preserves an explicitly empty `initialQuery`
+- name-based fallback only applies when `initialQuery` is absent
+- Campaign Intelligence Character/NPC creation opens the full native template library without manual Clear
+- confirmed candidate name still becomes the created Actor name
+- Item/Location/Contact/Faction/Lore creation is untouched
+- qa.21 completion-aware callback and qa.20 canonical convergence remain unchanged
+
+QA: `docs/V1.7_QA23_NATIVE_EMPTY_QUERY_PRESERVATION_HOTFIX.md`
