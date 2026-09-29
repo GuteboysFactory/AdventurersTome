@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 1.7.0-qa.22 — Native NPC Template Query Separation
+
+- Separates Campaign Intelligence NPC Actor naming from native Quick NPC template filtering.
+- Character/NPC Create & Link now opens the native template library unfiltered while preserving the confirmed candidate as the Actor name.
+- Universal Folder Quick Create distinguishes an explicitly empty `initialQuery` from an absent query, preserving existing fallback behavior for other callers.
+- Removes the manual Clear workaround observed in qa.21.
+- Keeps qa.21 completion waiting, canonical UUID authority, Campaign Learning and Campaign Link convergence unchanged.
+
 ## 1.7.0-qa.21 — Native Creation Completion / Canonical UUID Hotfix
 
 - Fixes Campaign Intelligence Character/NPC Create & Link treating the opened native Quick NPC Library as if Actor creation had already completed.
