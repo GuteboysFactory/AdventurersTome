@@ -2029,3 +2029,19 @@ Focused qa.20 integration hotfix:
 - all Campaign Graph writes remain GM-explicit
 
 QA: `docs/V1.7_QA21_NATIVE_CREATION_COMPLETION_HOTFIX.md`
+
+## v1.7.0-qa.22 — Native NPC Template Query Separation
+
+**Status:** QA / IMPLEMENTED
+
+Focused native creation UX hotfix after qa.21:
+
+- confirmed Character/NPC name remains the future Actor name
+- native Quick NPC template search now opens unfiltered instead of searching for the candidate's proper name
+- Universal Folder Quick Create preserves an explicitly empty initial query rather than falling back to the Actor name
+- existing callers that omit a query keep the prior name-based fallback
+- qa.21 completion-aware callback and qa.20 canonical convergence remain unchanged
+- no automatic template selection is introduced
+- all Campaign Graph writes remain GM-explicit
+
+QA: `docs/V1.7_QA22_NATIVE_NPC_TEMPLATE_QUERY_SEPARATION.md`
