@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 1.7.0-qa.23 — Native Empty Query Preservation Hotfix
+
+- Fixes the final native NPC bridge still replacing an explicit empty template query with the candidate Actor name.
+- `quick-npc-ui.js` now preserves `initialQuery:""` and falls back to `options.name` only when the property is absent.
+- Character/NPC Create & Link can therefore open the full native Quick NPC library without a manual Clear step.
+- Item, Location, Contact, Faction and Lore creation flows are unchanged.
+- Keeps qa.21 completion waiting and qa.20 canonical convergence unchanged.
+
 ## 1.7.0-qa.22 — Native NPC Template Query Separation
 
 - Separates Campaign Intelligence NPC Actor naming from native Quick NPC template filtering.
