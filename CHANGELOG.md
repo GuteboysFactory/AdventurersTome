@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1.7.0-qa.27 — Source-Scoped Identity Resolution
+
+- Adds a shared read-only Source-Scoped Identity Resolution layer.
+- Resolves mention identity from current Session/Quest canonical Campaign Links before broad campaign candidates.
+- Uses explicit source/page Foundry references as the next authority signal.
+- Prefers active world candidates over compendium templates when source-local authority is absent.
+- Reconciles Actor + Contact/World projections before ambiguity is determined.
+- Campaign Analysis and Tome noticed now consume the same source-scoped identity interpretation.
+- Prevents unrelated same-name campaign/compendium records from overriding stronger source evidence.
+- Keeps all graph writes GM-explicit; no auto-linking, creation or document merging is introduced.
+
+# CHANGELOG
+
 ## 1.7.0-qa.26 — Campaign Analysis Identity Parity
 
 - Makes Campaign Analysis reconcile all resolver candidates before presenting identity state.
