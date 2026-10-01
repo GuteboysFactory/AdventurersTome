@@ -67,7 +67,7 @@ function atCirDocumentFromRef(ref = {}) {
   if (["actor","character","npc","adventurer"].includes(kind)) {
     return game.actors?.get(id) || null;
   }
-  if (["world","contact","location","faction","item","lore","journal"].includes(kind)) {
+  if (["world","contact","location","faction","item","lore","journal","quest","session"].includes(kind)) {
     return game.journal?.get(id) || null;
   }
 
