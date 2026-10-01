@@ -1114,6 +1114,7 @@ function explicitSessionsForTarget(targetDocument, targetView, sessions = [], ta
 
 function collapseSuggestedMentions(rows = [], kind = "entity") {
   const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  const sourceScopedApi = game.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
   if (identityApi?.reconcile) {
     const reconciled = identityApi.reconcile(rows.map((row) => {
       const candidate = row?.candidate || {};
@@ -1182,7 +1183,7 @@ function collapseSuggestedMentions(rows = [], kind = "entity") {
   });
 }
 
-function reconcileSuggestedCollections(collections = []) {
+function reconcileSuggestedCollections(collections = [], sourceUuid = "") {
   const rows = collections.flat().filter(Boolean);
   if (!rows.length) return [];
 
@@ -1221,21 +1222,58 @@ function reconcileSuggestedCollections(collections = []) {
   }))) || [];
 
   return reconciled.map((row) => {
-    const ambiguous = row.identityAmbiguous === true;
-    const projectionCollapsed = row.identityProjectionCollapsed === true;
-    const identityLabel = String(row.identityKindLabel || labelFor(row));
+    const scoped = sourceScopedApi?.resolveMention
+      ? sourceScopedApi.resolveMention({
+          sourceUuid,
+          text:String(row.name || row.suggestionMatchedTerm || ""),
+          candidates:Array.isArray(row.identityCandidates)
+            ? row.identityCandidates.map((candidate) => ({
+                name:candidate.name,
+                kind:candidate.kindLabel || row.suggestionKind || "entity",
+                canonicalUuid:candidate.authorityUuid
+              }))
+            : [{
+                name:row.name,
+                kind:row.suggestionKind || row.kind || "entity",
+                canonicalUuid:row.identityAuthorityUuid || row.canonicalUuid || ""
+              }],
+          resolution:{
+            decision:row.identityAmbiguous ? "ambiguous" : row.identityProjectionCollapsed ? "reconciled" : "review",
+            confidence:0
+          }
+        })
+      : null;
+
+    const ambiguous = scoped?.identityAmbiguous === true
+      ? true
+      : scoped?.decision && scoped.decision !== "unavailable"
+        ? scoped.decision === "ambiguous"
+        : row.identityAmbiguous === true;
+    const projectionCollapsed = scoped?.projectionCollapsed === true || row.identityProjectionCollapsed === true;
+    const identityLabel = String(scoped?.identityLabel || row.identityKindLabel || labelFor(row));
+    const identityCount = Math.max(
+      ambiguous ? 2 : 1,
+      Number(scoped?.identityCount || row.identityCount || row.identityMemberCount || 1)
+    );
+    const sourceResolved = Boolean(scoped?.sourceCanonical || scoped?.sourceInline);
+
     return {
       ...row,
       suggestionAmbiguous:ambiguous,
       suggestionProjectionCollapsed:projectionCollapsed,
       suggestionCount:Number(row.identityMemberCount || row.suggestionCount || 1),
       suggestionIdentityLabel:identityLabel,
-      suggestionDisplayLabel:ambiguous ? `${Number(row.identityCount || 2)} possible identities` : identityLabel,
+      suggestionDisplayLabel:ambiguous ? `${identityCount} possible identities` : identityLabel,
       suggestionReason:ambiguous
-        ? `${Number(row.identityCount || 2)} unrelated canonical identities share this name`
-        : projectionCollapsed
-          ? `${identityLabel} · projected records reconciled`
-          : String(row.suggestionReason || row.reason || "Mentioned in source text"),
+        ? `${identityCount} unrelated canonical identities share this name`
+        : sourceResolved
+          ? scoped?.sourceCanonical
+            ? "Mention matches a canonical link on this source"
+            : "Mention matches an explicit inline reference on this source"
+          : projectionCollapsed
+            ? `${identityLabel} · projected records reconciled`
+            : String(row.suggestionReason || row.reason || "Mentioned in source text"),
+      suggestionSourceResolved:sourceResolved,
       suggestionIcon:iconFor(row)
     };
   });
@@ -1376,7 +1414,7 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
     suggestedSessionLinks,
     suggestedWorldLinks,
     suggestedActorLinks
-  ]).slice(0, 20);
+  ], entry.uuid).slice(0, 20);
   const orderedSessions = [...sessionLinks].sort((a, b) => (a.sessionNumber ?? 99999) - (b.sessionNumber ?? 99999));
 
   return {
@@ -1427,7 +1465,7 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
     suggestedQuestLinks,
     suggestedWorldLinks,
     suggestedActorLinks
-  ]).slice(0, 20);
+  ], entry.uuid).slice(0, 20);
 
   const summary = truncate(summarySection || sessionView.summary || raw || entry.name, 420);
   const bodyPreview = truncate(raw || summary, 900);
