@@ -5351,3 +5351,20 @@
 .at-layout-tiny .at-suggested-grid {
   grid-template-columns: 1fr;
 }
+
+
+/* v1.7.0-qa.25: reconciled campaign identities */
+.at-suggested-card.is-reconciled {
+  border-style: solid;
+  border-color: rgba(159, 121, 60, 0.34);
+  background: rgba(31, 22, 12, 0.48);
+}
+
+.at-suggested-card.is-reconciled em,
+.at-suggested-card.is-reconciled em i {
+  color: #aa8a52;
+}
+
+.at-analysis-known.is-ambiguous {
+  border-color: rgba(214, 156, 80, 0.45);
+}
