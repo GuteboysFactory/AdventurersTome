@@ -120,6 +120,7 @@ function decisionRank(decision) {
   const key = clean(decision);
   if (["resolved-canonical","resolved-semantic","resolved-external"].includes(key)) return 5;
   if (key === "resolved-corroborated") return 4;
+  if (key === "reconciled") return 4;
   if (key === "review") return 3;
   if (key === "ambiguous") return 2;
   if (key === "unresolved") return 1;
@@ -130,6 +131,7 @@ function decisionLabel(decision) {
   const key = clean(decision);
   if (["resolved-canonical","resolved-semantic","resolved-external"].includes(key)) return "Resolved";
   if (key === "resolved-corroborated") return "Corroborated";
+  if (key === "reconciled") return "Reconciled";
   if (key === "review") return "Existing · review";
   if (key === "ambiguous") return "Ambiguous";
   if (key === "unresolved") return "Unresolved";
@@ -141,31 +143,92 @@ function knownRowsForSource(uuid) {
   if (!api?.mentionsForSource) return [];
 
   const raw = api.mentionsForSource(uuid) || [];
+  const identityApi = campaignIdentityApi();
   const grouped = new Map();
 
-  for (const row of raw) {
+  const resolutionTargets = (row) => {
     const selected = row?.resolution?.selectedTarget || null;
-    const candidate = row?.resolution?.candidates?.[0]?.target || null;
-    const target = selected || candidate;
-    const targetName = clean(target?.name);
-    const text = clean(row?.text);
-    if (!targetName && !text) continue;
+    if (selected) return [selected];
+    return Array.isArray(row?.resolution?.candidates)
+      ? row.resolution.candidates.map((entry) => entry?.target).filter(Boolean)
+      : [];
+  };
 
-    const canonicalUuid = clean(target?.canonicalUuid);
-    const key = canonicalUuid || normalize(targetName || text);
+  const reconcileResolution = (row, targets) => {
+    if (!identityApi?.reconcile || !targets.length) return {
+      reconciled:[],
+      ambiguous:clean(row?.resolution?.decision) === "ambiguous",
+      collapsed:false,
+      identityLabel:"",
+      identityKey:"",
+      canonicalUuid:clean(targets[0]?.canonicalUuid),
+      displayName:clean(targets[0]?.name || row?.text),
+      kind:clean(targets[0]?.kind || row?.kindHint || "unknown").toLowerCase()
+    };
+
+    const reconciled = identityApi.reconcile(targets.map((target) => ({
+      name:clean(target?.name || row?.text),
+      kind:clean(target?.kind || row?.kindHint || "unknown").toLowerCase(),
+      canonicalUuid:clean(target?.canonicalUuid)
+    }))) || [];
+
+    const ambiguous = reconciled.length > 1 || reconciled.some((entry) => entry?.identityAmbiguous === true);
+    const primary = reconciled.find((entry) => !entry?.identityAmbiguous) || reconciled[0] || null;
+    const identityKey = ambiguous ? "" : clean(primary?.identityKey);
+    const canonicalUuid = ambiguous ? "" : clean(primary?.identityAuthorityUuid || primary?.canonicalUuid);
+    const projectionCollapsed = !ambiguous && reconciled.some((entry) => entry?.identityProjectionCollapsed === true);
+    const identityLabel = !ambiguous
+      ? clean(primary?.identityKindLabel)
+      : String(Math.max(2, Number(primary?.identityCount || reconciled.length || targets.length))) + " possible identities";
+
+    return {
+      reconciled,
+      ambiguous,
+      collapsed:projectionCollapsed,
+      identityLabel,
+      identityKey,
+      canonicalUuid,
+      displayName:clean(primary?.name || targets[0]?.name || row?.text),
+      kind:identityLabel === "Character / Contact"
+        ? "character"
+        : clean(primary?.kind || targets[0]?.kind || row?.kindHint || "unknown").toLowerCase()
+    };
+  };
+
+  for (const row of raw) {
+    const targets = resolutionTargets(row);
+    const text = clean(row?.text);
+    if (!targets.length && !text) continue;
+
+    const parity = reconcileResolution(row, targets);
+    const originalDecision = clean(row?.resolution?.decision);
+    const decision = parity.ambiguous
+      ? "ambiguous"
+      : parity.collapsed && ["ambiguous","review"].includes(originalDecision)
+        ? "reconciled"
+        : originalDecision || (parity.identityKey ? "review" : "unresolved");
+
+    const key = parity.ambiguous
+      ? "ambiguous:" + normalize(text || parity.displayName)
+      : parity.identityKey || parity.canonicalUuid || normalize(parity.displayName || text);
     if (!key) continue;
 
-    const kind = clean(target?.kind || row?.kindHint || "unknown").toLowerCase();
     const item = {
       key,
-      text:targetName || text,
-      kind,
-      decision:clean(row?.resolution?.decision),
+      text:parity.displayName || text,
+      kind:parity.kind,
+      decision,
       identityConfidence:Number(row?.resolution?.confidence || row?.assessment?.identity?.score || 0),
       detectionConfidence:Number(row?.assessment?.detection?.score || 0),
       mentionType:clean(row?.mentionType),
-      canonicalUuid,
-      occurrences:1
+      canonicalUuid:parity.canonicalUuid,
+      occurrences:1,
+      identityDisplayLabel:parity.identityLabel,
+      identityAmbiguous:parity.ambiguous,
+      identityProjectionCollapsed:parity.collapsed,
+      identityCandidateCount:parity.ambiguous
+        ? Math.max(2, Number(parity.reconciled?.[0]?.identityCount || parity.reconciled?.length || targets.length))
+        : 1
     };
 
     const current = grouped.get(key);
@@ -177,49 +240,15 @@ function knownRowsForSource(uuid) {
     current.occurrences += 1;
     current.detectionConfidence = Math.max(current.detectionConfidence, item.detectionConfidence);
     current.identityConfidence = Math.max(current.identityConfidence, item.identityConfidence);
+    current.identityAmbiguous = current.identityAmbiguous || item.identityAmbiguous;
+    current.identityProjectionCollapsed = current.identityProjectionCollapsed || item.identityProjectionCollapsed;
+    current.identityCandidateCount = Math.max(current.identityCandidateCount || 1, item.identityCandidateCount || 1);
     if (decisionRank(item.decision) > decisionRank(current.decision)) current.decision = item.decision;
+    if (!current.identityDisplayLabel && item.identityDisplayLabel) current.identityDisplayLabel = item.identityDisplayLabel;
     if (current.kind === "unknown" && item.kind !== "unknown") current.kind = item.kind;
   }
 
-  const base = [...grouped.values()];
-  const identityApi = campaignIdentityApi();
-  const reconciled = identityApi?.reconcile
-    ? identityApi.reconcile(base.map((row) => ({
-        ...row,
-        name:row.text,
-        kind:row.kind,
-        canonicalUuid:row.canonicalUuid
-      }))) || []
-    : base;
-
-  return reconciled.map((row) => {
-    const members = Array.isArray(row?.identity?.members) ? row.identity.members : [row];
-    const aggregate = members.reduce((acc, member) => {
-      acc.occurrences += Number(member.occurrences || 1);
-      acc.detectionConfidence = Math.max(acc.detectionConfidence, Number(member.detectionConfidence || 0));
-      acc.identityConfidence = Math.max(acc.identityConfidence, Number(member.identityConfidence || 0));
-      if (decisionRank(member.decision) > decisionRank(acc.decision)) acc.decision = member.decision;
-      return acc;
-    }, {
-      occurrences:0,
-      detectionConfidence:0,
-      identityConfidence:0,
-      decision:clean(row.decision)
-    });
-
-    return {
-      ...row,
-      text:clean(row.text || row.name),
-      kind:row.identityKindLabel === "Character / Contact" ? "character" : clean(row.kind || "unknown"),
-      identityDisplayLabel:clean(row.identityKindLabel),
-      identityAmbiguous:row.identityAmbiguous === true,
-      identityProjectionCollapsed:row.identityProjectionCollapsed === true,
-      occurrences:aggregate.occurrences,
-      detectionConfidence:aggregate.detectionConfidence,
-      identityConfidence:aggregate.identityConfidence,
-      decision:aggregate.decision
-    };
-  }).sort((a, b) =>
+  return [...grouped.values()].sort((a, b) =>
     (a.identityDisplayLabel || typeMeta(a.kind).label).localeCompare(b.identityDisplayLabel || typeMeta(b.kind).label)
     || a.text.localeCompare(b.text, game.i18n?.lang, { numeric:true })
   );
@@ -279,8 +308,8 @@ function knownCard(row) {
   const identity = percent(row.identityConfidence);
   const identityLabel = clean(row.identityDisplayLabel) || meta.label;
   const stateLabel = row.identityAmbiguous
-    ? "Ambiguous"
-    : row.identityProjectionCollapsed
+    ? "Ambiguous · " + Math.max(2, Number(row.identityCandidateCount || 2)) + " identities"
+    : row.identityProjectionCollapsed || clean(row.decision) === "reconciled"
       ? "Reconciled"
       : decisionLabel(row.decision);
   return `
