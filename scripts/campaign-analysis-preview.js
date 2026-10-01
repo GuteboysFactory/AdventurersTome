@@ -112,6 +112,10 @@ function campaignLinksApi() {
   return game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
 }
 
+function campaignIdentityApi() {
+  return game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+}
+
 function decisionRank(decision) {
   const key = clean(decision);
   if (["resolved-canonical","resolved-semantic","resolved-external"].includes(key)) return 5;
@@ -177,8 +181,46 @@ function knownRowsForSource(uuid) {
     if (current.kind === "unknown" && item.kind !== "unknown") current.kind = item.kind;
   }
 
-  return [...grouped.values()].sort((a, b) =>
-    typeMeta(a.kind).label.localeCompare(typeMeta(b.kind).label)
+  const base = [...grouped.values()];
+  const identityApi = campaignIdentityApi();
+  const reconciled = identityApi?.reconcile
+    ? identityApi.reconcile(base.map((row) => ({
+        ...row,
+        name:row.text,
+        kind:row.kind,
+        canonicalUuid:row.canonicalUuid
+      }))) || []
+    : base;
+
+  return reconciled.map((row) => {
+    const members = Array.isArray(row?.identity?.members) ? row.identity.members : [row];
+    const aggregate = members.reduce((acc, member) => {
+      acc.occurrences += Number(member.occurrences || 1);
+      acc.detectionConfidence = Math.max(acc.detectionConfidence, Number(member.detectionConfidence || 0));
+      acc.identityConfidence = Math.max(acc.identityConfidence, Number(member.identityConfidence || 0));
+      if (decisionRank(member.decision) > decisionRank(acc.decision)) acc.decision = member.decision;
+      return acc;
+    }, {
+      occurrences:0,
+      detectionConfidence:0,
+      identityConfidence:0,
+      decision:clean(row.decision)
+    });
+
+    return {
+      ...row,
+      text:clean(row.text || row.name),
+      kind:row.identityKindLabel === "Character / Contact" ? "character" : clean(row.kind || "unknown"),
+      identityDisplayLabel:clean(row.identityKindLabel),
+      identityAmbiguous:row.identityAmbiguous === true,
+      identityProjectionCollapsed:row.identityProjectionCollapsed === true,
+      occurrences:aggregate.occurrences,
+      detectionConfidence:aggregate.detectionConfidence,
+      identityConfidence:aggregate.identityConfidence,
+      decision:aggregate.decision
+    };
+  }).sort((a, b) =>
+    (a.identityDisplayLabel || typeMeta(a.kind).label).localeCompare(b.identityDisplayLabel || typeMeta(b.kind).label)
     || a.text.localeCompare(b.text, game.i18n?.lang, { numeric:true })
   );
 }
@@ -235,15 +277,21 @@ function knownCard(row) {
   const meta = typeMeta(row.kind);
   const detection = percent(row.detectionConfidence);
   const identity = percent(row.identityConfidence);
+  const identityLabel = clean(row.identityDisplayLabel) || meta.label;
+  const stateLabel = row.identityAmbiguous
+    ? "Ambiguous"
+    : row.identityProjectionCollapsed
+      ? "Reconciled"
+      : decisionLabel(row.decision);
   return `
-    <article class="at-analysis-entity at-analysis-known">
+    <article class="at-analysis-entity at-analysis-known ${row.identityAmbiguous ? "is-ambiguous" : ""}">
       <span class="at-analysis-entity-icon"><i class="fa-solid ${meta.icon}"></i></span>
       <span class="at-analysis-entity-copy">
         <strong>${escapeHtml(row.text)}</strong>
-        <small>${escapeHtml(meta.label)} · ${escapeHtml(decisionLabel(row.decision))}</small>
+        <small>${escapeHtml(identityLabel)} · ${escapeHtml(stateLabel)}</small>
       </span>
       <span class="at-analysis-confidence" title="Detection ${detection}% · Identity ${identity}%">
-        <b>${identity || detection}%</b><em>identity</em>
+        <b>${identity || detection}%</b><em>${row.identityProjectionCollapsed ? "reconciled" : "identity"}</em>
       </span>
     </article>`;
 }
