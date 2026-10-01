@@ -1016,12 +1016,27 @@ function uniqueById(items = []) {
 function getTomeLinks(document) {
   const raw = document?.getFlag?.(MODULE_ID, FLAGS.LINKS);
   const links = raw && typeof raw === "object" ? raw : {};
+  const canonicalRaw = document?.getFlag?.(MODULE_ID, "campaignEntityLinksV1");
+  const canonical = canonicalRaw && typeof canonicalRaw === "object" && !Array.isArray(canonicalRaw) ? canonicalRaw : {};
   const normalize = (value) => Array.isArray(value) ? [...new Set(value.map((id) => String(id || "").trim()).filter(Boolean))] : [];
+
+  const actorIds = new Set(normalize(links.actors));
+  for (const uuid of normalize(canonical.actorUuids)) {
+    const match = /^Actor\.([^.]+)$/.exec(uuid);
+    if (match) actorIds.add(match[1]);
+  }
+
+  const worldIds = new Set(normalize(links.world));
+  for (const uuid of normalize(canonical.entityUuids)) {
+    const match = /^JournalEntry\.([^.]+)$/.exec(uuid);
+    if (match) worldIds.add(match[1]);
+  }
+
   return {
     sessions: normalize(links.sessions),
     quests: normalize(links.quests),
-    world: normalize(links.world),
-    actors: normalize(links.actors)
+    world:[...worldIds],
+    actors:[...actorIds]
   };
 }
 
@@ -1086,6 +1101,107 @@ function actorReferenceCandidates(raw = "", actors = [], labels = [], limit = 10
   return selected;
 }
 
+function explicitSessionsForTarget(targetDocument, targetView, sessions = [], targetKey) {
+  if (!targetDocument || !targetView?.id) return [];
+  const targetExplicit = new Set(getTomeLinks(targetDocument).sessions);
+  return sessions.filter((session) => {
+    if (targetExplicit.has(session.id)) return true;
+    const source = game.journal.get(session?.id);
+    if (!source) return false;
+    return (getTomeLinks(source)[targetKey] || []).includes(targetView.id);
+  });
+}
+
+function collapseSuggestedMentions(rows = [], kind = "entity") {
+  const groups = new Map();
+  for (const row of rows) {
+    const candidate = row?.candidate;
+    if (!candidate?.id) continue;
+    const key = normalizeImportName(candidate.name);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+
+  return [...groups.values()].map((group) => {
+    const row = group[0];
+    const candidate = row.candidate;
+    const ambiguous = group.length > 1;
+    return {
+      ...candidate,
+      suggestionKind:kind,
+      suggestionReason:ambiguous
+        ? `${group.length} canonical ${kind === "actor" ? "Actor" : kind === "world" ? "World" : kind === "quest" ? "Quest" : "Session"} records share this name`
+        : String(row.reason || "Mentioned in source text"),
+      suggestionMatchedTerm:String(row.matchedTerm || candidate.name || ""),
+      suggestionAmbiguous:ambiguous,
+      suggestionCount:group.length
+    };
+  });
+}
+
+function actorMentionEvidence(text = "", candidate, actors = []) {
+  const actor = game.actors.get(candidate?.id);
+  if (!actor) return null;
+  const profile = getActorProfile(actor);
+  const terms = [{ term:String(actor.name || "").trim(), reason:"Exact Actor name mentioned in text" }];
+
+  const first = String(actor.name || "").trim().split(/\s+/)[0];
+  if (first.length >= 4) {
+    const collisions = actors.filter((other) => String(other?.name || "").trim().split(/\s+/)[0].toLowerCase() === first.toLowerCase());
+    if (collisions.length === 1) terms.push({ term:first, reason:"Unique first-name mention in text" });
+  }
+
+  if (profile?.title && profile.title.length >= 5) {
+    terms.push({ term:profile.title, reason:"Character title mentioned in text" });
+  }
+
+  for (const fact of profile?.facts || []) {
+    if (/^(?:alias|nickname|known as|called|smeknamn|känd som)$/i.test(fact.label) && fact.value) {
+      terms.push({ term:String(fact.value), reason:"Alias / nickname mentioned in text" });
+    }
+  }
+
+  for (const row of terms) {
+    if (row.term && textMentionsName(text, row.term)) return row;
+  }
+  return null;
+}
+
+function suggestedQuestMentions(raw = "", quests = [], explicit = []) {
+  const explicitIds = new Set(explicit.map((candidate) => candidate.id));
+  const inferred = sessionReferenceCandidates(raw, quests, [
+    "Quest Updates", "Quest Update", "Quests", "Quest Log", "Questlogg", "Uppdrag", "Uppdragsuppdateringar"
+  ], 12).filter((candidate) => !explicitIds.has(candidate.id));
+  return collapseSuggestedMentions(
+    inferred.map((candidate) => ({ candidate, reason:"Quest name mentioned in Session text", matchedTerm:candidate.name })),
+    "quest"
+  );
+}
+
+function suggestedWorldMentions(raw = "", world = [], explicit = []) {
+  const explicitIds = new Set(explicit.map((candidate) => candidate.id));
+  const inferred = sessionReferenceCandidates(raw, world, [
+    "World", "World Updates", "NPC", "NPCs", "Locations", "Places", "Platser", "Factions", "Fraktioner", "Items", "Föremål", "Lore"
+  ], 16).filter((candidate) => !explicitIds.has(candidate.id));
+  return collapseSuggestedMentions(
+    inferred.map((candidate) => ({ candidate, reason:"World entry name mentioned in source text", matchedTerm:candidate.name })),
+    "world"
+  );
+}
+
+function suggestedActorMentions(raw = "", actors = [], explicit = []) {
+  const explicitIds = new Set(explicit.map((candidate) => candidate.id));
+  const rows = [];
+  for (const candidate of actors) {
+    if (explicitIds.has(candidate.id)) continue;
+    const evidence = actorMentionEvidence(raw, candidate, actors);
+    if (!evidence) continue;
+    rows.push({ candidate, reason:evidence.reason, matchedTerm:evidence.term });
+  }
+  return collapseSuggestedMentions(rows, "actor");
+}
+
 function sessionMentionedInText(raw = "", session = {}) {
   if (textMentionsName(raw, session.name)) return true;
   if (session.displayTitle && textMentionsName(raw, session.displayTitle)) return true;
@@ -1129,15 +1245,21 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
   let updates = sessionListItems(updatesSection).slice(0, 8);
   if (!updates.length && updatesSection) updates = stripMarkup(updatesSection).split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 5);
 
-  const sessionLinks = linkedSessionsForTarget(entry, questView, sessions, "quests", [
+  const sessionLinks = explicitSessionsForTarget(entry, questView, sessions, "quests");
+  const heuristicSessions = linkedSessionsForTarget(entry, questView, sessions, "quests", [
     "Quest Updates", "Quest Update", "Quests", "Quest Log", "Questlogg", "Uppdrag", "Uppdragsuppdateringar"
   ]);
-  const explicitWorld = candidatesFromExplicit(entry, "world", world);
-  const inferredWorld = world.filter((candidate) => textMentionsName(raw, candidate.name));
-  const worldLinks = uniqueById([...explicitWorld, ...inferredWorld]).slice(0, 12);
-  const explicitActors = candidatesFromExplicit(entry, "actors", actors);
-  const inferredActors = actors.filter((candidate) => textMentionsActor(raw, candidate, actors));
-  const actorLinks = uniqueById([...explicitActors, ...inferredActors]).slice(0, 12);
+  const canonicalSessionIds = new Set(sessionLinks.map((session) => session.id));
+  const suggestedSessionLinks = collapseSuggestedMentions(
+    heuristicSessions
+      .filter((session) => !canonicalSessionIds.has(session.id))
+      .map((session) => ({ candidate:session, reason:"Session reference inferred from Quest text", matchedTerm:session.displayTitle || session.name })),
+    "session"
+  );
+  const worldLinks = candidatesFromExplicit(entry, "world", world).slice(0, 12);
+  const actorLinks = candidatesFromExplicit(entry, "actors", actors).slice(0, 12);
+  const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 12);
+  const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 12);
   const orderedSessions = [...sessionLinks].sort((a, b) => (a.sessionNumber ?? 99999) - (b.sessionNumber ?? 99999));
 
   return {
@@ -1156,7 +1278,12 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
     hasWorldLinks: worldLinks.length > 0,
     actorLinks,
     hasActorLinks: actorLinks.length > 0,
-    linkedCount: orderedSessions.length + worldLinks.length + actorLinks.length
+    linkedCount: orderedSessions.length + worldLinks.length + actorLinks.length,
+    suggestedSessionLinks,
+    suggestedWorldLinks,
+    suggestedActorLinks,
+    suggestedCount:suggestedSessionLinks.length + suggestedWorldLinks.length + suggestedActorLinks.length,
+    hasSuggestedMentions:Boolean(suggestedSessionLinks.length || suggestedWorldLinks.length || suggestedActorLinks.length)
   };
 }
 
@@ -1172,19 +1299,12 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
     highlights = stripMarkup(highlightsSection).split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 4);
   }
 
-  const questLinks = sessionReferenceCandidates(raw, quests, [
-    "Quest Updates", "Quest Update", "Quests", "Quest Log", "Questlogg", "Uppdrag", "Uppdragsuppdateringar"
-  ], 6);
-  const explicitWorldLinks = candidatesFromExplicit(entry, "world", world);
-  const inferredWorldLinks = sessionReferenceCandidates(raw, world, [
-    "World", "World Updates", "NPC", "NPCs", "Locations", "Places", "Platser", "Factions", "Fraktioner", "Items", "Föremål", "Lore"
-  ], 8);
-  const worldLinks = uniqueById([...explicitWorldLinks, ...inferredWorldLinks]).slice(0, 10);
-  const explicitActorLinks = candidatesFromExplicit(entry, "actors", actors);
-  const inferredActorLinks = actorReferenceCandidates(raw, actors, [
-    "Characters", "Character", "People", "Personer", "Companions", "Följeslagare"
-  ], 8);
-  const actorLinks = uniqueById([...explicitActorLinks, ...inferredActorLinks]).slice(0, 10);
+  const questLinks = candidatesFromExplicit(entry, "quests", quests).slice(0, 10);
+  const worldLinks = candidatesFromExplicit(entry, "world", world).slice(0, 10);
+  const actorLinks = candidatesFromExplicit(entry, "actors", actors).slice(0, 10);
+  const suggestedQuestLinks = suggestedQuestMentions(raw, quests, questLinks).slice(0, 10);
+  const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 10);
+  const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 10);
 
   const summary = truncate(summarySection || sessionView.summary || raw || entry.name, 420);
   const bodyPreview = truncate(raw || summary, 900);
@@ -1200,7 +1320,12 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
     hasWorldLinks: worldLinks.length > 0,
     actorLinks,
     hasActorLinks: actorLinks.length > 0,
-    linkedCount: questLinks.length + worldLinks.length + actorLinks.length
+    linkedCount: questLinks.length + worldLinks.length + actorLinks.length,
+    suggestedQuestLinks,
+    suggestedWorldLinks,
+    suggestedActorLinks,
+    suggestedCount:suggestedQuestLinks.length + suggestedWorldLinks.length + suggestedActorLinks.length,
+    hasSuggestedMentions:Boolean(suggestedQuestLinks.length || suggestedWorldLinks.length || suggestedActorLinks.length)
   };
 }
 

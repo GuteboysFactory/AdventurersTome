@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.24 — Canonical Link Authority & Suggested Mentions
+
+- Separates authoritative Campaign Links from heuristic text-derived matches in Session and Quest detail views.
+- World / Character / Quest counters now represent explicit or canonical relationships only.
+- Canonical Actor UUIDs and Journal UUIDs from `campaignEntityLinksV1` are included in Tome detail-link authority.
+- Moves prose-only matches into a separate read-only **Tome noticed** section.
+- Adds provenance-style reasons for Actor name, unique first-name, title, alias, World and Quest text mentions.
+- Marks duplicate display-name suggestion groups as **Ambiguous** instead of silently presenting them as canonical identities.
+- Keeps all graph writes GM-explicit; no auto-linking or auto-creation is introduced.
+
 ## 1.7.0-qa.23 — Native Empty Query Preservation Hotfix
 
 - Fixes the final native NPC bridge still replacing an explicit empty template query with the candidate Actor name.

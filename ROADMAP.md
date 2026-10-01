@@ -2060,3 +2060,20 @@ Focused final native-NPC query fix:
 - qa.21 completion-aware callback and qa.20 canonical convergence remain unchanged
 
 QA: `docs/V1.7_QA23_NATIVE_EMPTY_QUERY_PRESERVATION_HOTFIX.md`
+
+## v1.7.0-qa.24 — Canonical Link Authority & Suggested Mentions
+
+**Status:** QA / IMPLEMENTED
+
+Campaign-link authority cleanup before Evidence Graph work:
+
+- Session/Quest World, Character and Quest link lists now represent explicit/canonical relationships only
+- canonical Actor UUID and Journal UUID link flags participate directly in detail-view authority
+- old prose inference is no longer merged into authoritative link counters or lists
+- text-derived matches move to a separate read-only **Tome noticed** surface
+- suggestion provenance distinguishes exact Actor name, unique first name, title, alias, World/Quest mention and inferred Session reference
+- duplicate display-name candidates are marked ambiguous rather than silently treated as one identity
+- no auto-linking, auto-creation or confidence-driven write is introduced
+- GM-explicit Campaign Graph write boundary remains locked
+
+QA: `docs/V1.7_QA24_CANONICAL_LINK_AUTHORITY_SUGGESTED_MENTIONS.md`
