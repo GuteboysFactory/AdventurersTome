@@ -2110,3 +2110,19 @@ Parity hotfix after qa.25:
 - no graph-write behavior changes
 
 QA: `docs/V1.7_QA26_CAMPAIGN_ANALYSIS_IDENTITY_PARITY.md`
+
+## v1.7.0-qa.27 — Source-Scoped Identity Resolution
+
+**Status:** QA / IMPLEMENTED
+
+Shared source-evidence authority layer before Evidence Graph:
+
+- current Session/Quest canonical Campaign Links are consulted before global resolver candidates
+- explicit Foundry inline references on the source/page are next in authority
+- active world candidates are preferred over compendium templates
+- Actor + Contact/World projections reconcile before ambiguity is decided
+- same-name identities elsewhere in the campaign no longer override stronger source-local evidence
+- Campaign Analysis and Tome noticed consume the same source-scoped resolver
+- all resolution remains read-only and all graph writes remain GM-explicit
+
+QA: `docs/V1.7_QA27_SOURCE_SCOPED_IDENTITY_RESOLUTION.md`
