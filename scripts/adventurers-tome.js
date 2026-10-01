@@ -1016,12 +1016,27 @@ function uniqueById(items = []) {
 function getTomeLinks(document) {
   const raw = document?.getFlag?.(MODULE_ID, FLAGS.LINKS);
   const links = raw && typeof raw === "object" ? raw : {};
+  const canonicalRaw = document?.getFlag?.(MODULE_ID, "campaignEntityLinksV1");
+  const canonical = canonicalRaw && typeof canonicalRaw === "object" && !Array.isArray(canonicalRaw) ? canonicalRaw : {};
   const normalize = (value) => Array.isArray(value) ? [...new Set(value.map((id) => String(id || "").trim()).filter(Boolean))] : [];
+
+  const actorIds = new Set(normalize(links.actors));
+  for (const uuid of normalize(canonical.actorUuids)) {
+    const match = /^Actor\.([^.]+)$/.exec(uuid);
+    if (match) actorIds.add(match[1]);
+  }
+
+  const worldIds = new Set(normalize(links.world));
+  for (const uuid of normalize(canonical.entityUuids)) {
+    const match = /^JournalEntry\.([^.]+)$/.exec(uuid);
+    if (match) worldIds.add(match[1]);
+  }
+
   return {
     sessions: normalize(links.sessions),
     quests: normalize(links.quests),
-    world: normalize(links.world),
-    actors: normalize(links.actors)
+    world:[...worldIds],
+    actors:[...actorIds]
   };
 }
 
