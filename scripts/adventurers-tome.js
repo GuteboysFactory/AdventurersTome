@@ -1274,10 +1274,12 @@ function suggestedQuestMentions(raw = "", quests = [], explicit = []) {
   const inferred = sessionReferenceCandidates(raw, quests, [
     "Quest Updates", "Quest Update", "Quests", "Quest Log", "Questlogg", "Uppdrag", "Uppdragsuppdateringar"
   ], 12).filter((candidate) => !explicitIds.has(candidate.id));
-  return collapseSuggestedMentions(
-    inferred.map((candidate) => ({ candidate, reason:"Quest name mentioned in Session text", matchedTerm:candidate.name })),
-    "quest"
-  );
+  return inferred.map((candidate) => ({
+    ...candidate,
+    suggestionKind:"quest",
+    suggestionReason:"Quest name mentioned in Session text",
+    suggestionMatchedTerm:String(candidate.name || "")
+  }));
 }
 
 function suggestedWorldMentions(raw = "", world = [], explicit = []) {
@@ -1285,10 +1287,12 @@ function suggestedWorldMentions(raw = "", world = [], explicit = []) {
   const inferred = sessionReferenceCandidates(raw, world, [
     "World", "World Updates", "NPC", "NPCs", "Locations", "Places", "Platser", "Factions", "Fraktioner", "Items", "Föremål", "Lore"
   ], 16).filter((candidate) => !explicitIds.has(candidate.id));
-  return collapseSuggestedMentions(
-    inferred.map((candidate) => ({ candidate, reason:"World entry name mentioned in source text", matchedTerm:candidate.name })),
-    "world"
-  );
+  return inferred.map((candidate) => ({
+    ...candidate,
+    suggestionKind:"world",
+    suggestionReason:"World entry name mentioned in source text",
+    suggestionMatchedTerm:String(candidate.name || "")
+  }));
 }
 
 function suggestedActorMentions(raw = "", actors = [], explicit = []) {
@@ -1298,9 +1302,14 @@ function suggestedActorMentions(raw = "", actors = [], explicit = []) {
     if (explicitIds.has(candidate.id)) continue;
     const evidence = actorMentionEvidence(raw, candidate, actors);
     if (!evidence) continue;
-    rows.push({ candidate, reason:evidence.reason, matchedTerm:evidence.term });
+    rows.push({
+      ...candidate,
+      suggestionKind:"actor",
+      suggestionReason:evidence.reason,
+      suggestionMatchedTerm:evidence.term
+    });
   }
-  return collapseSuggestedMentions(rows, "actor");
+  return rows;
 }
 
 function sessionMentionedInText(raw = "", session = {}) {
@@ -1351,12 +1360,14 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
     "Quest Updates", "Quest Update", "Quests", "Quest Log", "Questlogg", "Uppdrag", "Uppdragsuppdateringar"
   ]);
   const canonicalSessionIds = new Set(sessionLinks.map((session) => session.id));
-  const suggestedSessionLinks = collapseSuggestedMentions(
-    heuristicSessions
-      .filter((session) => !canonicalSessionIds.has(session.id))
-      .map((session) => ({ candidate:session, reason:"Session reference inferred from Quest text", matchedTerm:session.displayTitle || session.name })),
-    "session"
-  );
+  const suggestedSessionLinks = heuristicSessions
+    .filter((session) => !canonicalSessionIds.has(session.id))
+    .map((session) => ({
+      ...session,
+      suggestionKind:"session",
+      suggestionReason:"Session reference inferred from Quest text",
+      suggestionMatchedTerm:String(session.displayTitle || session.name || "")
+    }));
   const worldLinks = candidatesFromExplicit(entry, "world", world).slice(0, 12);
   const actorLinks = candidatesFromExplicit(entry, "actors", actors).slice(0, 12);
   const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 12);
