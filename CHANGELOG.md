@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.25 — Suggested Mention Identity Reconciliation
+
+- Adds a shared read-only Campaign Identity Reconciliation layer for advisory campaign intelligence.
+- Collapses Actor + managed Contact/World projections when they resolve to the same canonical Actor UUID.
+- Keeps unrelated same-name canonical identities ambiguous instead of silently merging them.
+- Reconciles Tome noticed suggestions across Actor and World/Contact categories before rendering.
+- Reuses the same identity interpretation in Campaign Analysis known mentions.
+- Aggregates mention/confidence presentation across reconciled representations without performing campaign writes.
+- Keeps qa.24 canonical Campaign Link authority and all GM-explicit graph-write boundaries unchanged.
+
 ## 1.7.0-qa.24 — Canonical Link Authority & Suggested Mentions
 
 - Separates authoritative Campaign Links from heuristic text-derived matches in Session and Quest detail views.
