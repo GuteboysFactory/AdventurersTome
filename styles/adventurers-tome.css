@@ -5238,3 +5238,116 @@
 #adventurers-tome-launcher.is-dragging{
   cursor:grabbing!important;
 }
+
+
+/* v1.7.0-qa.24: canonical links vs suggested mentions */
+.at-suggested-mentions {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(214, 178, 108, 0.14);
+}
+
+.at-suggested-mentions h3,
+.at-quest-suggested h3 {
+  justify-content: space-between;
+}
+
+.at-suggested-mentions h3 > span,
+.at-quest-suggested h3 > span {
+  margin-left: auto;
+  color: #8f7b57;
+  font-size: 10px;
+}
+
+.at-suggested-help {
+  margin: 0;
+  color: #8d7957;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.at-suggested-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.at-suggested-grid.compact {
+  grid-template-columns: 1fr;
+}
+
+.at-suggested-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px dashed rgba(214, 178, 108, 0.22);
+  background: rgba(23, 16, 10, 0.38);
+  color: #bca572;
+}
+
+.at-suggested-card > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.at-suggested-card > div > i {
+  flex: 0 0 auto;
+  color: #8f7442;
+}
+
+.at-suggested-card span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.at-suggested-card strong {
+  color: #cdb47a;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.at-suggested-card small {
+  overflow: hidden;
+  color: #806f53;
+  font-size: 8px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.at-suggested-card em {
+  flex: 0 0 auto;
+  color: #7e6f56;
+  font-size: 7px;
+  font-style: normal;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.at-suggested-card.is-ambiguous {
+  border-color: rgba(214, 156, 80, 0.4);
+  background: rgba(49, 31, 14, 0.42);
+}
+
+.at-suggested-card.is-ambiguous em,
+.at-suggested-card.is-ambiguous em i {
+  color: #c79c59;
+}
+
+.at-quest-suggested {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(214, 178, 108, 0.18);
+}
+
+.at-layout-narrow .at-suggested-grid,
+.at-layout-tiny .at-suggested-grid {
+  grid-template-columns: 1fr;
+}
