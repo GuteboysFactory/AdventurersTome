@@ -232,6 +232,33 @@
         </section>
         {{/if}}
 
+        {{#if selectedSession.hasSuggestedMentions}}
+        <section class="at-session-detail-section at-suggested-mentions">
+          <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{selectedSession.suggestedCount}}</span></h3>
+          <p class="at-suggested-help">Mentioned in this Session, but not a canonical Campaign Link yet.</p>
+          <div class="at-suggested-grid">
+            {{#each selectedSession.suggestedQuestLinks}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}">
+              <div><i class="fa-solid fa-diamond"></i><span><strong>{{name}}</strong><small>Quest · {{suggestionReason}}</small></span></div>
+              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}
+            </article>
+            {{/each}}
+            {{#each selectedSession.suggestedWorldLinks}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}">
+              <div><i class="fa-solid {{icon}}"></i><span><strong>{{name}}</strong><small>{{categoryLabel}} · {{suggestionReason}}</small></span></div>
+              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}
+            </article>
+            {{/each}}
+            {{#each selectedSession.suggestedActorLinks}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}">
+              <div><i class="fa-solid fa-user"></i><span><strong>{{name}}</strong><small>{{displayRole}} · {{suggestionReason}}</small></span></div>
+              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}
+            </article>
+            {{/each}}
+          </div>
+        </section>
+        {{/if}}
+
         <section class="at-session-detail-section at-session-detail-notes at-shareable-text">
           <h3><i class="fa-solid fa-book-open"></i> Chronicle excerpt</h3>
           <p>{{selectedSession.bodyPreview}}</p>
@@ -312,7 +339,24 @@
         {{#if questDetail.hasSessionLinks}}<h3>Sessions</h3><div class="at-link-chip-list">{{#each questDetail.sessionLinks}}<button type="button" data-action="selectSession" data-journal-id="{{id}}"><i class="fa-solid fa-book-open"></i>{{name}}</button>{{/each}}</div>{{/if}}
         {{#if questDetail.hasWorldLinks}}<h3>World</h3><div class="at-link-chip-list">{{#each questDetail.worldLinks}}<button type="button" data-action="openWorldProfile" data-journal-id="{{id}}"><i class="fa-solid {{icon}}"></i>{{name}}</button>{{/each}}</div>{{/if}}
         {{#if questDetail.hasActorLinks}}<h3>Characters</h3><div class="at-link-chip-list">{{#each questDetail.actorLinks}}<button type="button" data-action="openProfile" data-actor-id="{{id}}"><i class="fa-solid fa-user"></i>{{name}}</button>{{/each}}</div>{{/if}}
-        {{#unless questDetail.linkedCount}}<p class="at-empty">No campaign links have been discovered yet.</p>{{/unless}}
+        {{#unless questDetail.linkedCount}}<p class="at-empty">No canonical Campaign Links yet.</p>{{/unless}}
+        {{#if questDetail.hasSuggestedMentions}}
+        <div class="at-quest-suggested">
+          <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{questDetail.suggestedCount}}</span></h3>
+          <p class="at-suggested-help">Text mentions only — not canonical links.</p>
+          <div class="at-suggested-grid compact">
+            {{#each questDetail.suggestedSessionLinks}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}"><div><i class="fa-solid fa-book-open"></i><span><strong>{{name}}</strong><small>Session · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}</article>
+            {{/each}}
+            {{#each questDetail.suggestedWorldLinks}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}"><div><i class="fa-solid {{icon}}"></i><span><strong>{{name}}</strong><small>{{categoryLabel}} · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}</article>
+            {{/each}}
+            {{#each questDetail.suggestedActorLinks}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}"><div><i class="fa-solid fa-user"></i><span><strong>{{name}}</strong><small>{{displayRole}} · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}</article>
+            {{/each}}
+          </div>
+        </div>
+        {{/if}}
       </aside>
     </section>
   </main>
