@@ -116,9 +116,13 @@ function campaignIdentityApi() {
   return game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
 }
 
+function sourceScopedIdentityApi() {
+  return game.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
+}
+
 function decisionRank(decision) {
   const key = clean(decision);
-  if (["resolved-canonical","resolved-semantic","resolved-external"].includes(key)) return 5;
+  if (["resolved-canonical","resolved-semantic","resolved-external","resolved-source-canonical","resolved-source-inline"].includes(key)) return 5;
   if (key === "resolved-corroborated") return 4;
   if (key === "reconciled") return 4;
   if (key === "review") return 3;
@@ -130,6 +134,8 @@ function decisionRank(decision) {
 function decisionLabel(decision) {
   const key = clean(decision);
   if (["resolved-canonical","resolved-semantic","resolved-external"].includes(key)) return "Resolved";
+  if (key === "resolved-source-canonical") return "Source-linked";
+  if (key === "resolved-source-inline") return "Inline-linked";
   if (key === "resolved-corroborated") return "Corroborated";
   if (key === "reconciled") return "Reconciled";
   if (key === "review") return "Existing · review";
@@ -143,92 +149,54 @@ function knownRowsForSource(uuid) {
   if (!api?.mentionsForSource) return [];
 
   const raw = api.mentionsForSource(uuid) || [];
-  const identityApi = campaignIdentityApi();
+  const scopedApi = sourceScopedIdentityApi();
   const grouped = new Map();
 
-  const resolutionTargets = (row) => {
-    const selected = row?.resolution?.selectedTarget || null;
-    if (selected) return [selected];
-    return Array.isArray(row?.resolution?.candidates)
+  for (const row of raw) {
+    const text = clean(row?.text);
+    if (!text) continue;
+
+    const originalCandidates = Array.isArray(row?.resolution?.candidates)
       ? row.resolution.candidates.map((entry) => entry?.target).filter(Boolean)
       : [];
-  };
+    const scoped = scopedApi?.resolveMention
+      ? scopedApi.resolveMention({
+          sourceUuid:row?.sourceJournalUuid || row?.source?.uuid || uuid,
+          sourcePageUuid:row?.sourcePageUuid || row?.source?.pageUuid,
+          text,
+          resolution:row?.resolution || null,
+          candidates:originalCandidates,
+          identityConfidence:Number(row?.resolution?.confidence || row?.assessment?.identity?.score || 0)
+        })
+      : null;
 
-  const reconcileResolution = (row, targets) => {
-    if (!identityApi?.reconcile || !targets.length) return {
-      reconciled:[],
-      ambiguous:clean(row?.resolution?.decision) === "ambiguous",
-      collapsed:false,
-      identityLabel:"",
-      identityKey:"",
-      canonicalUuid:clean(targets[0]?.canonicalUuid),
-      displayName:clean(targets[0]?.name || row?.text),
-      kind:clean(targets[0]?.kind || row?.kindHint || "unknown").toLowerCase()
-    };
-
-    const reconciled = identityApi.reconcile(targets.map((target) => ({
-      name:clean(target?.name || row?.text),
-      kind:clean(target?.kind || row?.kindHint || "unknown").toLowerCase(),
-      canonicalUuid:clean(target?.canonicalUuid)
-    }))) || [];
-
-    const ambiguous = reconciled.length > 1 || reconciled.some((entry) => entry?.identityAmbiguous === true);
-    const primary = reconciled.find((entry) => !entry?.identityAmbiguous) || reconciled[0] || null;
-    const identityKey = ambiguous ? "" : clean(primary?.identityKey);
-    const canonicalUuid = ambiguous ? "" : clean(primary?.identityAuthorityUuid || primary?.canonicalUuid);
-    const projectionCollapsed = !ambiguous && reconciled.some((entry) => entry?.identityProjectionCollapsed === true);
-    const identityLabel = !ambiguous
-      ? clean(primary?.identityKindLabel)
-      : String(Math.max(2, Number(primary?.identityCount || reconciled.length || targets.length))) + " possible identities";
-
-    return {
-      reconciled,
-      ambiguous,
-      collapsed:projectionCollapsed,
-      identityLabel,
-      identityKey,
-      canonicalUuid,
-      displayName:clean(primary?.name || targets[0]?.name || row?.text),
-      kind:identityLabel === "Character / Contact"
-        ? "character"
-        : clean(primary?.kind || targets[0]?.kind || row?.kindHint || "unknown").toLowerCase()
-    };
-  };
-
-  for (const row of raw) {
-    const targets = resolutionTargets(row);
-    const text = clean(row?.text);
-    if (!targets.length && !text) continue;
-
-    const parity = reconcileResolution(row, targets);
-    const originalDecision = clean(row?.resolution?.decision);
-    const decision = parity.ambiguous
-      ? "ambiguous"
-      : parity.collapsed && ["ambiguous","review"].includes(originalDecision)
-        ? "reconciled"
-        : originalDecision || (parity.identityKey ? "review" : "unresolved");
-
-    const key = parity.ambiguous
-      ? "ambiguous:" + normalize(text || parity.displayName)
-      : parity.identityKey || parity.canonicalUuid || normalize(parity.displayName || text);
+    const selected = scoped?.selectedTarget || row?.resolution?.selectedTarget || originalCandidates[0] || null;
+    const displayName = clean(selected?.name || text);
+    const kind = clean(selected?.kind || row?.kindHint || "unknown").toLowerCase();
+    const decision = clean(scoped?.decision || row?.resolution?.decision || "unresolved");
+    const ambiguous = scoped?.identityAmbiguous === true || decision === "ambiguous";
+    const key = ambiguous
+      ? "ambiguous:" + normalize(displayName)
+      : clean(scoped?.identityKey || scoped?.authorityUuid || selected?.canonicalUuid) || normalize(displayName);
     if (!key) continue;
 
     const item = {
       key,
-      text:parity.displayName || text,
-      kind:parity.kind,
+      text:displayName,
+      kind,
       decision,
-      identityConfidence:Number(row?.resolution?.confidence || row?.assessment?.identity?.score || 0),
+      identityConfidence:Number(scoped?.confidence || row?.resolution?.confidence || row?.assessment?.identity?.score || 0),
       detectionConfidence:Number(row?.assessment?.detection?.score || 0),
       mentionType:clean(row?.mentionType),
-      canonicalUuid:parity.canonicalUuid,
+      canonicalUuid:clean(scoped?.authorityUuid || selected?.canonicalUuid),
       occurrences:1,
-      identityDisplayLabel:parity.identityLabel,
-      identityAmbiguous:parity.ambiguous,
-      identityProjectionCollapsed:parity.collapsed,
-      identityCandidateCount:parity.ambiguous
-        ? Math.max(2, Number(parity.reconciled?.[0]?.identityCount || parity.reconciled?.length || targets.length))
-        : 1
+      identityDisplayLabel:clean(scoped?.identityLabel),
+      identityAmbiguous:ambiguous,
+      identityProjectionCollapsed:scoped?.projectionCollapsed === true,
+      identityCandidateCount:Math.max(ambiguous ? 2 : 1, Number(scoped?.identityCount || 0)),
+      sourceCanonical:scoped?.sourceCanonical === true,
+      sourceInline:scoped?.sourceInline === true,
+      sourceSignals:Array.isArray(scoped?.sourceSignals) ? scoped.sourceSignals : []
     };
 
     const current = grouped.get(key);
@@ -243,6 +211,9 @@ function knownRowsForSource(uuid) {
     current.identityAmbiguous = current.identityAmbiguous || item.identityAmbiguous;
     current.identityProjectionCollapsed = current.identityProjectionCollapsed || item.identityProjectionCollapsed;
     current.identityCandidateCount = Math.max(current.identityCandidateCount || 1, item.identityCandidateCount || 1);
+    current.sourceCanonical = current.sourceCanonical || item.sourceCanonical;
+    current.sourceInline = current.sourceInline || item.sourceInline;
+    current.sourceSignals = [...new Set([...(current.sourceSignals || []), ...(item.sourceSignals || [])])];
     if (decisionRank(item.decision) > decisionRank(current.decision)) current.decision = item.decision;
     if (!current.identityDisplayLabel && item.identityDisplayLabel) current.identityDisplayLabel = item.identityDisplayLabel;
     if (current.kind === "unknown" && item.kind !== "unknown") current.kind = item.kind;
