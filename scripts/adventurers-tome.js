@@ -1182,6 +1182,65 @@ function collapseSuggestedMentions(rows = [], kind = "entity") {
   });
 }
 
+function reconcileSuggestedCollections(collections = []) {
+  const rows = collections.flat().filter(Boolean);
+  if (!rows.length) return [];
+
+  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  const iconFor = (row) => {
+    if (row?.suggestionKind === "actor") return "fa-user";
+    if (row?.suggestionKind === "quest") return "fa-diamond";
+    if (row?.suggestionKind === "session") return "fa-book-open";
+    return String(row?.icon || "fa-earth-europe");
+  };
+  const labelFor = (row) => {
+    if (row?.suggestionIdentityLabel) return String(row.suggestionIdentityLabel);
+    if (row?.suggestionKind === "actor") return String(row?.displayRole || "Character / NPC");
+    if (row?.suggestionKind === "quest") return "Quest";
+    if (row?.suggestionKind === "session") return "Session";
+    return String(row?.categoryLabel || "World");
+  };
+
+  if (!identityApi?.reconcile) {
+    return rows.map((row) => ({
+      ...row,
+      suggestionIcon:iconFor(row),
+      suggestionDisplayLabel:labelFor(row)
+    }));
+  }
+
+  const reconciled = identityApi.reconcile(rows.map((row) => ({
+    ...row,
+    name:row.name,
+    kind:row.suggestionKind || row.kind || "entity",
+    canonicalUuid:row.suggestionKind === "actor"
+      ? `Actor.${row.id || ""}`
+      : ["world","quest","session"].includes(row.suggestionKind)
+        ? `JournalEntry.${row.id || ""}`
+        : String(row.canonicalUuid || "")
+  }))) || [];
+
+  return reconciled.map((row) => {
+    const ambiguous = row.identityAmbiguous === true;
+    const projectionCollapsed = row.identityProjectionCollapsed === true;
+    const identityLabel = String(row.identityKindLabel || labelFor(row));
+    return {
+      ...row,
+      suggestionAmbiguous:ambiguous,
+      suggestionProjectionCollapsed:projectionCollapsed,
+      suggestionCount:Number(row.identityMemberCount || row.suggestionCount || 1),
+      suggestionIdentityLabel:identityLabel,
+      suggestionDisplayLabel:ambiguous ? `${Number(row.identityCount || 2)} possible identities` : identityLabel,
+      suggestionReason:ambiguous
+        ? `${Number(row.identityCount || 2)} unrelated canonical identities share this name`
+        : projectionCollapsed
+          ? `${identityLabel} · projected records reconciled`
+          : String(row.suggestionReason || row.reason || "Mentioned in source text"),
+      suggestionIcon:iconFor(row)
+    };
+  });
+}
+
 function actorMentionEvidence(text = "", candidate, actors = []) {
   const actor = game.actors.get(candidate?.id);
   if (!actor) return null;
@@ -1302,6 +1361,11 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
   const actorLinks = candidatesFromExplicit(entry, "actors", actors).slice(0, 12);
   const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 12);
   const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 12);
+  const suggestedMentions = reconcileSuggestedCollections([
+    suggestedSessionLinks,
+    suggestedWorldLinks,
+    suggestedActorLinks
+  ]).slice(0, 20);
   const orderedSessions = [...sessionLinks].sort((a, b) => (a.sessionNumber ?? 99999) - (b.sessionNumber ?? 99999));
 
   return {
@@ -1324,8 +1388,9 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
     suggestedSessionLinks,
     suggestedWorldLinks,
     suggestedActorLinks,
-    suggestedCount:suggestedSessionLinks.length + suggestedWorldLinks.length + suggestedActorLinks.length,
-    hasSuggestedMentions:Boolean(suggestedSessionLinks.length || suggestedWorldLinks.length || suggestedActorLinks.length)
+    suggestedMentions,
+    suggestedCount:suggestedMentions.length,
+    hasSuggestedMentions:suggestedMentions.length > 0
   };
 }
 
@@ -1347,6 +1412,11 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
   const suggestedQuestLinks = suggestedQuestMentions(raw, quests, questLinks).slice(0, 10);
   const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 10);
   const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 10);
+  const suggestedMentions = reconcileSuggestedCollections([
+    suggestedQuestLinks,
+    suggestedWorldLinks,
+    suggestedActorLinks
+  ]).slice(0, 20);
 
   const summary = truncate(summarySection || sessionView.summary || raw || entry.name, 420);
   const bodyPreview = truncate(raw || summary, 900);
@@ -1366,8 +1436,9 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
     suggestedQuestLinks,
     suggestedWorldLinks,
     suggestedActorLinks,
-    suggestedCount:suggestedQuestLinks.length + suggestedWorldLinks.length + suggestedActorLinks.length,
-    hasSuggestedMentions:Boolean(suggestedQuestLinks.length || suggestedWorldLinks.length || suggestedActorLinks.length)
+    suggestedMentions,
+    suggestedCount:suggestedMentions.length,
+    hasSuggestedMentions:suggestedMentions.length > 0
   };
 }
 
