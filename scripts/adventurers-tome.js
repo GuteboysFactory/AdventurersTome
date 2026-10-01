@@ -1113,6 +1113,48 @@ function explicitSessionsForTarget(targetDocument, targetView, sessions = [], ta
 }
 
 function collapseSuggestedMentions(rows = [], kind = "entity") {
+  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  if (identityApi?.reconcile) {
+    const reconciled = identityApi.reconcile(rows.map((row) => {
+      const candidate = row?.candidate || {};
+      const canonicalUuid = kind === "actor"
+        ? `Actor.${candidate.id || ""}`
+        : ["world","quest","session"].includes(kind)
+          ? `JournalEntry.${candidate.id || ""}`
+          : "";
+      return {
+        ...candidate,
+        id:candidate.id,
+        name:candidate.name,
+        kind,
+        canonicalUuid,
+        reason:String(row?.reason || "Mentioned in source text"),
+        matchedTerm:String(row?.matchedTerm || candidate.name || "")
+      };
+    })) || [];
+
+    return reconciled.map((row) => {
+      const ambiguous = row.identityAmbiguous === true;
+      const projectionCollapsed = row.identityProjectionCollapsed === true;
+      const candidateCount = Number(row.identityCount || 0);
+      const reason = ambiguous
+        ? `${candidateCount || row.identityMemberCount || 2} unrelated canonical identities share this name`
+        : projectionCollapsed
+          ? `${row.identityKindLabel || "Canonical identity"} · projected records reconciled`
+          : String(row.reason || "Mentioned in source text");
+      return {
+        ...row,
+        suggestionKind:kind,
+        suggestionReason:reason,
+        suggestionMatchedTerm:String(row.matchedTerm || row.name || ""),
+        suggestionAmbiguous:ambiguous,
+        suggestionCount:Number(row.identityMemberCount || 1),
+        suggestionIdentityLabel:String(row.identityKindLabel || ""),
+        suggestionProjectionCollapsed:projectionCollapsed
+      };
+    });
+  }
+
   const groups = new Map();
   for (const row of rows) {
     const candidate = row?.candidate;
