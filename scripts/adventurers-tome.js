@@ -1113,6 +1113,48 @@ function explicitSessionsForTarget(targetDocument, targetView, sessions = [], ta
 }
 
 function collapseSuggestedMentions(rows = [], kind = "entity") {
+  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  if (identityApi?.reconcile) {
+    const reconciled = identityApi.reconcile(rows.map((row) => {
+      const candidate = row?.candidate || {};
+      const canonicalUuid = kind === "actor"
+        ? `Actor.${candidate.id || ""}`
+        : ["world","quest","session"].includes(kind)
+          ? `JournalEntry.${candidate.id || ""}`
+          : "";
+      return {
+        ...candidate,
+        id:candidate.id,
+        name:candidate.name,
+        kind,
+        canonicalUuid,
+        reason:String(row?.reason || "Mentioned in source text"),
+        matchedTerm:String(row?.matchedTerm || candidate.name || "")
+      };
+    })) || [];
+
+    return reconciled.map((row) => {
+      const ambiguous = row.identityAmbiguous === true;
+      const projectionCollapsed = row.identityProjectionCollapsed === true;
+      const candidateCount = Number(row.identityCount || 0);
+      const reason = ambiguous
+        ? `${candidateCount || row.identityMemberCount || 2} unrelated canonical identities share this name`
+        : projectionCollapsed
+          ? `${row.identityKindLabel || "Canonical identity"} · projected records reconciled`
+          : String(row.reason || "Mentioned in source text");
+      return {
+        ...row,
+        suggestionKind:kind,
+        suggestionReason:reason,
+        suggestionMatchedTerm:String(row.matchedTerm || row.name || ""),
+        suggestionAmbiguous:ambiguous,
+        suggestionCount:Number(row.identityMemberCount || 1),
+        suggestionIdentityLabel:String(row.identityKindLabel || ""),
+        suggestionProjectionCollapsed:projectionCollapsed
+      };
+    });
+  }
+
   const groups = new Map();
   for (const row of rows) {
     const candidate = row?.candidate;
@@ -1136,6 +1178,65 @@ function collapseSuggestedMentions(rows = [], kind = "entity") {
       suggestionMatchedTerm:String(row.matchedTerm || candidate.name || ""),
       suggestionAmbiguous:ambiguous,
       suggestionCount:group.length
+    };
+  });
+}
+
+function reconcileSuggestedCollections(collections = []) {
+  const rows = collections.flat().filter(Boolean);
+  if (!rows.length) return [];
+
+  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  const iconFor = (row) => {
+    if (row?.suggestionKind === "actor") return "fa-user";
+    if (row?.suggestionKind === "quest") return "fa-diamond";
+    if (row?.suggestionKind === "session") return "fa-book-open";
+    return String(row?.icon || "fa-earth-europe");
+  };
+  const labelFor = (row) => {
+    if (row?.suggestionIdentityLabel) return String(row.suggestionIdentityLabel);
+    if (row?.suggestionKind === "actor") return String(row?.displayRole || "Character / NPC");
+    if (row?.suggestionKind === "quest") return "Quest";
+    if (row?.suggestionKind === "session") return "Session";
+    return String(row?.categoryLabel || "World");
+  };
+
+  if (!identityApi?.reconcile) {
+    return rows.map((row) => ({
+      ...row,
+      suggestionIcon:iconFor(row),
+      suggestionDisplayLabel:labelFor(row)
+    }));
+  }
+
+  const reconciled = identityApi.reconcile(rows.map((row) => ({
+    ...row,
+    name:row.name,
+    kind:row.suggestionKind || row.kind || "entity",
+    canonicalUuid:row.suggestionKind === "actor"
+      ? `Actor.${row.id || ""}`
+      : ["world","quest","session"].includes(row.suggestionKind)
+        ? `JournalEntry.${row.id || ""}`
+        : String(row.canonicalUuid || "")
+  }))) || [];
+
+  return reconciled.map((row) => {
+    const ambiguous = row.identityAmbiguous === true;
+    const projectionCollapsed = row.identityProjectionCollapsed === true;
+    const identityLabel = String(row.identityKindLabel || labelFor(row));
+    return {
+      ...row,
+      suggestionAmbiguous:ambiguous,
+      suggestionProjectionCollapsed:projectionCollapsed,
+      suggestionCount:Number(row.identityMemberCount || row.suggestionCount || 1),
+      suggestionIdentityLabel:identityLabel,
+      suggestionDisplayLabel:ambiguous ? `${Number(row.identityCount || 2)} possible identities` : identityLabel,
+      suggestionReason:ambiguous
+        ? `${Number(row.identityCount || 2)} unrelated canonical identities share this name`
+        : projectionCollapsed
+          ? `${identityLabel} · projected records reconciled`
+          : String(row.suggestionReason || row.reason || "Mentioned in source text"),
+      suggestionIcon:iconFor(row)
     };
   });
 }
@@ -1173,10 +1274,12 @@ function suggestedQuestMentions(raw = "", quests = [], explicit = []) {
   const inferred = sessionReferenceCandidates(raw, quests, [
     "Quest Updates", "Quest Update", "Quests", "Quest Log", "Questlogg", "Uppdrag", "Uppdragsuppdateringar"
   ], 12).filter((candidate) => !explicitIds.has(candidate.id));
-  return collapseSuggestedMentions(
-    inferred.map((candidate) => ({ candidate, reason:"Quest name mentioned in Session text", matchedTerm:candidate.name })),
-    "quest"
-  );
+  return inferred.map((candidate) => ({
+    ...candidate,
+    suggestionKind:"quest",
+    suggestionReason:"Quest name mentioned in Session text",
+    suggestionMatchedTerm:String(candidate.name || "")
+  }));
 }
 
 function suggestedWorldMentions(raw = "", world = [], explicit = []) {
@@ -1184,10 +1287,12 @@ function suggestedWorldMentions(raw = "", world = [], explicit = []) {
   const inferred = sessionReferenceCandidates(raw, world, [
     "World", "World Updates", "NPC", "NPCs", "Locations", "Places", "Platser", "Factions", "Fraktioner", "Items", "Föremål", "Lore"
   ], 16).filter((candidate) => !explicitIds.has(candidate.id));
-  return collapseSuggestedMentions(
-    inferred.map((candidate) => ({ candidate, reason:"World entry name mentioned in source text", matchedTerm:candidate.name })),
-    "world"
-  );
+  return inferred.map((candidate) => ({
+    ...candidate,
+    suggestionKind:"world",
+    suggestionReason:"World entry name mentioned in source text",
+    suggestionMatchedTerm:String(candidate.name || "")
+  }));
 }
 
 function suggestedActorMentions(raw = "", actors = [], explicit = []) {
@@ -1197,9 +1302,14 @@ function suggestedActorMentions(raw = "", actors = [], explicit = []) {
     if (explicitIds.has(candidate.id)) continue;
     const evidence = actorMentionEvidence(raw, candidate, actors);
     if (!evidence) continue;
-    rows.push({ candidate, reason:evidence.reason, matchedTerm:evidence.term });
+    rows.push({
+      ...candidate,
+      suggestionKind:"actor",
+      suggestionReason:evidence.reason,
+      suggestionMatchedTerm:evidence.term
+    });
   }
-  return collapseSuggestedMentions(rows, "actor");
+  return rows;
 }
 
 function sessionMentionedInText(raw = "", session = {}) {
@@ -1250,16 +1360,23 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
     "Quest Updates", "Quest Update", "Quests", "Quest Log", "Questlogg", "Uppdrag", "Uppdragsuppdateringar"
   ]);
   const canonicalSessionIds = new Set(sessionLinks.map((session) => session.id));
-  const suggestedSessionLinks = collapseSuggestedMentions(
-    heuristicSessions
-      .filter((session) => !canonicalSessionIds.has(session.id))
-      .map((session) => ({ candidate:session, reason:"Session reference inferred from Quest text", matchedTerm:session.displayTitle || session.name })),
-    "session"
-  );
+  const suggestedSessionLinks = heuristicSessions
+    .filter((session) => !canonicalSessionIds.has(session.id))
+    .map((session) => ({
+      ...session,
+      suggestionKind:"session",
+      suggestionReason:"Session reference inferred from Quest text",
+      suggestionMatchedTerm:String(session.displayTitle || session.name || "")
+    }));
   const worldLinks = candidatesFromExplicit(entry, "world", world).slice(0, 12);
   const actorLinks = candidatesFromExplicit(entry, "actors", actors).slice(0, 12);
   const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 12);
   const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 12);
+  const suggestedMentions = reconcileSuggestedCollections([
+    suggestedSessionLinks,
+    suggestedWorldLinks,
+    suggestedActorLinks
+  ]).slice(0, 20);
   const orderedSessions = [...sessionLinks].sort((a, b) => (a.sessionNumber ?? 99999) - (b.sessionNumber ?? 99999));
 
   return {
@@ -1282,8 +1399,9 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
     suggestedSessionLinks,
     suggestedWorldLinks,
     suggestedActorLinks,
-    suggestedCount:suggestedSessionLinks.length + suggestedWorldLinks.length + suggestedActorLinks.length,
-    hasSuggestedMentions:Boolean(suggestedSessionLinks.length || suggestedWorldLinks.length || suggestedActorLinks.length)
+    suggestedMentions,
+    suggestedCount:suggestedMentions.length,
+    hasSuggestedMentions:suggestedMentions.length > 0
   };
 }
 
@@ -1305,6 +1423,11 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
   const suggestedQuestLinks = suggestedQuestMentions(raw, quests, questLinks).slice(0, 10);
   const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 10);
   const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 10);
+  const suggestedMentions = reconcileSuggestedCollections([
+    suggestedQuestLinks,
+    suggestedWorldLinks,
+    suggestedActorLinks
+  ]).slice(0, 20);
 
   const summary = truncate(summarySection || sessionView.summary || raw || entry.name, 420);
   const bodyPreview = truncate(raw || summary, 900);
@@ -1324,8 +1447,9 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
     suggestedQuestLinks,
     suggestedWorldLinks,
     suggestedActorLinks,
-    suggestedCount:suggestedQuestLinks.length + suggestedWorldLinks.length + suggestedActorLinks.length,
-    hasSuggestedMentions:Boolean(suggestedQuestLinks.length || suggestedWorldLinks.length || suggestedActorLinks.length)
+    suggestedMentions,
+    suggestedCount:suggestedMentions.length,
+    hasSuggestedMentions:suggestedMentions.length > 0
   };
 }
 

@@ -2077,3 +2077,20 @@ Campaign-link authority cleanup before Evidence Graph work:
 - GM-explicit Campaign Graph write boundary remains locked
 
 QA: `docs/V1.7_QA24_CANONICAL_LINK_AUTHORITY_SUGGESTED_MENTIONS.md`
+
+## v1.7.0-qa.25 — Suggested Mention Identity Reconciliation
+
+**Status:** QA / IMPLEMENTED
+
+Shared advisory identity convergence before Evidence Graph:
+
+- adds read-only Campaign Identity Reconciliation API
+- Actor UUID is authority when a Contact/World projection explicitly points to that Actor
+- Actor + Contact/World projections collapse into one logical advisory identity
+- unrelated same-name identities remain explicitly ambiguous
+- Tome noticed reconciles suggestions across Actor and World/Contact categories
+- Campaign Analysis Known Mentions reuses the same identity layer
+- no document merge, auto-link, auto-create or confidence-driven write is introduced
+- qa.24 canonical Campaign Link authority remains unchanged
+
+QA: `docs/V1.7_QA25_SUGGESTED_MENTION_IDENTITY_RECONCILIATION.md`

@@ -237,22 +237,10 @@
           <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{selectedSession.suggestedCount}}</span></h3>
           <p class="at-suggested-help">Mentioned in this Session, but not a canonical Campaign Link yet.</p>
           <div class="at-suggested-grid">
-            {{#each selectedSession.suggestedQuestLinks}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}">
-              <div><i class="fa-solid fa-diamond"></i><span><strong>{{name}}</strong><small>Quest · {{suggestionReason}}</small></span></div>
-              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}
-            </article>
-            {{/each}}
-            {{#each selectedSession.suggestedWorldLinks}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}">
-              <div><i class="fa-solid {{icon}}"></i><span><strong>{{name}}</strong><small>{{categoryLabel}} · {{suggestionReason}}</small></span></div>
-              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}
-            </article>
-            {{/each}}
-            {{#each selectedSession.suggestedActorLinks}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}">
-              <div><i class="fa-solid fa-user"></i><span><strong>{{name}}</strong><small>{{displayRole}} · {{suggestionReason}}</small></span></div>
-              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}
+            {{#each selectedSession.suggestedMentions}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}} {{#if suggestionProjectionCollapsed}}is-reconciled{{/if}}">
+              <div><i class="fa-solid {{suggestionIcon}}"></i><span><strong>{{name}}</strong><small>{{suggestionDisplayLabel}} · {{suggestionReason}}</small></span></div>
+              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}{{#if suggestionProjectionCollapsed}}<em><i class="fa-solid fa-code-merge"></i> Reconciled</em>{{else}}<em>Suggested</em>{{/if}}{{/if}}
             </article>
             {{/each}}
           </div>
@@ -345,14 +333,8 @@
           <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{questDetail.suggestedCount}}</span></h3>
           <p class="at-suggested-help">Text mentions only — not canonical links.</p>
           <div class="at-suggested-grid compact">
-            {{#each questDetail.suggestedSessionLinks}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}"><div><i class="fa-solid fa-book-open"></i><span><strong>{{name}}</strong><small>Session · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}</article>
-            {{/each}}
-            {{#each questDetail.suggestedWorldLinks}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}"><div><i class="fa-solid {{icon}}"></i><span><strong>{{name}}</strong><small>{{categoryLabel}} · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}</article>
-            {{/each}}
-            {{#each questDetail.suggestedActorLinks}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}}"><div><i class="fa-solid fa-user"></i><span><strong>{{name}}</strong><small>{{displayRole}} · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}<em>Suggested</em>{{/if}}</article>
+            {{#each questDetail.suggestedMentions}}
+            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}} {{#if suggestionProjectionCollapsed}}is-reconciled{{/if}}"><div><i class="fa-solid {{suggestionIcon}}"></i><span><strong>{{name}}</strong><small>{{suggestionDisplayLabel}} · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}{{#if suggestionProjectionCollapsed}}<em><i class="fa-solid fa-code-merge"></i> Reconciled</em>{{else}}<em>Suggested</em>{{/if}}{{/if}}</article>
             {{/each}}
           </div>
         </div>
