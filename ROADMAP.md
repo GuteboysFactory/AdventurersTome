@@ -2094,3 +2094,19 @@ Shared advisory identity convergence before Evidence Graph:
 - qa.24 canonical Campaign Link authority remains unchanged
 
 QA: `docs/V1.7_QA25_SUGGESTED_MENTION_IDENTITY_RECONCILIATION.md`
+
+## v1.7.0-qa.26 — Campaign Analysis Identity Parity
+
+**Status:** QA / IMPLEMENTED
+
+Parity hotfix after qa.25:
+
+- Campaign Analysis expands all resolver candidates before rendering Known Mentions
+- shared Campaign Identity Reconciliation runs before final Reconciled/Ambiguous presentation
+- Actor + Contact/World projections converging on one Actor UUID become Reconciled
+- unrelated duplicate canonical identities remain Ambiguous
+- visible ambiguity count reflects remaining identities after reconciliation
+- Tome noticed and Campaign Analysis now share one identity interpretation
+- no graph-write behavior changes
+
+QA: `docs/V1.7_QA26_CAMPAIGN_ANALYSIS_IDENTITY_PARITY.md`
