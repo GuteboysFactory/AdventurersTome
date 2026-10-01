@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.26 — Campaign Analysis Identity Parity
+
+- Makes Campaign Analysis reconcile all resolver candidates before presenting identity state.
+- Actor + managed Contact/World projections that converge on the same Actor UUID now present as Reconciled instead of inheriting a stale Ambiguous resolver decision.
+- Genuine same-name collisions remain Ambiguous and expose the remaining identity count.
+- Keeps Tome noticed and Campaign Analysis on the same shared identity semantics.
+- No Campaign Link, creation, document merge or confidence-driven write behavior changes.
+
+# CHANGELOG
+
 ## 1.7.0-qa.25 — Suggested Mention Identity Reconciliation
 
 - Adds a shared read-only Campaign Identity Reconciliation layer for advisory campaign intelligence.
