@@ -251,6 +251,16 @@ function atBfpRelativeFolders(folder, root) {
   return chain.slice(index + 1);
 }
 
+function atBfpSourceDescendantFolders(binding, root) {
+  return [...(game.folders?.contents || [])]
+    .filter((folder) => folder.type === binding.sourceDocumentName && folder.id !== root.id)
+    .filter((folder) => atBfpIsDescendantOf(folder, root))
+    .sort((a, b) => {
+      const depth = atBfpFolderAncestors(a).length - atBfpFolderAncestors(b).length;
+      return depth || atBfpFolderPath(a).localeCompare(atBfpFolderPath(b), game.i18n?.lang, { numeric:true });
+    });
+}
+
 function atBfpSourceDocs(binding, roots) {
   const rows = [];
   for (const document of atBfpCollection(binding.sourceDocumentName)) {
@@ -410,7 +420,6 @@ function atBfpProjectionData(source, category, targetFolder, existing = null, so
   const ownership = atBfpClone(source.ownership || { default:CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0 });
   return {
     name:source.name,
-    img:source.img || null,
     folder:targetFolder.id,
     ownership,
     flags:{
@@ -434,7 +443,6 @@ function atBfpProjectionNeedsUpdate(journal, data) {
   const ownershipNow = JSON.stringify(journal.ownership || {});
   const ownershipNext = JSON.stringify(data.ownership || {});
   return journal.name !== data.name
-    || atBfpClean(journal.img) !== atBfpClean(data.img)
     || atBfpClean(journal.folder?.id ?? journal.folder) !== atBfpClean(data.folder)
     || ownershipNow !== ownershipNext
     || projection.sourceFolderPath !== desiredProjection.sourceFolderPath
@@ -482,7 +490,6 @@ async function atBfpEnsureProjection(source, category, targetFolder, sourceRoot,
   if (atBfpProjectionNeedsUpdate(journal, data)) {
     await journal.update({
       name:data.name,
-      img:data.img,
       folder:data.folder,
       ownership:data.ownership,
       [`flags.${ATBFP_ID}.type`]:"world",
@@ -612,18 +619,20 @@ async function atBfpSync(options = {}) {
       const mirrorMap = atBfpExistingMirrorMap(binding.category);
       let manualRepresentations = 0;
 
-      for (const row of sourceDocs) {
-        let target = targetFolder;
-        for (const sourceFolder of row.relativeFolders) {
+      for (const sourceRoot of roots) {
+        for (const sourceFolder of atBfpSourceDescendantFolders(binding, sourceRoot)) {
           const sourceParent = game.folders?.get(atBfpParentId(sourceFolder));
-          let parentTarget = targetFolder;
-          if (sourceParent && sourceParent.id !== row.root.id) {
-            const parentMirror = mirrorMap.get(sourceParent.id);
-            if (parentMirror) parentTarget = parentMirror;
-          }
-          target = await atBfpEnsureMirrorFolder(binding.category, sourceFolder, row.root, parentTarget, mirrorMap);
+          const parentTarget = sourceParent && sourceParent.id !== sourceRoot.id
+            ? (mirrorMap.get(sourceParent.id) || targetFolder)
+            : targetFolder;
+          await atBfpEnsureMirrorFolder(binding.category, sourceFolder, sourceRoot, parentTarget, mirrorMap);
           desiredMirrorIds.add(sourceFolder.id);
         }
+      }
+
+      for (const row of sourceDocs) {
+        const lastRelative = row.relativeFolders[row.relativeFolders.length - 1] || null;
+        const target = lastRelative ? (mirrorMap.get(lastRelative.id) || targetFolder) : targetFolder;
 
         const existing = atBfpEquivalentRepresentations(binding.category, row.document.uuid);
         if (existing.some((journal) => !atBfpIsManagedProjection(journal))) manualRepresentations += 1;
