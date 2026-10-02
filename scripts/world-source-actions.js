@@ -136,16 +136,17 @@ function atWsaButton({ action, label, icon, journalId = "", sourceUuid = "", sou
 
 function atWsaDesired(world, journal) {
   const source = atWsaSourceMeta(journal);
-  const desired = [{
+  const backendManaged = journal?.getFlag?.(ATWSA_ID, "backendProjectionV1")?.managed === true;
+  const desired = backendManaged ? [] : [{
     action: "journal",
     label: "Open Journal",
     icon: "fa-book-open",
     journalId: String(journal.id || "")
   }];
 
-  if (source.uuid && source.type && source.type !== "JournalEntry") {
-    const labels = { Actor: "Actor", Item: "Item", Scene: "Scene" };
-    const icons = { Actor: "fa-user", Item: "fa-suitcase", Scene: "fa-map" };
+  if (source.uuid && source.type && (source.type !== "JournalEntry" || backendManaged)) {
+    const labels = { Actor: "Actor", Item: "Item", Scene: "Scene", JournalEntry:"Journal" };
+    const icons = { Actor: "fa-user", Item: "fa-suitcase", Scene: "fa-map", JournalEntry:"fa-book-open" };
     const label = labels[source.type] || "Source";
     desired.push({
       action: "source",
