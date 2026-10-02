@@ -10,7 +10,9 @@ const ATCW_SECTIONS = Object.freeze({
 });
 
 const ATCW_CANONICAL_WORLD = Object.freeze({
+  NPC: { category: "npc", icon: "fa-user-group" },
   NPCs: { category: "npc", icon: "fa-user-group" },
+  "NPC Groups": { category: "npc", icon: "fa-people-group" },
   Contacts: { category: "contact", icon: "fa-address-card" },
   Locations: { category: "location", icon: "fa-location-dot" },
   Factions: { category: "faction", icon: "fa-flag" },
