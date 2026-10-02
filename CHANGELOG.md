@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.30 — World Campaign Link Authority Parity
+
+- Makes World Detail Campaign Links canonical/explicit-only, matching Session and Quest authority semantics.
+- Removes prose-only Session, Quest and Actor matches from authoritative World Campaign Links.
+- Preserves those heuristic relationships in a separate read-only **Tome noticed** section with provenance-style reasons.
+- Shows an explicit empty-state when a World entry has no canonical Campaign Links.
+- Keeps reciprocal explicit links authoritative from either source or target side.
+- Preserves qa.24–qa.29 identity, source-scoped resolution, Foundry backend parity and GM-explicit graph-write behavior.
+
+# CHANGELOG
+
 ## 1.7.0-qa.29 — Universal Foundry Backend Folder Parity
 
 - Locks Foundry folders/documents and their UUIDs as the backend/source of truth for Tome standard folders.
