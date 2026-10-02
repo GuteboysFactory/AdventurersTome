@@ -196,11 +196,17 @@ async function atEmCreateEntry(section) {
   if (!parent) return ui.notifications.warn("Adventurer's Tome: Select a folder/source in Explorer first.");
 
   if (section === "world") {
-    const folderQuickCreate = game.modules.get(ATEM_MODULE_ID)?.api?.folderQuickCreate || null;
+    const moduleApi = game.modules.get(ATEM_MODULE_ID)?.api || {};
+    const folderQuickCreate = moduleApi.folderQuickCreate || null;
+    const backendParity = moduleApi.backendFolderParity || null;
     const semanticType = folderQuickCreate?.semanticType?.(parent) || "";
     if (semanticType === "npc" || semanticType === "npc-group") {
       await folderQuickCreate.quickCreate?.(parent);
       return;
+    }
+    if (backendParity?.isManagedMirror?.(parent)) {
+      const context = backendParity.backendContextForTomeFolder?.(parent);
+      return ui.notifications.warn(`Adventurer's Tome: ${parent.name} mirrors the canonical Foundry ${context?.binding?.sourceDocumentName || "document"} folder. Create the source document in Foundry or use a system provider.`);
     }
   }
 
