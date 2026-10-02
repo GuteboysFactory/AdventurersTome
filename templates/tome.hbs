@@ -618,16 +618,33 @@
       <article class="at-profile-biography at-profile-panel at-shareable-text"><div class="at-profile-section-heading"><i class="fa-solid fa-book-open-reader"></i><h2>Known Information</h2>{{#if worldProfileView.syncedToJournal}}<span class="at-sync-badge"><i class="fa-solid fa-arrows-rotate"></i> Journal synced</span>{{/if}}</div>{{#if worldProfileView.body}}<p>{{worldProfileView.body}}</p>{{else}}<p class="at-empty">No Tome details have been added yet.</p>{{/if}}</article>
       <aside class="at-profile-facts at-profile-panel"><div class="at-profile-section-heading"><i class="fa-solid fa-bookmark"></i><h2>Facts</h2></div>{{#each worldProfileView.facts}}<div class="at-fact {{#if gmOnly}}is-gm-only{{/if}}"><span>{{label}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</span><strong>{{value}}</strong></div>{{else}}<p class="at-empty">No structured facts have been added yet.</p>{{/each}}</aside>
     </section>
-    {{#if worldProfileView.hasCampaignLinks}}
     <section class="at-profile-panel at-profile-campaign-links">
       <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
+      {{#if worldProfileView.hasCampaignLinks}}
       <div class="at-campaign-link-columns">
         {{#if worldProfileView.campaignSessions.length}}<div><h3>Sessions</h3><div class="at-link-chip-list">{{#each worldProfileView.campaignSessions}}<button type="button" data-action="selectSession" data-journal-id="{{id}}"><i class="fa-solid fa-book-open"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
         {{#if worldProfileView.campaignQuests.length}}<div><h3>Quests</h3><div class="at-link-chip-list">{{#each worldProfileView.campaignQuests}}<button type="button" data-action="openQuestDetail" data-journal-id="{{id}}"><i class="fa-solid fa-diamond"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
         {{#if worldProfileView.campaignActors.length}}<div><h3>Characters</h3><div class="at-link-chip-list">{{#each worldProfileView.campaignActors}}<button type="button" data-action="openProfile" data-actor-id="{{id}}"><i class="fa-solid fa-user"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
       </div>
+      {{else}}
+      <p class="at-empty">No canonical Campaign Links yet.</p>
+      {{/if}}
+
+      {{#if worldProfileView.hasSuggestedCampaignMentions}}
+      <div class="at-quest-suggested">
+        <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{worldProfileView.suggestedCampaignCount}}</span></h3>
+        <p class="at-suggested-help">Text mentions only — not canonical Campaign Links.</p>
+        <div class="at-suggested-grid compact">
+          {{#each worldProfileView.suggestedCampaignMentions}}
+          <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}} {{#if suggestionProjectionCollapsed}}is-reconciled{{/if}}">
+            <div><i class="fa-solid {{suggestionIcon}}"></i><span><strong>{{name}}</strong><small>{{suggestionDisplayLabel}} · {{suggestionReason}}</small></span></div>
+            {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}{{#if suggestionProjectionCollapsed}}<em><i class="fa-solid fa-code-merge"></i> Reconciled</em>{{else}}<em>Suggested</em>{{/if}}{{/if}}
+          </article>
+          {{/each}}
+        </div>
+      </div>
+      {{/if}}
     </section>
-    {{/if}}
     {{/if}}
   </main>
   {{/if}}

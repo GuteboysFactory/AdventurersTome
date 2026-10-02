@@ -1112,6 +1112,86 @@ function explicitSessionsForTarget(targetDocument, targetView, sessions = [], ta
   });
 }
 
+function explicitQuestsForWorldTarget(targetDocument, targetView, quests = []) {
+  if (!targetDocument || !targetView?.id) return [];
+  const targetExplicit = new Set(getTomeLinks(targetDocument).quests);
+  return quests.filter((quest) => {
+    if (targetExplicit.has(quest.id)) return true;
+    const source = game.journal.get(quest?.id);
+    if (!source) return false;
+    return getTomeLinks(source).world.includes(targetView.id);
+  });
+}
+
+function explicitActorsForWorldTarget(targetDocument, targetView, actors = []) {
+  if (!targetDocument || !targetView?.id) return [];
+  const targetExplicit = new Set(getTomeLinks(targetDocument).actors);
+  return actors.filter((actorViewItem) => {
+    if (targetExplicit.has(actorViewItem.id)) return true;
+    const actor = game.actors.get(actorViewItem.id);
+    if (!actor) return false;
+    return getTomeLinks(actor).world.includes(targetView.id);
+  });
+}
+
+function suggestedSessionsForWorldTarget(targetDocument, targetView, sessions = [], canonicalSessions = [], labels = []) {
+  const canonicalIds = new Set(canonicalSessions.map((session) => session.id));
+  const targetText = targetDocument?.documentName === "Actor"
+    ? actorProfileText(targetDocument)
+    : journalText(targetDocument);
+
+  return linkedSessionsForTarget(targetDocument, targetView, sessions, "world", labels)
+    .filter((session) => !canonicalIds.has(session.id))
+    .map((session) => {
+      const source = game.journal.get(session?.id);
+      const sourceText = source ? journalText(source) : "";
+      const targetMentionedInSource = textMentionsName(sourceText, targetView.name);
+      const sessionMentionedInTarget = sessionMentionedInText(targetText, session);
+      return {
+        ...session,
+        suggestionKind:"session",
+        suggestionReason:targetMentionedInSource
+          ? "World entry name mentioned in Session text"
+          : sessionMentionedInTarget
+            ? "Session referenced in World entry text"
+            : "Session/World reference inferred from source text",
+        suggestionMatchedTerm:String(session.displayTitle || session.name || "")
+      };
+    });
+}
+
+function suggestedQuestsForWorldTarget(targetDocument, targetView, quests = [], canonicalQuests = []) {
+  const canonicalIds = new Set(canonicalQuests.map((quest) => quest.id));
+  return quests
+    .filter((quest) => !canonicalIds.has(quest.id))
+    .filter((quest) => {
+      const source = game.journal.get(quest?.id);
+      return source && textMentionsName(journalText(source), targetView.name);
+    })
+    .map((quest) => ({
+      ...quest,
+      suggestionKind:"quest",
+      suggestionReason:"World entry name mentioned in Quest text",
+      suggestionMatchedTerm:String(quest.name || "")
+    }));
+}
+
+function suggestedActorsForWorldTarget(targetDocument, targetView, actors = [], canonicalActors = []) {
+  const canonicalIds = new Set(canonicalActors.map((actor) => actor.id));
+  return actors
+    .filter((actorViewItem) => !canonicalIds.has(actorViewItem.id))
+    .filter((actorViewItem) => {
+      const actor = game.actors.get(actorViewItem.id);
+      return actor && textMentionsName(actorProfileText(actor), targetView.name);
+    })
+    .map((actorViewItem) => ({
+      ...actorViewItem,
+      suggestionKind:"actor",
+      suggestionReason:"World entry name mentioned in Actor profile",
+      suggestionMatchedTerm:String(actorViewItem.name || "")
+    }));
+}
+
 function collapseSuggestedMentions(rows = [], kind = "entity") {
   const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
   const sourceScopedApi = game.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
@@ -4963,15 +5043,24 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (worldEntry) {
       const profile = getWorldProfile(worldEntry);
       const view = worldEntryView(worldEntry);
-      const worldCampaignSessions = linkedSessionsForTarget(worldEntry, view, sessions, "world", ["World", "World Updates", "NPC", "NPCs", "Locations", "Places", "Platser", "Factions", "Fraktioner", "Items", "Föremål", "Lore"]);
-      const worldCampaignQuests = quests.filter((quest) => {
-        const questEntry = game.journal.get(quest.id);
-        return getTomeLinks(questEntry).world.includes(worldEntry.id) || textMentionsName(journalText(questEntry), worldEntry.name) || getTomeLinks(worldEntry).quests.includes(quest.id);
-      });
-      const worldCampaignActors = visibleActors.filter((actorViewItem) => {
-        const actor = game.actors.get(actorViewItem.id);
-        return getTomeLinks(actor).world.includes(worldEntry.id) || textMentionsName(actorProfileText(actor), worldEntry.name) || getTomeLinks(worldEntry).actors.includes(actorViewItem.id);
-      });
+      const worldCampaignSessions = explicitSessionsForTarget(worldEntry, view, sessions, "world");
+      const worldCampaignQuests = explicitQuestsForWorldTarget(worldEntry, view, quests);
+      const worldCampaignActors = explicitActorsForWorldTarget(worldEntry, view, visibleActors);
+
+      const suggestedWorldCampaignSessions = suggestedSessionsForWorldTarget(
+        worldEntry,
+        view,
+        sessions,
+        worldCampaignSessions,
+        ["World", "World Updates", "NPC", "NPCs", "Locations", "Places", "Platser", "Factions", "Fraktioner", "Items", "Föremål", "Lore"]
+      );
+      const suggestedWorldCampaignQuests = suggestedQuestsForWorldTarget(worldEntry, view, quests, worldCampaignQuests);
+      const suggestedWorldCampaignActors = suggestedActorsForWorldTarget(worldEntry, view, visibleActors, worldCampaignActors);
+      const suggestedCampaignMentions = reconcileSuggestedCollections([
+        suggestedWorldCampaignSessions,
+        suggestedWorldCampaignQuests,
+        suggestedWorldCampaignActors
+      ], worldEntry.uuid).slice(0, 20);
       const linkedActor = resolveWorldActor(worldEntry, profile);
       const linkedActorVisible = Boolean(linkedActor && canViewInTome(linkedActor));
       const linkedActorInferred = Boolean(linkedActor && !profile.actorId);
@@ -4988,7 +5077,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         campaignActors: worldCampaignActors,
         firstSession: worldCampaignSessions[0] || null,
         lastSession: worldCampaignSessions.length ? worldCampaignSessions[worldCampaignSessions.length - 1] : null,
-        hasCampaignLinks: Boolean(worldCampaignSessions.length || worldCampaignQuests.length || worldCampaignActors.length)
+        hasCampaignLinks: Boolean(worldCampaignSessions.length || worldCampaignQuests.length || worldCampaignActors.length),
+        suggestedCampaignMentions,
+        suggestedCampaignCount:suggestedCampaignMentions.length,
+        hasSuggestedCampaignMentions:suggestedCampaignMentions.length > 0
       };
       worldProfileEditor = {
         journalId: worldEntry.id,
