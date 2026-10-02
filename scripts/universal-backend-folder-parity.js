@@ -558,6 +558,15 @@ async function atBfpBuildSnapshot(bootstrap, bindingsState, reason) {
   const mirrors = [...(game.folders?.contents || [])].filter(atBfpIsManagedMirror);
   const categories = bindingsState.map((row) => {
     const projections = managed.filter((journal) => atBfpProjectionOf(journal)?.category === row.category);
+    const targetIds = row.targetFolder ? new Set(
+      [row.targetFolder, ...(game.folders?.contents || []).filter((folder) =>
+        folder.type === "JournalEntry" && atBfpIsDescendantOf(folder, row.targetFolder)
+      )].map((folder) => folder.id)
+    ) : new Set();
+    const targetEntries = [...(game.journal?.contents || [])].filter((journal) =>
+      targetIds.has(atBfpClean(journal.folder?.id ?? journal.folder))
+    );
+    const directJournalDocuments = targetEntries.filter((journal) => !atBfpIsManagedProjection(journal)).length;
     return {
       category:row.category,
       targetFolderId:atBfpClean(row.targetFolder?.id),
@@ -572,9 +581,33 @@ async function atBfpBuildSnapshot(bootstrap, bindingsState, reason) {
       sourceDocuments:row.sourceDocs.length,
       managedProjections:projections.length,
       manualRepresentations:row.manualRepresentations,
+      directJournalDocuments,
+      tomeEntries:targetEntries.length,
       missing:Math.max(0, row.sourceDocs.length - projections.length - row.manualRepresentations)
     };
   });
+
+  const bindingCategories = new Set(ATBFP_BINDINGS.map((entry) => entry.category));
+  const directStandardFolders = Object.entries(bootstrap?.folders || {})
+    .filter(([category]) => !bindingCategories.has(category))
+    .map(([category, folder]) => {
+      const ids = folder ? new Set(
+        [folder, ...(game.folders?.contents || []).filter((candidate) =>
+          candidate.type === "JournalEntry" && atBfpIsDescendantOf(candidate, folder)
+        )].map((candidate) => candidate.id)
+      ) : new Set();
+      return {
+        category,
+        backend:"JournalEntry",
+        folderId:atBfpClean(folder?.id),
+        path:folder ? atBfpFolderPath(folder) : "",
+        documents:[...(game.journal?.contents || [])].filter((journal) =>
+          ids.has(atBfpClean(journal.folder?.id ?? journal.folder))
+        ).length,
+        directFoundryAuthority:true,
+        fallbackPolicy:"future-standard-folders-remain-Foundry-Journal-backed-until-a-provider-declares-a-native-backend"
+      };
+    });
 
   return {
     contract:ATBFP_CONTRACT,
@@ -586,6 +619,7 @@ async function atBfpBuildSnapshot(bootstrap, bindingsState, reason) {
     canonicalUuidAuthority:true,
     sections:atBfpSectionAudit(bootstrap),
     categories,
+    directStandardFolders,
     managedProjectionCount:managed.length,
     managedMirrorFolderCount:mirrors.length,
     healthy:ATBFP_STATS.failures === 0 && categories.every((row) => row.missing === 0),
@@ -870,6 +904,7 @@ function atBfpAudit() {
     canonicalUuidAuthority:true,
     sections:[],
     categories:[],
+    directStandardFolders:[],
     managedProjectionCount:0,
     managedMirrorFolderCount:0,
     healthy:ATBFP_STATS.failures === 0,
