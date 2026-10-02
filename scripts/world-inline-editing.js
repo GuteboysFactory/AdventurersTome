@@ -25,6 +25,7 @@ function atWieIsEditor(journal, user = game.user) {
 
 function atWieCanInlineEdit(journal) {
   if (!journal || !atWieIsEditor(journal)) return false;
+  if (journal.getFlag?.(ATWIE_MODULE_ID, "backendProjectionV1")?.managed === true) return false;
   if (game.user?.isGM) return true;
   try {
     return journal.testUserPermission?.(game.user, "OWNER") === true || journal.isOwner === true;
