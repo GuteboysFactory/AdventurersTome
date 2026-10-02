@@ -160,7 +160,7 @@ async function atFmCreateFolder(section) {
 
   const name = await atFmModal({
     title: "New Folder",
-    body: `<p>Creates a real Foundry Journal folder inside <strong>${atFmEscape(atFmPath(parent))}</strong>.</p>`,
+    body: `<p>Creates a real Foundry backend folder inside <strong>${atFmEscape(atFmPath(parent))}</strong>. Backend-backed World categories are routed to their canonical collection.</p>`,
     inputValue: "",
     confirmLabel: "Create Folder",
     confirmIcon: "fa-folder-plus"
@@ -168,6 +168,16 @@ async function atFmCreateFolder(section) {
   if (!name) return;
 
   try {
+    const backendParity = game.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.createFolder) {
+      const routed = await backendParity.createFolder(parent, name);
+      if (routed) {
+        ui.notifications.info(`Adventurer's Tome: Created backend folder ${routed.name}.`);
+        atFmSchedule(160);
+        return;
+      }
+    }
+
     const created = await Folder.create({ name, type: "JournalEntry", folder: parent.id });
     atFmSetSelected(section, created.id);
     ui.notifications.info(`Adventurer's Tome: Created folder ${created.name}.`);
@@ -193,6 +203,15 @@ async function atFmRenameFolder(section) {
   if (!name || name === folder.name) return;
 
   try {
+    const backendParity = game.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.isManagedMirror?.(folder)) {
+      const routed = await backendParity.renameFolder?.(folder, name);
+      if (!routed) throw new Error("Could not route backend folder rename.");
+      ui.notifications.info(`Adventurer's Tome: Renamed canonical backend folder to ${name}.`);
+      atFmSchedule(160);
+      return;
+    }
+
     await folder.update({ name });
     ui.notifications.info(`Adventurer's Tome: Renamed folder to ${name}.`);
     atFmSchedule(160);
@@ -224,6 +243,16 @@ async function atFmDeleteFolder(section) {
 
   const parentId = atFmParentId(folder);
   try {
+    const backendParity = game.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.isManagedMirror?.(folder)) {
+      const routed = await backendParity.deleteFolder?.(folder);
+      if (!routed) throw new Error("Could not route backend folder deletion.");
+      atFmSetSelected(section, parentId);
+      ui.notifications.info(`Adventurer's Tome: Deleted empty canonical backend folder ${folder.name}.`);
+      atFmSchedule(160);
+      return;
+    }
+
     await folder.delete();
     atFmSetSelected(section, parentId);
     ui.notifications.info(`Adventurer's Tome: Deleted empty folder ${folder.name}.`);
