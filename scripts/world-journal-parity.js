@@ -140,6 +140,7 @@ async function atWjEnhanceWorld(root) {
   if (!journalId) return;
   const journal = game.journal?.get(journalId);
   if (!journal) return;
+  if (journal.getFlag?.(ATWJ_MODULE_ID, "backendProjectionV1")?.managed === true) return;
 
   const existing = world.querySelector(`.at-world-journal-parity[data-journal-id="${CSS.escape(journalId)}"]`);
   const stamp = `${journalId}:${journal._stats?.modifiedTime || journal._stats?.updatedTime || journal.pages?.size || 0}:${journal.pages?.contents?.map((p) => `${p.id}:${p._stats?.modifiedTime || p.sort || 0}`).join("|")}`;
