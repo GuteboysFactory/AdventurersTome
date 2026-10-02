@@ -743,43 +743,63 @@ function atBfpBackendContextForTomeFolder(folder) {
   };
 }
 
+async function atBfpEnsureBackendContextForTomeFolder(tomeFolder) {
+  let context = atBfpBackendContextForTomeFolder(tomeFolder);
+  if (context) return context;
+  if (!game.user?.isGM || tomeFolder?.type !== "JournalEntry") return null;
+
+  const standardType = atBfpClean(tomeFolder.getFlag?.(ATBFP_ID, "standardFolder")).toLowerCase();
+  const binding = atBfpBinding(standardType);
+  if (!binding || binding.sourceDocumentName === "JournalEntry") return null;
+
+  let sourceRoot = [...(game.folders?.contents || [])].find((folder) =>
+    folder.type === binding.sourceDocumentName && atBfpSourceCategory(folder) === binding.category
+  ) || null;
+
+  if (!sourceRoot) {
+    sourceRoot = [...(game.folders?.contents || [])].find((folder) =>
+      folder.type === binding.sourceDocumentName && atBfpAliasMatches(folder, binding)
+    ) || null;
+  }
+
+  if (!sourceRoot) {
+    sourceRoot = await Folder.create({
+      name:binding.label,
+      type:binding.sourceDocumentName,
+      flags:{
+        [ATBFP_ID]:{
+          [ATBFP_SOURCE_CATEGORY_FLAG]:binding.category,
+          [ATBFP_SOURCE_VERSION_FLAG]:ATBFP_VERSION
+        }
+      }
+    }, { adventurersTomeBackendParity:true });
+    ATBFP_STATS.sourceRootsAdopted += 1;
+  } else if (atBfpSourceCategory(sourceRoot) !== binding.category) {
+    await sourceRoot.update({
+      [`flags.${ATBFP_ID}.${ATBFP_SOURCE_CATEGORY_FLAG}`]:binding.category,
+      [`flags.${ATBFP_ID}.${ATBFP_SOURCE_VERSION_FLAG}`]:ATBFP_VERSION
+    }, { render:false, adventurersTomeBackendParity:true });
+    ATBFP_STATS.sourceRootsAdopted += 1;
+  }
+
+  context = {
+    category:binding.category,
+    binding,
+    sourceFolder:sourceRoot,
+    sourceRoot,
+    targetFolder:tomeFolder,
+    managedMirror:false
+  };
+  return context;
+}
+
 async function atBfpCreateBackendFolder(tomeParent, name) {
   if (!game.user?.isGM) throw new Error("Backend folder writes are GM-only.");
   let context = atBfpBackendContextForTomeFolder(tomeParent);
   const cleanName = atBfpClean(name);
   if (!cleanName) return null;
 
-  if (!context && tomeParent?.type === "JournalEntry") {
-    const standardType = atBfpClean(tomeParent.getFlag?.(ATBFP_ID, "standardFolder")).toLowerCase();
-    const binding = atBfpBinding(standardType);
-    if (binding && binding.sourceDocumentName !== "JournalEntry") {
-      let sourceRoot = [...(game.folders?.contents || [])].find((folder) =>
-        folder.type === binding.sourceDocumentName && atBfpSourceCategory(folder) === binding.category
-      ) || null;
-      if (!sourceRoot) {
-        sourceRoot = await Folder.create({
-          name:binding.label,
-          type:binding.sourceDocumentName,
-          flags:{
-            [ATBFP_ID]:{
-              [ATBFP_SOURCE_CATEGORY_FLAG]:binding.category,
-              [ATBFP_SOURCE_VERSION_FLAG]:ATBFP_VERSION
-            }
-          }
-        }, { adventurersTomeBackendParity:true });
-        ATBFP_STATS.sourceRootsAdopted += 1;
-      }
-      context = {
-        category:binding.category,
-        binding,
-        sourceFolder:sourceRoot,
-        sourceRoot,
-        targetFolder:tomeParent,
-        managedMirror:false
-      };
-    }
-  }
-
+  if (!context) context = await atBfpEnsureBackendContextForTomeFolder(tomeParent);
   if (!context) return null;
   const folder = await Folder.create({
     name:cleanName,
@@ -935,6 +955,7 @@ const ATBFP_API = Object.freeze({
   isManagedMirror:atBfpIsManagedMirror,
   sourceForProjection:atBfpSourceForProjection,
   backendContextForTomeFolder:atBfpBackendContextForTomeFolder,
+  ensureBackendContextForTomeFolder:atBfpEnsureBackendContextForTomeFolder,
   createFolder:atBfpCreateBackendFolder,
   renameFolder:atBfpRenameBackendFolder,
   moveFolder:atBfpMoveBackendFolder,
