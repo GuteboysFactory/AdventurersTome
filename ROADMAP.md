@@ -2163,3 +2163,20 @@ Foundry-backend convergence pass:
 - qa.24–qa.28 Campaign Intelligence behavior remains unchanged
 
 QA: `docs/V1.7_QA29_UNIVERSAL_FOUNDRY_BACKEND_FOLDER_PARITY.md`
+
+## v1.7.0-qa.30 — World Campaign Link Authority Parity
+
+**Status:** QA / IMPLEMENTED
+
+World Detail authority convergence:
+
+- **Campaign Links** now contains explicit/canonical relationships only
+- Session/Quest/Actor prose matches no longer masquerade as authoritative World links
+- heuristic World-detail relationships render separately as read-only **Tome noticed**
+- reciprocal explicit Session/Quest/Actor links remain authoritative
+- empty World Campaign Links are shown explicitly as `No canonical Campaign Links yet`
+- Session/Quest and World surfaces now share the same meaning of `Campaign Links`
+- no automatic writes or confidence-driven linking introduced
+- qa.29 Foundry backend parity remains unchanged
+
+QA: `docs/V1.7_QA30_WORLD_CAMPAIGN_LINK_AUTHORITY_PARITY.md`
