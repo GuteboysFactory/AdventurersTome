@@ -195,6 +195,15 @@ async function atEmCreateEntry(section) {
   const parent = atEmSelectedParent(section);
   if (!parent) return ui.notifications.warn("Adventurer's Tome: Select a folder/source in Explorer first.");
 
+  if (section === "world") {
+    const folderQuickCreate = game.modules.get(ATEM_MODULE_ID)?.api?.folderQuickCreate || null;
+    const semanticType = folderQuickCreate?.semanticType?.(parent) || "";
+    if (semanticType === "npc" || semanticType === "npc-group") {
+      await folderQuickCreate.quickCreate?.(parent);
+      return;
+    }
+  }
+
   const inferredCategory = section === "world" ? atEmCanonicalWorldCategory(parent) : null;
   const worldField = section === "world" && !inferredCategory
     ? `<label><span>World type</span><select name="category">${Object.entries(ATEM_WORLD_CATEGORIES).map(([id, label]) => `<option value="${id}">${atEmEscape(label.replace(/s$/, ""))}</option>`).join("")}</select></label>`
@@ -261,9 +270,14 @@ async function atEmCreateEntry(section) {
 }
 
 async function atEmDeleteEntry(journal) {
+  const backendParity = game.modules.get(ATEM_MODULE_ID)?.api?.backendFolderParity || null;
+  const managed = backendParity?.isManagedProjection?.(journal) === true;
+  const source = managed ? backendParity?.sourceForProjection?.(journal) : null;
+  const sourceLabel = source ? `${source.documentName} ${source.name}` : "Foundry Journal Entry";
+
   const data = await atEmPrompt({
     title: "Delete Tome Entry",
-    body: `<p>Delete <strong>${atEmEscape(journal.name)}</strong>?</p><p>This permanently deletes the real Foundry Journal Entry and all of its Journal pages. This cannot be undone by Tome.</p>`,
+    body: `<p>Delete <strong>${atEmEscape(journal.name)}</strong>?</p><p>This permanently deletes the canonical <strong>${atEmEscape(sourceLabel)}</strong>. This cannot be undone by Tome.</p>`,
     confirmLabel: "Delete Entry",
     confirmIcon: "fa-trash",
     danger: true
@@ -272,7 +286,12 @@ async function atEmDeleteEntry(journal) {
 
   try {
     const name = journal.name;
-    await journal.delete();
+    if (managed) {
+      const routed = await backendParity.deleteDocument?.(journal);
+      if (!routed) throw new Error("Could not delete canonical backend document.");
+    } else {
+      await journal.delete();
+    }
     ui.notifications.info(`Adventurer's Tome: Deleted ${name}.`);
     await game.modules.get(ATEM_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] });
     atEmSchedule(180);
@@ -291,6 +310,9 @@ function atEmOpenInTome(journalId) {
 async function atEmManageEntry(journalId) {
   const journal = game.journal?.get(String(journalId || ""));
   if (!journal || !game.user?.isGM) return;
+  const backendParity = game.modules.get(ATEM_MODULE_ID)?.api?.backendFolderParity || null;
+  const managed = backendParity?.isManagedProjection?.(journal) === true;
+  const backendSource = managed ? backendParity?.sourceForProjection?.(journal) : null;
   document.querySelector(`${ATEM_ROOT} .at-em-entry-menu-overlay`)?.remove();
 
   const root = document.querySelector(ATEM_ROOT);
@@ -298,7 +320,7 @@ async function atEmManageEntry(journalId) {
   const overlay = document.createElement("div");
   overlay.className = "at-cw-modal-overlay at-em-entry-menu-overlay";
   const folder = journal.folder || null;
-  overlay.innerHTML = `<form class="at-cw-modal at-em-modal"><header><div><span class="at-kicker">Tome Entry Management</span><h2>${atEmEscape(journal.name)}</h2></div><button type="button" data-at-em-close><i class="fa-solid fa-xmark"></i></button></header><label><span>Name</span><input name="name" required autocomplete="off" value="${atEmEscape(journal.name)}"></label><div class="at-em-entry-meta"><span>Foundry Journal</span><strong>${atEmEscape(folder ? atEmPath(folder) : "Unfiled")}</strong></div><div class="at-em-entry-actions"><button type="button" class="at-secondary" data-at-em-open-tome><i class="fa-solid fa-book-open"></i> Open in Tome</button><button type="button" class="at-secondary" data-at-em-open-source><i class="fa-solid fa-up-right-from-square"></i> Open Foundry Source</button><button type="button" class="at-em-danger" data-at-em-delete-entry><i class="fa-solid fa-trash"></i> Delete Entry</button></div><footer><button type="button" class="at-secondary" data-at-em-close>Cancel</button><button type="submit" class="at-primary"><i class="fa-solid fa-floppy-disk"></i> Save Name</button></footer></form>`;
+  overlay.innerHTML = `<form class="at-cw-modal at-em-modal"><header><div><span class="at-kicker">Tome Entry Management</span><h2>${atEmEscape(journal.name)}</h2></div><button type="button" data-at-em-close><i class="fa-solid fa-xmark"></i></button></header><label><span>Name</span><input name="name" required autocomplete="off" value="${atEmEscape(journal.name)}"></label><div class="at-em-entry-meta"><span>${managed && backendSource ? `Canonical Foundry ${atEmEscape(backendSource.documentName)}` : "Foundry Journal"}</span><strong>${atEmEscape(folder ? atEmPath(folder) : "Unfiled")}</strong></div><div class="at-em-entry-actions"><button type="button" class="at-secondary" data-at-em-open-tome><i class="fa-solid fa-book-open"></i> Open in Tome</button><button type="button" class="at-secondary" data-at-em-open-source><i class="fa-solid fa-up-right-from-square"></i> Open Foundry Source</button><button type="button" class="at-em-danger" data-at-em-delete-entry><i class="fa-solid fa-trash"></i> Delete Entry</button></div><footer><button type="button" class="at-secondary" data-at-em-close>Cancel</button><button type="submit" class="at-primary"><i class="fa-solid fa-floppy-disk"></i> Save Name</button></footer></form>`;
   root.append(overlay);
 
   const close = () => overlay.remove();
@@ -306,8 +328,10 @@ async function atEmManageEntry(journalId) {
     if (event.target === overlay || event.target.closest("[data-at-em-close]")) { close(); return; }
     if (event.target.closest("[data-at-em-open-tome]")) { close(); atEmOpenInTome(journal.id); return; }
     if (event.target.closest("[data-at-em-open-source]")) {
-      try { journal.sheet?.render?.(true); }
-      catch (error) { console.warn("Adventurer's Tome | Could not open Foundry Journal sheet", error); }
+      try {
+        const source = backendSource || journal;
+        source.sheet?.render?.(true);
+      } catch (error) { console.warn("Adventurer's Tome | Could not open canonical Foundry source sheet", error); }
       return;
     }
     if (event.target.closest("[data-at-em-delete-entry]")) { close(); void atEmDeleteEntry(journal); }
@@ -318,7 +342,12 @@ async function atEmManageEntry(journalId) {
     const name = String(new FormData(event.currentTarget).get("name") || "").trim();
     if (!name || name === journal.name) return close();
     try {
-      await journal.update({ name });
+      if (managed) {
+        const routed = await backendParity.renameDocument?.(journal, name);
+        if (!routed) throw new Error("Could not rename canonical backend document.");
+      } else {
+        await journal.update({ name });
+      }
       close();
       ui.notifications.info(`Adventurer's Tome: Renamed entry to ${name}.`);
       await game.modules.get(ATEM_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] });
