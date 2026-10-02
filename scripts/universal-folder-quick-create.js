@@ -461,7 +461,9 @@ async function atFqQuickCreate(folderOrId, options = {}) {
         atFqStats.nativeDelegations += 1;
         const hasExplicitInitialQuery = Object.prototype.hasOwnProperty.call(options, "initialQuery");
         const backendParity = atFqModuleApi()?.backendFolderParity || null;
-        const backendContext = backendParity?.backendContextForTomeFolder?.(folder) || null;
+        const backendContext = await backendParity?.ensureBackendContextForTomeFolder?.(folder)
+          || backendParity?.backendContextForTomeFolder?.(folder)
+          || null;
         return quickNpc.open({
           initialQuery:hasExplicitInitialQuery
             ? atFqClean(options.initialQuery)
@@ -476,10 +478,15 @@ async function atFqQuickCreate(folderOrId, options = {}) {
         });
       }
     }
+    const backendParity = atFqModuleApi()?.backendFolderParity || null;
+    const backendContext = await backendParity?.ensureBackendContextForTomeFolder?.(folder)
+      || backendParity?.backendContextForTomeFolder?.(folder)
+      || null;
     return quickNpc?.open?.({
       forceGeneric:true,
       name:atFqClean(options.initialName || options.name),
-      initialQuery:atFqClean(options.initialQuery || options.initialName || options.name)
+      initialQuery:atFqClean(options.initialQuery || options.initialName || options.name),
+      folderId:atFqClean(backendContext?.sourceFolder?.id)
     });
   }
 
