@@ -460,6 +460,8 @@ async function atFqQuickCreate(folderOrId, options = {}) {
       if (native) {
         atFqStats.nativeDelegations += 1;
         const hasExplicitInitialQuery = Object.prototype.hasOwnProperty.call(options, "initialQuery");
+        const backendParity = atFqModuleApi()?.backendFolderParity || null;
+        const backendContext = backendParity?.backendContextForTomeFolder?.(folder) || null;
         return quickNpc.open({
           initialQuery:hasExplicitInitialQuery
             ? atFqClean(options.initialQuery)
@@ -467,6 +469,7 @@ async function atFqQuickCreate(folderOrId, options = {}) {
           name:atFqClean(options.initialName || options.name),
           folderName:folder.name,
           folderFlag:"tomeQuickCreateNpcFolder",
+          destinationFolderId:atFqClean(backendContext?.sourceFolder?.id),
           closeAfterCreate:options.closeAfterCreate === true,
           awaitCreation:options.awaitCreation === true,
           onCreated:typeof options.onCreated === "function" ? options.onCreated : null
