@@ -1188,6 +1188,7 @@ function reconcileSuggestedCollections(collections = [], sourceUuid = "") {
   if (!rows.length) return [];
 
   const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  const sourceScopedApi = game.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
   const iconFor = (row) => {
     if (row?.suggestionKind === "actor") return "fa-user";
     if (row?.suggestionKind === "quest") return "fa-diamond";

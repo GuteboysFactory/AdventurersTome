@@ -2126,3 +2126,16 @@ Shared source-evidence authority layer before Evidence Graph:
 - all resolution remains read-only and all graph writes remain GM-explicit
 
 QA: `docs/V1.7_QA27_SOURCE_SCOPED_IDENTITY_RESOLUTION.md`
+
+## v1.7.0-qa.28 — Source-Scoped API Binding Hotfix
+
+**Status:** QA / IMPLEMENTED
+
+Minimal render hotfix after qa.27:
+
+- binds `campaignSourceScopedIdentity` inside suggested mention reconciliation
+- removes `ReferenceError: sourceScopedApi is not defined`
+- no source-scoped identity policy changes
+- no Campaign Graph write changes
+
+QA: `docs/V1.7_QA28_SOURCE_SCOPED_API_BINDING_HOTFIX.md`

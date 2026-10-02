@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 1.7.0-qa.28 — Source-Scoped API Binding Hotfix
+
+- Fixes the qa.27 Session/Quest render-time `ReferenceError: sourceScopedApi is not defined`.
+- Binds the Source-Scoped Identity API locally inside suggested mention reconciliation.
+- No qa.27 identity-resolution policy or graph-write behavior changes.
+
+# CHANGELOG
+
 ## 1.7.0-qa.27 — Source-Scoped Identity Resolution
 
 - Adds a shared read-only Source-Scoped Identity Resolution layer.
