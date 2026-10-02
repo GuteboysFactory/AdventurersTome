@@ -83,11 +83,14 @@ function atCirDocumentFromRef(ref = {}) {
   if (["actor","character","npc","adventurer"].includes(kind)) {
     return game.actors?.get(id) || null;
   }
-  if (["world","contact","location","faction","item","lore","journal","quest","session"].includes(kind)) {
+  if (kind === "item") {
+    return game.items?.get(id) || game.journal?.get(id) || null;
+  }
+  if (["world","contact","location","faction","lore","journal","quest","session"].includes(kind)) {
     return game.journal?.get(id) || null;
   }
 
-  return game.actors?.get(id) || game.journal?.get(id) || null;
+  return game.actors?.get(id) || game.items?.get(id) || game.journal?.get(id) || null;
 }
 
 function atCirIdentityFor(ref = {}) {
@@ -106,6 +109,21 @@ function atCirIdentityFor(ref = {}) {
         normalizedName,
         projection:false,
         sourceDocumentName:"Actor",
+        sourceUuid:document.uuid,
+        sourceId:document.id
+      };
+    }
+
+    if (document?.documentName === "Item") {
+      return {
+        identityKey:`item:${document.uuid}`,
+        authorityUuid:document.uuid,
+        authorityDocumentName:"Item",
+        authorityId:document.id,
+        name:document.name,
+        normalizedName,
+        projection:false,
+        sourceDocumentName:"Item",
         sourceUuid:document.uuid,
         sourceId:document.id
       };
