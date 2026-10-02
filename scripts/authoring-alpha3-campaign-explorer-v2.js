@@ -658,6 +658,15 @@ async function atCwMoveJournal(section, journal, targetFolder) {
   if (!canEdit) return ui.notifications.warn("Adventurer's Tome: You do not have permission to move that Journal.");
 
   try {
+    const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.isManagedProjection?.(journal)) {
+      const routed = await backendParity.moveDocument?.(journal, targetFolder);
+      if (!routed) throw new Error("This backend-backed entry cannot move into that Tome folder.");
+      ui.notifications.info(`Adventurer's Tome: Moved ${journal.name} through its canonical Foundry backend.`);
+      atCwRequestStructuralRefresh(80);
+      return;
+    }
+
     const belongs = atCwJournalBelongs(section, journal, knownIds);
     if (!belongs) await atCwAdoptJournal(section, journal, targetFolder);
 
@@ -705,6 +714,15 @@ async function atCwMoveFolder(section, folder, targetFolder) {
   }
 
   try {
+    const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.isManagedMirror?.(folder)) {
+      const routed = await backendParity.moveFolder?.(folder, targetFolder);
+      if (!routed) throw new Error("This mirrored backend folder cannot move into that Tome folder.");
+      ui.notifications.info(`Adventurer's Tome: Moved ${folder.name} in the canonical Foundry backend.`);
+      atCwRequestStructuralRefresh(80);
+      return;
+    }
+
     await folder.update({ folder: targetFolder.id });
     ui.notifications.info(`Adventurer's Tome: Moved ${folder.name} into ${targetFolder.name}.`);
     atCwRequestStructuralRefresh(80);
@@ -730,7 +748,7 @@ async function atCwCreateFolder(section) {
     overlay.innerHTML = `<form class="at-cw-modal">
       <header><div><span class="at-kicker">Campaign structure</span><h2>New Folder</h2></div><button type="button" data-at-cw-close><i class="fa-solid fa-xmark"></i></button></header>
       <label><span>Name</span><input name="name" required autocomplete="off"></label>
-      <p>Creates a real Foundry Journal folder inside <strong>${atCwEscape(atCwFolderPath(parent))}</strong>.</p>
+      <p>Creates a real Foundry backend folder inside <strong>${atCwEscape(atCwFolderPath(parent))}</strong>. Backend-backed World categories are routed to their canonical Foundry collection.</p>
       <footer><button type="button" class="at-secondary" data-at-cw-close>Cancel</button><button type="submit" class="at-primary"><i class="fa-solid fa-folder-plus"></i> Create Folder</button></footer>
     </form>`;
     root?.append(overlay);
@@ -753,6 +771,15 @@ async function atCwCreateFolder(section) {
   if (!name) return;
 
   try {
+    const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.createFolder) {
+      const routed = await backendParity.createFolder(parent, name);
+      if (routed) {
+        atCwRequestStructuralRefresh(80);
+        return;
+      }
+    }
+
     const created = await Folder.create({ name, type: "JournalEntry", folder: parent.id });
     atCwSetState(section, "selected", created.id);
     atCwRequestStructuralRefresh(80);
