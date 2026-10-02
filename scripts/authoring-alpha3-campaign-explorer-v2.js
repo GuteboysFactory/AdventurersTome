@@ -661,6 +661,9 @@ async function atCwMoveJournal(section, journal, targetFolder) {
 
   try {
     const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.isManagedMirror?.(targetFolder) && !backendParity?.isManagedProjection?.(journal)) {
+      throw new Error("This folder mirrors a non-Journal Foundry backend. Move the canonical source document in Foundry instead.");
+    }
     if (section === "world" && backendParity?.isManagedProjection?.(journal)) {
       const routed = await backendParity.moveDocument?.(journal, targetFolder);
       if (!routed) throw new Error("This backend-backed entry cannot move into that Tome folder.");
@@ -717,6 +720,9 @@ async function atCwMoveFolder(section, folder, targetFolder) {
 
   try {
     const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    if (section === "world" && backendParity?.isManagedMirror?.(targetFolder) && !backendParity?.isManagedMirror?.(folder)) {
+      throw new Error("This target mirrors a canonical non-Journal Foundry folder. Move the source folder in Foundry instead.");
+    }
     if (section === "world" && backendParity?.isManagedMirror?.(folder)) {
       const routed = await backendParity.moveFolder?.(folder, targetFolder);
       if (!routed) throw new Error("This mirrored backend folder cannot move into that Tome folder.");
