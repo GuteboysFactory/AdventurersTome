@@ -801,7 +801,10 @@ async function atBfpMoveBackendFolder(tomeFolder, targetTomeFolder) {
     throw new Error("Backend folder cannot move into itself or one of its descendants.");
   }
 
-  await source.sourceFolder.update({ folder:target.sourceFolder.id }, { adventurersTomeBackendParity:true });
+  const targetSourceFolder = target.managedMirror
+    ? target.sourceFolder
+    : (source.sourceRoot || target.sourceFolder);
+  await source.sourceFolder.update({ folder:targetSourceFolder.id }, { adventurersTomeBackendParity:true });
   ATBFP_STATS.routedFolderMoves += 1;
   await atBfpSync({ reason:"tome-folder-move" });
   return true;
@@ -822,7 +825,14 @@ async function atBfpMoveBackendDocument(journal, targetTomeFolder) {
     throw new Error("This source document cannot move into that backend category.");
   }
 
-  await source.update({ folder:target.sourceFolder.id }, { render:false, adventurersTomeBackendParity:true });
+  let targetSourceFolder = target.sourceFolder;
+  if (!target.managedMirror) {
+    const sourceRootId = atBfpClean(projection.sourceRootId);
+    const projectionRoot = sourceRootId ? game.folders?.get(sourceRootId) || null : null;
+    if (projectionRoot && projectionRoot.type === target.binding.sourceDocumentName) targetSourceFolder = projectionRoot;
+  }
+
+  await source.update({ folder:targetSourceFolder.id }, { render:false, adventurersTomeBackendParity:true });
   ATBFP_STATS.routedDocumentMoves += 1;
   await atBfpSync({ reason:"tome-document-move" });
   return true;
