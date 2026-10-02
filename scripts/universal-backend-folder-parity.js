@@ -376,7 +376,7 @@ function atBfpSourceSummary(source) {
 
 function atBfpProjectionProfile(source, category, current = {}) {
   const profile = current && typeof current === "object" && !Array.isArray(current) ? atBfpClone(current) : {};
-  profile.category = category;
+  profile.category = category === "npc-group" ? "npc" : category;
   profile.subtitle = source.documentName === "Actor"
     ? (source.type ? String(source.type).replace(/\b\w/g, (char) => char.toUpperCase()) : "Actor")
     : source.documentName === "Item"
