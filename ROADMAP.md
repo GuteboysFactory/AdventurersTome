@@ -2139,3 +2139,27 @@ Minimal render hotfix after qa.27:
 - no Campaign Graph write changes
 
 QA: `docs/V1.7_QA28_SOURCE_SCOPED_API_BINDING_HOTFIX.md`
+
+## v1.7.0-qa.29 — Universal Foundry Backend Folder Parity
+
+**Status:** QA / IMPLEMENTED
+
+Foundry-backend convergence pass:
+
+- Foundry Folder/Document + canonical UUID are locked as source of truth
+- Tome remains presentation/workflow only; no parallel campaign database
+- standard Sessions / Quests / Rules remain direct Journal-backed
+- World NPC / NPC Groups can mirror canonical Actor folder trees and Actor documents
+- Contacts can reuse Actor/semantic Contact authority without duplicate identities
+- Items can mirror real Foundry Item folders/items while retaining Journal fallback
+- Locations / Factions / Lore remain direct Journal-backed and can mirror external Foundry Journal category roots
+- nested and empty native backend folders are mirrored into the Tome World tree
+- Foundry create / rename / move / delete lifecycle changes refresh Tome parity
+- managed projection and mirror operations in Tome route to canonical backend sources where safe
+- native/generic NPC creation receives canonical backend destination
+- managed projections are read-only presentation documents and source actions open canonical Foundry documents
+- Campaign Identity Reconciliation recognizes Actor / Item / Journal backend source UUID authority
+- future standard folders default to direct Foundry Journal backing until a provider declares a native backend
+- qa.24–qa.28 Campaign Intelligence behavior remains unchanged
+
+QA: `docs/V1.7_QA29_UNIVERSAL_FOUNDRY_BACKEND_FOLDER_PARITY.md`

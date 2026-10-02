@@ -32,23 +32,36 @@ function atCirClone(value) {
   }
 }
 
-function atCirActorUuidFromJournal(journal) {
+function atCirBackendSourceUuidFromJournal(journal) {
   if (!journal || journal.documentName !== "JournalEntry") return "";
+
+  const backend = journal.getFlag?.(ATCIR_ID, "backendProjectionV1");
+  const backendUuid = atCirClean(backend?.sourceUuid);
+  if (backend?.managed === true && backendUuid && backendUuid !== journal.uuid) return backendUuid;
 
   const projection = journal.getFlag?.(ATCIR_ID, "semanticProjection");
   const projectionUuid = atCirClean(projection?.linkedUuid);
-  if (projection?.kind === "contact" && projectionUuid.startsWith("Actor.")) {
-    return projectionUuid;
-  }
+  if (projection?.kind === "contact" && projectionUuid.startsWith("Actor.")) return projectionUuid;
 
   const profile = journal.getFlag?.(ATCIR_ID, "worldProfile");
   const sourceUuid = atCirClean(profile?.sourceUuid);
-  if (sourceUuid.startsWith("Actor.")) return sourceUuid;
+  if (sourceUuid && sourceUuid !== journal.uuid) return sourceUuid;
 
   const actorId = atCirClean(profile?.actorId);
   if (actorId && game.actors?.get(actorId)) return `Actor.${actorId}`;
 
+  const itemId = atCirClean(profile?.itemId);
+  if (itemId && game.items?.get(itemId)) return `Item.${itemId}`;
+
   return "";
+}
+
+function atCirDocumentFromUuid(uuid) {
+  const value = atCirClean(uuid);
+  if (value.startsWith("Actor.")) return game.actors?.get(value.slice(6)) || null;
+  if (value.startsWith("Item.")) return game.items?.get(value.slice(5)) || null;
+  if (value.startsWith("JournalEntry.")) return game.journal?.get(value.slice("JournalEntry.".length)) || null;
+  return null;
 }
 
 function atCirDocumentFromRef(ref = {}) {
@@ -60,6 +73,9 @@ function atCirDocumentFromRef(ref = {}) {
   if (canonicalUuid.startsWith("JournalEntry.")) {
     return game.journal?.get(canonicalUuid.slice("JournalEntry.".length)) || null;
   }
+  if (canonicalUuid.startsWith("Item.")) {
+    return game.items?.get(canonicalUuid.slice(5)) || null;
+  }
 
   const kind = atCirClean(ref?.kind).toLowerCase();
   const id = atCirClean(ref?.id || ref?.journalId || ref?.actorId);
@@ -67,11 +83,14 @@ function atCirDocumentFromRef(ref = {}) {
   if (["actor","character","npc","adventurer"].includes(kind)) {
     return game.actors?.get(id) || null;
   }
-  if (["world","contact","location","faction","item","lore","journal","quest","session"].includes(kind)) {
+  if (kind === "item") {
+    return game.items?.get(id) || game.journal?.get(id) || null;
+  }
+  if (["world","contact","location","faction","lore","journal","quest","session"].includes(kind)) {
     return game.journal?.get(id) || null;
   }
 
-  return game.actors?.get(id) || game.journal?.get(id) || null;
+  return game.actors?.get(id) || game.items?.get(id) || game.journal?.get(id) || null;
 }
 
 function atCirIdentityFor(ref = {}) {
@@ -95,19 +114,44 @@ function atCirIdentityFor(ref = {}) {
       };
     }
 
+    if (document?.documentName === "Item") {
+      return {
+        identityKey:`item:${document.uuid}`,
+        authorityUuid:document.uuid,
+        authorityDocumentName:"Item",
+        authorityId:document.id,
+        name:document.name,
+        normalizedName,
+        projection:false,
+        sourceDocumentName:"Item",
+        sourceUuid:document.uuid,
+        sourceId:document.id
+      };
+    }
+
     if (document?.documentName === "JournalEntry") {
-      const actorUuid = atCirActorUuidFromJournal(document);
-      if (actorUuid) {
-        const actor = game.actors?.get(actorUuid.slice(6)) || null;
+      const authorityUuid = atCirBackendSourceUuidFromJournal(document);
+      if (authorityUuid) {
+        const authority = atCirDocumentFromUuid(authorityUuid);
+        const authorityDocumentName = atCirClean(authority?.documentName || authorityUuid.split(".")[0]);
+        const prefix = authorityDocumentName === "Actor" ? "actor"
+          : authorityDocumentName === "Item" ? "item"
+            : authorityDocumentName === "JournalEntry" ? "journal"
+              : "uuid";
         return {
-          identityKey:`actor:${actorUuid}`,
-          authorityUuid:actorUuid,
-          authorityDocumentName:"Actor",
-          authorityId:actor?.id || actorUuid.slice(6),
-          name:actor?.name || document.name,
-          normalizedName:atCirNormalize(actor?.name || document.name),
+          identityKey:`${prefix}:${authorityUuid}`,
+          authorityUuid,
+          authorityDocumentName,
+          authorityId:authority?.id || authorityUuid.split(".").slice(1).join("."),
+          name:authority?.name || document.name,
+          normalizedName:atCirNormalize(authority?.name || document.name),
           projection:true,
-          projectionKind:atCirClean(document.getFlag?.(ATCIR_ID, "semanticProjection")?.kind || "world"),
+          projectionKind:atCirClean(
+            document.getFlag?.(ATCIR_ID, "backendProjectionV1")?.category
+            || document.getFlag?.(ATCIR_ID, "semanticProjection")?.kind
+            || document.getFlag?.(ATCIR_ID, "worldProfile")?.category
+            || "world"
+          ),
           sourceDocumentName:"JournalEntry",
           sourceUuid:document.uuid,
           sourceId:document.id
@@ -170,6 +214,7 @@ function atCirKindSet(rows = []) {
     if (kind) kinds.add(kind);
     if (row?.identity?.projection) kinds.add("contact");
     if (row?.identity?.authorityDocumentName === "Actor") kinds.add("character");
+    if (row?.identity?.authorityDocumentName === "Item") kinds.add("item");
   }
   return [...kinds];
 }

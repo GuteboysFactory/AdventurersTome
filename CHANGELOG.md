@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 1.7.0-qa.29 — Universal Foundry Backend Folder Parity
+
+- Locks Foundry folders/documents and their UUIDs as the backend/source of truth for Tome standard folders.
+- Adds a universal backend-folder parity API with registry, synchronization, lifecycle hooks and diagnostics.
+- Mirrors Actor-backed NPC/NPC Group trees, Actor-backed Contact folders, real Foundry Item folders, and external Journal category folders into the Journal-rendered Tome World tree.
+- Mirrors empty nested backend folders as well as document-bearing folders.
+- Routes supported Tome folder/document rename, move, delete and subfolder creation back to the canonical Foundry backend.
+- Routes native/generic Tome NPC creation into the canonical Actor folder when a backend mapping exists.
+- Keeps managed backend projections read-only and opens the real Actor/Item/Journal source instead of treating projection Journals as authorities.
+- Extends Campaign Identity Reconciliation so backend projections collapse to Actor, Item or Journal source UUID authority.
+- Keeps Sessions, Quests, Rules and direct World Journals as real Foundry Journal-backed content.
+- Preserves qa.24–qa.28 Campaign Intelligence semantics and GM-explicit graph writes.
+
+# CHANGELOG
+
 ## 1.7.0-qa.28 — Source-Scoped API Binding Hotfix
 
 - Fixes the qa.27 Session/Quest render-time `ReferenceError: sourceScopedApi is not defined`.

@@ -318,6 +318,15 @@ async function openNativeProviderAndWait(provider, nativeOptions = {}, callerOpt
     : null;
 
   const onCreated = async (actor) => {
+    const destinationFolderId = clean(callerOptions?.destinationFolderId);
+    if (actor && destinationFolderId && clean(actor.folder?.id ?? actor.folder) !== destinationFolderId) {
+      const folder = game.folders?.get(destinationFolderId);
+      if (folder?.type === "Actor") {
+        try { await actor.update({ folder:destinationFolderId }, { adventurersTomeBackendParity:true }); }
+        catch (error) { console.warn("Adventurer's Tome | Could not route created NPC into canonical backend folder", error); }
+      }
+    }
+
     try { await callerOnCreated?.(actor); }
     catch (error) {
       console.warn("Adventurer's Tome | Native Quick NPC caller onCreated callback failed safely", error);
@@ -399,6 +408,22 @@ async function open(options = {}) {
           folderFlag:clean(options.folderFlag || "npcTemplateFolder"),
           closeAfterCreate:options.closeAfterCreate === true
         };
+
+        if (options.awaitCreation !== true) {
+          const callerOnCreated = typeof options.onCreated === "function" ? options.onCreated : null;
+          nativeOptions.onCreated = async (actor) => {
+            const destinationFolderId = clean(options.destinationFolderId);
+            if (actor && destinationFolderId && clean(actor.folder?.id ?? actor.folder) !== destinationFolderId) {
+              const folder = game.folders?.get(destinationFolderId);
+              if (folder?.type === "Actor") {
+                try { await actor.update({ folder:destinationFolderId }, { adventurersTomeBackendParity:true }); }
+                catch (error) { console.warn("Adventurer's Tome | Could not route created NPC into canonical backend folder", error); }
+              }
+            }
+            try { await callerOnCreated?.(actor); }
+            catch (error) { console.warn("Adventurer's Tome | Native Quick NPC caller onCreated callback failed safely", error); }
+          };
+        }
 
         if (options.awaitCreation === true) {
           stats.nativeProviderWaits += 1;
