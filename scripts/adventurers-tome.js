@@ -4830,7 +4830,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.activeTab === "worldProfile") return { activeTab: "world" };
     if (this.activeTab === "ruleDetail") return { activeTab: "rules" };
     if (this.activeTab === "access") return { activeTab: "settings" };
-    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory"].includes(this.activeTab)) return { activeTab: "home" };
+    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
     return { activeTab: "home" };
   }
 
@@ -5522,9 +5522,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isRulesNavActive: this.activeTab === "rules" || this.activeTab === "ruleDetail",
       isRuleDetail: this.activeTab === "ruleDetail" && Boolean(ruleDetail),
       isSearch: this.activeTab === "search",
-      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory"].includes(this.activeTab),
+      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
+      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAssistant"].includes(this.activeTab),
       isCampaignToolsOverview: game.user.isGM && this.activeTab === "campaignToolsOverview",
       isCampaignToolsMemory: game.user.isGM && this.activeTab === "campaignToolsMemory",
+      isCampaignToolsAssistant: game.user.isGM && this.activeTab === "campaignToolsAssistant",
+      isCampaignToolsAssistantNavActive: game.user.isGM && ["campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
       isManual: this.activeTab === "manual",
       manual: buildManualView(),
       isImport: this.activeTab === "import" && game.user.isGM,

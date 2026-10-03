@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.7.0-qa.35 — Campaign Tools Consolidation
+
+- Locks the UX principle: **Header = global utility actions; Campaign Tools = GM campaign workflows.**
+- Adds **Assistant** beside Overview and Memory in the GM-only Campaign Tools workspace.
+- Moves Next Session Dashboard, Quick Capture, Reveal Queue and GM Notebook launchers out of the top-right header.
+- Adds Assistant launchers for Next Session Dashboard, Quick Capture, Reveal Queue, Post-Session Assistant and GM Notebook.
+- Keeps Manual/Help and Campaign Settings in the global header.
+- Keeps Campaign Tools highlighted on dedicated Dashboard / Quick Capture / Reveal Queue / Post-Session pages and adds contextual Campaign Tools sub-navigation there.
+- Preserves all existing GM workflow implementations, Campaign Memory behavior, canonical authority and player privacy semantics.
+
 ## 1.7.0-qa.34 — Campaign Memory Search & Filters
 
 - Adds a GM-only top-level **Campaign Tools** workspace with **Overview** and **Memory** sub-tabs.

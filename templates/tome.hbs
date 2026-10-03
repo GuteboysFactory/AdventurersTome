@@ -19,10 +19,6 @@
     <div class="at-gm-top-actions">
       <button type="button" class="at-icon-button {{#if isManual}}active{{/if}}" title="Adventurer's Tome Manual" data-action="openManual"><i class="fa-solid fa-circle-question"></i></button>
       {{#if isGM}}
-        <button type="button" class="at-icon-button {{#if isGmDashboard}}active{{/if}}" title="Next Session Dashboard" data-action="openGmDashboard"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-        <button type="button" class="at-icon-button {{#if isQuickCapture}}active{{/if}}" title="Quick Capture" data-action="openQuickCapture"><i class="fa-solid fa-bolt"></i></button>
-        <button type="button" class="at-icon-button {{#if isRevealQueue}}active{{/if}}" title="Reveal Queue" data-action="openRevealQueue"><i class="fa-solid fa-eye"></i>{{#if revealQueue.queuedCount}}<span class="at-icon-badge">{{revealQueue.queuedCount}}</span>{{/if}}</button>
-        <button type="button" class="at-icon-button" title="GM Notebook" data-action="openNotebook"><i class="fa-solid fa-note-sticky"></i></button>
         <button type="button" class="at-icon-button at-settings-critical {{#if isSettings}}active{{/if}}" title="Campaign Settings" data-action="openSettings"><i class="fa-solid fa-gear"></i></button>
       {{/if}}
     </div>
@@ -825,7 +821,7 @@
   {{/if}}
 
 
-  {{#if isCampaignToolsNavActive}}
+  {{#if isCampaignToolsPage}}
   <main class="at-page at-campaign-tools-page">
     <section class="at-page-heading at-campaign-tools-heading">
       <span class="at-kicker">GM workspace</span>
@@ -836,6 +832,7 @@
     <nav class="at-campaign-tools-tabs" aria-label="Campaign Tools sections">
       <button type="button" class="{{#if isCampaignToolsOverview}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" class="{{#if isCampaignToolsMemory}}active{{/if}}" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" class="{{#if isCampaignToolsAssistantNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
     {{#if isCampaignToolsOverview}}
@@ -854,6 +851,15 @@
           <p>Search, filter and trace where campaign entities were mentioned. Canonical Links remain separate and Foundry UUIDs remain authoritative.</p>
         </div>
         <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-arrow-right"></i> Open Memory</button>
+      </section>
+
+      <section class="at-campaign-tool-card">
+        <div>
+          <span class="at-kicker">GM Workflow</span>
+          <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Assistant Tools</h2>
+          <p>Prepare the next session, capture GM notes, manage reveals and close out a finished session without crowding the global header.</p>
+        </div>
+        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-arrow-right"></i> Open Assistant</button>
       </section>
 
       <section class="at-campaign-tools-roadmap">
@@ -975,6 +981,40 @@
         <div class="at-empty at-wide" data-at-memory-empty hidden>No evidence matches these filters.</div>
       </div>
     </section>
+    {{#if isCampaignToolsAssistant}}
+    <section class="at-campaign-assistant-grid">
+      <article class="at-campaign-assistant-card">
+        <i class="fa-solid fa-calendar-check"></i>
+        <div><span class="at-kicker">Preparation</span><h2>Next Session Dashboard</h2><p>See what needs attention before the table meets again.</p></div>
+        <button type="button" class="at-primary" data-action="openGmDashboard">Open Dashboard</button>
+      </article>
+
+      <article class="at-campaign-assistant-card">
+        <i class="fa-solid fa-bolt"></i>
+        <div><span class="at-kicker">Capture</span><h2>Quick Capture</h2><p>Record a private reminder, clue, consequence or idea without breaking your flow.</p></div>
+        <button type="button" class="at-primary" data-action="openQuickCapture">Quick Capture</button>
+      </article>
+
+      <article class="at-campaign-assistant-card">
+        <i class="fa-solid fa-eye"></i>
+        <div><span class="at-kicker">Player Reveal</span><h2>Reveal Queue</h2><p>Review queued player-facing reveals before they are shown.</p></div>
+        <button type="button" class="at-primary" data-action="openRevealQueue">Open Queue{{#if revealQueue.queuedCount}} · {{revealQueue.queuedCount}}{{/if}}</button>
+      </article>
+
+      <article class="at-campaign-assistant-card">
+        <i class="fa-solid fa-flag-checkered"></i>
+        <div><span class="at-kicker">After Session</span><h2>Post-Session Assistant</h2><p>Turn the latest session into durable campaign memory and follow-up work.</p></div>
+        <button type="button" class="at-primary" data-action="openPostSession">Open Post-Session</button>
+      </article>
+
+      <article class="at-campaign-assistant-card">
+        <i class="fa-solid fa-note-sticky"></i>
+        <div><span class="at-kicker">Private Workspace</span><h2>GM Notebook</h2><p>Open the private campaign notebook, scratchpad and structured GM notes.</p></div>
+        <button type="button" class="at-primary" data-action="openNotebook">Open Notebook</button>
+      </article>
+    </section>
+    {{/if}}
+
     {{/if}}
   </main>
   {{/if}}
@@ -1008,6 +1048,12 @@
 
   {{#if isGmDashboard}}
   <main class="at-page at-gm-dashboard-page">
+    <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
+      <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
+    </nav>
+
     <section class="at-page-heading at-page-heading-actions">
       <div><span class="at-kicker">GM command deck</span><h1>Next Session Dashboard</h1><p>A private briefing for Session {{gmDashboard.nextSession}}: what is due, what is live, and what future-you should not have to remember.</p></div>
       <div class="at-inline-actions"><button type="button" class="at-secondary" data-action="openPostSession"><i class="fa-solid fa-flag-checkered"></i> Post-Session Assistant</button><button type="button" class="at-primary" data-action="openQuickCapture"><i class="fa-solid fa-bolt"></i> Quick Capture</button></div>
@@ -1048,6 +1094,12 @@
 
   {{#if isQuickCapture}}
   <main class="at-page at-quick-capture-page">
+    <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
+      <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
+    </nav>
+
     <section class="at-page-heading"><div><span class="at-kicker">Live GM tool</span><h1>Quick Capture</h1><p>Write it down now. Sort it later. Captures become structured private GM Notes and immediately appear in the Notebook.</p></div></section>
     <form class="at-settings-card at-quick-capture-form">
       <div class="at-quick-capture-target"><i class="fa-solid fa-crosshairs"></i><div><strong>Capture destination</strong><small>Use the current Tome entry when context matters, otherwise throw it into the private GM Inbox.</small></div></div>
@@ -1066,6 +1118,12 @@
 
   {{#if isRevealQueue}}
   <main class="at-page at-reveal-queue-page">
+    <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
+      <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
+    </nav>
+
     <section class="at-page-heading at-page-heading-actions"><div><span class="at-kicker">Live GM tool</span><h1>Reveal Queue</h1><p>Prepare player-facing Tome entries before the session, then reveal them deliberately with one click. Normal GM navigation never broadcasts anything.</p></div><button type="button" class="at-secondary" data-action="openGmDashboard"><i class="fa-solid fa-wand-magic-sparkles"></i> GM Dashboard</button></section>
     <div class="at-settings-callout"><i class="fa-solid fa-shield-halved"></i><span><strong>Safe by design:</strong> Show to Players never bypasses Foundry ownership. Undiscovered entries are marked discovered when explicitly revealed; GM-only entries must be changed manually first.</span></div>
     <section class="at-reveal-grid">
@@ -1079,6 +1137,12 @@
 
   {{#if isPostSession}}
   <main class="at-page at-post-session-page">
+    <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
+      <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
+    </nav>
+
     <section class="at-page-heading at-page-heading-actions"><div><span class="at-kicker">After the dice stop</span><h1>Post-Session Assistant</h1><p>Turn the last session into reliable campaign memory before everyone forgets the small things that mattered.</p></div><div class="at-inline-actions"><button type="button" class="at-secondary" data-action="openGmDashboard"><i class="fa-solid fa-wand-magic-sparkles"></i> Next Session</button><button type="button" class="at-primary" data-action="openQuickCapture"><i class="fa-solid fa-plus"></i> Capture Something</button></div></section>
     <section class="at-post-session-hero"><div><span>Latest chronicle</span><strong>{{#if postSession.latest}}Session {{postSession.latestNumber}} · {{postSession.latest.displayTitle}}{{else}}No session yet{{/if}}</strong></div><i class="fa-solid fa-arrow-right-long"></i><div><span>Next planned</span><strong>Session {{postSession.nextSession}}</strong></div></section>
     <section class="at-post-grid">
