@@ -844,6 +844,35 @@
         <article><i class="fa-solid fa-box-archive"></i><span><small>Historical</small><strong>{{campaignMemorySearch.historical}}</strong></span></article>
       </div>
 
+      <section class="at-campaign-notebook-overview">
+        <div class="at-section-title">
+          <div>
+            <span class="at-kicker">GM command deck</span>
+            <h2><i class="fa-solid fa-chart-simple"></i> Notebook Overview</h2>
+            <p>Your private campaign briefing. Next planned session: <strong>{{settings.gmNotebook.nextSession}}</strong>.</p>
+          </div>
+        </div>
+        <div class="at-notebook-stats">
+          <span><strong>{{settings.gmNotebook.stats.open}}</strong><small>Open</small></span>
+          <span><strong>{{settings.gmNotebook.stats.pinned}}</strong><small>Pinned</small></span>
+          <span class="due"><strong>{{settings.gmNotebook.stats.due}}</strong><small>Due</small></span>
+          <span><strong>{{settings.gmNotebook.stats.secrets}}</strong><small>Secrets</small></span>
+          <span><strong>{{settings.gmNotebook.stats.reveals}}</strong><small>Reveals</small></span>
+          <span><strong>{{settings.gmNotebook.stats.resolved}}</strong><small>Resolved</small></span>
+        </div>
+        <div class="at-campaign-note-preview">
+          {{#each settings.gmNotebook.rows}}
+          {{#unless resolved}}
+          <article class="at-campaign-note-preview-row">
+            <i class="fa-solid {{typeIcon}}"></i>
+            <div><strong>{{title}}</strong><small>{{documentName}} · {{typeLabel}}{{#if due}} · Due{{/if}}</small><p>{{body}}</p></div>
+            {{#unless standalone}}<button type="button" data-action="openNoteSource" data-document-type="{{documentType}}" data-document-id="{{documentId}}" title="Open source"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>{{/unless}}
+          </article>
+          {{/unless}}
+          {{else}}<div class="at-empty at-wide">No private GM notes yet.</div>{{/each}}
+        </div>
+      </section>
+
       <section class="at-campaign-tool-card">
         <div>
           <span class="at-kicker">Campaign Memory</span>
@@ -1009,11 +1038,30 @@
         <button type="button" class="at-primary" data-action="openPostSession">Open Post-Session</button>
       </article>
 
-      <article class="at-campaign-assistant-card">
-        <i class="fa-solid fa-note-sticky"></i>
-        <div><span class="at-kicker">Private Workspace</span><h2>GM Notebook</h2><p>Open the private campaign notebook, scratchpad and structured GM notes.</p></div>
-        <button type="button" class="at-primary" data-action="openNotebook">Open Notebook</button>
-      </article>
+      <section class="at-campaign-assistant-workspace" data-at-campaign-scratchpad>
+        <div class="at-section-title">
+          <div><span class="at-kicker">Private freeform workspace</span><h2><i class="fa-solid fa-pen-to-square"></i> Campaign Scratchpad</h2><p>Fast rough prep, temporary names, scene fragments and questions. Private to your GM user.</p></div>
+        </div>
+        <textarea name="gmWorkspaceScratchpad" rows="8" placeholder="Write freely. This lives only in your GM user workspace…">{{settings.gmNotebook.scratchpad}}</textarea>
+        <div class="at-inline-actions"><button type="button" class="at-primary" data-action="saveNotebookScratchpad"><i class="fa-solid fa-floppy-disk"></i> Save Scratchpad</button></div>
+      </section>
+
+      <section class="at-campaign-assistant-workspace at-campaign-custom-pads">
+        <div class="at-section-title">
+          <div><span class="at-kicker">Private workspace</span><h2><i class="fa-solid fa-book-open"></i> Custom Notepads</h2><p>Separate private pads for NPC ideas, scenes, rumours, voices, loot, names or anything else you want close during play.</p></div>
+          <button type="button" class="at-primary" data-action="addNotebookPad"><i class="fa-solid fa-plus"></i> Add Notepad</button>
+        </div>
+        <div class="at-custom-pad-grid" data-at-custom-pad-grid>
+          {{#each settings.gmNotebook.pads}}
+          <article class="at-custom-pad {{sizeClass}}" data-at-notebook-pad="{{id}}">
+            <div class="at-custom-pad-head"><input type="text" name="notebookPadTitle" value="{{title}}" aria-label="Notepad title"><small>Updated {{updatedLabel}}</small></div>
+            <textarea name="notebookPadBody" rows="7" placeholder="Private GM notes…">{{body}}</textarea>
+            <input type="hidden" name="notebookPadSize" value="{{size}}">
+            <div class="at-inline-actions"><button type="button" class="at-primary" data-action="saveNotebookPad" data-pad-id="{{id}}"><i class="fa-solid fa-floppy-disk"></i> Save</button><button type="button" class="at-danger" data-action="deleteNotebookPad" data-pad-id="{{id}}"><i class="fa-solid fa-trash-can"></i> Delete</button></div>
+          </article>
+          {{else}}<div class="at-empty at-wide">No custom notepads yet.</div>{{/each}}
+        </div>
+      </section>
     </section>
     {{/if}}
   </main>
