@@ -5106,7 +5106,6 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         ["group", "Group", "fa-users-gear"],
         ["content", "Content Defaults", "fa-sliders"],
         ["permissions", "Permissions", "fa-shield-halved"],
-        ["notebook", "GM Notebook", "fa-note-sticky"],
         ["developer", "Developer Tools", "fa-flask-vial"]
       ].map(([id, label, icon]) => ({ id, label, icon, active: this.settingsSection === id }))
     };
@@ -6685,9 +6684,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onOpenNotebook() {
     if (!game.user.isGM) return;
-    this.activeTab = "settings";
-    this.settingsSection = "notebook";
+    if (this.activeTab !== "campaignToolsAssistant") this._pushNavigationState();
+    this.activeTab = "campaignToolsAssistant";
     await this.render({ parts: ["main"] });
+    requestAnimationFrame(() => this.element?.querySelector("[data-at-campaign-scratchpad]")?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   }
 
   static async _onOpenManual() {
@@ -8156,12 +8156,27 @@ Hooks.once("ready", async () => {
       return true;
     },
     openNotebook: async () => {
-      if (!game.user.isGM) throw new Error("Only a GM can open the GM Notebook.");
+      if (!game.user.isGM) throw new Error("Only a GM can open the GM workspace.");
       const app = getApp();
       if (!app.rendered) await app.render(true);
-      app.activeTab = "settings";
-      app.settingsSection = "notebook";
+      if (app.activeTab !== "campaignToolsAssistant") app._pushNavigationState?.();
+      app.activeTab = "campaignToolsAssistant";
       await app.render({ parts: ["main"] });
+      requestAnimationFrame(() => app.element?.querySelector("[data-at-campaign-scratchpad]")?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
+      return true;
+    },
+    openPrivateVault: async (actorOrId) => {
+      if (!game.user.isGM) throw new Error("Only a GM can open the Private Vault.");
+      const actor = typeof actorOrId === "string" ? game.actors.get(actorOrId) : actorOrId;
+      if (!actor) throw new Error("Private Vault Actor not found.");
+      const app = getApp();
+      if (!app.rendered) await app.render(true);
+      app._pushNavigationState?.();
+      app.activeActorId = actor.id;
+      app.activeTab = "profile";
+      app.profileEditing = true;
+      await app.render({ parts: ["main"] });
+      ui.notifications.info(`Private Vault opened for ${actor.name}. GM-only Facts and Relations are marked in the profile editor; GM Notes remain private.`);
       return true;
     },
     quickCapture: async ({ refKey = "", title = "", body = "", type = "reminder", pinned = false, trigger = "", sessionTarget = null } = {}) => {
@@ -8259,6 +8274,60 @@ Hooks.once("ready", async () => {
   Object.assign(module.api, coreApi);
 
   installLauncher();
+
+  // qa.36 — token UX: Private Vault access belongs at the token, not in a
+  // monolithic GM workspace. The HUD action is GM-only and opens the canonical
+  // Actor-backed Tome profile editor where GM-only facts/relations and notes
+  // are stored in the private user vault.
+  Hooks.on("renderTokenHUD", (_hud, html) => {
+    if (!game.user?.isGM) return;
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (!root || root.querySelector?.("[data-at-token-private-vault]")) return;
+    const token = canvas?.tokens?.controlled?.[0] || canvas?.tokens?.placeables?.find?.((entry) => entry?.id === _hud?.object?.id) || _hud?.object || null;
+    const actor = token?.actor || token?.document?.actor || null;
+    if (!actor) return;
+    const column = root.querySelector?.(".col.left") || root.querySelector?.(".left") || root;
+    const control = document.createElement("div");
+    control.className = "control-icon";
+    control.dataset.atTokenPrivateVault = "true";
+    control.title = `Private Vault — ${actor.name}`;
+    control.innerHTML = '<i class="fa-solid fa-vault"></i>';
+    control.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      try { await game.modules.get(MODULE_ID)?.api?.openPrivateVault?.(actor); }
+      catch (error) {
+        console.error("Adventurer's Tome | Could not open token Private Vault", error);
+        ui.notifications.warn("Adventurer's Tome: Could not open Private Vault for this token.");
+      }
+    });
+    column.appendChild(control);
+  });
+
+  // Show the canonical token/Actor name on hover without changing Foundry token
+  // document settings. Non-GMs only get the temporary nameplate when they have
+  // Observer-or-better access to the Actor, avoiding hidden-NPC name leakage.
+  Hooks.on("hoverToken", (token, hovered) => {
+    const actor = token?.actor || token?.document?.actor || null;
+    const canReadName = game.user?.isGM || actor?.testUserPermission?.(game.user, CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2);
+    if (!canReadName) return;
+    const nameplate = token?.nameplate || token?.name || null;
+    if (!nameplate || typeof nameplate !== "object" || !("visible" in nameplate)) return;
+    if (hovered) {
+      if (!token._adventurersTomeHoverNameState) {
+        token._adventurersTomeHoverNameState = { visible: Boolean(nameplate.visible), renderable: "renderable" in nameplate ? Boolean(nameplate.renderable) : null };
+      }
+      nameplate.visible = true;
+      if ("renderable" in nameplate) nameplate.renderable = true;
+    } else {
+      const previous = token._adventurersTomeHoverNameState;
+      if (!previous) return;
+      nameplate.visible = previous.visible;
+      if ("renderable" in nameplate && previous.renderable != null) nameplate.renderable = previous.renderable;
+      delete token._adventurersTomeHoverNameState;
+    }
+  });
+
   game.socket.on(`module.${MODULE_ID}`, async (payload = {}) => {
     if (payload?.type !== "showTomeRef" || game.user.isGM) return;
     const sender = game.users?.get?.(String(payload.senderId || ""));
