@@ -2437,3 +2437,24 @@ World Detail authority convergence:
 - qa.29 Foundry backend parity remains unchanged
 
 QA: `docs/V1.7_QA30_WORLD_CAMPAIGN_LINK_AUTHORITY_PARITY.md`
+
+## v1.7.0-qa.31 — Campaign Mention Foundation
+
+**Status:** QA / IMPLEMENTED
+
+First persistent Campaign Memory evidence layer:
+
+- adds a GM-private persistent Mention ledger derived from Session/Quest evidence
+- keeps **Linked / Mentioned / Suggested-Ambiguous** as distinct states
+- resolved evidence retains canonical target UUID authority
+- evidence retains source/page UUID, snippet, confidence, provenance and lifecycle state
+- removed source mentions become Historical rather than being deleted
+- World profiles gain a GM-only **Mentioned In** history surface
+- First Mention / Last Mention / total evidence summaries are available
+- Link + Mention may coexist for the same source/target pair
+- ambiguous evidence is retained without assigning an arbitrary canonical target
+- API exposes snapshot/query/source/target lookup foundations for future search and filters
+- qa.31 storage is GM-private user-scoped; viewer-safe shared/player persistence is deferred
+- automatic Campaign Link writes remain OFF
+
+QA: `docs/V1.7_QA31_CAMPAIGN_MENTION_FOUNDATION.md`
