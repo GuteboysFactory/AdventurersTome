@@ -1230,7 +1230,7 @@ function campaignAnalysisView(memorySearch = null) {
     for (const row of rows) {
       const identity = String(row.targetUuid || "").trim()
         || normalizeImportName(row.targetName || row.mentionText || row.snippet || "unresolved");
-      const key = `${row.relationGroup || "mentioned"}|${identity}`;
+      const key = `${row.relationGroup || "mentioned"}|${row.relationLabel || ""}|${identity}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(row);
     }
