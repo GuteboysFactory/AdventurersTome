@@ -1090,6 +1090,127 @@ function worldProfileText(entry) {
   return [entry?.name, profile?.subtitle, profile?.summary, profile?.body, journalText(entry), ...(profile?.facts || []).flatMap((fact) => [fact.label, fact.value])].filter(Boolean).join(" ");
 }
 
+function campaignMemoryTargetMeta(targetUuid = "", targetKind = "", targetName = "") {
+  const uuid = String(targetUuid || "").trim();
+  const rawKind = String(targetKind || "unknown").trim().toLowerCase();
+  const normalizedKind = rawKind === "actor" || rawKind === "character" || rawKind === "npc" || rawKind === "adventurer"
+    ? "character"
+    : rawKind === "place" ? "location"
+      : rawKind || "unknown";
+
+  const icon = normalizedKind === "character" ? "fa-user"
+    : normalizedKind === "faction" ? "fa-flag"
+      : normalizedKind === "location" ? "fa-location-dot"
+        : normalizedKind === "item" ? "fa-gem"
+          : normalizedKind === "lore" ? "fa-book"
+            : "fa-circle-nodes";
+
+  const label = normalizedKind === "character" ? "Character"
+    : normalizedKind === "faction" ? "Faction"
+      : normalizedKind === "location" ? "Location"
+        : normalizedKind === "item" ? "Item"
+          : normalizedKind === "lore" ? "Lore"
+            : normalizedKind === "world" ? "World"
+              : "Entity";
+
+  return {
+    targetUuid:uuid,
+    targetKind:normalizedKind,
+    targetKindLabel:label,
+    targetIcon:icon,
+    targetName:String(targetName || "").trim() || "Unresolved entity",
+    hasTarget:Boolean(uuid)
+  };
+}
+
+function campaignMemoryRelationMeta(row = {}) {
+  const relationState = String(row.relationState || "").trim().toLowerCase();
+  const resolutionState = String(row.resolutionState || "").trim().toLowerCase();
+  const historical = row.active === false;
+
+  if (relationState === "ambiguous" || resolutionState === "ambiguous") {
+    return { relationGroup:"unresolved", relationLabel:"Ambiguous", relationIcon:"fa-triangle-exclamation" };
+  }
+  if (!row.targetUuid || relationState === "unresolved" || resolutionState === "unresolved") {
+    return { relationGroup:"unresolved", relationLabel:"Unresolved", relationIcon:"fa-circle-question" };
+  }
+  if (relationState.includes("review")) {
+    return { relationGroup:"review", relationLabel:"Mentioned · review", relationIcon:"fa-magnifying-glass" };
+  }
+  if (row.linkedAtSync === true || relationState.includes("linked")) {
+    return { relationGroup:"linked", relationLabel:historical ? "Historical linked mention" : "Linked + Mentioned", relationIcon:"fa-link" };
+  }
+  return { relationGroup:"mentioned", relationLabel:historical ? "Historical mention" : "Mentioned", relationIcon:"fa-comment-dots" };
+}
+
+function campaignMemorySearchView() {
+  if (!game.user?.isGM) return null;
+  const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+  const snapshot = evidenceApi?.snapshot?.() || null;
+  const records = Array.isArray(snapshot?.records) ? snapshot.records : [];
+
+  const rows = records.map((row) => {
+    const target = campaignMemoryTargetMeta(row.targetUuid, row.targetKind, row.targetName || row.mentionText);
+    const relation = campaignMemoryRelationMeta(row);
+    const sourceKind = String(row.sourceKind || "source").trim().toLowerCase();
+    const lifecycle = row.active === false ? "historical" : "active";
+    const sourceLabel = sourceKind === "session" ? "Session" : sourceKind === "quest" ? "Quest" : "Source";
+    const sourceIcon = sourceKind === "session" ? "fa-book-open" : sourceKind === "quest" ? "fa-diamond" : "fa-file-lines";
+    const sourceAction = sourceKind === "session" ? "selectSession" : sourceKind === "quest" ? "openQuestDetail" : "openJournal";
+    const sourceJournalId = String(row.sourceUuid || "").replace(/^JournalEntry\./, "");
+    const pageUuid = String(row.sourcePageUuid || "").trim();
+
+    const searchText = [
+      row.targetName,
+      row.mentionText,
+      row.snippet,
+      row.sourceName,
+      row.pageName,
+      target.targetKindLabel,
+      relation.relationLabel,
+      sourceLabel,
+      lifecycle
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    return {
+      ...row,
+      ...target,
+      ...relation,
+      lifecycle,
+      lifecycleLabel:lifecycle === "historical" ? "Historical" : "Active",
+      sourceKind,
+      sourceLabel,
+      sourceIcon,
+      sourceAction,
+      sourceJournalId,
+      sourcePageUuid:pageUuid,
+      mentionTypeLabel:row.mentionType === "explicit-reference" ? "Explicit reference" : "Prose mention",
+      searchText,
+      sortNewest:Number(row.lastSeenAt || row.firstSeenAt || 0),
+      sortOldest:Number(row.firstSeenAt || 0),
+      sortFirst:Number(row.firstSeenAt || 0),
+      sortLast:Number(row.lastSeenAt || 0)
+    };
+  });
+
+  const targetKinds = [...new Set(rows.map((row) => row.targetKind).filter((kind) => kind && kind !== "unknown"))]
+    .sort()
+    .map((kind) => {
+      const sample = rows.find((row) => row.targetKind === kind);
+      return { key:kind, label:sample?.targetKindLabel || kind, count:rows.filter((row) => row.targetKind === kind).length };
+    });
+
+  return {
+    rows,
+    total:rows.length,
+    active:rows.filter((row) => row.lifecycle === "active").length,
+    historical:rows.filter((row) => row.lifecycle === "historical").length,
+    linked:rows.filter((row) => row.relationGroup === "linked").length,
+    unresolved:rows.filter((row) => row.relationGroup === "unresolved").length,
+    targetKinds
+  };
+}
+
 function campaignMentionHistoryForWorld(entry, profile = null) {
   const empty = {
     targetUuid:"",
@@ -4550,6 +4671,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       browseWorldImage: this._onBrowseWorldImage,
       openJournal: this._onOpenJournal,
       openMentionSource: this._onOpenMentionSource,
+      openEvidenceTarget: this._onOpenEvidenceTarget,
       openCustomLink: this._onOpenCustomLink,
       createRule: this._onCreateRule,
       linkRule: this._onLinkRule,
@@ -5301,6 +5423,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       active: key === this.searchFilter
     })).filter((filter) => filter.key === "all" || filter.count > 0);
 
+    const campaignMemorySearch = game.user.isGM ? campaignMemorySearchView() : null;
+
     const byRefKey = new Map(searchEntries.map((entry) => [entry.refKey, entry]));
     const favoriteEntries = favoriteRefs.map((ref) => byRefKey.get(ref)).filter(Boolean);
     const recentEntries = recentRefs.map((ref) => byRefKey.get(ref)).filter(Boolean).slice(0, 8);
@@ -5436,6 +5560,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       homeGroup,
       actorOptions,
       searchEntries,
+      campaignMemorySearch,
       searchState: {
         query: this.searchQuery,
         filter: this.searchFilter,
@@ -5844,6 +5969,56 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         });
       }
       applySearchState();
+    }
+
+    const memoryRoot = this.element?.querySelector("[data-at-memory-search-root]");
+    if (memoryRoot) {
+      const input = memoryRoot.querySelector("[data-at-memory-search]");
+      const relation = memoryRoot.querySelector("[data-at-memory-relation]");
+      const lifecycle = memoryRoot.querySelector("[data-at-memory-lifecycle]");
+      const source = memoryRoot.querySelector("[data-at-memory-source]");
+      const targetKind = memoryRoot.querySelector("[data-at-memory-target-kind]");
+      const sort = memoryRoot.querySelector("[data-at-memory-sort]");
+
+      const applyMemorySearch = () => {
+        const needle = String(input?.value || "").trim().toLowerCase();
+        const relationValue = String(relation?.value || "all");
+        const lifecycleValue = String(lifecycle?.value || "all");
+        const sourceValue = String(source?.value || "all");
+        const targetKindValue = String(targetKind?.value || "all");
+        const sortValue = String(sort?.value || "newest");
+        const list = memoryRoot.querySelector("[data-at-memory-results]");
+        const rows = [...memoryRoot.querySelectorAll("[data-at-memory-row]")];
+
+        const visibleRows = [];
+        for (const row of rows) {
+          const matchesText = !needle || String(row.dataset.memorySearch || "").toLowerCase().includes(needle);
+          const matchesRelation = relationValue === "all" || row.dataset.memoryRelation === relationValue;
+          const matchesLifecycle = lifecycleValue === "all" || row.dataset.memoryLifecycle === lifecycleValue;
+          const matchesSource = sourceValue === "all" || row.dataset.memorySource === sourceValue;
+          const matchesTarget = targetKindValue === "all" || row.dataset.memoryTargetKind === targetKindValue;
+          row.hidden = !(matchesText && matchesRelation && matchesLifecycle && matchesSource && matchesTarget);
+          if (!row.hidden) visibleRows.push(row);
+        }
+
+        const sortKey = sortValue === "oldest" ? "memorySortOldest"
+          : sortValue === "first" ? "memorySortFirst"
+            : sortValue === "last" ? "memorySortLast"
+              : "memorySortNewest";
+        const direction = sortValue === "oldest" || sortValue === "first" ? 1 : -1;
+        visibleRows.sort((a, b) => direction * (Number(a.dataset[sortKey] || 0) - Number(b.dataset[sortKey] || 0)));
+        if (list) for (const row of visibleRows) list.appendChild(row);
+
+        const counter = memoryRoot.querySelector("[data-at-memory-count]");
+        if (counter) counter.textContent = `${visibleRows.length} evidence record${visibleRows.length === 1 ? "" : "s"}`;
+        const empty = memoryRoot.querySelector("[data-at-memory-empty]");
+        if (empty) empty.hidden = visibleRows.length > 0;
+      };
+
+      for (const control of [input, relation, lifecycle, source, targetKind, sort].filter(Boolean)) {
+        control.addEventListener(control === input ? "input" : "change", applyMemorySearch);
+      }
+      applyMemorySearch();
     }
 
     for (const input of this.element?.querySelectorAll?.("[data-at-local-search]") || []) {
@@ -7175,6 +7350,54 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     } catch (error) {
       console.warn("Adventurer's Tome | Mention source jump failed safely", error);
       ui.notifications.warn("Adventurer's Tome: Could not open this Mention source.");
+    }
+  }
+
+  static async _onOpenEvidenceTarget(_event, target) {
+    const uuid = String(target.dataset.targetUuid || "").trim();
+    if (!uuid) return ui.notifications.warn("Adventurer's Tome: This evidence has no resolved target yet.");
+
+    try {
+      const projectionId = campaignWorldProjectionIdForAuthorityUuid(uuid);
+      if (projectionId && game.journal.get(projectionId)) {
+        if (this.activeTab !== "worldProfile" || this.activeWorldId !== projectionId) this._pushNavigationState();
+        this.activeWorldId = projectionId;
+        this.activeTab = "worldProfile";
+        this.worldEditing = false;
+        await recordRecentRef(`world:${projectionId}`);
+        await this.render({ parts:["main"] });
+        return;
+      }
+
+      const document = await fromUuid(uuid);
+      if (!document) return ui.notifications.warn("Adventurer's Tome: Evidence target could not be resolved.");
+
+      if (document.documentName === "Actor" && canViewInTome(document)) {
+        if (this.activeTab !== "profile" || this.activeActorId !== document.id) this._pushNavigationState();
+        this.activeActorId = document.id;
+        this.activeTab = "profile";
+        this.profileEditing = false;
+        await recordRecentRef(`actor:${document.id}`);
+        await this.render({ parts:["main"] });
+        return;
+      }
+
+      if (document.documentName === "JournalEntry" && canViewInTome(document)) {
+        const refKey = inferJournalRefKey(document);
+        if (refKey && await this._openRefKey(refKey)) return;
+        document.sheet.render(true);
+        return;
+      }
+
+      if (document.sheet?.render) {
+        document.sheet.render(true);
+        return;
+      }
+
+      ui.notifications.warn("Adventurer's Tome: Evidence target has no openable view.");
+    } catch (error) {
+      console.warn("Adventurer's Tome | Evidence target navigation failed safely", error);
+      ui.notifications.warn("Adventurer's Tome: Could not open this evidence target.");
     }
   }
 
