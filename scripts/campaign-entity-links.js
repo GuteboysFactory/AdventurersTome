@@ -153,7 +153,7 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
   const source = await atCelResolveUuid(sourceUuid);
   const target = await atCelResolveUuid(targetUuid);
   if (!source || source.documentName !== "JournalEntry") throw new Error("Session or Quest source Journal not found.");
-  if (!target || !["Actor","JournalEntry"].includes(target.documentName)) throw new Error("Campaign link target must be an Actor or JournalEntry.");
+  if (!target || !["Actor","Item","JournalEntry"].includes(target.documentName)) throw new Error("Campaign link target must be an Actor, Item or JournalEntry.");
 
   const sourceKind = atCelJournalKind(source);
   if (!["session","quest"].includes(sourceKind)) throw new Error("Campaign link source must be a Session or Quest.");
@@ -167,12 +167,12 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
     const sourceLegacy = atCelLegacy(source);
     const worldIds = new Set(sourceLegacy.world.map(String));
 
-    if (linked) {
-      entityUuids.add(target.uuid);
-      worldIds.add(target.id);
-    } else {
-      entityUuids.delete(target.uuid);
-      worldIds.delete(target.id);
+    if (linked) entityUuids.add(target.uuid);
+    else entityUuids.delete(target.uuid);
+
+    if (target.documentName === "JournalEntry") {
+      if (linked) worldIds.add(target.id);
+      else worldIds.delete(target.id);
     }
 
     await source.update({
@@ -698,7 +698,15 @@ function atCelAudit() {
     for (const uuid of canonical.actorUuids) {
       if (!atCelActorFromUuid(uuid)) dangling.push({ journal: journal.uuid, actorUuid: uuid });
     }
-    if (canonical.actorUuids.length || legacy.actors.length) {
+    for (const uuid of canonical.entityUuids) {
+      const valid = /^JournalEntry\.[^.]+$/.test(uuid)
+        ? Boolean(game.journal?.get(uuid.slice("JournalEntry.".length)))
+        : /^Item\.[^.]+$/.test(uuid)
+          ? Boolean(game.items?.get(uuid.slice("Item.".length)))
+          : false;
+      if (!valid) dangling.push({ journal: journal.uuid, entityUuid: uuid });
+    }
+    if (canonical.actorUuids.length || canonical.entityUuids.length || legacy.actors.length || legacy.world.length) {
       rows.push({
         journalUuid: journal.uuid,
         kind: atCelJournalKind(journal),
@@ -712,8 +720,9 @@ function atCelAudit() {
 
   return {
     mode: "campaign-entity-links-v1",
-    canonicalIdentity: "actor-uuid",
-    compatibilityProjection: "flags.adventurers-tome.links.actors",
+    canonicalIdentity: "foundry-uuid",
+    supportedCanonicalTargets:["Actor","Item","JournalEntry"],
+    compatibilityProjection: "flags.adventurers-tome.links",
     sessions: sessions.length,
     quests: quests.length,
     linkedJournals: rows.length,
