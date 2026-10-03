@@ -2535,3 +2535,23 @@ Campaign Tools becomes the canonical home for GM workflows:
 - no Campaign Memory, canonical authority, auto-link, auto-create or privacy semantics change
 
 QA: `docs/V1.7_QA35_CAMPAIGN_TOOLS_CONSOLIDATION.md`
+
+## v1.7.0-qa.36 — GM Workspace Decomposition & Token UX
+
+**Status:** QA / IMPLEMENTED
+
+The old monolithic GM Notebook/Workspace is decomposed into the new Campaign Tools architecture:
+
+- Notebook Overview moves to **Campaign Tools → Overview**
+- Campaign Scratchpad moves to **Campaign Tools → Assistant**
+- Custom Notepads move to **Campaign Tools → Assistant**
+- legacy GM Notebook Settings navigation is retired
+- existing Notebook entry points redirect to Assistant
+- structured source-linked GM Notes remain attached to their canonical Foundry/Tome sources
+- GM-only **Private Vault** becomes a token-context action in the Foundry Token HUD
+- token Private Vault resolves the canonical Actor and opens the existing profile editor in explicit Vault mode
+- token hover temporarily reveals Actor/token names without persisting Token Document settings
+- non-GM hover names require Actor Observer-or-better permission
+- no canonical authority, Campaign Memory, auto-link, auto-create or privacy semantics change
+
+QA: `docs/V1.7_QA36_GM_WORKSPACE_DECOMPOSITION_TOKEN_UX.md`
