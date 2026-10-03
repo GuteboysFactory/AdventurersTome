@@ -154,7 +154,8 @@ function atMeSourcePage(uuid) {
 function atMePlainText(html) {
   const host = document.createElement("div");
   host.innerHTML = String(html ?? "");
-  host.querySelectorAll(".secret, [data-secret='true'], section.secret").forEach((node) => node.remove());
+  // qa.31 ledger is GM-private, so a GM's source snippet may retain secret text.
+  // Player-safe/viewer-scoped persistence is intentionally deferred to a later layer.
   return atMeClean(host.textContent || host.innerText || "").replace(/\s+/g, " ");
 }
 
