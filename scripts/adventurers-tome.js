@@ -1091,27 +1091,39 @@ function worldProfileText(entry) {
 }
 
 function campaignMentionHistoryForWorld(entry, profile = null) {
-  if (!game.user?.isGM || !entry) {
-    return { targetUuid:"", rows:[], count:0, activeCount:0, historicalCount:0, first:null, last:null };
-  }
+  const empty = {
+    targetUuid:"",
+    rows:[],
+    recentRows:[],
+    olderRows:[],
+    count:0,
+    activeCount:0,
+    historicalCount:0,
+    first:null,
+    last:null,
+    hasExtended:false
+  };
+
+  if (!game.user?.isGM || !entry) return empty;
 
   const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
-  if (!evidenceApi?.recordsForTarget) {
-    return { targetUuid:"", rows:[], count:0, activeCount:0, historicalCount:0, first:null, last:null };
-  }
+  if (!evidenceApi?.recordsForTarget) return empty;
 
   const category = String(profile?.category || getWorldProfile(entry)?.category || "world");
   const targetUuid = typeof evidenceApi.authorityUuid === "function"
     ? String(evidenceApi.authorityUuid({ canonicalUuid:entry.uuid, uuid:entry.uuid, name:entry.name, kind:category }) || entry.uuid)
     : entry.uuid;
 
-  const rawRows = evidenceApi.recordsForTarget(targetUuid, { includeHistorical:true }) || [];
-  const rows = rawRows.map((row) => {
+  const rawRows = evidenceApi.recordsForTarget(targetUuid, { includeHistorical:true, sort:"newest" }) || [];
+  const toViewRow = (row) => {
     const active = row.active !== false;
     const linked = row.linkedAtSync === true;
     const review = row.relationState === "mentioned-review";
     const historical = !active;
     const sourceKind = String(row.sourceKind || "source").toLowerCase();
+    const sourcePageUuid = String(row.sourcePageUuid || "").trim();
+    const pageMatch = /\.JournalEntryPage\.([^.]+)$/.exec(sourcePageUuid);
+
     return {
       ...row,
       active,
@@ -1129,10 +1141,14 @@ function campaignMentionHistoryForWorld(entry, profile = null) {
       sourceIcon:sourceKind === "session" ? "fa-book-open" : sourceKind === "quest" ? "fa-diamond" : "fa-file-lines",
       sourceAction:sourceKind === "session" ? "selectSession" : sourceKind === "quest" ? "openQuestDetail" : "openJournal",
       sourceJournalId:String(row.sourceUuid || "").replace(/^JournalEntry\./, ""),
+      sourcePageUuid,
+      sourcePageId:pageMatch?.[1] || "",
+      sourceJumpLabel:sourcePageUuid ? "Open source page" : "Open source Journal",
       mentionTypeLabel:row.mentionType === "explicit-reference" ? "Explicit reference" : "Prose mention"
     };
-  });
+  };
 
+  const rows = rawRows.map(toViewRow);
   const activeRows = rows.filter((row) => row.active);
   const chronological = [...activeRows].sort((a, b) => {
     const ao = Number.isFinite(Number(a.sourceOrdinal)) ? Number(a.sourceOrdinal) : null;
@@ -1142,14 +1158,21 @@ function campaignMentionHistoryForWorld(entry, profile = null) {
     return Number(a.firstSeenAt || 0) - Number(b.firstSeenAt || 0);
   });
 
+  const recentRows = activeRows.slice(0, 5);
+  const recentIds = new Set(recentRows.map((row) => row.id));
+  const olderRows = rows.filter((row) => !recentIds.has(row.id));
+
   return {
     targetUuid,
     rows,
+    recentRows,
+    olderRows,
     count:rows.length,
     activeCount:activeRows.length,
     historicalCount:rows.length - activeRows.length,
     first:chronological[0] || null,
-    last:chronological.length ? chronological[chronological.length - 1] : null
+    last:chronological.length ? chronological[chronological.length - 1] : null,
+    hasExtended:olderRows.length > 0
   };
 }
 
@@ -4526,6 +4549,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       saveWorldProfile: this._onSaveWorldProfile,
       browseWorldImage: this._onBrowseWorldImage,
       openJournal: this._onOpenJournal,
+      openMentionSource: this._onOpenMentionSource,
       openCustomLink: this._onOpenCustomLink,
       createRule: this._onCreateRule,
       linkRule: this._onLinkRule,
@@ -5172,10 +5196,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         suggestedCampaignCount:suggestedCampaignMentions.length,
         hasSuggestedCampaignMentions:suggestedCampaignMentions.length > 0,
         mentionHistory:mentionHistory.rows,
+        recentMentionHistory:mentionHistory.recentRows,
+        olderMentionHistory:mentionHistory.olderRows,
         mentionCount:mentionHistory.count,
         activeMentionCount:mentionHistory.activeCount,
         historicalMentionCount:mentionHistory.historicalCount,
         hasMentionHistory:mentionHistory.rows.length > 0,
+        hasExtendedMentionHistory:mentionHistory.hasExtended,
         firstMention:mentionHistory.first,
         lastMention:mentionHistory.last
       };
@@ -7116,6 +7143,39 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const refKey = String(target.dataset.refKey || inferJournalRefKey(journal) || "").trim();
     if (refKey) await recordRecentRef(refKey);
     journal.sheet.render(true);
+  }
+
+  static async _onOpenMentionSource(_event, target) {
+    const sourceUuid = String(target.dataset.sourceUuid || "").trim();
+    const pageUuid = String(target.dataset.pageUuid || "").trim();
+
+    try {
+      const page = pageUuid ? await fromUuid(pageUuid) : null;
+      if (page?.documentName === "JournalEntryPage" && page.parent && canViewInTome(page.parent)) {
+        const refKey = inferJournalRefKey(page.parent);
+        if (refKey) await recordRecentRef(refKey);
+        page.parent.sheet.render(true, { pageId: page.id });
+        return;
+      }
+
+      const source = sourceUuid ? await fromUuid(sourceUuid) : null;
+      const journal = source?.documentName === "JournalEntry"
+        ? source
+        : source?.documentName === "JournalEntryPage"
+          ? source.parent
+          : null;
+
+      if (!journal || !canViewInTome(journal)) {
+        return ui.notifications.warn("Adventurer's Tome: Mention source not found or not visible.");
+      }
+
+      const refKey = inferJournalRefKey(journal);
+      if (refKey) await recordRecentRef(refKey);
+      journal.sheet.render(true);
+    } catch (error) {
+      console.warn("Adventurer's Tome | Mention source jump failed safely", error);
+      ui.notifications.warn("Adventurer's Tome: Could not open this Mention source.");
+    }
   }
 
   static async _onBrowseBackground() {

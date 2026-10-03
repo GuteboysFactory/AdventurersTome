@@ -655,18 +655,41 @@
         <span class="at-mention-count">{{worldProfileView.activeMentionCount}} active{{#if worldProfileView.historicalMentionCount}} · {{worldProfileView.historicalMentionCount}} historical{{/if}}</span>
       </div>
       <p class="at-suggested-help">Persistent campaign-memory evidence. A Mention records where this entity appeared; it does not replace a canonical Campaign Link.</p>
+
       <div class="at-mention-summary">
-        {{#if worldProfileView.firstMention}}<div><small>First mention</small><strong>{{worldProfileView.firstMention.sourceName}}</strong></div>{{/if}}
-        {{#if worldProfileView.lastMention}}<div><small>Last mention</small><strong>{{worldProfileView.lastMention.sourceName}}</strong></div>{{/if}}
-        <div><small>Total evidence</small><strong>{{worldProfileView.mentionCount}}</strong></div>
+        {{#if worldProfileView.firstMention}}
+        <div>
+          <small>First mention</small>
+          <strong>{{worldProfileView.firstMention.sourceName}}</strong>
+          <em>{{worldProfileView.firstMention.pageName}}</em>
+        </div>
+        {{/if}}
+        {{#if worldProfileView.lastMention}}
+        <div>
+          <small>Last mention</small>
+          <strong>{{worldProfileView.lastMention.sourceName}}</strong>
+          <em>{{worldProfileView.lastMention.pageName}}</em>
+        </div>
+        {{/if}}
+        <div><small>Total evidence</small><strong>{{worldProfileView.mentionCount}}</strong><em>{{worldProfileView.activeMentionCount}} active</em></div>
+      </div>
+
+      <div class="at-mention-section-head">
+        <div><i class="fa-solid fa-clock"></i><strong>Recent evidence</strong></div>
+        <small>Newest active mentions first</small>
       </div>
       <div class="at-mention-list">
-        {{#each worldProfileView.mentionHistory}}
+        {{#each worldProfileView.recentMentionHistory}}
         <article class="at-mention-row {{#if historical}}is-historical{{/if}} {{#if review}}is-review{{/if}}">
-          <button type="button" class="at-mention-source" data-action="{{sourceAction}}" data-journal-id="{{sourceJournalId}}">
-            <i class="fa-solid {{sourceIcon}}"></i>
-            <span><small>{{sourceLabel}}{{#if pageName}} · {{pageName}}{{/if}}</small><strong>{{sourceName}}</strong></span>
-          </button>
+          <div class="at-mention-source-stack">
+            <button type="button" class="at-mention-source" data-action="{{sourceAction}}" data-journal-id="{{sourceJournalId}}">
+              <i class="fa-solid {{sourceIcon}}"></i>
+              <span><small>{{sourceLabel}}{{#if pageName}} · {{pageName}}{{/if}}</small><strong>{{sourceName}}</strong></span>
+            </button>
+            <button type="button" class="at-mention-jump" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}" title="{{sourceJumpLabel}}">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Source
+            </button>
+          </div>
           <div class="at-mention-copy">
             <p>{{snippet}}</p>
             <div class="at-mention-meta">
@@ -678,6 +701,35 @@
         </article>
         {{/each}}
       </div>
+
+      {{#if worldProfileView.hasExtendedMentionHistory}}
+      <details class="at-mention-archive">
+        <summary><i class="fa-solid fa-box-archive"></i> Show older / historical evidence <span>{{worldProfileView.olderMentionHistory.length}}</span></summary>
+        <div class="at-mention-list">
+          {{#each worldProfileView.olderMentionHistory}}
+          <article class="at-mention-row {{#if historical}}is-historical{{/if}} {{#if review}}is-review{{/if}}">
+            <div class="at-mention-source-stack">
+              <button type="button" class="at-mention-source" data-action="{{sourceAction}}" data-journal-id="{{sourceJournalId}}">
+                <i class="fa-solid {{sourceIcon}}"></i>
+                <span><small>{{sourceLabel}}{{#if pageName}} · {{pageName}}{{/if}}</small><strong>{{sourceName}}</strong></span>
+              </button>
+              <button type="button" class="at-mention-jump" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}" title="{{sourceJumpLabel}}">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Source
+              </button>
+            </div>
+            <div class="at-mention-copy">
+              <p>{{snippet}}</p>
+              <div class="at-mention-meta">
+                <span>{{mentionTypeLabel}}</span>
+                <span>{{relationLabel}}</span>
+                {{#if historical}}<span>Historical</span>{{/if}}
+              </div>
+            </div>
+          </article>
+          {{/each}}
+        </div>
+      </details>
+      {{/if}}
     </section>
     {{/if}}
     {{/if}}

@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 1.7.0-qa.33 — Evidence History & Source Jump
+
+- Adds compact Campaign Memory history presentation with First Mention, Last Mention, Recent Evidence and expandable older/historical evidence.
+- Prioritizes the five newest active mentions so long campaign histories remain readable.
+- Adds a dedicated Source action that opens the authoritative Foundry JournalEntryPage when page provenance is available.
+- Keeps normal Tome navigation on the source Session/Quest name.
+- Extends Campaign Mention Evidence queries with newest/oldest/first-seen/last-seen sorting.
+- Adds target summary and recent-evidence API helpers as foundations for later search/filter UI.
+- Does not change deterministic auto-link, ambiguity or auto-create policy.
+
+# CHANGELOG
+
 ## 1.7.0-qa.32 — Deterministic Campaign Auto-Link
 
 - Automatically creates canonical Campaign Links for detected Session/Quest mentions that resolve to exactly one existing canonical identity.
