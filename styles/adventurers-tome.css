@@ -6184,3 +6184,132 @@
 .at-layout-tiny .at-campaign-tools-tabs {
   grid-template-columns: repeat(3, 1fr);
 }
+
+
+/* v1.7.0-qa.36 — GM Workspace Decomposition & Token UX */
+.at-campaign-notebook-overview,
+.at-campaign-assistant-workspace {
+  border: 1px solid rgba(214, 178, 108, 0.2);
+  background: rgba(18, 13, 9, 0.72);
+  padding: 14px;
+}
+
+.at-campaign-notebook-overview {
+  display: grid;
+  gap: 12px;
+}
+
+.at-campaign-notebook-overview .at-notebook-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.at-campaign-note-preview {
+  display: grid;
+  gap: 7px;
+}
+
+.at-campaign-note-preview-row {
+  min-width: 0;
+  border: 1px solid rgba(214, 178, 108, 0.14);
+  background: rgba(214, 178, 108, 0.025);
+  padding: 9px 10px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: start;
+}
+
+.at-campaign-note-preview-row > i {
+  color: #a9894e;
+  margin-top: 2px;
+}
+
+.at-campaign-note-preview-row div {
+  min-width: 0;
+}
+
+.at-campaign-note-preview-row strong,
+.at-campaign-note-preview-row small,
+.at-campaign-note-preview-row p {
+  display: block;
+}
+
+.at-campaign-note-preview-row small {
+  color: #826f50;
+  font-size: 8px;
+  margin-top: 1px;
+}
+
+.at-campaign-note-preview-row p {
+  margin: 4px 0 0;
+  color: #a99162;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.at-campaign-note-preview-row > button {
+  width: 30px;
+  min-width: 30px;
+  height: 28px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgba(214, 178, 108, 0.18) !important;
+  background: transparent !important;
+}
+
+.at-campaign-assistant-grid {
+  align-items: start;
+}
+
+.at-campaign-assistant-workspace {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.at-campaign-assistant-workspace textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.at-campaign-custom-pads .at-custom-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.at-campaign-custom-pads .at-custom-pad {
+  border: 1px solid rgba(214, 178, 108, 0.16);
+  background: rgba(13, 10, 7, 0.72);
+  padding: 10px;
+}
+
+.at-campaign-custom-pads .at-custom-pad-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.at-campaign-custom-pads .at-custom-pad-head small {
+  color: #716147;
+  font-size: 8px;
+}
+
+.at-layout-narrow .at-campaign-notebook-overview .at-notebook-stats,
+.at-layout-tiny .at-campaign-notebook-overview .at-notebook-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.at-layout-narrow .at-campaign-custom-pads .at-custom-pad-grid,
+.at-layout-tiny .at-campaign-custom-pads .at-custom-pad-grid {
+  grid-template-columns: 1fr;
+}
+
+/* Small visual distinction for the GM-only token HUD vault action. */
+#token-hud [data-at-token-private-vault] i {
+  color: #d6b26c;
+}
