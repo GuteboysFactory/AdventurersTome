@@ -8,8 +8,6 @@
 - Redirects existing Notebook actions to the Assistant workspace.
 - Adds a GM-only Private Vault control to the Foundry Token HUD.
 - Private Vault opens the token's canonical Actor profile editor in an explicit GM-only Vault mode.
-- Adds temporary token/Actor name display on hover without changing Token Document display-name settings.
-- Non-GM hover names require Observer-or-better Actor permission.
 - Reuses existing private GM workspace and private overlay storage; no parallel database or authority changes.
 - Preserves qa.35 Campaign Tools navigation and player privacy.
 

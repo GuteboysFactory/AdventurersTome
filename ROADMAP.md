@@ -2550,8 +2550,6 @@ The old monolithic GM Notebook/Workspace is decomposed into the new Campaign Too
 - structured source-linked GM Notes remain attached to their canonical Foundry/Tome sources
 - GM-only **Private Vault** becomes a token-context action in the Foundry Token HUD
 - token Private Vault resolves the canonical Actor and opens the existing profile editor in explicit Vault mode
-- token hover temporarily reveals Actor/token names without persisting Token Document settings
-- non-GM hover names require Actor Observer-or-better permission
 - no canonical authority, Campaign Memory, auto-link, auto-create or privacy semantics change
 
 QA: `docs/V1.7_QA36_GM_WORKSPACE_DECOMPOSITION_TOKEN_UX.md`

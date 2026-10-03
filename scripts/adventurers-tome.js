@@ -8311,30 +8311,6 @@ Hooks.once("ready", async () => {
     column.appendChild(control);
   });
 
-  // Show the canonical token/Actor name on hover without changing Foundry token
-  // document settings. Non-GMs only get the temporary nameplate when they have
-  // Observer-or-better access to the Actor, avoiding hidden-NPC name leakage.
-  Hooks.on("hoverToken", (token, hovered) => {
-    const actor = token?.actor || token?.document?.actor || null;
-    const canReadName = game.user?.isGM || actor?.testUserPermission?.(game.user, CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2);
-    if (!canReadName) return;
-    const nameplate = token?.nameplate || token?.name || null;
-    if (!nameplate || typeof nameplate !== "object" || !("visible" in nameplate)) return;
-    if (hovered) {
-      if (!token._adventurersTomeHoverNameState) {
-        token._adventurersTomeHoverNameState = { visible: Boolean(nameplate.visible), renderable: "renderable" in nameplate ? Boolean(nameplate.renderable) : null };
-      }
-      nameplate.visible = true;
-      if ("renderable" in nameplate) nameplate.renderable = true;
-    } else {
-      const previous = token._adventurersTomeHoverNameState;
-      if (!previous) return;
-      nameplate.visible = previous.visible;
-      if ("renderable" in nameplate && previous.renderable != null) nameplate.renderable = previous.renderable;
-      delete token._adventurersTomeHoverNameState;
-    }
-  });
-
   game.socket.on(`module.${MODULE_ID}`, async (payload = {}) => {
     if (payload?.type !== "showTomeRef" || game.user.isGM) return;
     const sender = game.users?.get?.(String(payload.senderId || ""));
