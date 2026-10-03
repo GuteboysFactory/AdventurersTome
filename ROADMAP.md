@@ -2518,3 +2518,20 @@ Campaign Memory becomes searchable at campaign scale:
 - qa.31–qa.33 authority and Campaign Assistant behavior remain unchanged
 
 QA: `docs/V1.7_QA34_CAMPAIGN_MEMORY_SEARCH_FILTERS.md`
+
+## v1.7.0-qa.35 — Campaign Tools Consolidation
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Tools becomes the canonical home for GM workflows:
+
+- locked UX rule: **Header = global utility actions; Campaign Tools = GM campaign workflows**
+- adds **Assistant** beside Overview and Memory
+- Next Session Dashboard, Quick Capture, Reveal Queue and GM Notebook are removed from the top-right header
+- Manual/Help and Campaign Settings remain global header utilities
+- Assistant launches Next Session Dashboard, Quick Capture, Reveal Queue, Post-Session Assistant and GM Notebook
+- dedicated workflow pages keep Campaign Tools highlighted and expose contextual Overview / Memory / Assistant navigation
+- existing workflow implementations are reused unchanged
+- no Campaign Memory, canonical authority, auto-link, auto-create or privacy semantics change
+
+QA: `docs/V1.7_QA35_CAMPAIGN_TOOLS_CONSOLIDATION.md`
