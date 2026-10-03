@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 1.7.0-qa.37 — Campaign Analysis & Entity Review
+
+- Adds a fourth GM-only Campaign Tools tab: **Analysis**.
+- Adds an Entity Review Queue for Ambiguous, Unresolved and Mentioned · review Campaign Memory states.
+- Groups repeated active evidence for the same identity/state into one review row.
+- Shows latest evidence context, total evidence count and source count.
+- Adds safe Target and authoritative Source navigation from review rows.
+- Adds a separate **Tome noticed** area for ordinary active mentions that are informational rather than decision-required.
+- Adds Analysis to contextual Campaign Tools navigation on Dashboard, Quick Capture, Reveal Queue and Post-Session pages.
+- Keeps Analysis read-only: no auto-create, ambiguity resolution or canonical Link writes are introduced.
+- Preserves deterministic auto-link, unlink suppression, Campaign Memory lifecycle and player privacy semantics.
+
 ## 1.7.0-qa.36 — GM Workspace Decomposition & Token UX
 
 - Moves Notebook Overview into Campaign Tools → Overview.
