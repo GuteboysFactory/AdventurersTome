@@ -384,6 +384,36 @@ function atMeSortRows(rows) {
     return Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0);
   });
 }
+function atMeChronologicalCompare(a, b) {
+  const aOrdinal = Number.isFinite(Number(a?.sourceOrdinal)) ? Number(a.sourceOrdinal) : null;
+  const bOrdinal = Number.isFinite(Number(b?.sourceOrdinal)) ? Number(b.sourceOrdinal) : null;
+  if (aOrdinal != null && bOrdinal != null && aOrdinal !== bOrdinal) return aOrdinal - bOrdinal;
+  if (Number(a?.sourceSort || 0) !== Number(b?.sourceSort || 0)) return Number(a?.sourceSort || 0) - Number(b?.sourceSort || 0);
+  return Number(a?.firstSeenAt || 0) - Number(b?.firstSeenAt || 0);
+}
+
+function atMeQuerySort(rows, mode = "newest") {
+  const value = atMeClean(mode || "newest").toLowerCase();
+  const copy = [...rows];
+
+  if (value === "oldest" || value === "first") {
+    return copy.sort((a, b) => {
+      if (a.active !== b.active) return Number(b.active) - Number(a.active);
+      return atMeChronologicalCompare(a, b);
+    });
+  }
+
+  if (value === "first-seen") {
+    return copy.sort((a, b) => Number(a.firstSeenAt || 0) - Number(b.firstSeenAt || 0));
+  }
+
+  if (value === "last-seen") {
+    return copy.sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0));
+  }
+
+  return atMeSortRows(copy);
+}
+
 
 async function atMeSync(options = {}) {
   if (!game.user?.isGM) return atMeSnapshot();
@@ -542,7 +572,7 @@ function atMeQuery(options = {}) {
     return true;
   });
 
-  rows = atMeSortRows(rows);
+  rows = atMeQuerySort(rows, options.sort || "newest");
   const limit = Math.max(0, Number(options.limit || 0));
   return atMeClone(limit ? rows.slice(0, limit) : rows);
 }
@@ -553,6 +583,33 @@ function atMeRecordsForTarget(targetUuid, options = {}) {
 
 function atMeRecordsForSource(sourceUuid, options = {}) {
   return atMeQuery({ ...options, sourceUuid });
+}
+
+function atMeSummaryForTarget(targetUuid, options = {}) {
+  const includeHistorical = options.includeHistorical !== false;
+  const rows = atMeRecordsForTarget(targetUuid, { includeHistorical, sort:"oldest" });
+  const active = rows.filter((row) => row.active !== false);
+  const historical = rows.filter((row) => row.active === false);
+  const recentLimit = Math.max(1, Number(options.recentLimit || 5));
+  const recent = atMeQuery({ targetUuid, includeHistorical:false, sort:"newest", limit:recentLimit });
+  return atMeClone({
+    targetUuid:atMeClean(targetUuid),
+    total:rows.length,
+    active:active.length,
+    historical:historical.length,
+    first:active[0] || null,
+    last:active.length ? active[active.length - 1] : null,
+    recent
+  });
+}
+
+function atMeRecentForTarget(targetUuid, limit = 5) {
+  return atMeQuery({
+    targetUuid,
+    includeHistorical:false,
+    sort:"newest",
+    limit:Math.max(1, Number(limit || 5))
+  });
 }
 
 function atMeAuthorityUuid(ref) {
@@ -598,6 +655,8 @@ const ATME_API = Object.freeze({
   query:atMeQuery,
   recordsForTarget:atMeRecordsForTarget,
   recordsForSource:atMeRecordsForSource,
+  summaryForTarget:atMeSummaryForTarget,
+  recentForTarget:atMeRecentForTarget,
   authorityUuid:atMeAuthorityUuid,
   audit:atMeAudit,
   clear:atMeClear
