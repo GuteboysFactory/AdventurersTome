@@ -2477,3 +2477,21 @@ First proactive Campaign Assistant write step:
 - release publishing from `release/READY` is restricted to `main`
 
 QA: `docs/V1.7_QA32_DETERMINISTIC_CAMPAIGN_AUTO_LINK.md`
+
+## v1.7.0-qa.33 — Evidence History & Source Jump
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Memory history becomes practically navigable:
+
+- First Mention / Last Mention / Total Evidence remain visible at a glance
+- newest five active Mention records are promoted as **Recent Evidence**
+- older active and Historical evidence remains available in an expandable archive
+- source names continue to navigate inside Tome
+- every Mention gains a **Source** action that opens the authoritative Foundry Journal/Page
+- page-level provenance is used when a JournalEntryPage UUID is available
+- exact text-fragment scrolling remains a later refinement
+- Mention API adds configurable sort modes plus target summary/recent helpers
+- Link / Mention / Ambiguous authority semantics are unchanged
+
+QA: `docs/V1.7_QA33_EVIDENCE_HISTORY_SOURCE_JUMP.md`
