@@ -545,15 +545,20 @@ function atMeQuery(options = {}) {
   const targetUuid = atMeClean(options.targetUuid);
   const sourceUuid = atMeClean(options.sourceUuid);
   const sourceKind = atMeClean(options.sourceKind).toLowerCase();
+  const targetKind = atMeClean(options.targetKind).toLowerCase();
   const mentionType = atMeClean(options.mentionType).toLowerCase();
   const relationState = atMeClean(options.relationState).toLowerCase();
-  const includeHistorical = options.includeHistorical === true;
+  const lifecycle = atMeClean(options.lifecycle).toLowerCase();
+  const includeHistorical = options.includeHistorical === true || lifecycle === "historical" || lifecycle === "all";
 
   let rows = atMeGetLedger().records.filter((row) => {
     if (!includeHistorical && !row.active) return false;
+    if (lifecycle === "active" && row.active === false) return false;
+    if (lifecycle === "historical" && row.active !== false) return false;
     if (targetUuid && row.targetUuid !== targetUuid) return false;
     if (sourceUuid && row.sourceUuid !== sourceUuid && row.sourcePageUuid !== sourceUuid) return false;
     if (sourceKind && row.sourceKind.toLowerCase() !== sourceKind) return false;
+    if (targetKind && row.targetKind.toLowerCase() !== targetKind) return false;
     if (mentionType && row.mentionType.toLowerCase() !== mentionType) return false;
     if (relationState && row.relationState.toLowerCase() !== relationState) return false;
     if (text) {
