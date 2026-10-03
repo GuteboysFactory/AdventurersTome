@@ -4764,6 +4764,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.activeSessionId = null;
     this.activeActorId = null;
     this.profileEditing = false;
+    this._privateVaultActorId = null;
     this.activeWorldId = null;
     this._selectedShareText = "";
     this.activeQuestId = null;
@@ -4822,6 +4823,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.activeAccessType = state.activeAccessType || null;
     this.activeAccessId = state.activeAccessId || null;
     this.profileEditing = false;
+    this._privateVaultActorId = null;
     this.worldEditing = false;
   }
 
@@ -5541,6 +5543,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       accessEditor,
       isProfile: this.activeTab === "profile" && Boolean(profileView),
       isProfileEditing: this.activeTab === "profile" && Boolean(profileView) && this.profileEditing && game.user.isGM,
+      isPrivateVaultMode: game.user.isGM && this.activeTab === "profile" && Boolean(profileView) && this.profileEditing && this._privateVaultActorId === profileView.id,
       isGM: game.user.isGM,
       settings,
       profileView,
@@ -7007,6 +7010,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.activeTab !== "profile" || this.activeActorId !== actor.id) this._pushNavigationState();
     this.activeActorId = actor.id;
     this.profileEditing = false;
+    this._privateVaultActorId = null;
     this.activeTab = "profile";
     await recordRecentRef(`actor:${actor.id}`);
     await this.render({ parts: ["main"] });
@@ -7014,6 +7018,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onEditProfile() {
     if (!game.user.isGM || !this.activeActorId) return;
+    this._privateVaultActorId = null;
     this.profileEditing = true;
     this.activeTab = "profile";
     await this.render({ parts: ["main"] });
@@ -8174,6 +8179,7 @@ Hooks.once("ready", async () => {
       if (!app.rendered) await app.render(true);
       app._pushNavigationState?.();
       app.activeActorId = actor.id;
+      app._privateVaultActorId = actor.id;
       app.activeTab = "profile";
       app.profileEditing = true;
       await app.render({ parts: ["main"] });
