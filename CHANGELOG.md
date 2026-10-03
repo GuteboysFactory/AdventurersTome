@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 1.7.0-qa.31 — Campaign Mention Foundation
+
+- Adds the first persistent Campaign Memory evidence ledger for Session/Quest mentions.
+- Keeps **Linked**, **Mentioned**, and **Suggested/Ambiguous** as separate semantics.
+- Persists source UUID, page UUID, target UUID when resolved, mention text, snippet, confidence, provenance and lifecycle state.
+- Keeps disappeared evidence as Historical instead of silently deleting campaign memory.
+- Adds GM-only **Mentioned In** history to World profiles with First/Last Mention and source navigation.
+- Keeps Mention evidence after a canonical Campaign Link is created, allowing **Linked + Mentioned** to coexist.
+- Adds query/search foundations through `campaignMentionEvidence`.
+- Uses GM-private user-scoped storage for qa.31; player-safe viewer-scoped persistence remains a later layer.
+- Does not auto-link, auto-create or merge identities.
+
+# CHANGELOG
+
 ## 1.7.0-qa.30 — World Campaign Link Authority Parity
 
 - Makes World Detail Campaign Links canonical/explicit-only, matching Session and Quest authority semantics.
