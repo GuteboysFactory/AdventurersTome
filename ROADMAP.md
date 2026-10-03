@@ -1641,6 +1641,263 @@ Ignore
 
 This foundation is intended to feed Campaign Graph, Player Chronicle and Campaign Brain. It may later also be reused by Foundry-bound migration/reconciliation work, but migration UI/transactions remain a separate future track.
 
+## LOCKED — Campaign Memory / Mentioned Evidence Model
+
+Tome's long-term product direction is a **proactive campaign assistant** rather than a passive archive.
+
+The intended behavior is:
+
+> Tome should do safe, deterministic campaign-memory work automatically and interrupt the GM only when a real decision, ambiguity, destructive action or new canonical creation requires human judgment.
+
+This does **not** make Tome the narrative authority. Foundry documents and canonical UUIDs remain the campaign source of truth; Tome derives, connects, indexes and presents campaign memory around those sources.
+
+### Three distinct relationship states
+
+Campaign UI and graph logic must distinguish at least these concepts:
+
+1. **Linked**
+   - an authoritative canonical campaign relationship
+   - backed by canonical UUID / explicit graph state
+   - may be created automatically only when identity and target are deterministic
+
+2. **Mentioned**
+   - a persistent evidence record that a canonical entity was mentioned, discussed, encountered or otherwise referenced in a source
+   - does not replace or imply a canonical Campaign Link
+   - remains useful even after a canonical Link exists because it preserves history and provenance
+
+3. **Suggested / Unresolved / Ambiguous**
+   - Tome has detected a possible entity or relationship but does not yet have sufficient authority to treat it as canonical
+   - remains advisory until resolution is strong enough or the GM decides
+
+**Linked and Mentioned may coexist for the same source/target pair.**
+
+A Link answers:
+
+> Is this an authoritative campaign relationship?
+
+A Mention answers:
+
+> Where, when and why did this entity appear in campaign evidence?
+
+### Deterministic auto-link direction
+
+The earlier all-writes-require-GM rule is intentionally relaxed for future Campaign Intelligence work.
+
+Tome should automatically persist a Link to an **existing** canonical entity when the resolver can establish one deterministic identity with no meaningful competing canonical candidate.
+
+Signals may include:
+
+- explicit Foundry UUID/reference
+- exact existing canonical target plus unique resolved identity
+- source-scoped authority
+- Actor / Contact / World projections converging on the same canonical UUID
+- prior GM-confirmed campaign learning
+- other corroborating evidence that resolves to one authority identity
+
+A raw confidence percentage alone is **not** sufficient.
+
+Tome must not auto-link when:
+
+- multiple unrelated canonical identities remain possible
+- the target would require choosing between candidates
+- the target does not yet exist canonically
+- identity depends only on an unsafe display-name merge
+- the operation is destructive or identity-merging
+
+In those cases Tome continues to surface review/ambiguity rather than guessing.
+
+### Mention record foundation
+
+A persistent Mention record should be able to retain:
+
+- canonical target UUID when resolved
+- source UUID
+- source page UUID when applicable
+- source type
+- Session / Quest context
+- matched text / evidence snippet
+- source position or jump target when available
+- mention type
+- confidence / authority metadata
+- visibility / reveal state
+- character/player knowledge scope where applicable
+- importance
+- temporal state
+- creation/detection timestamp
+- provenance/provider
+
+The first implementation may use a smaller subset, but the storage model should not block this direction.
+
+### Mention types
+
+Initial and future semantic categories may include:
+
+- Referenced
+- Appeared
+- Discussed
+- Encountered
+- Learned about
+- Clue
+- Rumour
+- Acquired
+- Lost
+- Possessed
+- Changed / Updated
+
+These are evidence classifications, not automatically canonical relationship types.
+
+The classifier may suggest a type automatically; uncertain classification must remain editable/reviewable.
+
+### Historical campaign memory
+
+World / NPC / Faction / Item / Location / Lore profiles should eventually expose a dedicated **Mentioned In** history separate from Campaign Links.
+
+Useful summary fields include:
+
+- First Mention
+- Last Mention
+- total mention count
+- recent mentions
+- important mentions
+- clue count
+- rumour count
+- unresolved evidence count
+
+The default profile view should surface a compact summary first and defer the full history behind expandable/searchable views so long campaigns remain readable.
+
+### Provenance and Jump to Source
+
+Every meaningful Mention should remain traceable to its source.
+
+The desired interaction is:
+
+> Mention -> source Session/Quest/Document -> page -> exact evidence location when technically available.
+
+This is a core trust feature. Tome should not merely state a derived fact; it should make it easy for the GM or an authorized player to inspect why Tome believes it.
+
+### Search, sorting and filtering — HARD PRODUCT REQUIREMENT
+
+Campaign Memory is expected to become large. Therefore **all evidence must be searchable, sortable and filterable**.
+
+Supported/filterable dimensions should progressively include:
+
+- relation state: Linked / Mentioned / Suggested / Ambiguous
+- mention type
+- source type
+- Session range / time range
+- entity type
+- certainty / resolution state
+- Player Known / GM Only / character-specific knowledge
+- importance
+- Active / Historical / Resolved / Superseded
+- related Actor / NPC / Faction / Location / Item / Quest
+
+Useful quick filters should include:
+
+- Recent
+- Clues
+- Rumours
+- Player Knows
+- GM Only
+- Important
+- Unresolved
+- First Appearances
+
+Sorting should include at minimum:
+
+- newest first
+- oldest first
+- first mention
+- last mention
+- importance
+- relevance
+
+Global Tome Search should eventually index Mention metadata and evidence text as permission allows.
+
+### Knowledge changes, contradictions and superseded evidence
+
+Campaign Memory must preserve historical evidence rather than rewrite history when information changes.
+
+Example:
+
+- Session 4: Gunther is believed dead
+- Session 11: Gunther is revealed to be alive
+
+The Session 4 evidence remains valid historical evidence of what was believed at the time, but may later be marked:
+
+- superseded
+- contradicted
+- historical
+- resolved
+
+Tome should preserve both the prior belief and the later correction with provenance.
+
+### Viewer-scoped campaign memory
+
+The existing privacy-by-design hard lock applies to Mentioned evidence as well.
+
+Player-facing Mention history, counts, search results, summaries and Campaign Brain answers must only use evidence available to that viewer.
+
+Hidden GM evidence must not leak through:
+
+- counts
+- badges
+- search hits
+- summary wording
+- relation states
+- first/last mention metadata
+- graph edges
+
+### Planned implementation sequence
+
+The intended progression is:
+
+1. **Mention Foundation**
+   - persistent source/target evidence records
+   - provenance
+   - separate Linked / Mentioned / Suggested semantics
+
+2. **Deterministic Campaign Auto-Link**
+   - safe automatic Link persistence for already-existing, uniquely resolved canonical identities
+   - GM review remains for ambiguity/new entities/destructive operations
+
+3. **Evidence History**
+   - Mentioned In history on World/entity profiles
+   - First / Last / Recent
+   - Jump to Source
+
+4. **Search & Filters**
+   - global indexing
+   - filter/sort controls
+   - quick filters
+   - large-campaign scalability
+
+5. **Semantic Enrichment**
+   - mention-type classification
+   - clue/rumour/encounter/knowledge semantics
+   - importance suggestion
+
+6. **Knowledge & Relevance**
+   - viewer/character knowledge
+   - active/resolved/superseded/conflicting evidence
+   - relevance ranking
+
+7. **Campaign Assistant**
+   - context-aware retrieval and summaries over the permission-safe Evidence Graph
+
+### Long-term assistant queries
+
+The Campaign Memory / Evidence Graph should eventually support questions such as:
+
+- What do the players know about the Pale Wardens?
+- When did the group first hear about the Ember Seal?
+- When was Ravenmoor last mentioned?
+- Which unresolved clues concern this Faction?
+- What changed about Gunther since Session 4?
+- Which important campaign threads are relevant to the next Session?
+
+Answers should be derived from permission-appropriate evidence and retain traceability to canonical Foundry/Tome sources.
+
 ---
 
 # v1.8 — Player Chronicle
