@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1.7.0-qa.34 — Campaign Memory Search & Filters
+
+- Adds a GM-only Campaign Memory evidence search section to Tome Search without changing the normal document/entity search.
+- Free-text searches target/entity names, mention text, snippets, sources, pages, relation labels and lifecycle metadata.
+- Adds filters for relation state, Active/Historical lifecycle, Session/Quest source type and target/entity type.
+- Adds Newest / Oldest / First seen / Last seen sorting.
+- Adds target navigation from evidence results into Tome/Foundry and preserves separate Tome-source and authoritative Foundry-source navigation.
+- Extends the Campaign Mention Evidence API with lifecycle and target-kind filters.
+- Preserves the GM-private evidence boundary and does not expose Campaign Memory evidence to players.
+- Keeps deterministic auto-link, ambiguity and canonical authority semantics unchanged.
+
+# CHANGELOG
+
 ## 1.7.0-qa.33 — Evidence History & Source Jump
 
 - Adds compact Campaign Memory history presentation with First Mention, Last Mention, Recent Evidence and expandable older/historical evidence.
