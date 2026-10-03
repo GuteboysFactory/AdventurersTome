@@ -5368,3 +5368,143 @@
 .at-analysis-known.is-ambiguous {
   border-color: rgba(214, 156, 80, 0.45);
 }
+
+
+/* v1.7.0-qa.31: persistent Campaign Mention evidence */
+.at-mention-history {
+  display: grid;
+  gap: 12px;
+}
+
+.at-mention-count {
+  margin-left: auto;
+  color: #8f7b57;
+  font-size: 10px;
+}
+
+.at-mention-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.at-mention-summary > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid rgba(214, 178, 108, 0.16);
+  background: rgba(20, 14, 9, 0.3);
+}
+
+.at-mention-summary small {
+  color: #806f53;
+  font-size: 8px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.at-mention-summary strong {
+  overflow: hidden;
+  color: #cdb47a;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.at-mention-list {
+  display: grid;
+  gap: 8px;
+}
+
+.at-mention-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .72fr) minmax(0, 1.6fr);
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(214, 178, 108, 0.18);
+  background: rgba(21, 15, 10, 0.34);
+}
+
+.at-mention-row.is-review {
+  border-style: dashed;
+}
+
+.at-mention-row.is-historical {
+  opacity: .62;
+}
+
+.at-mention-source {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.at-mention-source > i {
+  flex: 0 0 auto;
+  color: #967844;
+}
+
+.at-mention-source > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.at-mention-source small {
+  color: #806f53;
+  font-size: 8px;
+}
+
+.at-mention-source strong {
+  overflow: hidden;
+  color: #d0b779;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.at-mention-copy {
+  min-width: 0;
+}
+
+.at-mention-copy p {
+  margin: 0 0 7px;
+  color: #b9a27a;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.at-mention-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.at-mention-meta span {
+  padding: 2px 6px;
+  border: 1px solid rgba(214, 178, 108, 0.14);
+  border-radius: 999px;
+  color: #816f51;
+  font-size: 7px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.at-layout-narrow .at-mention-summary,
+.at-layout-tiny .at-mention-summary {
+  grid-template-columns: 1fr;
+}
+
+.at-layout-narrow .at-mention-row,
+.at-layout-tiny .at-mention-row {
+  grid-template-columns: 1fr;
+}
