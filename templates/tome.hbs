@@ -378,6 +378,13 @@
         </div>
       </section>
 
+      {{#if isPrivateVaultMode}}
+      <section class="at-private-vault-banner">
+        <div><span class="at-kicker">GM-only token workspace</span><h2><i class="fa-solid fa-vault"></i> Private Vault — {{profileEditor.name}}</h2><p>This view opens from the token HUD. Use <strong>GM only</strong> Facts and Relations for private campaign data; GM Notes stay in the private vault and never render to players.</p></div>
+        <button type="button" class="at-primary" data-action="quickNote" data-document-type="actor" data-document-id="{{profileEditor.id}}"><i class="fa-solid fa-note-sticky"></i> Add GM Note</button>
+      </section>
+      {{/if}}
+
       <section class="at-profile-editor-layout">
         <aside class="at-profile-editor-image">
           <img src="{{profileEditor.previewImage}}" data-at-profile-preview data-fallback="{{profileEditor.actorImg}}" alt="{{profileEditor.name}}">
