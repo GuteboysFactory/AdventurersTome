@@ -839,6 +839,7 @@
     <nav class="at-campaign-tools-tabs" aria-label="Campaign Tools sections">
       <button type="button" class="{{#if isCampaignToolsOverview}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" class="{{#if isCampaignToolsMemory}}active{{/if}}" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" class="{{#if isCampaignToolsAnalysis}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="{{#if isCampaignToolsAssistantNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
@@ -891,6 +892,15 @@
 
       <section class="at-campaign-tool-card">
         <div>
+          <span class="at-kicker">Campaign Intelligence</span>
+          <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Analysis & Entity Review</h2>
+          <p>See ambiguous identities, unresolved mentions and review candidates that actually need a GM decision.</p>
+        </div>
+        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-arrow-right"></i> Open Analysis{{#if campaignAnalysis.attentionCount}} · {{campaignAnalysis.attentionCount}}{{/if}}</button>
+      </section>
+
+      <section class="at-campaign-tool-card">
+        <div>
           <span class="at-kicker">GM Workflow</span>
           <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Assistant Tools</h2>
           <p>Prepare the next session, capture GM notes, manage reveals and close out a finished session without crowding the global header.</p>
@@ -900,7 +910,7 @@
 
       <section class="at-campaign-tools-roadmap">
         <span><i class="fa-solid fa-circle-nodes"></i> Campaign Tools is the GM home for campaign intelligence.</span>
-        <small>Analysis, entity review, links/graph and assistant workflows can move here as those surfaces are consolidated.</small>
+        <small>Analysis and entity review are now live here; links/graph can follow as the campaign-intelligence workspace grows.</small>
       </section>
     </section>
     {{/if}}
@@ -1019,6 +1029,82 @@
     </section>
     {{/if}}
 
+    {{#if isCampaignToolsAnalysis}}
+    <section class="at-campaign-analysis">
+      <header class="at-campaign-analysis-heading">
+        <div>
+          <span class="at-kicker">Campaign intelligence</span>
+          <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Analysis & Entity Review</h2>
+          <p>A GM-only triage surface for campaign identities and mentions that need attention. Nothing here changes canonical Links automatically.</p>
+        </div>
+        <button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i> Open full Memory</button>
+      </header>
+
+      <div class="at-campaign-analysis-stats">
+        <article class="{{#if campaignAnalysis.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysis.ambiguousCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysis.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysis.unresolvedCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysis.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysis.reviewCount}}</strong></span></article>
+        <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysis.noticedCount}}</strong></span></article>
+      </div>
+
+      <section class="at-analysis-panel">
+        <div class="at-analysis-panel-heading">
+          <div><span class="at-kicker">Needs a GM decision</span><h3>Entity Review Queue</h3><p>Ambiguous identities first, then unresolved and review candidates. Open the source to inspect context before deciding what the canonical relationship should be.</p></div>
+          <span class="at-analysis-count">{{campaignAnalysis.attentionCount}} to review</span>
+        </div>
+
+        <div class="at-analysis-review-list">
+          {{#each campaignAnalysis.attention}}
+          <article class="at-analysis-review-row {{#if isAmbiguous}}is-ambiguous{{/if}} {{#if isUnresolved}}is-unresolved{{/if}} {{#if isReview}}is-review{{/if}}">
+            <div class="at-analysis-review-icon"><i class="fa-solid {{attentionIcon}}"></i></div>
+            <div class="at-analysis-review-copy">
+              <span class="at-analysis-state">{{attentionLabel}}</span>
+              <h4>{{targetName}}</h4>
+              <p>{{snippet}}</p>
+              <div class="at-analysis-meta">
+                <span><i class="fa-solid {{targetIcon}}"></i> {{targetKindLabel}}</span>
+                <span><i class="fa-solid fa-layer-group"></i> {{evidenceCount}} evidence</span>
+                <span><i class="fa-solid fa-file-lines"></i> {{sourceCount}} sources</span>
+                <span><i class="fa-solid {{sourceIcon}}"></i> {{sourceName}}{{#if pageName}} · {{pageName}}{{/if}}</span>
+              </div>
+            </div>
+            <div class="at-analysis-review-actions">
+              {{#if hasTarget}}<button type="button" class="at-secondary" data-action="openEvidenceTarget" data-target-uuid="{{targetUuid}}"><i class="fa-solid fa-circle-nodes"></i> Target</button>{{/if}}
+              <button type="button" class="at-primary" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}"><i class="fa-solid fa-arrow-up-right-from-square"></i> Source</button>
+            </div>
+          </article>
+          {{else}}
+          <div class="at-analysis-clean"><i class="fa-solid fa-circle-check"></i><div><strong>No identity decisions waiting.</strong><p>Campaign Memory currently has no active ambiguous, unresolved or review-state mentions.</p></div></div>
+          {{/each}}
+        </div>
+      </section>
+
+      <section class="at-analysis-panel at-analysis-noticed">
+        <div class="at-analysis-panel-heading">
+          <div><span class="at-kicker">Mentioned, not canonically linked</span><h3>Tome noticed</h3><p>Ordinary active mentions that are not currently canonical Links. These are informational and do not require action unless you want to inspect them.</p></div>
+          <span class="at-analysis-count">{{campaignAnalysis.noticedCount}} noticed</span>
+        </div>
+        <div class="at-analysis-noticed-grid">
+          {{#each campaignAnalysis.noticed}}
+          <article class="at-analysis-noticed-card">
+            <div><i class="fa-solid {{targetIcon}}"></i><span><small>{{targetKindLabel}}</small><strong>{{targetName}}</strong></span></div>
+            <p>{{snippet}}</p>
+            <footer>
+              <span>{{evidenceCount}} evidence · {{sourceCount}} source</span>
+              <div>{{#if hasTarget}}<button type="button" data-action="openEvidenceTarget" data-target-uuid="{{targetUuid}}" title="Open target"><i class="fa-solid fa-circle-nodes"></i></button>{{/if}}<button type="button" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}" title="Open latest source"><i class="fa-solid fa-arrow-up-right-from-square"></i></button></div>
+            </footer>
+          </article>
+          {{else}}<div class="at-empty at-wide">No ordinary unlinked mentions are waiting in Campaign Memory.</div>{{/each}}
+        </div>
+      </section>
+
+      <div class="at-analysis-safety">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span><strong>Read-only triage:</strong> Analysis does not auto-create entities, choose between ambiguous identities or silently change canonical Links. Open the source/target and make the campaign decision deliberately.</span>
+      </div>
+    </section>
+    {{/if}}
+
     {{#if isCampaignToolsAssistant}}
     <section class="at-campaign-assistant-grid">
       <article class="at-campaign-assistant-card">
@@ -1106,6 +1192,7 @@
     <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
@@ -1152,6 +1239,7 @@
     <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
@@ -1176,6 +1264,7 @@
     <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
@@ -1195,6 +1284,7 @@
     <nav class="at-campaign-tools-tabs at-campaign-tools-tabs-context" aria-label="Campaign Tools sections">
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
