@@ -2,7 +2,10 @@
 
 ## 1.7.0-qa.34 — Campaign Memory Search & Filters
 
-- Adds a GM-only Campaign Memory evidence search section to Tome Search without changing the normal document/entity search.
+- Adds a GM-only top-level **Campaign Tools** workspace with **Overview** and **Memory** sub-tabs.
+- Moves Campaign Memory Evidence Search out of ordinary Tome Search and into **Campaign Tools → Memory**.
+- Adds a lightweight Campaign Tools Overview with Evidence, Linked + Mentioned, Unresolved and Historical counts.
+- Preserves ordinary Tome Search as the normal document/entity search.
 - Free-text searches target/entity names, mention text, snippets, sources, pages, relation labels and lifecycle metadata.
 - Adds filters for relation state, Active/Historical lifecycle, Session/Quest source type and target/entity type.
 - Adds Newest / Oldest / First seen / Last seen sorting.

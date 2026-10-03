@@ -2502,7 +2502,11 @@ QA: `docs/V1.7_QA33_EVIDENCE_HISTORY_SOURCE_JUMP.md`
 
 Campaign Memory becomes searchable at campaign scale:
 
-- GM-only Evidence Search is integrated into Tome Search while the normal Tome index remains unchanged
+- GM-only **Campaign Tools** becomes the dedicated campaign-intelligence workspace
+- first Campaign Tools sub-tabs are **Overview** and **Memory**
+- Evidence Search lives under **Campaign Tools → Memory**, separate from ordinary Tome Search
+- Overview surfaces Evidence / Linked + Mentioned / Unresolved / Historical counts
+- the Campaign Tools shell is intentionally prepared for later Analysis, Entities, Links/Graph and Assistant workflows
 - free-text search covers entity, source, snippet and evidence metadata
 - filters: relation, Active/Historical lifecycle, source type and entity type
 - sorting: Newest / Oldest / First seen / Last seen
