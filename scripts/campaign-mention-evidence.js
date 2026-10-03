@@ -202,12 +202,16 @@ function atMeSourceOrdinal(journal, sourceKind) {
   return match ? Number(match[1]) : null;
 }
 
-function atMeRecordId(row) {
+function atMeRecordGroupKey(row) {
   const sourceUuid = atMeClean(row?.sourceJournalUuid || row?.source?.uuid);
   const pageUuid = atMeClean(row?.sourcePageUuid || row?.source?.pageUuid);
-  const start = Number.isFinite(Number(row?.source?.start)) ? Number(row.source.start) : -1;
   const mention = atMeNormalize(row?.text);
-  return `mention-${atMeHash([sourceUuid, pageUuid, start, mention].join("|"))}`;
+  const mentionType = row?.mentionType === "explicit-link" ? "explicit-reference" : "prose-mention";
+  return [sourceUuid, pageUuid, mentionType, mention].join("|");
+}
+
+function atMeRecordId(row, occurrenceOrdinal = 1) {
+  return `mention-${atMeHash([atMeRecordGroupKey(row), Number(occurrenceOrdinal || 1)].join("|"))}`;
 }
 
 function atMeScopedResolution(row) {
@@ -245,7 +249,7 @@ function atMeRelationState({ decision, targetUuid, linked }) {
   return "mentioned";
 }
 
-function atMeFromDiscoveryRow(row, previous = null) {
+function atMeFromDiscoveryRow(row, previous = null, recordId = "") {
   const scoped = atMeScopedResolution(row);
   const decision = atMeClean(scoped?.decision || row?.resolution?.decision || "unresolved");
   const ambiguous = scoped?.identityAmbiguous === true || decision === "ambiguous";
@@ -265,7 +269,7 @@ function atMeFromDiscoveryRow(row, previous = null) {
 
   const now = Date.now();
   const record = atMeNormalizeRecord({
-    id:atMeRecordId(row),
+    id:recordId || atMeRecordId(row, 1),
     sourceUuid,
     sourcePageUuid,
     sourceKind:atMeClean(row?.sourceKind || "source"),
@@ -352,10 +356,14 @@ async function atMeSync(options = {}) {
     let unresolved = 0;
     let ambiguous = 0;
 
+    const occurrenceCounts = new Map();
     for (const row of atMeArray(snapshot.mentions)) {
-      const id = atMeRecordId(row);
+      const groupKey = atMeRecordGroupKey(row);
+      const occurrenceOrdinal = Number(occurrenceCounts.get(groupKey) || 0) + 1;
+      occurrenceCounts.set(groupKey, occurrenceOrdinal);
+      const id = atMeRecordId(row, occurrenceOrdinal);
       const previous = previousById.get(id) || null;
-      const record = atMeFromDiscoveryRow(row, previous);
+      const record = atMeFromDiscoveryRow(row, previous, id);
       next.push(record);
       seen.add(id);
       if (previous) updated += 1;
