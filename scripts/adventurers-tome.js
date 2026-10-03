@@ -1064,6 +1064,69 @@ function worldProfileText(entry) {
   return [entry?.name, profile?.subtitle, profile?.summary, profile?.body, journalText(entry), ...(profile?.facts || []).flatMap((fact) => [fact.label, fact.value])].filter(Boolean).join(" ");
 }
 
+function campaignMentionHistoryForWorld(entry, profile = null) {
+  if (!game.user?.isGM || !entry) {
+    return { targetUuid:"", rows:[], count:0, activeCount:0, historicalCount:0, first:null, last:null };
+  }
+
+  const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+  if (!evidenceApi?.recordsForTarget) {
+    return { targetUuid:"", rows:[], count:0, activeCount:0, historicalCount:0, first:null, last:null };
+  }
+
+  const category = String(profile?.category || getWorldProfile(entry)?.category || "world");
+  const targetUuid = typeof evidenceApi.authorityUuid === "function"
+    ? String(evidenceApi.authorityUuid({ canonicalUuid:entry.uuid, uuid:entry.uuid, name:entry.name, kind:category }) || entry.uuid)
+    : entry.uuid;
+
+  const rawRows = evidenceApi.recordsForTarget(targetUuid, { includeHistorical:true }) || [];
+  const rows = rawRows.map((row) => {
+    const active = row.active !== false;
+    const linked = row.linkedAtSync === true;
+    const review = row.relationState === "mentioned-review";
+    const historical = !active;
+    const sourceKind = String(row.sourceKind || "source").toLowerCase();
+    return {
+      ...row,
+      active,
+      linked,
+      review,
+      historical,
+      relationLabel:historical
+        ? "Historical mention"
+        : linked
+          ? "Linked + Mentioned"
+          : review
+            ? "Mentioned · review"
+            : "Mentioned",
+      sourceLabel:sourceKind === "session" ? "Session" : sourceKind === "quest" ? "Quest" : "Source",
+      sourceIcon:sourceKind === "session" ? "fa-book-open" : sourceKind === "quest" ? "fa-diamond" : "fa-file-lines",
+      sourceAction:sourceKind === "session" ? "selectSession" : sourceKind === "quest" ? "openQuestDetail" : "openJournal",
+      sourceJournalId:String(row.sourceUuid || "").replace(/^JournalEntry\./, ""),
+      mentionTypeLabel:row.mentionType === "explicit-reference" ? "Explicit reference" : "Prose mention"
+    };
+  });
+
+  const activeRows = rows.filter((row) => row.active);
+  const chronological = [...activeRows].sort((a, b) => {
+    const ao = Number.isFinite(Number(a.sourceOrdinal)) ? Number(a.sourceOrdinal) : null;
+    const bo = Number.isFinite(Number(b.sourceOrdinal)) ? Number(b.sourceOrdinal) : null;
+    if (ao != null && bo != null && ao !== bo) return ao - bo;
+    if (Number(a.sourceSort || 0) !== Number(b.sourceSort || 0)) return Number(a.sourceSort || 0) - Number(b.sourceSort || 0);
+    return Number(a.firstSeenAt || 0) - Number(b.firstSeenAt || 0);
+  });
+
+  return {
+    targetUuid,
+    rows,
+    count:rows.length,
+    activeCount:activeRows.length,
+    historicalCount:rows.length - activeRows.length,
+    first:chronological[0] || null,
+    last:chronological.length ? chronological[chronological.length - 1] : null
+  };
+}
+
 function candidatesFromExplicit(document, key, candidates = []) {
   const ids = new Set(getTomeLinks(document)[key] || []);
   return candidates.filter((candidate) => ids.has(candidate.id));
@@ -5061,6 +5124,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         suggestedWorldCampaignQuests,
         suggestedWorldCampaignActors
       ], worldEntry.uuid).slice(0, 20);
+      const mentionHistory = campaignMentionHistoryForWorld(worldEntry, profile);
       const linkedActor = resolveWorldActor(worldEntry, profile);
       const linkedActorVisible = Boolean(linkedActor && canViewInTome(linkedActor));
       const linkedActorInferred = Boolean(linkedActor && !profile.actorId);
@@ -5080,7 +5144,14 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         hasCampaignLinks: Boolean(worldCampaignSessions.length || worldCampaignQuests.length || worldCampaignActors.length),
         suggestedCampaignMentions,
         suggestedCampaignCount:suggestedCampaignMentions.length,
-        hasSuggestedCampaignMentions:suggestedCampaignMentions.length > 0
+        hasSuggestedCampaignMentions:suggestedCampaignMentions.length > 0,
+        mentionHistory:mentionHistory.rows,
+        mentionCount:mentionHistory.count,
+        activeMentionCount:mentionHistory.activeCount,
+        historicalMentionCount:mentionHistory.historicalCount,
+        hasMentionHistory:mentionHistory.rows.length > 0,
+        firstMention:mentionHistory.first,
+        lastMention:mentionHistory.last
       };
       worldProfileEditor = {
         journalId: worldEntry.id,
