@@ -2458,3 +2458,22 @@ First persistent Campaign Memory evidence layer:
 - automatic Campaign Link writes remain OFF
 
 QA: `docs/V1.7_QA31_CAMPAIGN_MENTION_FOUNDATION.md`
+
+## v1.7.0-qa.32 — Deterministic Campaign Auto-Link
+
+**Status:** QA / IMPLEMENTED
+
+First proactive Campaign Assistant write step:
+
+- exact detected mention + one existing reconciled canonical identity -> automatic Campaign Link
+- ambiguity -> no auto-link
+- missing canonical target -> no auto-create
+- raw confidence percentage alone never authorizes a write
+- Link + Mention remain separate and may coexist
+- Actor, Item and JournalEntry UUIDs are supported canonical link targets
+- Item-backed World projections preserve Item UUID authority while rendering normal World links
+- manual GM unlink of an auto-link creates a suppression instead of being immediately overwritten
+- source Session/Quest retains auto-link provenance
+- release publishing from `release/READY` is restricted to `main`
+
+QA: `docs/V1.7_QA32_DETERMINISTIC_CAMPAIGN_AUTO_LINK.md`

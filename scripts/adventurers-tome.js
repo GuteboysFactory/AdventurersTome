@@ -1013,6 +1013,26 @@ function uniqueById(items = []) {
   });
 }
 
+function campaignWorldProjectionIdForAuthorityUuid(authorityUuid = "") {
+  const wanted = String(authorityUuid || "").trim();
+  if (!wanted) return "";
+
+  for (const journal of game.journal?.contents || []) {
+    const backend = journal.getFlag?.(MODULE_ID, "backendProjectionV1");
+    if (backend?.managed === true && String(backend?.sourceUuid || "").trim() === wanted) return journal.id;
+
+    const semantic = journal.getFlag?.(MODULE_ID, "semanticProjection");
+    if (String(semantic?.linkedUuid || "").trim() === wanted) return journal.id;
+
+    const profile = journal.getFlag?.(MODULE_ID, "worldProfile");
+    if (String(profile?.sourceUuid || "").trim() === wanted) return journal.id;
+    if (wanted.startsWith("Actor.") && String(profile?.actorId || "").trim() === wanted.slice(6)) return journal.id;
+    if (wanted.startsWith("Item.") && String(profile?.itemId || "").trim() === wanted.slice(5)) return journal.id;
+  }
+
+  return "";
+}
+
 function getTomeLinks(document) {
   const raw = document?.getFlag?.(MODULE_ID, FLAGS.LINKS);
   const links = raw && typeof raw === "object" ? raw : {};
@@ -1029,7 +1049,13 @@ function getTomeLinks(document) {
   const worldIds = new Set(normalize(links.world));
   for (const uuid of normalize(canonical.entityUuids)) {
     const match = /^JournalEntry\.([^.]+)$/.exec(uuid);
-    if (match) worldIds.add(match[1]);
+    if (match) {
+      worldIds.add(match[1]);
+      continue;
+    }
+
+    const projectionId = campaignWorldProjectionIdForAuthorityUuid(uuid);
+    if (projectionId) worldIds.add(projectionId);
   }
 
   return {

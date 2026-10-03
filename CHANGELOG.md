@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 1.7.0-qa.32 — Deterministic Campaign Auto-Link
+
+- Automatically creates canonical Campaign Links for detected Session/Quest mentions that resolve to exactly one existing canonical identity.
+- Requires exact existing-name evidence plus one reconciled identity; raw confidence alone is not sufficient.
+- Keeps ambiguous same-name identities such as two unrelated Gunthers out of auto-link.
+- Never auto-creates new entities.
+- Keeps persistent Mention evidence after linking so **Linked + Mentioned** coexist.
+- Adds canonical Foundry Item targets to Campaign Entity Links for Item-backed Tome World projections.
+- Projects canonical Item links back into Tome World presentation without replacing Item UUID authority.
+- Records auto-link provenance and respects GM unlink suppression.
+- Hardens release automation so feature-branch READY changes cannot publish releases before merge.
+
+# CHANGELOG
+
 ## 1.7.0-qa.31 — Campaign Mention Foundation
 
 - Adds the first persistent Campaign Memory evidence ledger for Session/Quest mentions.
