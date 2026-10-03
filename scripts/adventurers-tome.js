@@ -1212,6 +1212,82 @@ function campaignMemorySearchView() {
   };
 }
 
+function campaignAnalysisView(memorySearch = null) {
+  if (!game.user?.isGM) return null;
+  const memory = memorySearch || campaignMemorySearchView();
+  const activeRows = Array.isArray(memory?.rows) ? memory.rows.filter((row) => row.lifecycle === "active") : [];
+
+  const priorityFor = (row) => {
+    if (row.relationLabel === "Ambiguous") return 0;
+    if (row.relationLabel === "Unresolved") return 1;
+    if (row.relationGroup === "review") return 2;
+    if (row.relationGroup === "mentioned") return 3;
+    return 9;
+  };
+
+  const groupRows = (rows = []) => {
+    const groups = new Map();
+    for (const row of rows) {
+      const identity = String(row.targetUuid || "").trim()
+        || normalizeImportName(row.targetName || row.mentionText || row.snippet || "unresolved");
+      const key = `${row.relationGroup || "mentioned"}|${identity}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    }
+
+    return [...groups.values()].map((group) => {
+      const sorted = [...group].sort((a, b) => Number(b.lastSeenAt || b.firstSeenAt || 0) - Number(a.lastSeenAt || a.firstSeenAt || 0));
+      const latest = sorted[0];
+      const sourceUuids = new Set(group.map((row) => String(row.sourceUuid || "")).filter(Boolean));
+      const evidenceCount = group.reduce((sum, row) => sum + Math.max(1, Number(row.evidenceCount || 1)), 0);
+      const lastSeenAt = Math.max(...group.map((row) => Number(row.lastSeenAt || row.firstSeenAt || 0)), 0);
+      const firstSeenAt = Math.min(...group.map((row) => Number(row.firstSeenAt || row.lastSeenAt || Date.now())).filter((value) => value > 0), Date.now());
+      return {
+        ...latest,
+        evidenceCount,
+        sourceCount:sourceUuids.size || group.length,
+        firstSeenAt,
+        lastSeenAt,
+        priority:priorityFor(latest),
+        needsDecision:latest.relationGroup === "unresolved" || latest.relationGroup === "review",
+        isAmbiguous:latest.relationLabel === "Ambiguous",
+        isUnresolved:latest.relationLabel === "Unresolved",
+        isReview:latest.relationGroup === "review",
+        isMentioned:latest.relationGroup === "mentioned",
+        attentionLabel:latest.relationLabel === "Ambiguous"
+          ? "Ambiguous identity"
+          : latest.relationLabel === "Unresolved"
+            ? "Unresolved identity"
+            : latest.relationGroup === "review"
+              ? "Needs review"
+              : "Tome noticed",
+        attentionIcon:latest.relationLabel === "Ambiguous"
+          ? "fa-triangle-exclamation"
+          : latest.relationLabel === "Unresolved"
+            ? "fa-circle-question"
+            : latest.relationGroup === "review"
+              ? "fa-magnifying-glass"
+              : "fa-wand-magic-sparkles"
+      };
+    }).sort((a, b) => a.priority - b.priority || b.lastSeenAt - a.lastSeenAt || String(a.targetName || "").localeCompare(String(b.targetName || ""), game.i18n.lang));
+  };
+
+  const attention = groupRows(activeRows.filter((row) => row.relationGroup === "unresolved" || row.relationGroup === "review"));
+  const noticed = groupRows(activeRows.filter((row) => row.relationGroup === "mentioned"));
+
+  return {
+    attention,
+    noticed,
+    attentionCount:attention.length,
+    noticedCount:noticed.length,
+    ambiguousCount:attention.filter((row) => row.isAmbiguous).length,
+    unresolvedCount:attention.filter((row) => row.isUnresolved).length,
+    reviewCount:attention.filter((row) => row.isReview).length,
+    clean:attention.length === 0,
+    hasNoticed:noticed.length > 0
+  };
+}
+
 function campaignMentionHistoryForWorld(entry, profile = null) {
   const empty = {
     targetUuid:"",
@@ -4833,7 +4909,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.activeTab === "worldProfile") return { activeTab: "world" };
     if (this.activeTab === "ruleDetail") return { activeTab: "rules" };
     if (this.activeTab === "access") return { activeTab: "settings" };
-    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
+    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
     return { activeTab: "home" };
   }
 
@@ -5427,6 +5503,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     })).filter((filter) => filter.key === "all" || filter.count > 0);
 
     const campaignMemorySearch = game.user.isGM ? campaignMemorySearchView() : null;
+    const campaignAnalysis = game.user.isGM ? campaignAnalysisView(campaignMemorySearch) : null;
 
     const byRefKey = new Map(searchEntries.map((entry) => [entry.refKey, entry]));
     const favoriteEntries = favoriteRefs.map((ref) => byRefKey.get(ref)).filter(Boolean);
@@ -5524,10 +5601,11 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isRulesNavActive: this.activeTab === "rules" || this.activeTab === "ruleDetail",
       isRuleDetail: this.activeTab === "ruleDetail" && Boolean(ruleDetail),
       isSearch: this.activeTab === "search",
-      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
-      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAssistant"].includes(this.activeTab),
+      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
+      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsAssistant"].includes(this.activeTab),
       isCampaignToolsOverview: game.user.isGM && this.activeTab === "campaignToolsOverview",
       isCampaignToolsMemory: game.user.isGM && this.activeTab === "campaignToolsMemory",
+      isCampaignToolsAnalysis: game.user.isGM && this.activeTab === "campaignToolsAnalysis",
       isCampaignToolsAssistant: game.user.isGM && this.activeTab === "campaignToolsAssistant",
       isCampaignToolsAssistantNavActive: game.user.isGM && ["campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
       isManual: this.activeTab === "manual",
@@ -5571,6 +5649,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       actorOptions,
       searchEntries,
       campaignMemorySearch,
+      campaignAnalysis,
       searchState: {
         query: this.searchQuery,
         filter: this.searchFilter,
