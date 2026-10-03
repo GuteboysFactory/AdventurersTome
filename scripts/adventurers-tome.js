@@ -1177,6 +1177,7 @@ function campaignMemorySearchView() {
       ...target,
       ...relation,
       lifecycle,
+      historical:lifecycle === "historical",
       lifecycleLabel:lifecycle === "historical" ? "Historical" : "Active",
       sourceKind,
       sourceLabel,
