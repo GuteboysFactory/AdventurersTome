@@ -4401,6 +4401,7 @@ function buildGmNotebookRows() {
   });
   return {
     rows,
+    overviewRows: rows.filter((row) => row.status !== "resolved").slice(0, 6),
     scratchpad: workspace.scratchpad,
     pads: workspace.pads.map((pad) => ({
       ...pad,
