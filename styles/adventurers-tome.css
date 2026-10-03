@@ -6182,7 +6182,7 @@
 }
 
 .at-layout-tiny .at-campaign-tools-tabs {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
 }
 
 
@@ -6348,4 +6348,367 @@
 .at-layout-tiny .at-private-vault-banner {
   align-items: flex-start;
   flex-direction: column;
+}
+
+
+/* v1.7.0-qa.37 — Campaign Analysis & Entity Review */
+.at-campaign-analysis {
+  display: grid;
+  gap: 12px;
+}
+
+.at-campaign-analysis-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px;
+  border: 1px solid rgba(214, 178, 108, 0.2);
+  background: rgba(18, 13, 9, 0.72);
+}
+
+.at-campaign-analysis-heading h2 {
+  margin: 3px 0 4px;
+  color: #e5c982;
+  font-size: 20px;
+  font-weight: normal;
+}
+
+.at-campaign-analysis-heading p {
+  margin: 0;
+  max-width: 760px;
+  color: #8f7b57;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.at-campaign-analysis-heading > button {
+  flex: 0 0 auto;
+}
+
+.at-campaign-analysis-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.at-campaign-analysis-stats article {
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid rgba(214, 178, 108, 0.16);
+  background: rgba(25, 18, 12, 0.58);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.at-campaign-analysis-stats article.has-attention {
+  border-color: rgba(196, 128, 70, 0.38);
+  background: rgba(82, 43, 22, 0.22);
+}
+
+.at-campaign-analysis-stats article > i {
+  width: 25px;
+  color: #a9894e;
+  font-size: 17px;
+  text-align: center;
+}
+
+.at-campaign-analysis-stats article.has-attention > i {
+  color: #cf8c57;
+}
+
+.at-campaign-analysis-stats span {
+  display: flex;
+  flex-direction: column;
+}
+
+.at-campaign-analysis-stats small {
+  color: #806f53;
+  font-size: 8px;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.at-campaign-analysis-stats strong {
+  color: #dfbf78;
+  font-size: 20px;
+  font-weight: normal;
+}
+
+.at-analysis-panel {
+  padding: 14px;
+  border: 1px solid rgba(214, 178, 108, 0.18);
+  background: rgba(18, 13, 9, 0.72);
+}
+
+.at-analysis-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(214, 178, 108, 0.12);
+}
+
+.at-analysis-panel-heading h3 {
+  margin: 2px 0 4px;
+  color: #d9bb78;
+  font-size: 16px;
+  font-weight: normal;
+}
+
+.at-analysis-panel-heading p {
+  margin: 0;
+  max-width: 760px;
+  color: #817053;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.at-analysis-count {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid rgba(214, 178, 108, 0.16);
+  border-radius: 999px;
+  color: #9d8457;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.at-analysis-review-list {
+  display: grid;
+  gap: 7px;
+  padding-top: 10px;
+}
+
+.at-analysis-review-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid rgba(214, 178, 108, 0.14);
+  background: rgba(24, 17, 11, 0.46);
+}
+
+.at-analysis-review-row.is-ambiguous {
+  border-color: rgba(198, 111, 70, 0.42);
+}
+
+.at-analysis-review-row.is-unresolved,
+.at-analysis-review-row.is-review {
+  border-color: rgba(184, 144, 72, 0.3);
+}
+
+.at-analysis-review-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(214, 178, 108, 0.16);
+  color: #ba8758;
+  background: rgba(214, 178, 108, 0.025);
+}
+
+.at-analysis-review-copy {
+  min-width: 0;
+}
+
+.at-analysis-state {
+  color: #9f7b51;
+  font-size: 7px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.at-analysis-review-copy h4 {
+  margin: 2px 0 4px;
+  color: #d9bd7d;
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.at-analysis-review-copy p {
+  margin: 0;
+  color: #97815c;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.at-analysis-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  margin-top: 7px;
+  color: #71634d;
+  font-size: 7px;
+}
+
+.at-analysis-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.at-analysis-review-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.at-analysis-review-actions button {
+  min-width: 82px;
+  margin: 0 !important;
+}
+
+.at-analysis-clean {
+  padding: 16px;
+  border: 1px dashed rgba(94, 151, 103, 0.28);
+  background: rgba(32, 70, 41, 0.12);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.at-analysis-clean > i {
+  color: #7aa883;
+  font-size: 17px;
+}
+
+.at-analysis-clean strong {
+  color: #afc39e;
+}
+
+.at-analysis-clean p {
+  margin: 3px 0 0;
+  color: #77866e;
+  font-size: 9px;
+}
+
+.at-analysis-noticed-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.at-analysis-noticed-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(214, 178, 108, 0.13);
+  background: rgba(214, 178, 108, 0.02);
+}
+
+.at-analysis-noticed-card > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.at-analysis-noticed-card > div:first-child > i {
+  width: 24px;
+  color: #9c7c47;
+  text-align: center;
+}
+
+.at-analysis-noticed-card > div:first-child span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.at-analysis-noticed-card small {
+  color: #716249;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.at-analysis-noticed-card strong {
+  overflow: hidden;
+  color: #ccb073;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.at-analysis-noticed-card p {
+  margin: 7px 0;
+  color: #8d7957;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.at-analysis-noticed-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(214, 178, 108, 0.08);
+  color: #6f6048;
+  font-size: 7px;
+}
+
+.at-analysis-noticed-card footer > div {
+  display: flex;
+  gap: 4px;
+}
+
+.at-analysis-noticed-card footer button {
+  width: 28px;
+  min-width: 28px;
+  height: 26px;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 1px solid rgba(214, 178, 108, 0.14) !important;
+}
+
+.at-analysis-safety {
+  padding: 10px 12px;
+  border: 1px dashed rgba(214, 178, 108, 0.16);
+  background: rgba(214, 178, 108, 0.025);
+  color: #7e6c50;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.at-analysis-safety > i {
+  color: #a58750;
+  margin-top: 1px;
+}
+
+.at-layout-narrow .at-campaign-analysis-heading,
+.at-layout-tiny .at-campaign-analysis-heading,
+.at-layout-narrow .at-analysis-panel-heading,
+.at-layout-tiny .at-analysis-panel-heading {
+  flex-direction: column;
+}
+
+.at-layout-narrow .at-campaign-analysis-stats,
+.at-layout-tiny .at-campaign-analysis-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.at-layout-narrow .at-analysis-review-row,
+.at-layout-tiny .at-analysis-review-row {
+  grid-template-columns: 30px minmax(0, 1fr);
+}
+
+.at-layout-narrow .at-analysis-review-actions,
+.at-layout-tiny .at-analysis-review-actions {
+  grid-column: 1 / -1;
+  padding-left: 40px;
+}
+
+.at-layout-narrow .at-analysis-noticed-grid,
+.at-layout-tiny .at-analysis-noticed-grid {
+  grid-template-columns: 1fr;
+}
+
+.at-layout-tiny .at-campaign-tools-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
