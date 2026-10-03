@@ -5508,3 +5508,114 @@
 .at-layout-tiny .at-mention-row {
   grid-template-columns: 1fr;
 }
+
+
+/* v1.7.0-qa.33: Evidence history / Source jump */
+.at-mention-summary em {
+  overflow: hidden;
+  color: #77664a;
+  font-size: 8px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.at-mention-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 2px;
+  color: #a58a57;
+}
+
+.at-mention-section-head > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.at-mention-section-head strong {
+  color: #c9ad72;
+  font-size: 10px;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.at-mention-section-head small {
+  color: #75664d;
+  font-size: 8px;
+}
+
+.at-mention-source-stack {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.at-mention-jump {
+  width: max-content;
+  min-height: 24px !important;
+  height: 24px !important;
+  margin: 0 !important;
+  padding: 2px 7px !important;
+  border: 1px solid rgba(214, 178, 108, 0.16) !important;
+  border-radius: 3px;
+  background: rgba(214, 178, 108, 0.035) !important;
+  color: #8f7952 !important;
+  font-size: 8px !important;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+.at-mention-jump:hover {
+  border-color: rgba(214, 178, 108, 0.4) !important;
+  color: #d9bd7d !important;
+  background: rgba(214, 178, 108, 0.08) !important;
+}
+
+.at-mention-archive {
+  border-top: 1px dashed rgba(214, 178, 108, 0.15);
+  padding-top: 8px;
+}
+
+.at-mention-archive > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: max-content;
+  max-width: 100%;
+  cursor: pointer;
+  color: #917a51;
+  font-size: 9px;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+  list-style: none;
+}
+
+.at-mention-archive > summary::-webkit-details-marker {
+  display: none;
+}
+
+.at-mention-archive > summary span {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 1px solid rgba(214, 178, 108, 0.18);
+  border-radius: 999px;
+  color: #b69a64;
+  font-size: 8px;
+}
+
+.at-mention-archive[open] > summary {
+  margin-bottom: 8px;
+  color: #c0a46c;
+}
+
+.at-layout-narrow .at-mention-section-head,
+.at-layout-tiny .at-mention-section-head {
+  align-items: flex-start;
+  flex-direction: column;
+}
