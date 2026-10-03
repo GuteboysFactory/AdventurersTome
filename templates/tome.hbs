@@ -13,6 +13,7 @@
       {{#if settings.nav.world}}<button type="button" class="{{#if isWorldNavActive}}active{{/if}}" data-action="navigate" data-tab="world"><i class="fa-solid fa-earth-europe"></i><span>World</span></button>{{/if}}
       {{#if settings.nav.rules}}<button type="button" class="{{#if isRulesNavActive}}active{{/if}}" data-action="navigate" data-tab="rules"><i class="fa-solid fa-scroll"></i><span>Rules</span></button>{{/if}}
       {{#if settings.nav.search}}<button type="button" class="{{#if isSearch}}active{{/if}}" data-action="navigate" data-tab="search"><i class="fa-solid fa-magnifying-glass"></i><span>Search</span></button>{{/if}}
+      {{#if isGM}}<button type="button" class="{{#if isCampaignToolsNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-toolbox"></i><span>Campaign Tools</span></button>{{/if}}
     </nav>
 
     <div class="at-gm-top-actions">
@@ -820,7 +821,49 @@
       </div>
     </section>
 
-    {{#if isGM}}
+  </main>
+  {{/if}}
+
+
+  {{#if isCampaignToolsNavActive}}
+  <main class="at-page at-campaign-tools-page">
+    <section class="at-page-heading at-campaign-tools-heading">
+      <span class="at-kicker">GM workspace</span>
+      <h1><i class="fa-solid fa-toolbox"></i> Campaign Tools</h1>
+      <p>Campaign memory, analysis and campaign-intelligence workflows in one GM-only workspace.</p>
+    </section>
+
+    <nav class="at-campaign-tools-tabs" aria-label="Campaign Tools sections">
+      <button type="button" class="{{#if isCampaignToolsOverview}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
+      <button type="button" class="{{#if isCampaignToolsMemory}}active{{/if}}" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+    </nav>
+
+    {{#if isCampaignToolsOverview}}
+    <section class="at-campaign-tools-overview">
+      <div class="at-campaign-tools-summary">
+        <article><i class="fa-solid fa-database"></i><span><small>Evidence</small><strong>{{campaignMemorySearch.total}}</strong></span></article>
+        <article><i class="fa-solid fa-link"></i><span><small>Linked + Mentioned</small><strong>{{campaignMemorySearch.linked}}</strong></span></article>
+        <article><i class="fa-solid fa-triangle-exclamation"></i><span><small>Unresolved</small><strong>{{campaignMemorySearch.unresolved}}</strong></span></article>
+        <article><i class="fa-solid fa-box-archive"></i><span><small>Historical</small><strong>{{campaignMemorySearch.historical}}</strong></span></article>
+      </div>
+
+      <section class="at-campaign-tool-card">
+        <div>
+          <span class="at-kicker">Campaign Memory</span>
+          <h2><i class="fa-solid fa-brain"></i> Evidence Search</h2>
+          <p>Search, filter and trace where campaign entities were mentioned. Canonical Links remain separate and Foundry UUIDs remain authoritative.</p>
+        </div>
+        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-arrow-right"></i> Open Memory</button>
+      </section>
+
+      <section class="at-campaign-tools-roadmap">
+        <span><i class="fa-solid fa-circle-nodes"></i> Campaign Tools is the GM home for campaign intelligence.</span>
+        <small>Analysis, entity review, links/graph and assistant workflows can move here as those surfaces are consolidated.</small>
+      </section>
+    </section>
+    {{/if}}
+
+    {{#if isCampaignToolsMemory}}
     <section class="at-memory-search" data-at-memory-search-root>
       <header class="at-memory-search-heading">
         <div>
