@@ -645,6 +645,42 @@
       </div>
       {{/if}}
     </section>
+
+    {{#if isGM}}
+    {{#if worldProfileView.hasMentionHistory}}
+    <section class="at-profile-panel at-mention-history">
+      <div class="at-profile-section-heading">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <h2>Mentioned In</h2>
+        <span class="at-mention-count">{{worldProfileView.activeMentionCount}} active{{#if worldProfileView.historicalMentionCount}} · {{worldProfileView.historicalMentionCount}} historical{{/if}}</span>
+      </div>
+      <p class="at-suggested-help">Persistent campaign-memory evidence. A Mention records where this entity appeared; it does not replace a canonical Campaign Link.</p>
+      <div class="at-mention-summary">
+        {{#if worldProfileView.firstMention}}<div><small>First mention</small><strong>{{worldProfileView.firstMention.sourceName}}</strong></div>{{/if}}
+        {{#if worldProfileView.lastMention}}<div><small>Last mention</small><strong>{{worldProfileView.lastMention.sourceName}}</strong></div>{{/if}}
+        <div><small>Total evidence</small><strong>{{worldProfileView.mentionCount}}</strong></div>
+      </div>
+      <div class="at-mention-list">
+        {{#each worldProfileView.mentionHistory}}
+        <article class="at-mention-row {{#if historical}}is-historical{{/if}} {{#if review}}is-review{{/if}}">
+          <button type="button" class="at-mention-source" data-action="{{sourceAction}}" data-journal-id="{{sourceJournalId}}">
+            <i class="fa-solid {{sourceIcon}}"></i>
+            <span><small>{{sourceLabel}}{{#if pageName}} · {{pageName}}{{/if}}</small><strong>{{sourceName}}</strong></span>
+          </button>
+          <div class="at-mention-copy">
+            <p>{{snippet}}</p>
+            <div class="at-mention-meta">
+              <span>{{mentionTypeLabel}}</span>
+              <span>{{relationLabel}}</span>
+              {{#if historical}}<span>Historical</span>{{/if}}
+            </div>
+          </div>
+        </article>
+        {{/each}}
+      </div>
+    </section>
+    {{/if}}
+    {{/if}}
     {{/if}}
   </main>
   {{/if}}
