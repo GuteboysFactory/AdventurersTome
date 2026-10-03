@@ -2553,3 +2553,23 @@ The old monolithic GM Notebook/Workspace is decomposed into the new Campaign Too
 - no canonical authority, Campaign Memory, auto-link, auto-create or privacy semantics change
 
 QA: `docs/V1.7_QA36_GM_WORKSPACE_DECOMPOSITION_TOKEN_UX.md`
+
+## v1.7.0-qa.37 — Campaign Analysis & Entity Review
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Tools gains a dedicated **Analysis** workspace for GM decision support:
+
+- Campaign Tools tabs become Overview / Memory / Analysis / Assistant
+- Analysis derives from active Campaign Mention evidence rather than creating a parallel data source
+- Ambiguous, Unresolved and Mentioned · review states are promoted into an **Entity Review Queue**
+- repeated evidence for the same identity/state is grouped into one review row
+- queue rows show latest evidence context, evidence count, source count and latest source
+- resolved targets can be opened safely
+- every row can jump to the authoritative Foundry source/page
+- ordinary non-linked mentions remain separate under **Tome noticed**
+- Analysis is strictly read-only in qa.37
+- no auto-create, identity choice, canonical Link write or suppression behavior changes
+- Analysis remains GM-only and does not expose Campaign Memory to players
+
+QA: `docs/V1.7_QA37_CAMPAIGN_ANALYSIS_ENTITY_REVIEW.md`
