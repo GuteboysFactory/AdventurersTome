@@ -819,6 +819,120 @@
         <div class="at-empty at-wide at-search-no-results" data-at-search-empty hidden>No matching Tome entries. Try another search or category.</div>
       </div>
     </section>
+
+    {{#if isGM}}
+    <section class="at-memory-search" data-at-memory-search-root>
+      <header class="at-memory-search-heading">
+        <div>
+          <span class="at-kicker">Campaign Memory</span>
+          <h2><i class="fa-solid fa-brain"></i> Evidence Search</h2>
+          <p>Search the GM-private Mention ledger without changing canonical Links or campaign data.</p>
+        </div>
+        <div class="at-memory-search-stats">
+          <span><strong>{{campaignMemorySearch.total}}</strong> total</span>
+          <span><strong>{{campaignMemorySearch.active}}</strong> active</span>
+          <span><strong>{{campaignMemorySearch.historical}}</strong> historical</span>
+          <span><strong>{{campaignMemorySearch.unresolved}}</strong> unresolved</span>
+        </div>
+      </header>
+
+      <div class="at-memory-search-controls">
+        <label class="at-memory-search-text">
+          <span>Search evidence</span>
+          <div><i class="fa-solid fa-magnifying-glass"></i><input type="search" data-at-memory-search placeholder="Entity, Session, snippet, relation…" autocomplete="off"></div>
+        </label>
+
+        <label><span>Relation</span><select data-at-memory-relation>
+          <option value="all">All relations</option>
+          <option value="linked">Linked + Mentioned</option>
+          <option value="mentioned">Mentioned</option>
+          <option value="review">Review</option>
+          <option value="unresolved">Ambiguous / Unresolved</option>
+        </select></label>
+
+        <label><span>State</span><select data-at-memory-lifecycle>
+          <option value="all">Active + Historical</option>
+          <option value="active">Active</option>
+          <option value="historical">Historical</option>
+        </select></label>
+
+        <label><span>Source</span><select data-at-memory-source>
+          <option value="all">All sources</option>
+          <option value="session">Sessions</option>
+          <option value="quest">Quests</option>
+        </select></label>
+
+        <label><span>Entity type</span><select data-at-memory-target-kind>
+          <option value="all">All entity types</option>
+          {{#each campaignMemorySearch.targetKinds}}<option value="{{key}}">{{label}} ({{count}})</option>{{/each}}
+        </select></label>
+
+        <label><span>Sort</span><select data-at-memory-sort>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="first">First seen</option>
+          <option value="last">Last seen</option>
+        </select></label>
+      </div>
+
+      <div class="at-memory-result-heading">
+        <div><i class="fa-solid fa-clock-rotate-left"></i><strong>Evidence records</strong></div>
+        <span data-at-memory-count>{{campaignMemorySearch.total}} evidence records</span>
+      </div>
+
+      <div class="at-memory-results" data-at-memory-results>
+        {{#each campaignMemorySearch.rows}}
+        <article class="at-memory-result {{#if historical}}is-historical{{/if}}"
+          data-at-memory-row
+          data-memory-search="{{searchText}}"
+          data-memory-relation="{{relationGroup}}"
+          data-memory-lifecycle="{{lifecycle}}"
+          data-memory-source="{{sourceKind}}"
+          data-memory-target-kind="{{targetKind}}"
+          data-memory-sort-newest="{{sortNewest}}"
+          data-memory-sort-oldest="{{sortOldest}}"
+          data-memory-sort-first="{{sortFirst}}"
+          data-memory-sort-last="{{sortLast}}">
+          <div class="at-memory-result-target">
+            {{#if hasTarget}}
+            <button type="button" data-action="openEvidenceTarget" data-target-uuid="{{targetUuid}}">
+              <i class="fa-solid {{targetIcon}}"></i>
+              <span><small>{{targetKindLabel}}</small><strong>{{targetName}}</strong></span>
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            {{else}}
+            <div class="at-memory-unresolved-target">
+              <i class="fa-solid {{targetIcon}}"></i>
+              <span><small>{{targetKindLabel}}</small><strong>{{targetName}}</strong></span>
+            </div>
+            {{/if}}
+            <div class="at-memory-result-badges">
+              <span><i class="fa-solid {{relationIcon}}"></i> {{relationLabel}}</span>
+              <span>{{lifecycleLabel}}</span>
+              <span>{{mentionTypeLabel}}</span>
+            </div>
+          </div>
+
+          <div class="at-memory-result-evidence">
+            <p>{{snippet}}</p>
+            <div class="at-memory-result-source">
+              <button type="button" data-action="{{sourceAction}}" data-journal-id="{{sourceJournalId}}">
+                <i class="fa-solid {{sourceIcon}}"></i>
+                <span><small>{{sourceLabel}}{{#if pageName}} · {{pageName}}{{/if}}</small><strong>{{sourceName}}</strong></span>
+              </button>
+              <button type="button" class="at-memory-source-foundry" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}" title="Open authoritative Foundry source">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Source
+              </button>
+            </div>
+          </div>
+        </article>
+        {{else}}
+        <div class="at-empty at-wide">No Campaign Memory evidence has been recorded yet.</div>
+        {{/each}}
+        <div class="at-empty at-wide" data-at-memory-empty hidden>No evidence matches these filters.</div>
+      </div>
+    </section>
+    {{/if}}
   </main>
   {{/if}}
 
