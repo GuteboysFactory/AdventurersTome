@@ -2495,3 +2495,22 @@ Campaign Memory history becomes practically navigable:
 - Link / Mention / Ambiguous authority semantics are unchanged
 
 QA: `docs/V1.7_QA33_EVIDENCE_HISTORY_SOURCE_JUMP.md`
+
+## v1.7.0-qa.34 — Campaign Memory Search & Filters
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Memory becomes searchable at campaign scale:
+
+- GM-only Evidence Search is integrated into Tome Search while the normal Tome index remains unchanged
+- free-text search covers entity, source, snippet and evidence metadata
+- filters: relation, Active/Historical lifecycle, source type and entity type
+- sorting: Newest / Oldest / First seen / Last seen
+- resolved evidence can navigate to its canonical Tome/Foundry target
+- source Session/Quest navigation and authoritative Foundry Source navigation remain separate
+- Campaign Mention Evidence API adds lifecycle and target-kind query filters
+- player Search receives no GM-private evidence or counts
+- all search/filter behavior is read-only
+- qa.31–qa.33 authority and Campaign Assistant behavior remain unchanged
+
+QA: `docs/V1.7_QA34_CAMPAIGN_MEMORY_SEARCH_FILTERS.md`
