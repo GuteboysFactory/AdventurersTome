@@ -130,6 +130,10 @@ function atMeSourceScopedApi() {
   return game.modules.get(ATME_ID)?.api?.campaignSourceScopedIdentity || null;
 }
 
+function atMeDeterministicApi() {
+  return game.modules.get(ATME_ID)?.api?.campaignDeterministicAutoLink || null;
+}
+
 function atMeCampaignLinksApi() {
   return game.modules.get(ATME_ID)?.api?.campaignEntityLinks || null;
 }
@@ -216,12 +220,25 @@ function atMeRecordId(row, occurrenceOrdinal = 1) {
 
 function atMeScopedResolution(row) {
   const scoped = atMeSourceScopedApi();
+  const deterministic = atMeDeterministicApi();
   const originalCandidates = atMeArray(row?.resolution?.candidates)
     .map((entry) => entry?.target)
     .filter(Boolean);
 
-  if (!scoped?.resolveMention) {
-    return {
+  let result = null;
+  if (scoped?.resolveMention) {
+    result = scoped.resolveMention({
+      sourceUuid:row?.sourceJournalUuid || row?.source?.uuid,
+      sourcePageUuid:row?.sourcePageUuid || row?.source?.pageUuid,
+      text:row?.text,
+      resolution:row?.resolution || null,
+      candidates:originalCandidates,
+      identityConfidence:Number(row?.resolution?.confidence || row?.assessment?.identity?.score || 0)
+    }) || null;
+  }
+
+  if (!result) {
+    result = {
       decision:atMeClean(row?.resolution?.decision || "unresolved"),
       confidence:Number(row?.resolution?.confidence || 0),
       authorityUuid:atMeClean(row?.resolution?.selectedTarget?.canonicalUuid),
@@ -231,14 +248,49 @@ function atMeScopedResolution(row) {
     };
   }
 
-  return scoped.resolveMention({
+  if (result?.sourceCanonical === true || result?.sourceInline === true) return result;
+  if (result?.identityAmbiguous === true || result?.decision === "ambiguous") return result;
+
+  const exact = deterministic?.resolveIdentity?.({
+    row,
     sourceUuid:row?.sourceJournalUuid || row?.source?.uuid,
-    sourcePageUuid:row?.sourcePageUuid || row?.source?.pageUuid,
-    text:row?.text,
-    resolution:row?.resolution || null,
-    candidates:originalCandidates,
-    identityConfidence:Number(row?.resolution?.confidence || row?.assessment?.identity?.score || 0)
-  }) || {};
+    text:row?.text
+  }) || null;
+
+  if (exact?.decision === "ambiguous") {
+    return {
+      ...result,
+      decision:"ambiguous",
+      confidence:0,
+      authorityUuid:"",
+      selectedTarget:null,
+      identityAmbiguous:true,
+      identityCount:Number(exact.identityCount || 2),
+      reason:atMeClean(exact.reason || "multiple-unrelated-exact-identities")
+    };
+  }
+
+  if (exact?.deterministic === true && exact?.targetUuid) {
+    return {
+      ...result,
+      decision:"resolved-deterministic-existing",
+      confidence:1,
+      authorityUuid:atMeClean(exact.targetUuid),
+      selectedTarget:{
+        name:atMeClean(exact.targetName || row?.text),
+        kind:atMeClean(exact.targetKind || row?.kindHint || "entity"),
+        canonicalUuid:atMeClean(exact.targetUuid)
+      },
+      identityAmbiguous:false,
+      identityCount:1,
+      projectionCollapsed:exact.projectionCollapsed === true,
+      sourceSignals:[...(result?.sourceSignals || []), "exact-existing-single-canonical-identity"],
+      reason:atMeClean(exact.reason || "exact-name-single-canonical-identity-after-reconciliation"),
+      deterministicExisting:true
+    };
+  }
+
+  return result;
 }
 
 function atMeRelationState({ decision, targetUuid, linked }) {
@@ -295,9 +347,11 @@ function atMeFromDiscoveryRow(row, previous = null, recordId = "") {
       ? "source-canonical"
       : scoped?.sourceInline === true
         ? "source-inline"
-        : targetUuid
-          ? "resolved-identity"
-          : "derived",
+        : scoped?.deterministicExisting === true
+          ? "deterministic-existing-world"
+          : targetUuid
+            ? "resolved-identity"
+            : "derived",
     relationState:atMeRelationState({ decision, targetUuid, linked }),
     linkedAtSync:linked,
     active:true,
@@ -587,6 +641,7 @@ Hooks.once("ready", () => {
 
 Hooks.on("adventurersTomeSemanticMentionDiscoveryUpdated", () => atMeSchedule("mention-discovery-updated"));
 Hooks.on("adventurersTomeCampaignEntityLinkChanged", () => atMeSchedule("campaign-link-changed"));
+Hooks.on("adventurersTomeDeterministicAutoLinkCompleted", () => atMeSchedule("deterministic-auto-link-completed"));
 Hooks.on("renderApplicationV2", () => {
   if (game.modules.get(ATME_ID)?.api?.campaignMentionEvidence !== ATME_API) atMeAttach();
 });
