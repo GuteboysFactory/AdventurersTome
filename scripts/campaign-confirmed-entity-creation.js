@@ -150,11 +150,11 @@ async function refreshDiscovery() {
   } catch (_error) {}
 }
 
-async function apply(input = {}) {
+async function apply(input = {}, automaticCandidate = null) {
   if (!game.user?.isGM) throw new Error("Confirmed entity creation is GM-only.");
 
   const prepared = plan(input);
-  if (!prepared.confirmed) throw new Error("Candidate must be explicitly Confirmed before creation.");
+  if (!prepared.confirmed && !automaticCandidate) throw new Error("Candidate must be explicitly Confirmed before creation.");
   if (prepared.duplicateBlocked) {
     duplicateBlocks += 1;
     throw new Error("An existing canonical campaign entity already has this exact name. Use Link Existing instead.");
@@ -185,7 +185,8 @@ async function apply(input = {}) {
       openAfterCreate:false,
       awaitCreation:true,
       source:"campaign-intelligence",
-      sourceUuid:prepared.sourceUuid
+      sourceUuid:prepared.sourceUuid,
+      ...(automaticCandidate ? { campaignIdentity:clone(automaticCandidate.identityBriefing || {}) } : {})
     });
 
     if (!result) {
@@ -262,6 +263,114 @@ async function apply(input = {}) {
   }
 }
 
+function possibleDuplicates(text) {
+  const parts = normalize(text).split(" ");
+  const rows = [
+    ...(moduleApi()?.discovery?.snapshot?.()?.entities || []),
+    ...(game.actors?.contents || []), ...(game.items?.contents || []),
+    ...(game.journal?.contents || []).filter((doc) => doc.getFlag?.(MODULE_ID, "worldProfile"))
+  ];
+  const matches = new Map();
+  for (const row of rows) {
+    const name = normalize(row.name);
+    const uuid = clean(row.canonicalUuid || row.uuid);
+    if (!uuid || !name) continue;
+    const tokens = name.split(" ");
+    // Shared name parts are enough to require review, never enough to link.
+    const overlap = parts.some((part) => part.length >= 4 && tokens.includes(part));
+    const distance = Array.from({ length:parts.join(" ").length + 1 }, (_, i) => [i]);
+    const wanted = parts.join(" ");
+    for (let j = 0; j <= name.length; j++) distance[0][j] = j;
+    for (let i = 1; i <= wanted.length; i++) for (let j = 1; j <= name.length; j++) {
+      distance[i][j] = Math.min(distance[i-1][j]+1, distance[i][j-1]+1, distance[i-1][j-1]+(wanted[i-1]===name[j-1]?0:1));
+    }
+    const similar = 1 - distance[wanted.length][name.length] / Math.max(wanted.length, name.length) >= 0.85;
+    if (overlap || similar) matches.set(uuid, { name:row.name, canonicalUuid:uuid, kind:row.kind || row.getFlag?.(MODULE_ID,"worldProfile")?.category || "entity" });
+  }
+  return [...matches.values()];
+}
+
+function automaticType(row) {
+  const kind = row.classification?.kind;
+  const signals = row.classification?.signals || [];
+  const alternatives = row.classification?.alternatives || [];
+  const margin = Number(row.classification?.confidence || 0) - Number(alternatives[0]?.score || 0);
+  if (Number(row.detection?.score || 0) < 0.82 || margin < 0.20) return "";
+  if (kind === "character" && (signals.includes("person-role-apposition") || signals.includes("character-title"))) return "contact";
+  if (["location","item","faction"].includes(kind) && Number(row.classification.confidence) >= 0.68
+    && signals.some((signal) => signal === `${kind}-suffix` || signal === `${kind}-lexeme`)) return kind;
+  return "";
+}
+
+let resolving = null;
+async function resolveCandidates(rows = []) {
+  if (!game.user?.isGM) return [];
+  // Only the active GM creates campaign documents; other GMs still get review.
+  if (resolving) { await resolving; return resolveCandidates(rows); }
+  let finish;
+  resolving = new Promise((resolve) => { finish = resolve; });
+  try {
+    const results = [];
+    for (const row of rows) {
+      const result = { ...clone(row), outcome:"REVIEW", outcomeReason:"insufficient-identity-evidence", targetUuid:"", identityCandidates:[] };
+      try {
+        const sourceUuid = row.sourceJournalUuid;
+        const learned = learningApi()?.decisionFor?.(row.text, { sourceUuid });
+        if (["suppressed","source-ignored"].includes(learned?.action)) {
+          result.outcomeReason = `gm-${learned.action}`;
+          results.push(result);
+          continue;
+        }
+        if (!moduleApi()?.campaignDeterministicAutoLink?.resolveIdentity) {
+          throw new Error("Identity resolution is unavailable; this candidate requires GM review.");
+        }
+        const exact = moduleApi().campaignDeterministicAutoLink.resolveIdentity({ text:row.text, sourceUuid });
+        result.identityAmbiguous = exact?.decision === "ambiguous";
+        const scoped = moduleApi()?.campaignSourceScopedIdentity?.resolveMention?.({ text:row.text, sourceUuid, sourcePageUuid:row.sourcePageUuid });
+        const chosen = learned?.sourceChoice && learned.sourceUuid === sourceUuid
+          ? await fromUuid(learned.targetUuid) : null;
+        const selectedUuid = chosen?.uuid || ((scoped?.sourceCanonical || scoped?.sourceInline)
+          ? scoped.authorityUuid : exact?.deterministic ? exact.targetUuid : "");
+        const targetUuid = selectedUuid ? moduleApi()?.campaignIdentityReconciliation?.identityFor?.({ canonicalUuid:selectedUuid })?.authorityUuid || selectedUuid : "";
+        if (chosen?.uuid) result.identityAmbiguous = false;
+        if (targetUuid) {
+          result.targetUuid = targetUuid;
+          const journal = await fromUuid(sourceUuid);
+          const blocked = journal?.getFlag?.(MODULE_ID,"campaignAutoLinkPolicyV1")?.suppressedTargetUuids?.includes(targetUuid);
+          if (blocked) result.outcomeReason = "gm-unlink-suppression";
+          else {
+            if (!campaignLinksApi()?.hasCanonicalLink?.({ sourceUuid, targetUuid })) {
+              await campaignLinksApi().linkCanonical({ sourceUuid, targetUuid });
+            }
+            result.outcome = learned?.action === "created" && learned.targetUuid === targetUuid
+              && learned.sourceUuid === sourceUuid ? "CREATED" : "LINKED";
+            result.outcomeReason = "single-canonical-identity";
+          }
+        } else {
+          result.identityCandidates = possibleDuplicates(row.text);
+          if (exact?.decision === "ambiguous" || result.identityCandidates.length) result.outcomeReason = "possible-duplicate-or-ambiguous-identity";
+          else {
+            const semanticType = automaticType(row);
+            const activeGM = game.users?.activeGM;
+            if (semanticType && (!activeGM || activeGM.id === game.user.id)) {
+              const created = await apply({ text:row.text, kind:row.classification.kind, sourceUuid, semanticType }, row);
+              result.targetUuid = created.targetUuid || "";
+              result.outcome = created.created && created.campaignLinked ? "CREATED" : "REVIEW";
+              result.outcomeReason = created.campaignLinkError || (created.cancelled ? "creation-cancelled" : "clear-new-identity");
+            }
+          }
+        }
+      } catch (error) {
+        result.outcome = "REVIEW";
+        result.outcomeReason = String(error?.message || error);
+        console.warn("Adventurer's Tome | Candidate requires GM review", row.text, error);
+      }
+      results.push(result);
+    }
+    return clone(results);
+  } finally { finish(); resolving = null; }
+}
+
 async function verify({ text, sourceUuid = "" } = {}) {
   const decision = learningApi()?.decisionFor?.(text, { sourceUuid }) || null;
   const targetUuid = clean(decision?.targetUuid);
@@ -308,6 +417,9 @@ function audit() {
     healthy:failures === 0,
     gmOnly:true,
     explicitConfirmRequired:true,
+    automaticDiscoveryResolution:true,
+    automaticCreationRequiresStrongTypeEvidence:true,
+    uncertainCandidateOutcome:"REVIEW",
     duplicateExactNameBlock:true,
     delegatesToQuickCreate:true,
     canonicalUuidRequired:true,
@@ -324,7 +436,8 @@ const publicApi = Object.freeze({
   version:VERSION,
   semanticTypes:clone(SEMANTIC_TYPES),
   plan,
-  apply,
+  apply:(input = {}) => apply(input),
+  resolveCandidates,
   verify,
   audit
 });

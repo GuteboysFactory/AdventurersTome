@@ -99,7 +99,11 @@ function atMeNormalizeRecord(row = {}) {
     firstSeenAt:Number(row.firstSeenAt || now),
     lastSeenAt:Number(row.lastSeenAt || now),
     historicalAt:Number(row.historicalAt || 0) || null,
-    provenance:atMeClone(atMeArray(row.provenance))
+    provenance:atMeClone(atMeArray(row.provenance)),
+    outcome:atMeClean(row.outcome),
+    outcomeReason:atMeClean(row.outcomeReason),
+    identityBriefing:atMeClone(row.identityBriefing || null),
+    identityCandidates:atMeClone(atMeArray(row.identityCandidates))
   };
 }
 
@@ -353,6 +357,8 @@ function atMeFromDiscoveryRow(row, previous = null, recordId = "") {
             ? "resolved-identity"
             : "derived",
     relationState:atMeRelationState({ decision, targetUuid, linked }),
+    outcome:linked ? "LINKED" : "REVIEW",
+    outcomeReason:linked ? "canonical-campaign-link" : atMeClean(scoped?.reason || row?.resolution?.reason || "identity-needs-review"),
     linkedAtSync:linked,
     active:true,
     visibility:"gm-private",
@@ -457,6 +463,54 @@ async function atMeSync(options = {}) {
       else if (record.relationState === "unresolved") unresolved += 1;
     }
 
+    // Feed new discovery into the existing Memory ledger/Analysis queue. The
+    // discovery stage stays read-only; creation and linking belong to resolution.
+    const moduleApi = game.modules.get(ATME_ID)?.api;
+    const newDiscovery = moduleApi?.campaignNewEntityDiscovery;
+    if (newDiscovery?.scan && moduleApi?.campaignEntityCreation?.resolveCandidates) {
+      const discovered = await newDiscovery.scan({});
+      const outcomes = await moduleApi.campaignEntityCreation.resolveCandidates(discovered.candidates || []);
+      for (const candidate of outcomes) {
+        const id = `identity:${candidate.id}`;
+        const previous = previousById.get(id);
+        const matches = next.filter((record) => record.sourceUuid === candidate.sourceJournalUuid
+          && record.sourcePageUuid === candidate.sourcePageUuid
+          && atMeNormalize(record.mentionText) === atMeNormalize(candidate.text));
+        const document = candidate.targetUuid ? await fromUuid(candidate.targetUuid).catch(() => null) : null;
+        const fields = {
+          outcome:candidate.outcome,
+          outcomeReason:candidate.outcomeReason,
+          identityBriefing:candidate.identityBriefing,
+          identityCandidates:candidate.identityCandidates,
+          targetUuid:candidate.targetUuid,
+          targetName:document?.name || candidate.text,
+          targetKind:document?.documentName === "Actor" ? "character" : document?.documentName === "Item" ? "item"
+            : document?.getFlag?.(ATME_ID,"worldProfile")?.category || candidate.classification?.kind,
+          resolutionState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "review" : "resolved",
+          resolutionReason:candidate.outcomeReason,
+          relationState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "mentioned-review" : "linked-and-mentioned",
+          linkedAtSync:candidate.outcome !== "REVIEW"
+        };
+        if (matches.length) {
+          for (const record of matches) Object.assign(record, fields);
+        } else {
+          const journal = atMeSourceJournal(candidate.sourceJournalUuid);
+          next.push(atMeNormalizeRecord({
+            ...fields, id,
+            sourceUuid:candidate.sourceJournalUuid, sourcePageUuid:candidate.sourcePageUuid,
+            sourceKind:candidate.sourceKind, sourceName:candidate.sourceName, pageName:candidate.pageName,
+            sourceSort:journal?.sort, sourceOrdinal:atMeSourceOrdinal(journal,candidate.sourceKind),
+            mentionText:candidate.text, snippet:candidate.mentions?.[0]?.context || candidate.text,
+            start:candidate.mentions?.[0]?.start, end:candidate.mentions?.[0]?.end,
+            detectionConfidence:candidate.detection?.score,
+            firstSeenAt:previous?.firstSeenAt, active:true,
+            provenance:[{ provider:"campaign-new-entity-discovery", candidateId:candidate.id }]
+          }));
+          seen.add(id);
+        }
+      }
+    }
+
     let historical = 0;
     for (const previous of current.records) {
       if (seen.has(previous.id)) continue;
@@ -484,6 +538,12 @@ async function atMeSync(options = {}) {
     const after = JSON.stringify(ledger.records);
     if (before !== after) await atMeSetLedger(ledger);
 
+    resolvedTargets = next.filter((row) => row.active && row.targetUuid).length;
+    unresolved = next.filter((row) => row.active && !row.targetUuid).length;
+    ambiguous = next.filter((row) => row.active && row.relationState === "ambiguous").length;
+    const outcomes = Object.fromEntries(["LINKED","CREATED","REVIEW"].map((outcome) =>
+      [outcome, next.filter((row) => row.active && row.outcome === outcome).length]));
+
     ATME_STATS.created += created;
     ATME_STATS.updated += updated;
     ATME_STATS.historical += historical;
@@ -500,7 +560,8 @@ async function atMeSync(options = {}) {
       records:ledger.records.length,
       resolvedTargets,
       unresolved,
-      ambiguous
+      ambiguous,
+      outcomes
     });
 
     const app = game.modules.get(ATME_ID)?.api?.app?.();
@@ -704,6 +765,9 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("adventurersTomeSemanticMentionDiscoveryUpdated", () => atMeSchedule("mention-discovery-updated"));
+Hooks.on("adventurersTomeNewEntityDiscoveryUpdated", () => {
+  if (!atMeSyncing) atMeSchedule("new-entity-discovery-updated");
+});
 Hooks.on("adventurersTomeCampaignEntityLinkChanged", () => atMeSchedule("campaign-link-changed"));
 Hooks.on("adventurersTomeDeterministicAutoLinkCompleted", () => atMeSchedule("deterministic-auto-link-completed"));
 Hooks.on("renderApplicationV2", () => {

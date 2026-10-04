@@ -1,6 +1,6 @@
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-new-entity-discovery";
-const VERSION = 6;
+const VERSION = 7;
 
 const BANDS = Object.freeze({
   HIGH:"high-confidence",
@@ -14,7 +14,7 @@ const LEADING_ARTICLES = new Set(["the","a","an","den","det","en","ett"]);
 const LEADING_CONTEXT_WORDS = new Set([
   "before","after","during","behind","beside","beneath","above","near","on","in","at","from","to","toward","towards",
   "through","across","within","outside","inside","around","shortly","later","meanwhile","rather","according","with","without",
-  "by","beyond","under","over",
+  "by","beyond","under","over","although",
   "is","are","was","were","did","does","do","has","have","had","can","could","would","should","might","must",
   "före","efter","under","bakom","bredvid","nära","på","i","från","till","mot","genom","över","med","utan",
   "ar","var","kan","ska","skall","har","hade","vill","bor"
@@ -22,7 +22,7 @@ const LEADING_CONTEXT_WORDS = new Set([
 const COMMON_SINGLETONS = new Set([
   "the","a","an","and","but","or","before","after","during","according","near","on","in","at","from","to","toward","towards",
   "shortly","somewhere","meanwhile","later","then","when","while","there","here","this","that","these","those","he","she","they",
-  "his","her","their","it","its","we","our","you","your","i","my","yes","no",
+  "his","her","their","it","its","we","our","you","your","i","my","yes","no","one","although",
   "is","are","was","were","did","does","do","has","have","had","can","could","would","should","might","must",
   "den","det","en","ett","och","men","eller","före","efter","under","nära","på","i","från","till","mot","senare","där","här",
   "ar","var","kan","ska","skall","har","hade","vill","bor"
@@ -42,7 +42,7 @@ const LOCATION_SUFFIXES = new Set([
 
 const FACTION_SUFFIXES = new Set([
   "company","order","guild","clan","tribe","hand","guard","guards","brotherhood","sisterhood","circle","council","host","legion",
-  "army","cult","league","banner","wolves","riders","choir"
+  "army","cult","league","banner","wolves","riders","choir","militia","wardens"
 ]);
 
 const ITEM_SUFFIXES = new Set([
@@ -238,7 +238,8 @@ function candidateRuns(text) {
       if (!/^\s+$/u.test(gap)) break;
 
       const normalized = tokens[j].normalized;
-      const allowed = properToken(tokens[j].clean) || CONNECTORS.has(normalized);
+      const allowed = properToken(tokens[j].clean) || CONNECTORS.has(normalized)
+        || normalized === "militia";
       if (!allowed) break;
 
       run.push(tokens[j]);
@@ -322,6 +323,8 @@ function scoreClassification(text, context) {
   const first = parts[0] || "";
   const last = parts[parts.length - 1] || "";
   const ctx = normalizeText(context);
+  const afterName = ctx.slice(ctx.indexOf(phrase) + phrase.length);
+  const personRole = /^(?: a| an)? (quartermaster|ferryman|informant|commander|healer|officer|merchant|scout|captain|guide)\b/u.test(afterName);
 
   const scores = {
     character:0,
@@ -369,6 +372,14 @@ function scoreClassification(text, context) {
   if (phrase.includes("oath")) add("lore", 0.18, "lore-lexeme");
   if (phrase.includes("key")) add("item", 0.18, "item-lexeme");
 
+  // A role immediately attached to this name outweighs incidental vocabulary
+  // elsewhere in the context (e.g. the surname Vale beside a river).
+  if (personRole) {
+    scores.character = 0.99;
+    scores.location = scores.faction = scores.item = scores.lore = 0;
+    signals.character.push("person-role-apposition");
+  }
+
   const ordered = Object.entries(scores)
     .map(([kind, score]) => ({
       kind,
@@ -409,7 +420,10 @@ function detectionAssessment(row, occurrenceCount) {
 }
 
 function mergeAliases(rows) {
-  const multi = rows.filter((row) => row.tokenCount > 1);
+  // Place-name prefixes are distinct identities: Blackbridge is not an alias
+  // for Blackbridge Watch. Only merge unique personal short names.
+  const multi = rows.filter((row) => row.tokenCount > 1
+    && scoreClassification(row.text, row.context).kind === "character");
   const aliases = new Map();
 
   for (const row of multi) {
@@ -441,17 +455,9 @@ function mergeAliases(rows) {
 
 function aggregateCandidates(rawRows, knownIndex) {
   const preliminary = rawRows.filter((row) => {
-    if (!row.normalized || row.normalized.length < 3) return false;
+    if (!row.normalized) return false;
 
-    if (knownIndex.names.has(row.normalized)) {
-      stats.knownFiltered += 1;
-      return false;
-    }
-
-    if (row.tokenCount === 1 && knownIndex.singleAliases.has(row.normalized)) {
-      stats.knownFiltered += 1;
-      return false;
-    }
+    // Existing names and possible aliases must reach resolution, too.
 
     if (row.tokenCount === 1 && COMMON_SINGLETONS.has(row.normalized)) {
       stats.commonFiltered += 1;
@@ -479,6 +485,40 @@ function aggregateCandidates(rawRows, knownIndex) {
   }
 
   return [...byKey.values()];
+}
+
+function identityBriefing(grouped, text) {
+  const names = new Set(grouped.occurrences.map((row) => normalizeText(row.text)));
+  const sentences = String(text).match(/[^.!?]+[.!?]?/gu) || [];
+  let sameSubject = false;
+  const relevant = sentences.map(clean).filter((sentence) => {
+    const plain = normalizeText(sentence);
+    const normalized = ` ${plain} `;
+    const pronounContinuation = sameSubject && /^(he|she|his|her)\b/u.test(plain);
+    sameSubject = [...names].some((name) => plain.startsWith(`${name} `)) || pronounContinuation;
+    return pronounContinuation || [...names].some((name) => normalized.includes(` ${name} `));
+  });
+  const roles = [...new Set(relevant.flatMap((sentence) => {
+    const normalized = normalizeText(sentence);
+    return [...names].flatMap((name) => {
+      const index = normalized.indexOf(name);
+      const after = normalized.slice(index + name.length);
+      const match = /^(?: a| an)? ((?:quartermaster|ferryman|informant|commander|healer|officer|merchant|scout|captain|guide)(?: and (?:occasional )?informant)?)/u.exec(after);
+      return match ? [match[1]] : [];
+    });
+  }))];
+  // These are attributed source excerpts, not asserted canonical relations.
+  const briefItems = [];
+  if (roles.length) briefItems.push({ label:"Role / profession", value:roles.join(" / "), icon:"fa-briefcase" });
+  for (const [label, pattern, icon] of [
+    ["Faction / organization", /\b(wardens|faction|guild|militia|member|order)\b/iu, "fa-flag"],
+    ["Location", /\b(operates|works|watch|bridge|blackbridge|valley|ruins)\b/iu, "fa-location-dot"],
+    ["Relations (source)", /\b(friend|knows|knew|recognized|ow(?:e|ed)|supplied|cooperates|suspects|suspected)\b/iu, "fa-people-arrows"]
+  ]) {
+    const excerpts = relevant.filter((sentence) => pattern.test(sentence)).slice(0, 3);
+    if (excerpts.length) briefItems.push({ label, value:excerpts.join(" "), icon });
+  }
+  return { roles, briefItems, excerpts:relevant, sourceDerived:true };
 }
 
 async function scan(options = {}) {
@@ -569,35 +609,6 @@ async function scan(options = {}) {
         };
         const detection = detectionAssessment(representative, occurrences.length);
 
-        // Conservative precision gate: a one-off, single-token capitalized word
-        // with no classifiable entity evidence is much more likely to be a
-        // sentence-start noun/adverb/verb than a campaign entity. Keep it in a
-        // suppressed diagnostic bucket instead of presenting it as a candidate.
-        if (
-          grouped.tokenCount === 1
-          && occurrences.length === 1
-          && classification.kind === "unknown"
-          && classification.confidence < 0.45
-        ) {
-          suppressedCandidates.push({
-            id:`suppressed:${page.uuid}:${grouped.normalized}`,
-            sourceKind:kind,
-            sourceJournalUuid:journal.uuid,
-            sourcePageUuid:page.uuid,
-            sourceName:journal.name,
-            pageName:page.name,
-            text:grouped.text,
-            normalized:grouped.normalized,
-            mentionCount:1,
-            detection,
-            classification,
-            reason:"one-off-single-token-without-entity-evidence",
-            readOnly:true
-          });
-          stats.precisionFiltered += 1;
-          continue;
-        }
-
         const disposition = detection.band === BANDS.HIGH && classification.confidence >= 0.45
           ? BANDS.HIGH
           : detection.band === BANDS.WEAK
@@ -623,7 +634,7 @@ async function scan(options = {}) {
             readOnly:true
           });
           stats.learningSuppressed += 1;
-          continue;
+          // An explicit GM dismissal remains traceable in the outcome ledger.
         }
         if (learning?.action === "source-ignored") {
           suppressedCandidates.push({
@@ -643,7 +654,7 @@ async function scan(options = {}) {
             readOnly:true
           });
           stats.learningSourceIgnored += 1;
-          continue;
+          // Preserve the existing source-scoped dismissal, without losing evidence.
         }
         if (learning?.action === "confirmed") stats.learningConfirmed += 1;
         if (learning?.action === "linked") stats.learningLinked += 1;
@@ -667,6 +678,7 @@ async function scan(options = {}) {
           })),
           detection,
           classification,
+          identityBriefing:identityBriefing(grouped, text),
           identity:{
             status:"no-existing-canonical-match",
             confidence:0,
@@ -754,8 +766,8 @@ function audit() {
     sourceScope:["session","quest"],
     confidenceModel:"detection-type-and-identity-separated",
     policy:{
-      knownCanonicalNamesFiltered:true,
-      knownSingleTokenAliasesFiltered:true,
+      knownCanonicalNamesFiltered:false,
+      knownSingleTokenAliasesFiltered:false,
       leadingContextWordsTrimmed:true,
       questionAuxiliaryStartersTrimmed:true,
       localNlpBoundaryProvider:true,
@@ -768,7 +780,7 @@ function audit() {
       confirmedCandidateMemoryApplied:true,
       linkedCandidateMemoryApplied:true,
       knownAliasRecheckedAfterBoundaryTrim:true,
-      oneOffUnknownSingletonsSuppressed:true,
+      oneOffUnknownSingletonsSuppressed:false,
       longestProperNameRuns:true,
       repeatedMentionsBoostDetectionOnly:true,
       contextualTypeClassification:true,

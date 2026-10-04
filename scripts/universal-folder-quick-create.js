@@ -326,7 +326,12 @@ function atFqTemplateFacts(template) {
 async function atFqEditGenericEntry(type, spec, template, folder, options = {}) {
   const requestedName = atFqClean(options.initialName || options.name);
   const defaultName = requestedName || (template?.id === "blank" ? "" : template?.name || "");
-  const choice = await foundry.applications.api.DialogV2.wait({
+  const choice = options.campaignIdentity ? {
+    name:requestedName,
+    subtitle:atFqClean(options.campaignIdentity.roles?.join(" / ") || spec.label),
+    summary:"",
+    body:""
+  } : await foundry.applications.api.DialogV2.wait({
     window:{ title:`Adventurer's Tome · New ${spec.label}`, resizable:true },
     position:{ width:720, height:"auto" },
     content:`<form class="at-fq-create-form">
@@ -373,13 +378,15 @@ async function atFqEditGenericEntry(type, spec, template, folder, options = {}) 
     body:choice.body,
     heroImage:"",
     actorId:"",
-    facts:atFqTemplateFacts(template)
+    facts:options.campaignIdentity
+      ? (options.campaignIdentity.briefItems || []).map((row) => ({ label:row.label, value:row.value, visibility:"gm" }))
+      : atFqTemplateFacts(template)
   };
 
   const entry = await JournalEntry.create({
     name:choice.name,
     folder:folder.id,
-    ownership:{ default:CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2 },
+    ownership:{ default:options.campaignIdentity ? 0 : CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2 },
     flags:{
       [ATFQ_MODULE_ID]:{
         worldProfile,
@@ -452,6 +459,12 @@ async function atFqQuickCreate(folderOrId, options = {}) {
   };
 
   atFqStats.quickCreates += 1;
+
+  // Discovery creates system-agnostic Contacts/World entries through the same
+  // authoring path, with GM-private source facts and no modal interaction.
+  if (options.campaignIdentity && ["contact","location","faction","item"].includes(type)) {
+    return atFqEditGenericEntry(type, spec, atFqTemplateList(type).find((entry) => entry.id === "blank"), folder, options);
+  }
 
   if (type === "npc") {
     const quickNpc = atFqModuleApi()?.quickNpc;
