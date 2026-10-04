@@ -1212,7 +1212,7 @@ function campaignMemorySearchView() {
   };
 }
 
-function campaignDecisionCandidateMeta(raw = {}) {
+function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
   const target = raw?.target || raw || {};
   const uuid = String(target.canonicalUuid || target.uuid || "").trim();
   const name = String(target.name || "Unknown identity").trim();
@@ -1220,25 +1220,33 @@ function campaignDecisionCandidateMeta(raw = {}) {
   const foundryMeta = target.foundry && typeof target.foundry === "object" ? target.foundry : {};
   let detail = "";
   let icon = "fa-circle-nodes";
+  let img = "";
+  const contextTerms = [];
 
   if (uuid.startsWith("Actor.")) {
     icon = "fa-user";
     const actor = game.actors?.get(uuid.slice(6)) || null;
     const profile = actor ? getActorProfile(actor) : null;
+    img = String(actor?.img || "").trim();
     const facts = Array.isArray(profile?.facts)
-      ? profile.facts.filter((fact) => fact?.visibility !== "gm").slice(0, 2).map((fact) => [fact.label, fact.value].filter(Boolean).join(": "))
+      ? profile.facts.slice(0, 4).map((fact) => [fact.label, fact.value].filter(Boolean).join(": "))
       : [];
-    detail = [profile?.title, profile?.subtitle, ...facts].filter(Boolean).join(" · ");
-    if (!detail) detail = [actor?.type, actor?.folder?.name].filter(Boolean).join(" · ");
+    detail = [profile?.title, profile?.subtitle, ...facts.slice(0, 2)].filter(Boolean).join(" · ");
+    contextTerms.push(profile?.title, profile?.subtitle, ...facts);
+    if (!detail) detail = [actor?.folder?.name, actor?.type].filter(Boolean).join(" · ");
   } else if (uuid.startsWith("JournalEntry.")) {
     icon = kind === "location" ? "fa-location-dot" : kind === "faction" ? "fa-flag" : "fa-book";
     const entry = game.journal?.get(uuid.slice("JournalEntry.".length)) || null;
     const profile = entry ? getWorldProfile(entry) : null;
+    img = String(profile?.heroImage || "").trim();
     detail = [profile?.subtitle, profile?.category, entry?.folder?.name].filter(Boolean).join(" · ");
+    contextTerms.push(profile?.subtitle, profile?.category, profile?.summary);
   } else if (uuid.startsWith("Item.")) {
     icon = "fa-gem";
     const item = game.items?.get(uuid.slice(5)) || null;
+    img = String(item?.img || "").trim();
     detail = [item?.type, item?.folder?.name].filter(Boolean).join(" · ");
+    contextTerms.push(item?.type, item?.folder?.name);
   }
 
   if (!detail && Array.isArray(foundryMeta.folderPath)) detail = foundryMeta.folderPath.filter(Boolean).slice(-2).join(" › ");
@@ -1247,14 +1255,29 @@ function campaignDecisionCandidateMeta(raw = {}) {
   const reasons = Array.isArray(raw?.reasons) ? raw.reasons : [];
   const usefulReason = reasons.find((reason) => !["name-exact","name-similar"].includes(String(reason?.type || ""))) || reasons[0] || null;
 
+  const context = normalizeImportName(contextText || "");
+  const candidateName = normalizeImportName(name);
+  const matchedTerms = [...new Set(contextTerms
+    .flatMap((value) => String(value || "").split(/[^\p{L}\p{N}]+/u))
+    .map((value) => normalizeImportName(value))
+    .filter((value) => value.length >= 4 && value !== candidateName && context.includes(value))
+  )].slice(0, 3);
+  const contextBoost = Math.min(36, matchedTerms.length * 12);
+  const baseScore = Number(raw?.score || 0);
+
   return {
     uuid,
     name,
     kind,
     icon,
-    detail,
-    score:Number(raw?.score || 0),
-    reason:String(usefulReason?.detail || "").trim(),
+    img,
+    detail:detail || `Existing identity · ${uuid.split(".").pop()?.slice(-6) || "unknown"}`,
+    score:baseScore + contextBoost,
+    baseScore,
+    contextBoost,
+    reason:matchedTerms.length
+      ? `Source context also matches: ${matchedTerms.join(", ")}`
+      : String(usefulReason?.detail || "").trim(),
     recommended:false
   };
 }
@@ -1358,7 +1381,7 @@ function campaignAnalysisView(memorySearch = null) {
       const rawCandidates = Array.isArray(rawMention?.resolution?.candidates) ? rawMention.resolution.candidates : [];
       const candidateMap = new Map();
       for (const raw of rawCandidates) {
-        const candidate = campaignDecisionCandidateMeta(raw);
+        const candidate = campaignDecisionCandidateMeta(raw, base.snippet);
         if (!candidate.uuid || candidateMap.has(candidate.uuid)) continue;
         candidateMap.set(candidate.uuid, candidate);
       }
@@ -1367,7 +1390,7 @@ function campaignAnalysisView(memorySearch = null) {
           canonicalUuid:base.targetUuid,
           name:base.targetName,
           kind:base.targetKind
-        }, score:Number(base.identityConfidence || base.confidence || 0) * 100 });
+        }, score:Number(base.identityConfidence || base.confidence || 0) * 100 }, base.snippet);
         if (fallback.uuid) candidateMap.set(fallback.uuid, fallback);
       }
 
