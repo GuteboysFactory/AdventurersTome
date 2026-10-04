@@ -2614,3 +2614,21 @@ Decision UX is optimized for table-speed readability:
 - qa.38 decision writes, no-auto-create policy and campaign authority remain unchanged
 
 QA: `docs/V1.7_QA39_DECISION_UX_CONTEXTUAL_INDICATORS.md`
+
+## v1.7.0-qa.40 — Identity Briefing & Clean Session UX
+
+**Status:** QA / IMPLEMENTED
+
+Guided decisions gain direct identity context:
+
+- candidate cards surface role/type, faction/group, location, relations, contact/link context and previous mentions when available
+- World Contact candidates explicitly identify their linked Actor when possible
+- low-data candidates clearly state that useful profile information is missing
+- **More info** remains secondary rather than mandatory for routine decisions
+- Session and Quest remove visible **Tome noticed** blocks
+- Session/Quest continue to expose only canonical campaign information plus the GM-only review indicator
+- Campaign Memory retains all Mention evidence
+- Analysis/Memory remain the place for review and evidence work
+- qa.38/qa.39 authority, focus and privacy behavior remains unchanged
+
+QA: `docs/V1.7_QA40_IDENTITY_BRIEFING_CLEAN_SESSION_UX.md`
