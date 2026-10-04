@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 1.7.0-qa.38 — Guided GM Decisions
+
+- Turns Campaign Tools → Analysis into a guided GM decision inbox instead of a passive diagnostic list.
+- Adds a Campaign Intelligence **Decision Monitor** to Overview with Ambiguous / Unresolved / Review / Tome noticed counts.
+- Overview shows the next pending GM question and can one-click confirm a sufficiently strong Tome recommendation.
+- Replaces technical review rows with explicit questions such as “Which existing identity does this mention mean here?”
+- Presents ranked existing canonical candidates with portraits, profile metadata and evidence/context reasons when available.
+- Marks **★ Tome recommends** only when the evidence produces a clear lead; tied candidates remain undecided.
+- Choosing a candidate writes the canonical Campaign Link through the existing Campaign Entity Links API.
+- Adds source-scoped **Keep unresolved** and **Keep as Mention only** actions so dismissed questions do not pile up.
+- Adds safe Undo for the most recent guided decision in the current Tome session.
+- Rescans Campaign Mention Evidence after each decision so the pending queue can shrink immediately.
+- Preserves canonical UUID authority, no-auto-create policy, ambiguity safety and player privacy.
+
 ## 1.7.0-qa.37 — Campaign Analysis & Entity Review
 
 - Adds a fourth GM-only Campaign Tools tab: **Analysis**.
