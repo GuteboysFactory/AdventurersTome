@@ -875,7 +875,20 @@
             <strong>{{campaignAnalysis.firstAttention.question}}</strong>
             <span>{{campaignAnalysis.firstAttention.sourceName}}{{#if campaignAnalysis.firstAttention.pageName}} · {{campaignAnalysis.firstAttention.pageName}}{{/if}}</span>
           </div>
-          <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis">Review now</button>
+          <div class="at-overview-decision-actions">
+            {{#if campaignAnalysis.firstAttention.hasRecommendation}}
+            <button type="button" class="at-primary"
+              data-action="resolveCampaignDecision"
+              data-decision-mode="choose"
+              data-decision-text="{{campaignAnalysis.firstAttention.decisionText}}"
+              data-source-uuid="{{campaignAnalysis.firstAttention.sourceUuid}}"
+              data-target-uuid="{{campaignAnalysis.firstAttention.recommended.uuid}}"
+              data-target-name="{{campaignAnalysis.firstAttention.recommended.name}}">
+              <i class="fa-solid fa-check"></i> Confirm ★ {{campaignAnalysis.firstAttention.recommended.name}}
+            </button>
+            {{/if}}
+            <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis">Review{{#unless campaignAnalysis.firstAttention.hasRecommendation}} now{{/unless}}</button>
+          </div>
         </div>
         {{else}}
         <div class="at-overview-all-clear"><i class="fa-solid fa-circle-check"></i><span><strong>No GM decisions waiting.</strong><small>Campaign Intelligence is clear.</small></span></div>
