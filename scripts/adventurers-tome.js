@@ -1221,6 +1221,8 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
   let detail = "";
   let icon = "fa-circle-nodes";
   let img = "";
+  var extraFacts = [];
+  var extraRelations = [];
   const contextTerms = [];
 
   if (uuid.startsWith("Actor.")) {
@@ -1237,6 +1239,13 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     detail = [profile?.title, profile?.subtitle, ...facts.slice(0, 2).map((fact) => fact.display)].filter(Boolean).join(" · ");
     contextTerms.push(profile?.title, profile?.subtitle, ...facts.map((fact) => fact.value));
     if (!detail) detail = [actor?.folder?.name, actor?.type || "Actor", `ID ${uuid.split(".").pop()?.slice(-6) || "unknown"}`].filter(Boolean).join(" · ");
+    var extraFacts = facts.map((fact) => fact.display).filter(Boolean).slice(0, 6);
+    var extraRelations = Array.isArray(profile?.relations)
+      ? profile.relations.slice(0, 5).map((relation) => {
+          const targetActor = game.actors?.get(relation.actorId) || null;
+          return [relation.label, targetActor?.name || relation.actorId, relation.note].filter(Boolean).join(" · ");
+        }).filter(Boolean)
+      : [];
   } else if (uuid.startsWith("JournalEntry.")) {
     icon = kind === "location" ? "fa-location-dot" : kind === "faction" ? "fa-flag" : "fa-book";
     const entry = game.journal?.get(uuid.slice("JournalEntry.".length)) || null;
@@ -1244,12 +1253,16 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     img = String(profile?.heroImage || "").trim();
     detail = [profile?.subtitle, profile?.category, entry?.folder?.name].filter(Boolean).join(" · ");
     contextTerms.push(profile?.subtitle, profile?.category, profile?.summary);
+    var extraFacts = Array.isArray(profile?.facts) ? profile.facts.slice(0, 6).map((fact) => [fact.label, fact.value].filter(Boolean).join(": ")).filter(Boolean) : [];
+    var extraRelations = [];
   } else if (uuid.startsWith("Item.")) {
     icon = "fa-gem";
     const item = game.items?.get(uuid.slice(5)) || null;
     img = String(item?.img || "").trim();
     detail = [item?.type, item?.folder?.name].filter(Boolean).join(" · ");
     contextTerms.push(item?.type, item?.folder?.name);
+    var extraFacts = [item?.type, item?.folder?.name].filter(Boolean);
+    var extraRelations = [];
   }
 
   if (!detail && Array.isArray(foundryMeta.folderPath)) detail = foundryMeta.folderPath.filter(Boolean).slice(-2).join(" › ");
@@ -1268,6 +1281,14 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
   const contextBoost = Math.min(36, matchedTerms.length * 18);
   const baseScore = Number(raw?.score || 0);
 
+  const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+  const previousMentions = uuid && evidenceApi?.recordsForTarget
+    ? (evidenceApi.recordsForTarget(uuid, { includeHistorical:true, sort:"newest" }) || [])
+        .slice(0, 5)
+        .map((row) => [row.sourceName, row.pageName].filter(Boolean).join(" · "))
+        .filter(Boolean)
+    : [];
+
   return {
     uuid,
     name,
@@ -1281,7 +1302,11 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     reason:matchedTerms.length
       ? `Source context also matches: ${matchedTerms.join(", ")}`
       : String(usefulReason?.detail || "").trim(),
-    recommended:false
+    recommended:false,
+    extraFacts,
+    extraRelations,
+    previousMentions,
+    hasMoreInfo:Boolean(extraFacts.length || extraRelations.length || previousMentions.length)
   };
 }
 
@@ -1315,12 +1340,14 @@ function campaignDecisionQuestion(row = {}) {
   return `What should Tome do with “${name}”?`;
 }
 
-function campaignAnalysisView(memorySearch = null) {
+function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
   if (!game.user?.isGM) return null;
   const memory = memorySearch || campaignMemorySearchView();
   const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+  const sourceFilter = String(sourceUuid || "").trim();
   const activeRows = Array.isArray(memory?.rows)
     ? memory.rows.filter((row) => {
+        if (sourceFilter && String(row.sourceUuid || "") !== sourceFilter && String(row.sourcePageUuid || "") !== sourceFilter) return false;
         if (row.lifecycle !== "active") return false;
         const learned = learning?.decisionFor?.(row.mentionText || row.targetName, { sourceUuid:row.sourceUuid }) || null;
         return !["source-ignored","suppressed"].includes(String(learned?.action || ""));
@@ -1433,7 +1460,8 @@ function campaignAnalysisView(memorySearch = null) {
     unresolvedCount:attention.filter((row) => row.isUnresolved).length,
     reviewCount:attention.filter((row) => row.isReview).length,
     clean:attention.length === 0,
-    hasNoticed:noticed.length > 0
+    hasNoticed:noticed.length > 0,
+    sourceFilter
   };
 }
 
@@ -4901,6 +4929,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       openEvidenceTarget: this._onOpenEvidenceTarget,
       resolveCampaignDecision: this._onResolveCampaignDecision,
       undoCampaignDecision: this._onUndoCampaignDecision,
+      openSourceAnalysis: this._onOpenSourceAnalysis,
       openCustomLink: this._onOpenCustomLink,
       createRule: this._onCreateRule,
       linkRule: this._onLinkRule,
@@ -5018,6 +5047,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._quickCaptureSourceRef = "";
     this._notebookEditing = false;
     this._lastCampaignDecision = null;
+    this._analysisSourceFilter = "";
   }
 
   _captureNavigationState() {
@@ -5029,7 +5059,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       activeQuestId: this.activeQuestId,
       activeRuleId: this.activeRuleId,
       activeAccessType: this.activeAccessType,
-      activeAccessId: this.activeAccessId
+      activeAccessId: this.activeAccessId,
+      analysisSourceFilter: this._analysisSourceFilter
     };
   }
 
@@ -5050,6 +5081,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.activeRuleId = state.activeRuleId || null;
     this.activeAccessType = state.activeAccessType || null;
     this.activeAccessId = state.activeAccessId || null;
+    this._analysisSourceFilter = state.analysisSourceFilter || "";
     this.profileEditing = false;
     this._privateVaultActorId = null;
     this.worldEditing = false;
@@ -5655,14 +5687,25 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     })).filter((filter) => filter.key === "all" || filter.count > 0);
 
     const campaignMemorySearch = game.user.isGM ? campaignMemorySearchView() : null;
-    const campaignAnalysis = game.user.isGM ? campaignAnalysisView(campaignMemorySearch) : null;
+    const campaignAnalysisAll = game.user.isGM ? campaignAnalysisView(campaignMemorySearch) : null;
+    const campaignAnalysis = game.user.isGM
+      ? campaignAnalysisView(campaignMemorySearch, this.activeTab === "campaignToolsAnalysis" ? this._analysisSourceFilter : "")
+      : null;
 
     const byRefKey = new Map(searchEntries.map((entry) => [entry.refKey, entry]));
     const favoriteEntries = favoriteRefs.map((ref) => byRefKey.get(ref)).filter(Boolean);
     const recentEntries = recentRefs.map((ref) => byRefKey.get(ref)).filter(Boolean).slice(0, 8);
 
-    if (selectedSession) selectedSession = { ...selectedSession, refKey: `session:${selectedSession.id}`, isFavorite: favoriteSet.has(`session:${selectedSession.id}`) };
-    if (questDetail) questDetail = { ...questDetail, refKey: `quest:${questDetail.id}`, isFavorite: favoriteSet.has(`quest:${questDetail.id}`) };
+    if (selectedSession) {
+      const sourceUuid = `JournalEntry.${selectedSession.id}`;
+      const pending = campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0;
+      selectedSession = { ...selectedSession, refKey: `session:${selectedSession.id}`, isFavorite: favoriteSet.has(`session:${selectedSession.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid };
+    }
+    if (questDetail) {
+      const sourceUuid = `JournalEntry.${questDetail.id}`;
+      const pending = campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0;
+      questDetail = { ...questDetail, refKey: `quest:${questDetail.id}`, isFavorite: favoriteSet.has(`quest:${questDetail.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid };
+    }
     if (profileView) profileView = { ...profileView, refKey: `actor:${profileView.id}`, isFavorite: favoriteSet.has(`actor:${profileView.id}`) };
     if (worldProfileView) worldProfileView = { ...worldProfileView, refKey: `world:${worldProfileView.id}`, isFavorite: favoriteSet.has(`world:${worldProfileView.id}`) };
 
@@ -5802,6 +5845,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       searchEntries,
       campaignMemorySearch,
       campaignAnalysis,
+      campaignAnalysisAll,
+      analysisSourceFilter:this._analysisSourceFilter,
       lastCampaignDecision:this._lastCampaignDecision,
       searchState: {
         query: this.searchQuery,
@@ -7644,6 +7689,16 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       console.warn("Adventurer's Tome | Evidence target navigation failed safely", error);
       ui.notifications.warn("Adventurer's Tome: Could not open this evidence target.");
     }
+  }
+
+  static async _onOpenSourceAnalysis(_event, target) {
+    if (!game.user?.isGM) return;
+    const sourceUuid = String(target.dataset.sourceUuid || "").trim();
+    if (!sourceUuid) return;
+    this._pushNavigationState();
+    this._analysisSourceFilter = sourceUuid;
+    this.activeTab = "campaignToolsAnalysis";
+    await this.render({ parts:["main"] });
   }
 
   static async _onResolveCampaignDecision(_event, target) {
