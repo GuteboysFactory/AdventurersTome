@@ -1106,16 +1106,16 @@
       {{/if}}
 
       <div class="at-campaign-analysis-stats">
-        <article class="{{#if campaignAnalysisAll.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysisAll.ambiguousCount}}</strong></span></article>
-        <article class="{{#if campaignAnalysisAll.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysisAll.unresolvedCount}}</strong></span></article>
-        <article class="{{#if campaignAnalysisAll.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysisAll.reviewCount}}</strong></span></article>
-        <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysisAll.noticedCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysis.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysis.ambiguousCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysis.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysis.unresolvedCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysis.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysis.reviewCount}}</strong></span></article>
+        <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysis.noticedCount}}</strong></span></article>
       </div>
 
       <section class="at-analysis-panel">
         <div class="at-analysis-panel-heading">
           <div><span class="at-kicker">Needs a GM decision</span><h3>Entity Review Queue</h3><p>Tome frames the question, shows the relevant context and offers the safest existing choices. Confirm one option or deliberately defer it.</p></div>
-          <span class="at-analysis-count">{{campaignAnalysisAll.attentionCount}} to review</span>
+          <span class="at-analysis-count">{{campaignAnalysis.attentionCount}} to review</span>
         </div>
 
         <div class="at-guided-decision-list">
@@ -1201,7 +1201,7 @@
       <section class="at-analysis-panel at-analysis-noticed">
         <div class="at-analysis-panel-heading">
           <div><span class="at-kicker">Mentioned, not canonically linked</span><h3>Tome noticed</h3><p>Ordinary active mentions that are not currently canonical Links. These are informational and do not require action unless you want to inspect them.</p></div>
-          <span class="at-analysis-count">{{campaignAnalysisAll.noticedCount}} noticed</span>
+          <span class="at-analysis-count">{{campaignAnalysis.noticedCount}} noticed</span>
         </div>
         <div class="at-analysis-noticed-grid">
           {{#each campaignAnalysis.noticed}}
