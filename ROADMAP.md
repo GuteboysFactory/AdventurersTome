@@ -2573,3 +2573,24 @@ Campaign Tools gains a dedicated **Analysis** workspace for GM decision support:
 - Analysis remains GM-only and does not expose Campaign Memory to players
 
 QA: `docs/V1.7_QA37_CAMPAIGN_ANALYSIS_ENTITY_REVIEW.md`
+
+## v1.7.0-qa.38 — Guided GM Decisions
+
+**Status:** QA / IMPLEMENTED
+
+Campaign Analysis becomes a fast GM decision workflow:
+
+- Overview gains a **Decision Monitor** for Ambiguous / Unresolved / Review / Tome noticed state
+- Overview shows the next pending decision and one-click confirmation when Tome has a conservative recommendation
+- Analysis cards phrase the actual GM question instead of exposing only technical relation state
+- ambiguous/unresolved/review rows present ranked existing canonical candidates
+- candidate cards use existing Foundry identity, image, profile metadata and resolver/context evidence
+- **★ Tome recommends** appears only when one candidate has a sufficiently clear evidence lead
+- candidate selection writes an explicit canonical Campaign Link through existing authority APIs
+- **Keep unresolved** and **Keep as Mention only** use source-scoped campaign learning so routine questions can be dismissed without global identity merging
+- the most recent decision can be safely undone
+- Campaign Mention Evidence rescans after each decision so pending work can disappear immediately
+- no entity is auto-created and no recommendation is auto-applied
+- player privacy and qa.31–qa.37 Campaign Memory semantics remain unchanged
+
+QA: `docs/V1.7_QA38_GUIDED_GM_DECISIONS.md`

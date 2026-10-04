@@ -6712,3 +6712,415 @@
 .at-layout-tiny .at-campaign-tools-tabs {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
+
+/* v1.7.0-qa.38 — Guided GM Decisions */
+.at-overview-intelligence-monitor {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(214, 178, 108, 0.2);
+  background: rgba(18, 13, 9, 0.72);
+}
+
+.at-overview-intelligence-monitor.has-attention {
+  border-color: rgba(196, 128, 70, 0.34);
+  box-shadow: inset 0 0 28px rgba(91, 44, 22, 0.1);
+}
+
+.at-overview-intelligence-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.at-overview-intelligence-head h2 {
+  margin: 3px 0 4px;
+  color: #e4c67d;
+  font-size: 18px;
+  font-weight: normal;
+}
+
+.at-overview-intelligence-head p {
+  margin: 0;
+  color: #897651;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.at-overview-intelligence-head > button {
+  flex: 0 0 auto;
+}
+
+.at-overview-analysis-stats {
+  margin-top: 0;
+}
+
+.at-overview-next-decision,
+.at-overview-all-clear {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px solid rgba(214, 178, 108, 0.14);
+  background: rgba(214, 178, 108, 0.025);
+}
+
+.at-overview-next-decision > i,
+.at-overview-all-clear > i {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(214, 178, 108, 0.16);
+  color: #c28a56;
+}
+
+.at-overview-next-decision > div,
+.at-overview-all-clear > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.at-overview-next-decision small,
+.at-overview-all-clear small {
+  color: #77664b;
+  font-size: 7px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.at-overview-next-decision strong,
+.at-overview-all-clear strong {
+  color: #d7bc7b;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.at-overview-next-decision span {
+  color: #77684e;
+  font-size: 8px;
+}
+
+.at-overview-decision-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.at-overview-decision-actions > button {
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+.at-overview-all-clear {
+  grid-template-columns: 34px minmax(0, 1fr);
+  border-color: rgba(103, 153, 105, 0.2);
+  background: rgba(40, 78, 43, 0.08);
+}
+
+.at-overview-all-clear > i {
+  color: #7aa883;
+}
+
+.at-guided-decision-undo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid rgba(95, 150, 99, 0.28);
+  background: rgba(42, 79, 44, 0.11);
+}
+
+.at-guided-decision-undo > i {
+  color: #7fab84;
+}
+
+.at-guided-decision-undo > span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.at-guided-decision-undo strong {
+  color: #b9cba8;
+  font-size: 10px;
+}
+
+.at-guided-decision-undo small {
+  color: #7c8c73;
+  font-size: 8px;
+}
+
+.at-guided-decision-undo > button {
+  flex: 0 0 auto;
+  margin: 0 !important;
+}
+
+.at-guided-decision-list {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.at-guided-decision-card {
+  padding: 12px;
+  border: 1px solid rgba(214, 178, 108, 0.16);
+  background: rgba(24, 17, 11, 0.48);
+}
+
+.at-guided-decision-card.is-ambiguous {
+  border-color: rgba(198, 111, 70, 0.44);
+}
+
+.at-guided-decision-card.is-unresolved,
+.at-guided-decision-card.is-review {
+  border-color: rgba(184, 144, 72, 0.32);
+}
+
+.at-guided-decision-header {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.at-guided-decision-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(214, 178, 108, 0.18);
+  background: rgba(214, 178, 108, 0.03);
+  color: #c28b58;
+}
+
+.at-guided-decision-header h4 {
+  margin: 2px 0 4px;
+  color: #e0c27d;
+  font-size: 14px;
+  font-weight: normal;
+}
+
+.at-guided-decision-header p {
+  margin: 0;
+  color: #9a835c;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.at-guided-source {
+  margin: 0 !important;
+}
+
+.at-guided-decision-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin: 9px 0;
+  padding-left: 44px;
+  color: #74654d;
+  font-size: 7px;
+}
+
+.at-guided-decision-context span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.at-guided-candidate-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 8px 44px;
+}
+
+.at-guided-candidate {
+  display: grid !important;
+  grid-template-columns: 30px minmax(0, 1fr) 22px !important;
+  gap: 9px !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-height: 58px !important;
+  margin: 0 !important;
+  padding: 8px 10px !important;
+  border: 1px solid rgba(214, 178, 108, 0.15) !important;
+  background: rgba(214, 178, 108, 0.02) !important;
+  color: inherit !important;
+  text-align: left !important;
+}
+
+.at-guided-candidate:hover {
+  border-color: rgba(214, 178, 108, 0.36) !important;
+  background: rgba(214, 178, 108, 0.06) !important;
+}
+
+.at-guided-candidate.is-recommended {
+  border-color: rgba(211, 173, 92, 0.5) !important;
+  background: linear-gradient(90deg, rgba(112, 83, 31, 0.2), rgba(214, 178, 108, 0.035)) !important;
+  box-shadow: inset 3px 0 0 rgba(214, 178, 108, 0.65);
+}
+
+.at-guided-candidate > i:first-child {
+  color: #a98a51;
+  text-align: center;
+}
+
+.at-guided-candidate > img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border: 1px solid rgba(214, 178, 108, 0.2);
+  border-radius: 50%;
+}
+
+.at-guided-candidate > i:last-child {
+  color: #6f8e68;
+  opacity: .7;
+}
+
+.at-guided-candidate > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.at-guided-candidate small {
+  color: #8a7349;
+  font-size: 7px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.at-guided-candidate.is-recommended small {
+  color: #d0aa5e;
+}
+
+.at-guided-candidate strong {
+  overflow: hidden;
+  color: #d5b979;
+  font-size: 11px;
+  font-weight: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.at-guided-candidate em {
+  color: #8a795a;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.at-guided-candidate span span {
+  color: #70634d;
+  font-size: 7px;
+}
+
+.at-guided-recommendation,
+.at-guided-no-candidates {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 7px 0 7px 44px;
+  padding: 8px 9px;
+  border: 1px solid rgba(214, 178, 108, 0.14);
+  background: rgba(214, 178, 108, 0.025);
+  color: #8c7855;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.at-guided-recommendation > i {
+  color: #c09a4e;
+}
+
+.at-guided-no-candidates > i {
+  color: #937b51;
+  margin-top: 1px;
+}
+
+.at-guided-no-candidates > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.at-guided-no-candidates strong {
+  color: #b49a65;
+  font-size: 9px;
+}
+
+.at-guided-no-candidates small {
+  color: #75654c;
+  font-size: 8px;
+}
+
+.at-guided-decision-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 0 44px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(214, 178, 108, 0.08);
+}
+
+.at-guided-decision-footer > button {
+  flex: 0 0 auto;
+  margin: 0 !important;
+}
+
+.at-guided-decision-footer > small {
+  color: #6d604b;
+  font-size: 7px;
+  line-height: 1.35;
+}
+
+.at-layout-narrow .at-overview-intelligence-head,
+.at-layout-tiny .at-overview-intelligence-head {
+  flex-direction: column;
+}
+
+.at-layout-narrow .at-guided-decision-header,
+.at-layout-tiny .at-guided-decision-header {
+  grid-template-columns: 32px minmax(0, 1fr);
+}
+
+.at-layout-narrow .at-guided-source,
+.at-layout-tiny .at-guided-source {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-left: 42px !important;
+}
+
+.at-layout-narrow .at-guided-decision-footer,
+.at-layout-tiny .at-guided-decision-footer {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.at-layout-tiny .at-guided-candidate-list,
+.at-layout-tiny .at-guided-decision-context,
+.at-layout-tiny .at-guided-decision-footer,
+.at-layout-tiny .at-guided-recommendation,
+.at-layout-tiny .at-guided-no-candidates {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.at-layout-tiny .at-overview-next-decision {
+  grid-template-columns: 32px minmax(0, 1fr);
+}
+
+.at-layout-tiny .at-overview-decision-actions {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-left: 42px;
+  flex-wrap: wrap;
+}
