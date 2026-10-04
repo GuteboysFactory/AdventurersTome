@@ -1120,7 +1120,7 @@
                 data-source-uuid="{{../sourceUuid}}"
                 data-target-uuid="{{uuid}}"
                 data-target-name="{{name}}">
-                <i class="fa-solid {{icon}}"></i>
+                {{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}
                 <span>
                   <small>{{#if recommended}}★ Tome recommends{{else}}Existing identity{{/if}}</small>
                   <strong>{{name}}</strong>
