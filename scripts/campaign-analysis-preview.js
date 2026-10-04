@@ -582,43 +582,11 @@ function wireReviewActions(panel, source) {
 }
 
 function renderPreview() {
-  const app = tomeApp();
-  if (!app?.rendered || !game.user?.isGM) return false;
-
-  if (authoringActive(app)) {
-    pending = true;
-    return false;
-  }
-
-  const source = currentSource(app);
   const root = document.querySelector("#adventurers-tome-app");
   root?.querySelectorAll("[data-at-campaign-analysis-preview]").forEach((node) => node.remove());
-  if (!source) {
-    pending = false;
-    return false;
-  }
-
-  const target = mountTarget(source);
-  if (!target) {
-    pending = true;
-    return false;
-  }
-
-  const data = snapshotForSource(source.uuid);
-  const shell = document.createElement("div");
-  shell.innerHTML = panelHtml(source, data);
-  const panel = shell.firstElementChild;
-  if (!panel) return false;
-
-  if (target.before) target.host.insertBefore(panel, target.before);
-  else target.host.append(panel);
-
-  wireReviewActions(panel, source);
-  renders += 1;
   pending = false;
-  return true;
+  return false;
 }
-
 function scheduleRender(delay = 90) {
   pending = true;
   clearTimeout(timer);
@@ -641,7 +609,8 @@ function audit() {
     contract:CONTRACT,
     version:VERSION,
     healthy:failures === 0,
-    gmOnlyPreview:true,
+    gmOnlyPreview:false,
+    inlinePreviewDisabled:true,
     readOnly:false,
     writesPerformed:false,
     campaignDataWrites:false,
