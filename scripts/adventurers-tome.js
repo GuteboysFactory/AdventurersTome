@@ -1223,6 +1223,8 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
   let img = "";
   var extraFacts = [];
   var extraRelations = [];
+  const briefItems = [];
+  let briefSummary = "";
   const contextTerms = [];
 
   if (uuid.startsWith("Actor.")) {
@@ -1239,13 +1241,35 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     detail = [profile?.title, profile?.subtitle, ...facts.slice(0, 2).map((fact) => fact.display)].filter(Boolean).join(" · ");
     contextTerms.push(profile?.title, profile?.subtitle, ...facts.map((fact) => fact.value));
     if (!detail) detail = [actor?.folder?.name, actor?.type || "Actor", `ID ${uuid.split(".").pop()?.slice(-6) || "unknown"}`].filter(Boolean).join(" · ");
-    var extraFacts = facts.map((fact) => fact.display).filter(Boolean).slice(0, 6);
+    var extraFacts = facts.map((fact) => fact.display).filter(Boolean).slice(0, 8);
     var extraRelations = Array.isArray(profile?.relations)
-      ? profile.relations.slice(0, 5).map((relation) => {
+      ? profile.relations.slice(0, 6).map((relation) => {
           const targetActor = game.actors?.get(relation.actorId) || null;
           return [relation.label, targetActor?.name || relation.actorId, relation.note].filter(Boolean).join(" · ");
         }).filter(Boolean)
       : [];
+
+    const roleLabel = [profile?.title, profile?.subtitle].filter(Boolean).join(" · ") || String(actor?.type || "Actor");
+    if (roleLabel) briefItems.push({ label:"Role / type", value:roleLabel, icon:"fa-user-tag" });
+
+    const factRows = Array.isArray(profile?.facts) ? profile.facts : [];
+    const pickFact = (patterns = []) => factRows.find((fact) => patterns.some((pattern) => pattern.test(String(fact?.label || ""))))?.value || "";
+    const faction = pickFact([/faction/i,/allegiance/i,/group/i,/organisation/i,/organization/i,/company/i,/order/i]);
+    const location = pickFact([/location/i,/home/i,/region/i,/base/i,/from/i,/residence/i,/place/i]);
+    const occupation = pickFact([/occupation/i,/profession/i,/job/i,/role/i,/title/i]);
+    if (occupation && !roleLabel.toLowerCase().includes(String(occupation).toLowerCase())) briefItems.push({ label:"Occupation", value:String(occupation), icon:"fa-briefcase" });
+    if (faction) briefItems.push({ label:"Faction / group", value:String(faction), icon:"fa-flag" });
+    if (location) briefItems.push({ label:"Location", value:String(location), icon:"fa-location-dot" });
+
+    if (extraRelations.length) briefItems.push({ label:"Relations", value:extraRelations.slice(0, 3).join(" • "), icon:"fa-people-arrows" });
+
+    const linkedContacts = game.journal?.contents?.filter?.((entry) => {
+      const worldProfile = getWorldProfile(entry);
+      return worldProfile?.category === "contact" && String(worldProfile.actorId || "") === String(actor?.id || "");
+    }) || [];
+    if (linkedContacts.length) briefItems.push({ label:"Contact entries", value:linkedContacts.slice(0, 3).map((entry) => entry.name).join(" • "), icon:"fa-address-card" });
+
+    briefSummary = String(profile?.summary || "").trim();
   } else if (uuid.startsWith("JournalEntry.")) {
     icon = kind === "location" ? "fa-location-dot" : kind === "faction" ? "fa-flag" : "fa-book";
     const entry = game.journal?.get(uuid.slice("JournalEntry.".length)) || null;
@@ -1253,8 +1277,36 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     img = String(profile?.heroImage || "").trim();
     detail = [profile?.subtitle, profile?.category, entry?.folder?.name].filter(Boolean).join(" · ");
     contextTerms.push(profile?.subtitle, profile?.category, profile?.summary);
-    var extraFacts = Array.isArray(profile?.facts) ? profile.facts.slice(0, 6).map((fact) => [fact.label, fact.value].filter(Boolean).join(": ")).filter(Boolean) : [];
+    var extraFacts = Array.isArray(profile?.facts) ? profile.facts.slice(0, 8).map((fact) => [fact.label, fact.value].filter(Boolean).join(": ")).filter(Boolean) : [];
     var extraRelations = [];
+
+    const categoryLabel = WORLD_CATEGORIES[profile?.category]?.label || profile?.category || kind || "World entry";
+    briefItems.push({ label:"Type", value:String(categoryLabel), icon:WORLD_CATEGORIES[profile?.category]?.icon || icon });
+    if (profile?.subtitle) briefItems.push({ label:"Known as", value:String(profile.subtitle), icon:"fa-tag" });
+    if (entry?.folder?.name) briefItems.push({ label:"Folder / group", value:String(entry.folder.name), icon:"fa-folder" });
+
+    if (profile?.category === "contact") {
+      const linkedActor = profile?.actorId ? game.actors?.get(profile.actorId) : resolveWorldActor(entry, profile);
+      if (linkedActor) {
+        const linkedProfile = getActorProfile(linkedActor);
+        briefItems.push({
+          label:"Linked person",
+          value:[linkedActor.name, linkedProfile?.title || linkedProfile?.subtitle].filter(Boolean).join(" · "),
+          icon:"fa-user"
+        });
+      } else {
+        briefItems.push({ label:"Linked person", value:"No Actor linked yet", icon:"fa-user-slash" });
+      }
+    }
+
+    const worldFacts = Array.isArray(profile?.facts) ? profile.facts : [];
+    for (const fact of worldFacts.slice(0, 4)) {
+      const label = String(fact?.label || "").trim();
+      const value = String(fact?.value || "").trim();
+      if (!value || /^foundry link$/i.test(label)) continue;
+      briefItems.push({ label:label || "Fact", value, icon:"fa-circle-info" });
+    }
+    briefSummary = String(profile?.summary || "").trim();
   } else if (uuid.startsWith("Item.")) {
     icon = "fa-gem";
     const item = game.items?.get(uuid.slice(5)) || null;
@@ -1263,6 +1315,8 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     contextTerms.push(item?.type, item?.folder?.name);
     var extraFacts = [item?.type, item?.folder?.name].filter(Boolean);
     var extraRelations = [];
+    briefItems.push({ label:"Type", value:String(item?.type || "Item"), icon:"fa-gem" });
+    if (item?.folder?.name) briefItems.push({ label:"Folder / group", value:String(item.folder.name), icon:"fa-folder" });
   }
 
   if (!detail && Array.isArray(foundryMeta.folderPath)) detail = foundryMeta.folderPath.filter(Boolean).slice(-2).join(" › ");
@@ -1289,6 +1343,12 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
         .filter(Boolean)
     : [];
 
+  if (previousMentions.length) {
+    briefItems.push({ label:"Previously seen", value:previousMentions.slice(0, 3).join(" • "), icon:"fa-clock-rotate-left" });
+  }
+  const visibleBriefItems = briefItems.filter((row) => row?.value).slice(0, 6);
+  const hasUsefulBriefing = Boolean(visibleBriefItems.length || briefSummary);
+
   return {
     uuid,
     name,
@@ -1306,6 +1366,10 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     extraFacts,
     extraRelations,
     previousMentions,
+    briefItems:visibleBriefItems,
+    briefSummary,
+    hasUsefulBriefing,
+    briefingEmpty:!hasUsefulBriefing,
     hasMoreInfo:Boolean(extraFacts.length || extraRelations.length || previousMentions.length)
   };
 }

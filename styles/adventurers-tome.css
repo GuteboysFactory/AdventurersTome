@@ -7399,3 +7399,96 @@
   align-items: flex-start;
   flex-wrap: wrap;
 }
+
+
+/* v1.7.0-qa.40 — Identity Briefing & Clean Session UX */
+.at-guided-candidate-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.at-guided-candidate-summary {
+  margin: 0;
+  color: #bba06d;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.at-guided-identity-brief {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin-top: 2px;
+}
+
+.at-guided-identity-brief > div {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(214, 178, 108, 0.1);
+  background: rgba(214, 178, 108, 0.018);
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+}
+
+.at-guided-identity-brief > div > i {
+  margin-top: 2px;
+  color: #a98a51;
+  text-align: center;
+}
+
+.at-guided-identity-brief > div > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.at-guided-identity-brief small {
+  color: #78684f;
+  font-size: 7px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.at-guided-identity-brief strong {
+  color: #d4b777;
+  font-size: 10px;
+  font-weight: normal;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.at-guided-brief-empty {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 3px;
+  padding: 8px 9px;
+  border: 1px dashed rgba(214, 178, 108, 0.14);
+  background: rgba(214, 178, 108, 0.012);
+  color: #7e6d52;
+  font-size: 8px;
+}
+
+.at-guided-brief-empty > i {
+  color: #9b8151;
+}
+
+.at-guided-candidate-reason {
+  margin-top: 3px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(214, 178, 108, 0.07);
+  font-size: 9px;
+}
+
+.at-guided-candidate-reason strong {
+  color: #a98a51;
+  font-weight: normal;
+}
+
+.at-layout-narrow .at-guided-identity-brief,
+.at-layout-tiny .at-guided-identity-brief {
+  grid-template-columns: 1fr;
+}

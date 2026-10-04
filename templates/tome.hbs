@@ -230,21 +230,6 @@
         </section>
         {{/if}}
 
-        {{#if selectedSession.hasSuggestedMentions}}
-        <section class="at-session-detail-section at-suggested-mentions">
-          <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{selectedSession.suggestedCount}}</span></h3>
-          <p class="at-suggested-help">Mentioned in this Session, but not a canonical Campaign Link yet.</p>
-          <div class="at-suggested-grid">
-            {{#each selectedSession.suggestedMentions}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}} {{#if suggestionProjectionCollapsed}}is-reconciled{{/if}}">
-              <div><i class="fa-solid {{suggestionIcon}}"></i><span><strong>{{name}}</strong><small>{{suggestionDisplayLabel}} · {{suggestionReason}}</small></span></div>
-              {{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}{{#if suggestionProjectionCollapsed}}<em><i class="fa-solid fa-code-merge"></i> Reconciled</em>{{else}}<em>Suggested</em>{{/if}}{{/if}}
-            </article>
-            {{/each}}
-          </div>
-        </section>
-        {{/if}}
-
         <section class="at-session-detail-section at-session-detail-notes at-shareable-text">
           <h3><i class="fa-solid fa-book-open"></i> Chronicle excerpt</h3>
           <p>{{selectedSession.bodyPreview}}</p>
@@ -327,17 +312,6 @@
         {{#if questDetail.hasWorldLinks}}<h3>World</h3><div class="at-link-chip-list">{{#each questDetail.worldLinks}}<button type="button" data-action="openWorldProfile" data-journal-id="{{id}}"><i class="fa-solid {{icon}}"></i>{{name}}</button>{{/each}}</div>{{/if}}
         {{#if questDetail.hasActorLinks}}<h3>Characters</h3><div class="at-link-chip-list">{{#each questDetail.actorLinks}}<button type="button" data-action="openProfile" data-actor-id="{{id}}"><i class="fa-solid fa-user"></i>{{name}}</button>{{/each}}</div>{{/if}}
         {{#unless questDetail.linkedCount}}<p class="at-empty">No canonical Campaign Links yet.</p>{{/unless}}
-        {{#if questDetail.hasSuggestedMentions}}
-        <div class="at-quest-suggested">
-          <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{questDetail.suggestedCount}}</span></h3>
-          <p class="at-suggested-help">Text mentions only — not canonical links.</p>
-          <div class="at-suggested-grid compact">
-            {{#each questDetail.suggestedMentions}}
-            <article class="at-suggested-card {{#if suggestionAmbiguous}}is-ambiguous{{/if}} {{#if suggestionProjectionCollapsed}}is-reconciled{{/if}}"><div><i class="fa-solid {{suggestionIcon}}"></i><span><strong>{{name}}</strong><small>{{suggestionDisplayLabel}} · {{suggestionReason}}</small></span></div>{{#if suggestionAmbiguous}}<em><i class="fa-solid fa-triangle-exclamation"></i> Ambiguous</em>{{else}}{{#if suggestionProjectionCollapsed}}<em><i class="fa-solid fa-code-merge"></i> Reconciled</em>{{else}}<em>Suggested</em>{{/if}}{{/if}}</article>
-            {{/each}}
-          </div>
-        </div>
-        {{/if}}
       </aside>
     </section>
   </main>
@@ -1146,8 +1120,17 @@
                   <div class="at-guided-candidate-copy">
                     <span class="at-guided-candidate-badge">{{#if recommended}}★ Tome recommends{{else}}Existing identity{{/if}}</span>
                     <h5>{{name}}</h5>
-                    <p class="at-guided-candidate-detail">{{detail}}</p>
-                    {{#if reason}}<p class="at-guided-candidate-reason"><i class="fa-solid fa-magnifying-glass"></i> {{reason}}</p>{{/if}}
+                    {{#if briefSummary}}<p class="at-guided-candidate-summary">{{briefSummary}}</p>{{/if}}
+                    {{#if hasUsefulBriefing}}
+                    <div class="at-guided-identity-brief">
+                      {{#each briefItems}}
+                      <div><i class="fa-solid {{icon}}"></i><span><small>{{label}}</small><strong>{{value}}</strong></span></div>
+                      {{/each}}
+                    </div>
+                    {{else}}
+                    <div class="at-guided-brief-empty"><i class="fa-solid fa-circle-info"></i><span>No useful campaign profile information recorded yet.</span></div>
+                    {{/if}}
+                    {{#if reason}}<p class="at-guided-candidate-reason"><i class="fa-solid fa-magnifying-glass"></i> <strong>Context match:</strong> {{reason}}</p>{{/if}}
                   </div>
                   <button type="button" class="at-primary at-guided-select"
                     data-action="resolveCampaignDecision"

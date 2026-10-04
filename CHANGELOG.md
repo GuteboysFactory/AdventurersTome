@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.40 — Identity Briefing & Clean Session UX
+
+- Adds direct identity briefing rows to Guided GM Decision candidates so GMs can decide without opening More info.
+- Candidate briefings may show role/type, occupation, faction/group, location, relations, linked Contact/Actor context and previous mentions.
+- World Contact candidates now identify linked Actors when available.
+- Low-data candidates explicitly state that no useful campaign profile information is recorded instead of relying on opaque IDs.
+- Keeps More info for secondary Facts, Relations and previous Campaign Memory mentions.
+- Removes visible Tome noticed blocks from Session and Quest detail pages.
+- Preserves all Mention evidence in Campaign Memory and keeps GM Review / Analysis / Memory as the review workflow.
+- Keeps qa.38/qa.39 decision writes, focused Analysis, no-auto-create policy and player privacy unchanged.
+
 ## 1.7.0-qa.39 — Decision UX & Contextual Indicators
 
 - Makes Guided GM Decision candidates full-width, larger and easier to read.
