@@ -81,6 +81,7 @@ function atMeNormalizeRecord(row = {}) {
     targetUuid:atMeClean(row.targetUuid),
     targetName:atMeClean(row.targetName),
     targetKind:atMeClean(row.targetKind || "unknown"),
+    discoveryKind:atMeClean(row.discoveryKind),
     mentionText:atMeClean(row.mentionText),
     snippet:atMeClean(row.snippet),
     start:Number.isFinite(Number(row.start)) ? Number(row.start) : null,
@@ -373,6 +374,7 @@ function atMeFromDiscoveryRow(row, previous = null, recordId = "") {
         sourcePath:atMeClean(row?.source?.path),
         mentionId:atMeClean(row?.id)
       },
+      ...(row.consolidation ? [{provider:"campaign-candidate-consolidation",...atMeClone(row.consolidation)}] : []),
       ...atMeArray(row?.provenance)
     ]
   });
@@ -447,7 +449,26 @@ async function atMeSync(options = {}) {
     let ambiguous = 0;
 
     const occurrenceCounts = new Map();
-    for (const row of atMeArray(snapshot.mentions)) {
+    const moduleApi = game.modules.get(ATME_ID)?.api;
+    const newDiscovery = moduleApi?.campaignNewEntityDiscovery;
+    const discovered = newDiscovery?.scan ? await newDiscovery.scan({}) : null;
+    for (const rawRow of atMeArray(snapshot.mentions)) {
+      const consolidated = newDiscovery?.candidateForMention?.(rawRow);
+      let row = consolidated && atMeNormalize(consolidated.text) !== atMeNormalize(rawRow.text)
+        ? { ...rawRow, text:consolidated.text, kindHint:consolidated.classification?.kind,
+            resolution:null, consolidation:{rawText:rawRow.text,candidateId:consolidated.id} }
+        : rawRow;
+      // Legacy semantic suggestions also pass the same precision gate before
+      // becoming active Memory evidence or a GM recommendation.
+      const assess = moduleApi?.campaignEntityCreation?.assessExistingMatch;
+      if (assess && row.mentionType !== "explicit-link" && row.resolution) {
+        const eligible = (target) => target && assess({text:row.text,kind:row.kindHint,sourceUuid:row.sourceJournalUuid,target}).eligible;
+        row={...row,resolution:{...row.resolution,
+          candidates:atMeArray(row.resolution.candidates).filter((entry)=>eligible(entry.target || entry.entity || entry)),
+          selectedTarget:eligible(row.resolution.selectedTarget) ? row.resolution.selectedTarget : null
+        }};
+        if (!row.resolution.selectedTarget && !row.resolution.candidates.length)row.resolution={...row.resolution,decision:"unresolved",confidence:0,reason:"no-safe-existing-match"};
+      }
       const groupKey = atMeRecordGroupKey(row);
       const occurrenceOrdinal = Number(occurrenceCounts.get(groupKey) || 0) + 1;
       occurrenceCounts.set(groupKey, occurrenceOrdinal);
@@ -465,10 +486,7 @@ async function atMeSync(options = {}) {
 
     // Feed new discovery into the existing Memory ledger/Analysis queue. The
     // discovery stage stays read-only; creation and linking belong to resolution.
-    const moduleApi = game.modules.get(ATME_ID)?.api;
-    const newDiscovery = moduleApi?.campaignNewEntityDiscovery;
-    if (newDiscovery?.scan && moduleApi?.campaignEntityCreation?.resolveCandidates) {
-      const discovered = await newDiscovery.scan({});
+    if (discovered && moduleApi?.campaignEntityCreation?.resolveCandidates) {
       const outcomes = await moduleApi.campaignEntityCreation.resolveCandidates(discovered.candidates || []);
       for (const candidate of outcomes) {
         const id = `identity:${candidate.id}`;
@@ -482,10 +500,11 @@ async function atMeSync(options = {}) {
           outcomeReason:candidate.outcomeReason,
           identityBriefing:candidate.identityBriefing,
           identityCandidates:candidate.identityCandidates,
+          discoveryKind:candidate.classification?.kind,
           targetUuid:candidate.targetUuid,
           targetName:document?.name || candidate.text,
           targetKind:document?.documentName === "Actor" ? "character" : document?.documentName === "Item" ? "item"
-            : document?.getFlag?.(ATME_ID,"worldProfile")?.category || candidate.classification?.kind,
+            : document?.getFlag?.(ATME_ID,"worldProfile")?.category || candidate.resolutionKind || candidate.classification?.kind,
           resolutionState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "review" : "resolved",
           resolutionReason:candidate.outcomeReason,
           relationState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "mentioned-review" : "linked-and-mentioned",

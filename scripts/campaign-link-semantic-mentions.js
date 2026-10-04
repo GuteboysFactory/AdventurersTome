@@ -426,7 +426,10 @@ function contextualMatches(candidate, entities) {
 
     const exactName = sourceName === targetName;
     const similarity = exactName ? 1 : tokenSimilarity(sourceName, targetName);
-    if (!exactName && similarity < NAME_SIMILARITY_REVIEW) continue;
+    const precision = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation?.assessExistingMatch?.({
+      text:candidate.text,kind:candidate.kindHint,sourceUuid:candidate.source?.uuid,target:sourceEntity
+    });
+    if (precision ? !precision.eligible : !exactName && similarity < NAME_SIMILARITY_REVIEW) continue;
 
     const representative = projectionRepresentative(sourceEntity, entityByUuid);
     const entity = representative?.entity || sourceEntity;

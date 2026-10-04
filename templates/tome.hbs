@@ -1178,7 +1178,7 @@
 
             <footer class="at-guided-decision-footer">
               {{#if canCreate}}
-              <label>New identity type <select class="at-review-create-type"><option value="contact">Contact / person</option><option value="location">Location</option><option value="faction">Faction / organization</option><option value="item">Item</option><option value="lore">Lore</option></select></label>
+              <label>New identity type <select class="at-review-create-type">{{#each creationTypeOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
               <button type="button" data-action="resolveCampaignDecision" data-decision-mode="create" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-plus"></i> Create new identity</button>
               {{/if}}
               {{#if isReview}}

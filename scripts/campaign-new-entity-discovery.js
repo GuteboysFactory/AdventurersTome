@@ -37,7 +37,7 @@ const LOCATION_SUFFIXES = new Set([
   "ford","pass","ruins","keep","marsh","pines","road","gate","tower","bridge","crossing","hollow","wood","woods","forest",
   "vale","valley","hill","hills","mount","mountain","mountains","river","lake","mere","moor","village","town","city","fort",
   "fortress","castle","cave","caves","mine","mines","isle","island","coast","harbor","harbour","bay","reach","watch",
-  "abbey","temple","monastery","shrine","sanctuary","citadel","stronghold","manor","palace","camp","outpost","chapel"
+  "abbey","temple","monastery","shrine","sanctuary","citadel","stronghold","manor","palace","camp","outpost","chapel","inn","tavern","hotel"
 ]);
 
 const FACTION_SUFFIXES = new Set([
@@ -67,6 +67,7 @@ const stats = {
   precisionFiltered:0,
   nlpBoundaryRefined:0,
   aliasMerged:0,
+  subsumed:0,
   candidates:0,
   highConfidence:0,
   review:0,
@@ -233,12 +234,19 @@ function candidateRuns(text) {
     const run = [tokens[i]];
     let lastEnd = tokens[i].end;
 
-    for (let j = i + 1; j < tokens.length && run.length < 5; j += 1) {
+    for (let j = i + 1; j < tokens.length && run.length < 9; j += 1) {
       const gap = String(text).slice(lastEnd, tokens[j].start);
       if (!/^\s+$/u.test(gap)) break;
 
       const normalized = tokens[j].normalized;
+      // A conjunction can belong to a named establishment, but must not
+      // combine a party enumeration such as Baran and Citronimus.
+      const establishmentTail = tokens.slice(j + 1, j + 5).findIndex((token, offset, tail) =>
+        ["inn","tavern","hotel"].includes(token.normalized)
+        && tail.slice(0, offset + 1).every((part, k) => properToken(part.clean)
+          && /^\s+$/u.test(String(text).slice(k ? tail[k-1].end : tokens[j].end, part.start))));
       const allowed = properToken(tokens[j].clean) || CONNECTORS.has(normalized)
+        || (normalized === "and" && establishmentTail >= 0)
         || normalized === "militia";
       if (!allowed) break;
 
@@ -304,7 +312,7 @@ function knownIdentityIndex(discoverySnapshot, mentionSnapshot) {
     if (name) names.add(name);
   }
 
-  return { names, singleAliases };
+  return { names, singleAliases, entities:discoverySnapshot?.entities || [] };
 }
 
 function sourceContext(text, start, end, radius = 105) {
@@ -317,14 +325,19 @@ function wordParts(value) {
   return normalizeText(value).split(" ").filter(Boolean);
 }
 
-function scoreClassification(text, context) {
+function scoreClassification(text, context, occurrence = {}) {
   const phrase = normalizeText(text);
   const parts = wordParts(text);
   const first = parts[0] || "";
   const last = parts[parts.length - 1] || "";
   const ctx = normalizeText(context);
-  const afterName = ctx.slice(ctx.indexOf(phrase) + phrase.length);
-  const personRole = /^(?: a| an)? (quartermaster|ferryman|informant|commander|healer|officer|merchant|scout|captain|guide)\b/u.test(afterName);
+  const anchored = Number.isFinite(occurrence.contextOffset);
+  const beforeName = anchored ? normalizeText(String(context).slice(0, occurrence.contextOffset)) : ctx.slice(0, ctx.indexOf(phrase)).trim();
+  const afterName = anchored ? ` ${normalizeText(String(context).slice(occurrence.contextOffset + text.length))}` : ctx.slice(ctx.indexOf(phrase) + phrase.length);
+  const personRole = /^(?: a| an| the)? (?:travelling |traveling |occasional )?(quartermaster|ferryman|informant|commander|healer|officer|merchant|scout|captain|guide|keeper)\b/u.test(afterName);
+  // Motion/residence attached to this occurrence is place evidence. A generic
+  // "in/from/near" elsewhere (or "left Gunther") is not enough.
+  const placeRole = /\b(?:toward|towards|arrived at|arrived in|remained in|stayed in|travelled to|traveled to|roads? north of|roads? south of|roads? east of|roads? west of)$/u.test(beforeName);
 
   const scores = {
     character:0,
@@ -349,6 +362,7 @@ function scoreClassification(text, context) {
   if (CHARACTER_TITLES.has(first)) add("character", 0.72, "character-title");
   if (LOCATION_SUFFIXES.has(last)) add("location", 0.68, "location-suffix");
   if (FACTION_SUFFIXES.has(last)) add("faction", 0.56, "faction-suffix");
+  if (["order","guild","clan","brotherhood","fellowship"].includes(first) && parts.includes("of")) add("faction", 0.82, "faction-name-prefix");
   if (ITEM_SUFFIXES.has(last)) add("item", 0.68, "item-suffix");
   if (LORE_SUFFIXES.has(last)) add("lore", 0.72, "lore-suffix");
 
@@ -378,6 +392,20 @@ function scoreClassification(text, context) {
     scores.character = 0.99;
     scores.location = scores.faction = scores.item = scores.lore = 0;
     signals.character.push("person-role-apposition");
+  }
+  if (LOCATION_SUFFIXES.has(last) && last !== "watch" && !personRole) {
+    scores.location = Math.max(0.9, scores.location);
+    scores.character = Math.min(0.28, scores.character);
+  }
+  if (signals.faction.includes("faction-name-prefix")) {
+    scores.faction = 0.99;
+    scores.item = scores.location = scores.character = scores.lore = 0;
+  }
+  if (placeRole && !personRole && !CHARACTER_TITLES.has(first)
+    && !signals.faction.includes("faction-name-prefix") && !ITEM_SUFFIXES.has(last) && !FACTION_SUFFIXES.has(last)) {
+    scores.location = 0.9;
+    scores.character = scores.faction = scores.item = scores.lore = 0;
+    signals.location.push("location-source-role");
   }
 
   const ordered = Object.entries(scores)
@@ -419,16 +447,16 @@ function detectionAssessment(row, occurrenceCount) {
   return { score, band, signals };
 }
 
-function mergeAliases(rows) {
+function mergeAliases(rows, knownIndex) {
   // Place-name prefixes are distinct identities: Blackbridge is not an alias
   // for Blackbridge Watch. Only merge unique personal short names.
   const multi = rows.filter((row) => row.tokenCount > 1
-    && scoreClassification(row.text, row.context).kind === "character");
+    && scoreClassification(row.text, row.context, row).kind === "character");
   const aliases = new Map();
 
   for (const row of multi) {
     const parts = row.normalized.split(" ").filter(Boolean);
-    for (const alias of [parts[0], parts[parts.length - 1]]) {
+    for (const alias of [parts[CHARACTER_TITLES.has(parts[0]) ? 1 : 0]]) {
       if (!alias || alias.length < 3) continue;
       if (!aliases.has(alias)) aliases.set(alias, new Set());
       aliases.get(alias).add(row.normalized);
@@ -442,8 +470,17 @@ function mergeAliases(rows) {
       continue;
     }
     const targets = [...(aliases.get(row.normalized) || [])];
-    if (targets.length === 1) {
+    const established = targets.filter((name)=>rows.some((full)=>full.normalized === name && full.start < row.start
+      && full.sourceJournalUuid === row.sourceJournalUuid && full.sourcePageUuid === row.sourcePageUuid));
+    if (established.length > 1) row.ambiguousSourceReference = true;
+    const target = rows.find((candidate) => candidate.normalized === targets[0]);
+    const authority = (entity) => game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid;
+    const fullAuthorities = new Set((knownIndex?.entities || []).filter((entity) => normalizeText(entity.name) === target?.normalized).map(authority));
+    const independentKnownName = (knownIndex?.entities || []).some((entity) => normalizeText(entity.name) === row.normalized && !fullAuthorities.has(authority(entity)));
+    if (targets.length === 1 && target.start < row.start && !independentKnownName
+      && target.sourceJournalUuid === row.sourceJournalUuid && target.sourcePageUuid === row.sourcePageUuid) {
       row.aliasOf = targets[0];
+      row.consolidationReason = "UNIQUE_SOURCE_FIRST_NAME_REFERENCE";
       stats.aliasMerged += 1;
     } else {
       out.push(row);
@@ -467,7 +504,25 @@ function aggregateCandidates(rawRows, knownIndex) {
     return true;
   });
 
-  const merged = mergeAliases(preliminary);
+  // Subsumption requires a physical contained span and a complete name with
+  // attached type evidence. Text length alone never establishes identity.
+  for (const row of preliminary) {
+    const stronger = preliminary.filter((other) => other !== row
+      && other.sourcePageUuid === row.sourcePageUuid && other.sourceJournalUuid === row.sourceJournalUuid
+      && other.start <= row.start && other.end >= row.end
+      && other.tokenCount > row.tokenCount
+      && ` ${other.normalized} `.includes(` ${row.normalized} `)
+      && scoreClassification(other.text, other.context, other).confidence >= 0.68)
+      .sort((a,b) => b.tokenCount - a.tokenCount)[0];
+    if (stronger && (!row.canonicalUuid || row.canonicalUuid === stronger.canonicalUuid)) {
+      row.aliasOf = stronger.normalized;
+      row.consolidationReason = "SUBSUMED_BY_STRONGER_MENTION";
+      row.consolidatedStart = stronger.start;
+      row.consolidatedEnd = stronger.end;
+      stats.subsumed += 1;
+    }
+  }
+  mergeAliases(preliminary.filter((row) => !row.aliasOf), knownIndex);
   const byKey = new Map();
 
   for (const row of preliminary) {
@@ -482,6 +537,7 @@ function aggregateCandidates(rawRows, knownIndex) {
       });
     }
     byKey.get(normalized).occurrences.push(row);
+    if (row.ambiguousSourceReference) byKey.get(normalized).ambiguousSourceReference = true;
   }
 
   return [...byKey.values()];
@@ -531,6 +587,7 @@ async function scan(options = {}) {
   stats.precisionFiltered = 0;
   stats.nlpBoundaryRefined = 0;
   stats.aliasMerged = 0;
+  stats.subsumed = 0;
   stats.candidates = 0;
   stats.highConfidence = 0;
   stats.review = 0;
@@ -562,6 +619,7 @@ async function scan(options = {}) {
   const knownIndex = knownIdentityIndex(discoverySnapshot, mentionSnapshot);
   const candidates = [];
   const suppressedCandidates = [];
+  const diagnostics = [];
 
   for (const source of campaignSources(user)) {
     const { journal, kind } = source;
@@ -582,6 +640,7 @@ async function scan(options = {}) {
       const raw = candidateRuns(text).map((row) => ({
         ...row,
         context:sourceContext(text, row.start, row.end),
+        contextOffset:row.start - Math.max(0, row.start - 105),
         sourceKind:kind,
         sourceJournalUuid:journal.uuid,
         sourcePageUuid:page.uuid,
@@ -591,12 +650,19 @@ async function scan(options = {}) {
 
       stats.rawCandidates += raw.length;
       const aggregate = aggregateCandidates(raw, knownIndex);
+      diagnostics.push(...raw.map((hit) => ({
+        sourceJournalUuid:journal.uuid, sourcePageUuid:page.uuid,
+        text:hit.text, start:hit.start, end:hit.end,
+        status:hit.aliasOf ? hit.consolidationReason : COMMON_SINGLETONS.has(hit.normalized) ? "COMMON_GRAMMAR_TOKEN" : "FINAL_CANDIDATE",
+        candidateNormalized:hit.aliasOf || hit.normalized,
+        candidateId:COMMON_SINGLETONS.has(hit.normalized) ? "" : `unknown:${page.uuid}:${hit.aliasOf || hit.normalized}`
+      })));
 
       for (const grouped of aggregate) {
         const occurrences = grouped.occurrences;
         if (!occurrences.length) continue;
 
-        const typeVotes = occurrences.map((row) => scoreClassification(row.text, row.context));
+        const typeVotes = occurrences.filter((row) => !row.aliasOf).map((row) => scoreClassification(row.text, row.context, row));
         const classification = typeVotes
           .sort((a, b) => b.confidence - a.confidence)[0] || { kind:"unknown", confidence:0, signals:[], alternatives:[] };
 
@@ -607,7 +673,8 @@ async function scan(options = {}) {
           tokenCount:grouped.tokenCount,
           classification
         };
-        const detection = detectionAssessment(representative, occurrences.length);
+        const occurrenceCount = new Set(occurrences.map((row) => `${row.consolidatedStart ?? row.start}:${row.consolidatedEnd ?? row.end}`)).size;
+        const detection = detectionAssessment(representative, occurrenceCount);
 
         const disposition = detection.band === BANDS.HIGH && classification.confidence >= 0.45
           ? BANDS.HIGH
@@ -668,6 +735,7 @@ async function scan(options = {}) {
           pageName:page.name,
           text:grouped.text,
           normalized:grouped.normalized,
+          ambiguousSourceReference:grouped.ambiguousSourceReference === true,
           mentionCount:occurrences.length,
           mentions:occurrences.map((occurrence) => ({
             text:occurrence.text,
@@ -712,6 +780,7 @@ async function scan(options = {}) {
     sourceScope:["session","quest"],
     confidenceModel:"detection-type-and-identity-separated",
     candidates:clone(candidates),
+    diagnostics:clone(diagnostics),
     suppressedCandidates:clone(suppressedCandidates),
     summary:{
       sources:stats.sources,
@@ -725,6 +794,7 @@ async function scan(options = {}) {
       precisionFiltered:stats.precisionFiltered,
       nlpBoundaryRefined:stats.nlpBoundaryRefined,
       aliasMerged:stats.aliasMerged,
+      subsumed:stats.subsumed,
       learningSuppressed:stats.learningSuppressed,
       learningSourceIgnored:stats.learningSourceIgnored,
       learningConfirmed:stats.learningConfirmed,
@@ -738,6 +808,21 @@ async function scan(options = {}) {
 
 function snapshot() {
   return clone(lastSnapshot);
+}
+
+function candidateForMention(row = {}) {
+  if (row.mentionType === "explicit-link") return null;
+  const pageUuid = row.sourcePageUuid || row.source?.pageUuid;
+  const journalUuid = row.sourceJournalUuid || row.source?.uuid;
+  const start = Number(row.start ?? row.source?.start);
+  const end = Number(row.end ?? row.source?.end);
+  const normalized = normalizeText(row.text);
+  const matches = (lastSnapshot?.candidates || []).filter((candidate) => candidate.sourceJournalUuid === journalUuid
+    && candidate.sourcePageUuid === pageUuid
+    && candidate.mentions.some((mention) => (Number.isFinite(start) && Number.isFinite(end)
+      && start >= mention.start && end <= mention.end && ` ${normalizeText(mention.text)} `.includes(` ${normalized} `))
+      || (normalizeText(mention.text) === normalized && (!Number.isFinite(start) || mention.start === start))));
+  return matches.length === 1 ? clone(matches[0]) : null;
 }
 
 function candidatesForSource(uuid) {
@@ -802,6 +887,8 @@ const publicApi = Object.freeze({
   scan,
   snapshot,
   candidatesForSource,
+  candidateForMention,
+  consolidate:(rows=[])=>clone(aggregateCandidates(clone(rows),knownIdentityIndex(discoveryApi()?.snapshot?.(),null))),
   suppressedForSource,
   audit
 });

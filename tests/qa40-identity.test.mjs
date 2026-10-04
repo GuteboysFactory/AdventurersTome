@@ -5,6 +5,100 @@ import vm from 'node:vm';
 import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const fixture = fs.readFileSync(path.join(root,'tests/fixtures/shadows-at-blackbridge.txt'),'utf8');
+const stonecross = fs.readFileSync(path.join(root,'tests/fixtures/the-bell-at-stonecross.txt'),'utf8');
+
+function analysisFor(w, rows) {
+  const main=fs.readFileSync(path.join(root,'scripts/adventurers-tome.js'),'utf8');
+  w.context.normalizeImportName=text=>String(text||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  w.context.getActorProfile=actor=>actor.getFlag('','actorProfile')||{};
+  w.context.getWorldProfile=entry=>entry.getFlag('','worldProfile')||{};
+  w.context.resolveWorldActor=()=>null;w.context.WORLD_CATEGORIES={};
+  vm.runInContext(main.slice(main.indexOf('function campaignDecisionCandidateMeta('),main.indexOf('function campaignMentionHistoryForWorld(')),w.context);
+  w.context.memoryRows=rows;
+  return vm.runInContext('campaignAnalysisView({rows:memoryRows})',w.context);
+}
+
+test('Actual Stonecross source keeps Blackbridge and Stonecross as Location through discovery, Review and reload',async()=>{
+  const w=world(stonecross,true);
+  w.add('Blackbridge Watch','JournalEntry',{worldProfile:{category:'location'}});
+  w.add('Stonecross Watch','JournalEntry',{worldProfile:{category:'location'}});
+  const scan=await w.scan();
+  for(const name of ['Blackbridge','Stonecross'])assert.equal(scan.candidates.find(row=>row.text===name).classification.kind,'location');
+  const ledger=await w.api.campaignMentionEvidence.sync();
+  const rows=ledger.records.filter(row=>['Blackbridge','Stonecross'].includes(row.mentionText));
+  assert.equal(rows.length,2);
+  for(const row of rows) {
+    assert.equal(row.discoveryKind,'location');assert.equal(row.outcome,'REVIEW');
+    assert.equal(row.targetUuid,'','a place prefix must not auto-link its Watch');
+  }
+  const view=analysisFor(w,rows.map(row=>({...row,lifecycle:'active',relationGroup:'review',relationLabel:'Needs review'})));
+  for(const row of view.attention)assert.equal(row.creationTypeOptions.find(option=>option.selected).value,'location');
+  const reloaded=world(stonecross,true);
+  for(const [key,value] of w.storage)reloaded.storage.set(key,JSON.parse(JSON.stringify(value)));
+  for(const row of reloaded.api.campaignMentionEvidence.snapshot().records.filter(row=>['Blackbridge','Stonecross'].includes(row.mentionText)))assert.equal(row.discoveryKind,'location');
+  const again=await w.api.campaignMentionEvidence.sync();
+  for(const row of again.records.filter(row=>['Blackbridge','Stonecross'].includes(row.mentionText)))assert.equal(row.discoveryKind,'location');
+});
+
+test('Place source roles do not reclassify nearby people, faction names or items',async()=>{
+  const w=world('They left Gunther alone. They walked toward Mara Venn, a keeper. They walked toward Order of the Silver Lantern. They walked toward Blackglass Key. They travelled toward Stonecross. Stonecross heard about the Order of the Silver Lantern.',false);
+  const rows=(await w.scan()).candidates;
+  assert.notEqual(rows.find(row=>row.text==='Gunther').classification.kind,'location');
+  assert.equal(rows.find(row=>row.text==='Mara Venn').classification.kind,'character');
+  assert.equal(rows.find(row=>row.text==='Order of the Silver Lantern').classification.kind,'faction');
+  assert.equal(rows.find(row=>row.text==='Blackglass Key').classification.kind,'item');
+  assert.equal(rows.find(row=>row.text==='Stonecross').classification.kind,'location');
+});
+
+test('Review creation type follows discovery independently of identity-match kind and keeps every manual option',()=>{
+  const w=world('',false);
+  const examples=[['Blackbridge','location','location'],['Stonecross','location','location'],['Mara','person','contact'],
+    ['Gunther','character','contact'],['Wardens','organization','faction'],['Order','faction','faction'],['Key','item','item']];
+  const rows=examples.map(([mentionText,discoveryKind])=>({mentionText,discoveryKind,targetKind:'unknown',sourceUuid:w.session.uuid,
+    sourcePageUuid:w.page.uuid,lifecycle:'active',relationGroup:'review',relationLabel:'Needs review'}));
+  const view=analysisFor(w,rows);
+  for(const [name,,expected] of examples) {
+    const options=view.attention.find(row=>row.mentionText===name).creationTypeOptions;
+    assert.equal(options.filter(option=>option.selected).length,1);
+    assert.equal(options.find(option=>option.selected).value,expected);
+    assert.deepEqual(Array.from(options,option=>option.value),['contact','location','faction','item','lore']);
+  }
+  const legacy=analysisFor(w,[{...rows[0],discoveryKind:undefined,targetKind:'location'}]);
+  assert.equal(legacy.attention[0].creationTypeOptions.find(option=>option.selected).value,'location');
+  const template=fs.readFileSync(path.join(root,'templates/tome.hbs'),'utf8');
+  assert.match(template,/class="at-review-create-type">\{\{#each creationTypeOptions\}\}/);
+  assert.match(template,/\{\{#if selected\}\}selected\{\{\/if\}\}/);
+});
+
+test('Review discovery type survives Memory serialization, reload and reprocessing without changing resolution',async()=>{
+  const w=world('They reached Old Bell Tower.',false);
+  w.add('Old Bell Tower','JournalEntry',{worldProfile:{category:'location'}});
+  w.add('Old Bell Tower','JournalEntry',{worldProfile:{category:'location'}});
+  await w.api.campaignMentionEvidence.sync();
+  const ledger=w.api.campaignMentionEvidence.snapshot();
+  const row=ledger.records.find(row=>row.mentionText==='Old Bell Tower');
+  assert.equal(row.discoveryKind,'location');assert.equal(row.outcome,'REVIEW');
+  const reloaded=world('They reached Old Bell Tower.',false);
+  for(const [key,value] of w.storage)reloaded.storage.set(key,JSON.parse(JSON.stringify(value)));
+  const stored=reloaded.api.campaignMentionEvidence.snapshot().records.find(row=>row.mentionText==='Old Bell Tower');
+  assert.equal(stored.discoveryKind,'location');
+  assert.equal(analysisFor(reloaded,[{...stored,lifecycle:'active',relationGroup:'review',relationLabel:'Needs review'}])
+    .attention[0].creationTypeOptions.find(option=>option.selected).value,'location');
+  const again=await w.api.campaignMentionEvidence.sync();
+  assert.equal(again.records.find(row=>row.mentionText==='Old Bell Tower').discoveryKind,'location');
+});
+
+test('Review fallback and suggestions dedupe a proven Gunther projection by canonical UUID while preserving independent namesakes',()=>{
+  const w=world('',false);const actor=w.add('Gunther','Actor');
+  const projection=w.add('Gunther','JournalEntry',{worldProfile:{category:'contact',actorId:actor.id}});
+  const base={mentionText:'Gunther',targetName:'Gunther',targetUuid:projection.uuid,targetKind:'contact',sourceUuid:w.session.uuid,
+    lifecycle:'active',relationGroup:'review',relationLabel:'Needs review',identityCandidates:[{name:'Gunther',canonicalUuid:actor.uuid,kind:'character'}]};
+  const view=analysisFor(w,[base]);
+  assert.equal(view.attention[0].candidates.length,1);assert.equal(view.attention[0].candidates[0].uuid,actor.uuid);
+  const independent=w.add('Gunther','JournalEntry',{worldProfile:{category:'contact'}});
+  const distinct=analysisFor(w,[{...base,identityCandidates:[...base.identityCandidates,{name:'Gunther',canonicalUuid:independent.uuid,kind:'contact'}]}]);
+  assert.equal(distinct.attention[0].candidates.length,2);assert.equal(distinct.attention[0].hasRecommendation,false);
+});
 
 function world(text = fixture, known = true) {
   const handlers = new Map();
@@ -54,7 +148,7 @@ function world(text = fixture, known = true) {
   }
   context.self=context;
   vm.runInContext(fs.readFileSync(path.join(root,'vendor/compromise-14.17.0.js'),'utf8'),context,{filename:'compromise-14.17.0.js'});
-  for(const file of ['nlp-provider.js','campaign-identity-reconciliation.js','campaign-source-scoped-identity.js','campaign-deterministic-auto-link.js',
+  for(const file of ['nlp-provider.js','campaign-link-semantic-mentions.js','campaign-identity-reconciliation.js','campaign-source-scoped-identity.js','campaign-deterministic-auto-link.js',
     'campaign-review-learning.js','campaign-new-entity-discovery.js','campaign-confirmed-entity-creation.js','campaign-mention-evidence.js']) load(file);
   for(const callback of handlers.get('init')||[])callback();
   for(const callback of handlers.get('ready')||[])callback();
@@ -490,4 +584,251 @@ test('Session and Quest remain clean and review remains GM-only',()=>{
     assert.match(section,/\{\{#if isGM\}\}<button[^>]+data-action="openSourceAnalysis"/);
     assert.ok(section.includes('GM review'));
   }
+});
+
+test('Stonecross complete identities win over source fragments and first-name references',async()=>{
+  const w=world(stonecross);
+  const snapshot=await w.scan();
+  const names=snapshot.candidates.map(row=>row.text);
+  for(const name of ['Arne','Baran','Citronimus','Gunther','Mara Venn','Hadrik Sol','Seren Holt','Pale Wardens','Order of the Silver Lantern','Stonecross Watch','Blackbridge','Stonecross','Fox and Lantern Inn','Old Bell Tower','Blackglass Key'])assert.ok(names.includes(name),name);
+  for(const fragment of ['Mara','Hadrik','Seren','Fox','Lantern Inn','Silver Lantern','Lantern'])assert.ok(!names.includes(fragment),fragment);
+  for(const name of ['Mara Venn','Hadrik Sol','Seren Holt'])assert.equal(snapshot.candidates.find(row=>row.text===name).classification.kind,'character');
+  assert.ok(snapshot.candidates.find(row=>row.text==='Mara Venn').mentions.some(row=>row.text==='Mara'));
+});
+
+for(const [short,full,role] of [['Mara','Mara Venn','keeper'],['Seren','Seren Holt','merchant'],['Hadrik','Hadrik Sol','captain']]) {
+  test(`Stonecross first-name ${short} resolves to one ${full} candidate`,async()=>{
+    const w=world(`They met ${full}, a ${role}. ${short} spoke. ${short} left.`,false);
+    const rows=(await w.scan()).candidates;
+    assert.ok(!rows.some(row=>row.text===short));
+    assert.equal(rows.filter(row=>row.text===full).length,1);
+    assert.equal(rows.find(row=>row.text===full).mentions.length,3);
+    const outcomes=await w.resolve();assert.equal(outcomes.find(row=>row.text===full).outcome,'CREATED');
+  });
+}
+
+test('Stonecross overlapping spans consolidate, but an independent location/name fragment is retained',()=>{
+  const w=world('',false);
+  const raw=(text,start,context='They stayed at the Fox and Lantern Inn.')=>({text,normalized:text.toLowerCase(),start,end:start+text.length,tokenCount:text.split(' ').length,context,sourceJournalUuid:w.session.uuid,sourcePageUuid:w.page.uuid});
+  const grouped=w.api.campaignNewEntityDiscovery.consolidate([raw('Fox and Lantern Inn',0),raw('Fox',0),raw('Lantern Inn',8),raw('Fox',55,'Fox spoke.')]);
+  assert.equal(grouped.length,2);
+  assert.equal(grouped.find(row=>row.text==='Fox and Lantern Inn').occurrences.length,3);
+  assert.equal(grouped.find(row=>row.text==='Fox').occurrences[0].start,55);
+  assert.equal(grouped.find(row=>row.text==='Fox and Lantern Inn').occurrences.filter(row=>row.consolidationReason==='SUBSUMED_BY_STRONGER_MENTION').length,2);
+});
+
+test('Stonecross ambiguous first names remain REVIEW, and known independent short-name identities are preserved',async()=>{
+  const w=world('They met Mara Venn, a keeper. They met Mara Holt, a merchant. Mara spoke.',false);
+  const rows=await w.resolve();
+  assert.equal(rows.find(row=>row.text==='Mara').outcome,'REVIEW');
+  assert.ok(rows.some(row=>row.text==='Mara Venn'));assert.ok(rows.some(row=>row.text==='Mara Holt'));
+  const other=world('They met Mara Venn, a keeper. Mara spoke.',false);other.add('Mara','Actor');
+  assert.ok((await other.scan()).candidates.some(row=>row.text==='Mara'));
+});
+
+test('Stonecross source references are not merged across pages/sources or before the full name',async()=>{
+  const w=world('Mara spoke. They met Mara Venn, a keeper.',false);
+  assert.ok((await w.scan()).candidates.some(row=>row.text==='Mara'));
+  const raw=[{text:'Mara Venn',normalized:'mara venn',start:0,end:9,tokenCount:2,context:'They met Mara Venn, a keeper.',sourceJournalUuid:'JournalEntry.a',sourcePageUuid:'page.a'},
+    {text:'Mara',normalized:'mara',start:50,end:54,tokenCount:1,context:'Mara spoke.',sourceJournalUuid:'JournalEntry.b',sourcePageUuid:'page.b'}];
+  assert.equal(w.api.campaignNewEntityDiscovery.consolidate(raw).length,2);
+});
+
+for(const [text,kind,name,targetKind] of [
+  ['Order of the Silver Lantern','faction','Silver Key','item'],
+  ['Lantern Inn','location','Lantern','item'],
+  ['Old Bell Tower','location','Session 3 — The Bell at Stonecross','lore'],
+  ['Seren Holt','character','Seren Hills','location']
+])test(`Stonecross rejects unsafe existing match ${text} / ${name}`,()=>{
+  const w=world('',false);
+  const doc=w.add(name,targetKind==='item'?'Item':'JournalEntry',{worldProfile:{category:targetKind},...(name.startsWith('Session')?{type:'session'}:{})});
+  const target={name,kind:targetKind,canonicalUuid:doc.uuid};
+  const match=w.api.campaignEntityCreation.assessExistingMatch({text,kind,sourceUuid:w.session.uuid,target});
+  assert.equal(match.eligible,false);assert.equal(match.safe,false);
+});
+
+test('Stonecross exact normalized full name and explicit known alias still LINK to existing identity',async()=>{
+  const w=world('Mara Venn spoke. The Nightkeeper arrived.',false);
+  const actor=w.add('Mára Venn','Actor',{actorProfile:{facts:[{label:'Known as',value:'The Nightkeeper'}]}});
+  const exact=w.api.campaignEntityCreation.assessExistingMatch({text:'MARA VENN',kind:'contact',target:{name:actor.name,canonicalUuid:actor.uuid,kind:'character'}});
+  assert.equal(exact.safe,true);
+  const outcomes=await w.resolve();
+  for(const name of ['Mara Venn','Nightkeeper'])assert.equal(outcomes.find(row=>row.text===name)?.targetUuid,actor.uuid,name);
+});
+
+test('Stonecross exact duplicate and distinctive Blackbridge ambiguity remain REVIEW',async()=>{
+  const w=world('Mara Venn spoke. Blackbridge fell silent.',false);
+  w.add('Mara Venn','Actor');w.add('Mara Venn','Actor');
+  w.add('Blackbridge Watch','JournalEntry',{worldProfile:{category:'location'}});
+  w.add('Blackbridge Crossing','JournalEntry',{worldProfile:{category:'location'}});
+  const outcomes=await w.resolve();
+  for(const name of ['Mara Venn','Blackbridge'])assert.equal(outcomes.find(row=>row.text===name).outcome,'REVIEW');
+  assert.equal(outcomes.find(row=>row.text==='Blackbridge').identityCandidates.length,2);
+});
+
+test('Stonecross semantic resolver rejects weak token overlap even with contextual boosts',()=>{
+  const w=world('',false);
+  const item=w.add('Silver Key','Item');
+  const lantern=w.add('Lantern','JournalEntry',{worldProfile:{category:'location'}});
+  for(const [text,kind] of [['Order of the Silver Lantern','faction'],['Lantern Inn','location']]) {
+    const resolution=w.api.campaignMentions.resolve({text,kindHint:kind,context:{relatedUuids:[item.uuid,lantern.uuid],attributes:{location:'Stonecross',faction:'Wardens'}}});
+    assert.equal(resolution.selectedTarget,null);assert.equal(resolution.candidates.length,0);
+  }
+});
+
+test('Stonecross no valid consolidated candidate disappears and Seren intent remains uncertain',async()=>{
+  const w=world(stonecross);
+  w.add('Silver Key','Item');w.add('Lantern','JournalEntry',{worldProfile:{category:'location'}});
+  const discovered=(await w.scan()).candidates;
+  const outcomes=await w.api.campaignEntityCreation.resolveCandidates(discovered);
+  assert.equal(outcomes.length,discovered.length);
+  assert.ok(outcomes.every(row=>['LINKED','CREATED','REVIEW'].includes(row.outcome)));
+  for(const name of ['Mara Venn','Hadrik Sol','Seren Holt','Fox and Lantern Inn','Order of the Silver Lantern','Old Bell Tower','Blackglass Key'])assert.equal(outcomes.find(row=>row.text===name)?.outcome,'CREATED',name);
+  const seren=w.game.journal.contents.find(doc=>doc.name==='Seren Holt');
+  assert.equal(seren.getFlag('','worldProfile').category,'contact');
+  assert.ok(!(seren.getFlag('','worldProfile').facts||[]).some(fact=>/^(enemy|hostile|intention)$/i.test(fact.label)));
+});
+
+test('Stonecross Memory consolidates semantic fragments, keeps raw diagnostics and does not resurrect reviews after reload',async()=>{
+  const w=world(stonecross);
+  const fox=w.add('Fox','Actor');const lantern=w.add('Lantern','Item');
+  const sourceText=stonecross.replace(/\s+/g,' ').trim();
+  const phraseStart=sourceText.indexOf('Fox and Lantern Inn');
+  const mentions=[['Fox',phraseStart,fox],['Lantern',phraseStart+8,lantern],['Mara',sourceText.indexOf('Mara is'),null],['Seren',sourceText.indexOf('Seren was'),null]].map(([text,start,doc])=>({
+    text,sourceKind:'session',sourceJournalUuid:w.session.uuid,sourcePageUuid:w.page.uuid,sourceName:w.session.name,pageName:w.page.name,
+    source:{uuid:w.session.uuid,pageUuid:w.page.uuid,start,end:start+text.length},
+    resolution:{decision:'review',selectedTarget:doc?{name:doc.name,canonicalUuid:doc.uuid,kind:doc.documentName==='Item'?'item':'character'}:null,candidates:[]}
+  }));
+  w.api.campaignMentionDiscovery.snapshot=()=>({mentions});
+  const check=(ledger)=>{
+    const active=ledger.records.filter(row=>row.active);
+    for(const fragment of ['Fox','Lantern','Mara','Seren'])assert.ok(!active.some(row=>row.mentionText===fragment),fragment);
+    assert.ok(active.some(row=>row.mentionText==='Fox and Lantern Inn'&&row.outcome==='CREATED'));
+    assert.ok(active.some(row=>row.provenance.some(origin=>origin.provider==='campaign-candidate-consolidation'&&origin.rawText==='Fox')));
+    assert.ok(w.api.campaignNewEntityDiscovery.snapshot().diagnostics.some(row=>row.text==='Mara'&&row.status==='UNIQUE_SOURCE_FIRST_NAME_REFERENCE'));
+  };
+  check(await w.api.campaignMentionEvidence.sync());
+  const count=w.game.journal.contents.length;
+  check(await w.api.campaignMentionEvidence.sync());assert.equal(w.game.journal.contents.length,count);
+  const persisted=w.storage.get('campaignMentionEvidenceV1');
+  vm.runInContext(`{ ${fs.readFileSync(path.join(root,'scripts/campaign-mention-evidence.js'),'utf8')} atMeAttach(); }`,w.context);
+  w.storage.set('campaignMentionEvidenceV1',persisted);
+  check(await w.api.campaignMentionEvidence.sync());assert.equal(w.game.journal.contents.length,count);
+});
+
+test('Stonecross Session and Quest share consolidated resolution and preserve canonical party/NPC presentation',async()=>{
+  for(const kind of ['session','quest']) {
+    const w=world(stonecross);
+    w.session.flags.type=kind;w.session.name='QA Session 3 — The Bell at Stonecross';
+    for(const actor of w.game.actors.contents)actor.flags.groupMember=actor.name!=='Gunther';
+    const gunther=w.game.actors.contents.find(doc=>doc.name==='Gunther');
+    w.add('Gunther','JournalEntry',{worldProfile:{category:'npc',actorId:gunther.id}});
+    const details=narrativeDetails(w);
+    const outcomes=await w.resolve();
+    for(const name of ['Arne','Baran','Citronimus','Gunther'])assert.equal(outcomes.find(row=>row.text===name).outcome,'LINKED',`${kind}: ${name}`);
+    assert.ok(!outcomes.some(row=>['Mara','Seren','Fox','Lantern Inn'].includes(row.text)));
+    const view=details(kind);
+    assert.deepEqual(Array.from(view.actorLinks,row=>row.name).sort(),['Arne','Baran','Citronimus']);
+    assert.equal(view.worldLinks.filter(row=>row.name==='Gunther').length,1);
+    const count=w.game.journal.contents.length;
+    await w.api.campaignMentionEvidence.sync();await w.resolve();
+    assert.equal(w.game.journal.contents.length,count);
+  }
+});
+
+test('Stonecross Analysis rejects legacy weak recommendations and displays no-safe-match fallback',()=>{
+  const w=world('',false);
+  const item=w.add('Silver Key','Item');
+  const target={name:item.name,canonicalUuid:item.uuid,kind:'item'};
+  const rawMention={text:'Order of the Silver Lantern',sourceJournalUuid:w.session.uuid,sourcePageUuid:w.page.uuid,
+    resolution:{selectedTarget:target,candidates:[{target,score:100}]}};
+  w.api.campaignMentionDiscovery.snapshot=()=>({mentions:[rawMention]});
+  const main=fs.readFileSync(path.join(root,'scripts/adventurers-tome.js'),'utf8');
+  w.context.normalizeImportName=text=>String(text||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  w.context.getActorProfile=()=>({});w.context.getWorldProfile=()=>({});w.context.resolveWorldActor=()=>null;w.context.WORLD_CATEGORIES={};
+  vm.runInContext(main.slice(main.indexOf('function campaignDecisionCandidateMeta('),main.indexOf('function campaignMentionHistoryForWorld(')),w.context);
+  w.context.memoryRows=[{mentionText:rawMention.text,targetName:item.name,targetKind:'faction',targetUuid:item.uuid,
+    sourceUuid:w.session.uuid,sourcePageUuid:w.page.uuid,lifecycle:'active',relationGroup:'review',relationLabel:'Needs review',snippet:rawMention.text}];
+  const view=vm.runInContext('campaignAnalysisView({rows:memoryRows})',w.context);
+  assert.equal(view.attention.length,1);assert.equal(view.attention[0].candidates.length,0);
+  assert.equal(view.attention[0].hasRecommendation,false);assert.match(view.attention[0].recommendationText,/no safe existing match/);
+  assert.equal(view.attention[0].canCreate,true,'a discarded stale match must not block explicit GM creation');
+});
+
+test('Stonecross explicit canonical references and conflicting contained identities are never subsumed',()=>{
+  const w=world('',false);
+  const location={text:'Fox and Lantern Inn',normalized:'fox and lantern inn',start:0,end:19,tokenCount:4,context:'They stayed at Fox and Lantern Inn.',canonicalUuid:'JournalEntry.inn'};
+  const person={text:'Fox',normalized:'fox',start:0,end:3,tokenCount:1,context:location.context,canonicalUuid:'Actor.fox'};
+  assert.equal(w.api.campaignNewEntityDiscovery.consolidate([location,person]).length,2);
+  assert.equal(w.api.campaignNewEntityDiscovery.candidateForMention({mentionType:'explicit-link',text:'Fox'}),null);
+});
+
+test('Stonecross competing explicit aliases remain REVIEW rather than merging people',async()=>{
+  const w=world('Nightkeeper spoke.',false);
+  for(const name of ['Mara Venn','Seren Holt'])w.add(name,'Actor',{actorProfile:{facts:[{label:'Alias',value:'Nightkeeper'}]}});
+  const row=(await w.resolve()).find(row=>row.text==='Nightkeeper');
+  assert.equal(row.outcome,'REVIEW');assert.equal(row.identityCandidates.length,2);assert.equal(row.identityAmbiguous,true);
+});
+
+test('Stonecross existing-match diagnostics do not expose GM-only identities to players',()=>{
+  const w=world('',false);w.add('Private Person','Actor');
+  assert.equal(w.api.campaignEntityCreation.existingMatches({text:'Private Person',kind:'person'}).length,1);
+  w.game.user.isGM=false;
+  assert.equal(w.api.campaignEntityCreation.existingMatches({text:'Private Person',kind:'person'}).length,0);
+});
+
+test('Stonecross explicit UUID evidence and canonical authority take precedence over labels/categories',()=>{
+  const w=world('',false);
+  const actor=w.add('Mara Venn','Actor');
+  const projection=w.add('The keeper','JournalEntry',{worldProfile:{category:'lore',actorId:actor.id}});
+  const match=w.api.campaignEntityCreation.assessExistingMatch({text:'Nightkeeper',kind:'contact',target:{name:projection.name,canonicalUuid:projection.uuid,kind:'lore'},explicitUuid:actor.uuid});
+  assert.equal(match.safe,true);assert.equal(match.authorityUuid,actor.uuid);
+  const renamed=w.api.campaignEntityCreation.assessExistingMatch({text:'The keeper',kind:'contact',target:{name:projection.name,canonicalUuid:projection.uuid,kind:'lore'}});
+  assert.equal(renamed.safe,true,'presentation category must not override proven Actor authority');
+});
+
+test('Stonecross Analysis preserves an explicit source-scoped GM identity choice',async()=>{
+  const w=world('',false);const actor=w.add('Mara Venn','Actor');
+  await w.api.campaignReviewLearning.chooseForSource({text:'Mara',sourceUuid:w.session.uuid,targetUuid:actor.uuid});
+  const main=fs.readFileSync(path.join(root,'scripts/adventurers-tome.js'),'utf8');
+  w.context.normalizeImportName=text=>String(text||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  w.context.getActorProfile=()=>({});w.context.getWorldProfile=()=>({});w.context.resolveWorldActor=()=>null;w.context.WORLD_CATEGORIES={};
+  vm.runInContext(main.slice(main.indexOf('function campaignDecisionCandidateMeta('),main.indexOf('function campaignMentionHistoryForWorld(')),w.context);
+  w.context.memoryRows=[{mentionText:'Mara',targetName:actor.name,targetKind:'character',targetUuid:actor.uuid,sourceUuid:w.session.uuid,
+    sourcePageUuid:w.page.uuid,lifecycle:'active',relationGroup:'review',relationLabel:'Needs review',snippet:'Mara spoke.'}];
+  const view=vm.runInContext('campaignAnalysisView({rows:memoryRows})',w.context);
+  assert.equal(view.attention[0].candidates.length,1);assert.equal(view.attention[0].recommended.uuid,actor.uuid);
+});
+
+test('Stonecross conflicting source first names stay REVIEW even when one existing person owns the short alias',async()=>{
+  const w=world('They met Mara Venn, a keeper. They met Mara Holt, a merchant. Mara spoke.',false);
+  const actor=w.add('Mara Venn','Actor',{actorProfile:{facts:[{label:'Alias',value:'Mara'}]}});
+  const row=(await w.resolve()).find(row=>row.text==='Mara');
+  assert.equal(row.ambiguousSourceReference,true);assert.equal(row.identityAmbiguous,true);assert.equal(row.outcome,'REVIEW');
+  await w.api.campaignReviewLearning.chooseForSource({text:'Mara',sourceUuid:w.session.uuid,targetUuid:actor.uuid});
+  assert.equal((await w.resolve()).find(row=>row.text==='Mara').outcome,'LINKED','an explicit source choice can resolve the ambiguity');
+});
+
+test('Stonecross automatic link scan consumes complete candidates instead of linking raw Fox/Lantern fragments',async()=>{
+  const text='They stayed at the Fox and Lantern Inn.';
+  const w=world(text,false);const fox=w.add('Fox','Actor');const lantern=w.add('Lantern','Item');
+  const inn=w.add('Fox and Lantern Inn','JournalEntry',{worldProfile:{category:'location'}});
+  const readLinks=realCampaignLinks(w);
+  const mentions=[['Fox',fox],['Lantern',lantern]].map(([name,doc])=>({text:name,sourceKind:'session',sourceJournalUuid:w.session.uuid,sourcePageUuid:w.page.uuid,
+    source:{uuid:w.session.uuid,pageUuid:w.page.uuid,start:text.indexOf(name),end:text.indexOf(name)+name.length},
+    resolution:{selectedTarget:{name,canonicalUuid:doc.uuid,kind:doc.documentName==='Actor'?'character':'item'}}}));
+  w.api.campaignMentionDiscovery.snapshot=()=>({mentions});
+  const result=await w.api.campaignDeterministicAutoLink.scan();
+  assert.ok(result.results.every(row=>row.targetUuid===inn.uuid));
+  assert.equal(readLinks().actors.length,0);assert.deepEqual(Array.from(readLinks().world),[inn.id]);
+});
+
+test('Stonecross automatic link scan preserves ambiguity of a short reference between two source people',async()=>{
+  const text='They met Mara Venn, a keeper. They met Mara Holt, a merchant. Mara spoke.';
+  const w=world(text,false);const actor=w.add('Mara','Actor');
+  const start=text.lastIndexOf('Mara');
+  w.api.campaignMentionDiscovery.snapshot=()=>({mentions:[{text:'Mara',sourceJournalUuid:w.session.uuid,sourcePageUuid:w.page.uuid,
+    source:{uuid:w.session.uuid,pageUuid:w.page.uuid,start,end:start+4},resolution:{selectedTarget:{name:'Mara',canonicalUuid:actor.uuid,kind:'character'}}}]});
+  const result=await w.api.campaignDeterministicAutoLink.scan();
+  assert.equal(result.results[0].decision,'ambiguous');assert.equal(w.links.size,0);
 });

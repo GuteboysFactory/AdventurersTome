@@ -1501,8 +1501,17 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
         ...(base.identityCandidates || []).map((target) => ({ target }))
       ];
       const candidateMap = new Map();
+      const assessMatch = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation?.assessExistingMatch;
+      const sourceChoice = learning?.decisionFor?.(base.mentionText,{sourceUuid:base.sourceUuid});
+      const explicitUuid = base.mentionType === "explicit-reference" || base.authority === "source-inline"
+        ? base.targetUuid : sourceChoice?.sourceChoice && sourceChoice.sourceUuid === base.sourceUuid ? sourceChoice.targetUuid : "";
       for (const raw of rawCandidates) {
+        const target = raw.target || raw.entity || raw;
+        const precision = assessMatch?.({text:base.mentionText,kind:base.targetKind,sourceUuid:base.sourceUuid,target,explicitUuid});
+        if (precision && !precision.eligible) continue;
         const candidate = campaignDecisionCandidateMeta(raw, base.snippet);
+        candidate.safeExistingMatch = precision?.safe === true;
+        if (precision?.authorityUuid) candidate.uuid = precision.authorityUuid;
         if (!candidate.uuid || candidateMap.has(candidate.uuid)) continue;
         candidateMap.set(candidate.uuid, candidate);
       }
@@ -1512,15 +1521,21 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
           name:base.targetName,
           kind:base.targetKind
         }, score:Number(base.identityConfidence || base.confidence || 0) * 100 }, base.snippet);
-        if (fallback.uuid) candidateMap.set(fallback.uuid, fallback);
+        const precision = assessMatch?.({text:base.mentionText,kind:base.targetKind,sourceUuid:base.sourceUuid,target:{canonicalUuid:base.targetUuid,name:base.targetName,kind:base.targetKind},explicitUuid});
+        fallback.safeExistingMatch = precision?.safe === true;
+        if (precision?.authorityUuid) fallback.uuid = precision.authorityUuid;
+        if (fallback.uuid && !candidateMap.has(fallback.uuid) && (!precision || precision.eligible)) candidateMap.set(fallback.uuid, fallback);
       }
 
       const candidates = [...candidateMap.values()].sort((a, b) => b.score - a.score);
-      const selectedUuid = String(rawMention?.resolution?.selectedTarget?.canonicalUuid || "").trim();
-      const gap = candidates.length > 1 ? candidates[0].score - candidates[1].score : candidates[0]?.score || 0;
-      const recommendationUuid = selectedUuid || ((candidates[0]?.score >= 60 && gap >= 15) ? candidates[0].uuid : "");
+      const safeCandidates = candidates.filter((candidate)=>candidate.safeExistingMatch);
+      const recommendationUuid = !base.isAmbiguous && safeCandidates.length === 1 ? safeCandidates[0].uuid : "";
       for (const candidate of candidates) candidate.recommended = Boolean(recommendationUuid && candidate.uuid === recommendationUuid);
       const recommended = candidates.find((candidate) => candidate.recommended) || null;
+      const creationTypes = {character:"contact",person:"contact",npc:"contact",contact:"contact",actor:"contact",adventurer:"contact",
+        location:"location",place:"location",faction:"faction",organization:"faction",organisation:"faction",item:"item",gear:"item",lore:"lore"};
+      const creationType = creationTypes[String(base.discoveryKind || "").toLowerCase()]
+        || creationTypes[String(base.targetKind || "").toLowerCase()] || "contact";
 
       return {
         ...base,
@@ -1532,17 +1547,22 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
         hasRecommendation:Boolean(recommended),
         recommendationText:recommended
           ? (recommended.reason || `Tome's current evidence favors ${recommended.name}.`)
-          : "",
+          : "Tome has no safe existing match to suggest",
         decisionText:String(base.mentionText || base.targetName || "").trim(),
         identityBriefItems:base.identityBriefing?.briefItems || [],
+        creationTypeOptions:[
+          {value:"contact",label:"Contact / person"},{value:"location",label:"Location"},
+          {value:"faction",label:"Faction / organization"},{value:"item",label:"Item"},{value:"lore",label:"Lore"}
+        ].map((option)=>({...option,selected:option.value === creationType})),
         outcomeReason:({
           "insufficient-identity-evidence":"Identity or type needs a GM decision.",
+          "no-safe-existing-match":"Tome has no safe existing match to suggest",
           "possible-duplicate-or-ambiguous-identity":"Possible duplicate or several existing identities. Choose the intended identity.",
           "gm-unlink-suppression":"This identity was deliberately unlinked for this source.",
           "clear-new-identity":"New identity identified.",
           "creation-cancelled":"Creation was cancelled. This identity remains in review."
         })[base.outcomeReason] || base.outcomeReason || base.resolutionReason,
-        canCreate:!base.targetUuid
+        canCreate:!base.targetUuid || !candidates.some((candidate)=>candidate.uuid === base.targetUuid)
       };
     }).sort((a, b) => a.priority - b.priority || b.lastSeenAt - a.lastSeenAt || String(a.targetName || "").localeCompare(String(b.targetName || ""), game.i18n.lang));
   };

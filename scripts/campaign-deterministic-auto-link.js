@@ -376,6 +376,13 @@ async function atDalAutoLinkRow(row) {
     return { linked:false, decision:"skip", reason:"source-not-session-or-quest" };
   }
 
+  const consolidated = game.modules.get(ATDAL_ID)?.api?.campaignNewEntityDiscovery?.candidateForMention?.(row);
+  if (consolidated?.ambiguousSourceReference) {
+    ATDAL_STATS.ambiguous += 1;
+    return {linked:false,decision:"ambiguous",reason:"ambiguous-source-first-name-reference",text:row.text,sourceUuid};
+  }
+  if (consolidated) row = {...row,text:consolidated.text};
+
   const resolution = atDalResolveIdentity({ row, sourceUuid, text:row?.text });
   if (resolution.decision === "ambiguous") {
     ATDAL_STATS.ambiguous += 1;
@@ -431,6 +438,8 @@ async function atDalScan(options = {}) {
       snapshot = await discovery.scan({ rescanDiscovery:options.rescanDiscovery === true });
     }
     if (!snapshot) return atDalAudit();
+
+    await game.modules.get(ATDAL_ID)?.api?.campaignNewEntityDiscovery?.scan?.({});
 
     const results = [];
     for (const row of atDalArray(snapshot.mentions)) {
