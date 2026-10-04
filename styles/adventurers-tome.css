@@ -6964,6 +6964,14 @@
   text-align: center;
 }
 
+.at-guided-candidate > img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border: 1px solid rgba(214, 178, 108, 0.2);
+  border-radius: 50%;
+}
+
 .at-guided-candidate > i:last-child {
   color: #6f8e68;
   opacity: .7;
