@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.7.0-qa.39 — Decision UX & Contextual Indicators
+
+- Makes Guided GM Decision candidates full-width, larger and easier to read.
+- Candidate cards now emphasize portrait, identity name, role/profile metadata, context reason and a large **This is the one** action.
+- Adds expandable **More info** with Facts, Relations and previous Campaign Memory mentions when available.
+- Retires the large inline Campaign Analysis panel from Session and Quest pages.
+- Adds a GM-only **GM review** status tile to Session and Quest information views.
+- Clicking the contextual GM review tile opens Campaign Tools → Analysis focused on that exact source.
+- Focused Analysis can be cleared with **Show all decisions** while Overview remains global.
+- Keeps qa.38 guided decision writes, conservative recommendations, source-scoped defer behavior, Undo and player privacy unchanged.
+
 ## 1.7.0-qa.38 — Guided GM Decisions
 
 - Turns Campaign Tools → Analysis into a guided GM decision inbox instead of a passive diagnostic list.
