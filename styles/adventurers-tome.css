@@ -6806,8 +6806,16 @@
   font-size: 8px;
 }
 
-.at-overview-next-decision > button {
+.at-overview-decision-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.at-overview-decision-actions > button {
   margin: 0 !important;
+  white-space: nowrap;
 }
 
 .at-overview-all-clear {
@@ -7110,8 +7118,9 @@
   grid-template-columns: 32px minmax(0, 1fr);
 }
 
-.at-layout-tiny .at-overview-next-decision > button {
+.at-layout-tiny .at-overview-decision-actions {
   grid-column: 1 / -1;
   justify-self: start;
-  margin-left: 42px !important;
+  margin-left: 42px;
+  flex-wrap: wrap;
 }
