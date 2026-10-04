@@ -1229,11 +1229,14 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     const profile = actor ? getActorProfile(actor) : null;
     img = String(actor?.img || "").trim();
     const facts = Array.isArray(profile?.facts)
-      ? profile.facts.slice(0, 4).map((fact) => [fact.label, fact.value].filter(Boolean).join(": "))
+      ? profile.facts.slice(0, 4).map((fact) => ({
+          display:[fact.label, fact.value].filter(Boolean).join(": "),
+          value:String(fact.value || "").trim()
+        }))
       : [];
-    detail = [profile?.title, profile?.subtitle, ...facts.slice(0, 2)].filter(Boolean).join(" · ");
-    contextTerms.push(profile?.title, profile?.subtitle, ...facts);
-    if (!detail) detail = [actor?.folder?.name, actor?.type].filter(Boolean).join(" · ");
+    detail = [profile?.title, profile?.subtitle, ...facts.slice(0, 2).map((fact) => fact.display)].filter(Boolean).join(" · ");
+    contextTerms.push(profile?.title, profile?.subtitle, ...facts.map((fact) => fact.value));
+    if (!detail) detail = [actor?.folder?.name, actor?.type || "Actor", `ID ${uuid.split(".").pop()?.slice(-6) || "unknown"}`].filter(Boolean).join(" · ");
   } else if (uuid.startsWith("JournalEntry.")) {
     icon = kind === "location" ? "fa-location-dot" : kind === "faction" ? "fa-flag" : "fa-book";
     const entry = game.journal?.get(uuid.slice("JournalEntry.".length)) || null;
@@ -1262,7 +1265,7 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     .map((value) => normalizeImportName(value))
     .filter((value) => value.length >= 4 && value !== candidateName && context.includes(value))
   )].slice(0, 3);
-  const contextBoost = Math.min(36, matchedTerms.length * 12);
+  const contextBoost = Math.min(36, matchedTerms.length * 18);
   const baseScore = Number(raw?.score || 0);
 
   return {
