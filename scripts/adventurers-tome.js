@@ -1212,10 +1212,94 @@ function campaignMemorySearchView() {
   };
 }
 
+function campaignDecisionCandidateMeta(raw = {}) {
+  const target = raw?.target || raw || {};
+  const uuid = String(target.canonicalUuid || target.uuid || "").trim();
+  const name = String(target.name || "Unknown identity").trim();
+  const kind = String(target.kind || "entity").trim().toLowerCase();
+  const foundryMeta = target.foundry && typeof target.foundry === "object" ? target.foundry : {};
+  let detail = "";
+  let icon = "fa-circle-nodes";
+
+  if (uuid.startsWith("Actor.")) {
+    icon = "fa-user";
+    const actor = game.actors?.get(uuid.slice(6)) || null;
+    const profile = actor ? getActorProfile(actor) : null;
+    const facts = Array.isArray(profile?.facts)
+      ? profile.facts.filter((fact) => fact?.visibility !== "gm").slice(0, 2).map((fact) => [fact.label, fact.value].filter(Boolean).join(": "))
+      : [];
+    detail = [profile?.title, profile?.subtitle, ...facts].filter(Boolean).join(" · ");
+    if (!detail) detail = [actor?.type, actor?.folder?.name].filter(Boolean).join(" · ");
+  } else if (uuid.startsWith("JournalEntry.")) {
+    icon = kind === "location" ? "fa-location-dot" : kind === "faction" ? "fa-flag" : "fa-book";
+    const entry = game.journal?.get(uuid.slice("JournalEntry.".length)) || null;
+    const profile = entry ? getWorldProfile(entry) : null;
+    detail = [profile?.subtitle, profile?.category, entry?.folder?.name].filter(Boolean).join(" · ");
+  } else if (uuid.startsWith("Item.")) {
+    icon = "fa-gem";
+    const item = game.items?.get(uuid.slice(5)) || null;
+    detail = [item?.type, item?.folder?.name].filter(Boolean).join(" · ");
+  }
+
+  if (!detail && Array.isArray(foundryMeta.folderPath)) detail = foundryMeta.folderPath.filter(Boolean).slice(-2).join(" › ");
+  if (!detail) detail = kind === "unknown" ? "Existing campaign identity" : kind.replace(/(^|[-_ ])\w/g, (m) => m.toUpperCase());
+
+  const reasons = Array.isArray(raw?.reasons) ? raw.reasons : [];
+  const usefulReason = reasons.find((reason) => !["name-exact","name-similar"].includes(String(reason?.type || ""))) || reasons[0] || null;
+
+  return {
+    uuid,
+    name,
+    kind,
+    icon,
+    detail,
+    score:Number(raw?.score || 0),
+    reason:String(usefulReason?.detail || "").trim(),
+    recommended:false
+  };
+}
+
+function campaignDecisionRawMention(row = {}) {
+  const api = game.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
+  const snapshot = api?.snapshot?.() || null;
+  const rows = Array.isArray(snapshot?.mentions) ? snapshot.mentions : [];
+  const sourceUuid = String(row.sourceUuid || "").trim();
+  const pageUuid = String(row.sourcePageUuid || "").trim();
+  const mention = normalizeImportName(row.mentionText || row.targetName || "");
+  if (!sourceUuid || !mention) return null;
+
+  const matches = rows.filter((candidate) => {
+    if (String(candidate?.sourceJournalUuid || "") !== sourceUuid) return false;
+    if (pageUuid && String(candidate?.sourcePageUuid || "") !== pageUuid) return false;
+    return normalizeImportName(candidate?.text || "") === mention;
+  });
+
+  if (!matches.length) return null;
+  if (Number.isFinite(Number(row.start))) {
+    matches.sort((a, b) => Math.abs(Number(a?.source?.start || 0) - Number(row.start)) - Math.abs(Number(b?.source?.start || 0) - Number(row.start)));
+  }
+  return matches[0] || null;
+}
+
+function campaignDecisionQuestion(row = {}) {
+  const name = String(row.mentionText || row.targetName || "this mention").trim();
+  if (row.isAmbiguous) return `Which existing identity does “${name}” mean here?`;
+  if (row.isUnresolved) return `What is “${name}” referring to?`;
+  if (row.isReview) return `Should “${name}” become a canonical Campaign Link?`;
+  return `What should Tome do with “${name}”?`;
+}
+
 function campaignAnalysisView(memorySearch = null) {
   if (!game.user?.isGM) return null;
   const memory = memorySearch || campaignMemorySearchView();
-  const activeRows = Array.isArray(memory?.rows) ? memory.rows.filter((row) => row.lifecycle === "active") : [];
+  const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+  const activeRows = Array.isArray(memory?.rows)
+    ? memory.rows.filter((row) => {
+        if (row.lifecycle !== "active") return false;
+        const learned = learning?.decisionFor?.(row.mentionText || row.targetName, { sourceUuid:row.sourceUuid }) || null;
+        return !["source-ignored","suppressed"].includes(String(learned?.action || ""));
+      })
+    : [];
 
   const priorityFor = (row) => {
     if (row.relationLabel === "Ambiguous") return 0;
@@ -1230,7 +1314,7 @@ function campaignAnalysisView(memorySearch = null) {
     for (const row of rows) {
       const identity = String(row.targetUuid || "").trim()
         || normalizeImportName(row.targetName || row.mentionText || row.snippet || "unresolved");
-      const key = `${row.relationGroup || "mentioned"}|${row.relationLabel || ""}|${identity}`;
+      const key = `${row.relationGroup || "mentioned"}|${row.relationLabel || ""}|${identity}|${row.sourceUuid || ""}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(row);
     }
@@ -1242,7 +1326,7 @@ function campaignAnalysisView(memorySearch = null) {
       const evidenceCount = group.reduce((sum, row) => sum + Math.max(1, Number(row.evidenceCount || 1)), 0);
       const lastSeenAt = Math.max(...group.map((row) => Number(row.lastSeenAt || row.firstSeenAt || 0)), 0);
       const firstSeenAt = Math.min(...group.map((row) => Number(row.firstSeenAt || row.lastSeenAt || Date.now())).filter((value) => value > 0), Date.now());
-      return {
+      const base = {
         ...latest,
         evidenceCount,
         sourceCount:sourceUuids.size || group.length,
@@ -1269,6 +1353,44 @@ function campaignAnalysisView(memorySearch = null) {
               ? "fa-magnifying-glass"
               : "fa-wand-magic-sparkles"
       };
+
+      const rawMention = campaignDecisionRawMention(base);
+      const rawCandidates = Array.isArray(rawMention?.resolution?.candidates) ? rawMention.resolution.candidates : [];
+      const candidateMap = new Map();
+      for (const raw of rawCandidates) {
+        const candidate = campaignDecisionCandidateMeta(raw);
+        if (!candidate.uuid || candidateMap.has(candidate.uuid)) continue;
+        candidateMap.set(candidate.uuid, candidate);
+      }
+      if (base.targetUuid && !candidateMap.has(base.targetUuid)) {
+        const fallback = campaignDecisionCandidateMeta({ target:{
+          canonicalUuid:base.targetUuid,
+          name:base.targetName,
+          kind:base.targetKind
+        }, score:Number(base.identityConfidence || base.confidence || 0) * 100 });
+        if (fallback.uuid) candidateMap.set(fallback.uuid, fallback);
+      }
+
+      const candidates = [...candidateMap.values()].sort((a, b) => b.score - a.score);
+      const selectedUuid = String(rawMention?.resolution?.selectedTarget?.canonicalUuid || "").trim();
+      const gap = candidates.length > 1 ? candidates[0].score - candidates[1].score : candidates[0]?.score || 0;
+      const recommendationUuid = selectedUuid || ((candidates[0]?.score >= 60 && gap >= 15) ? candidates[0].uuid : "");
+      for (const candidate of candidates) candidate.recommended = Boolean(recommendationUuid && candidate.uuid === recommendationUuid);
+      const recommended = candidates.find((candidate) => candidate.recommended) || null;
+
+      return {
+        ...base,
+        question:campaignDecisionQuestion(base),
+        candidates:candidates.slice(0, 4),
+        hasCandidates:candidates.length > 0,
+        hasMultipleCandidates:candidates.length > 1,
+        recommended,
+        hasRecommendation:Boolean(recommended),
+        recommendationText:recommended
+          ? (recommended.reason || `Tome's current evidence favors ${recommended.name}.`)
+          : "",
+        decisionText:String(base.mentionText || base.targetName || "").trim()
+      };
     }).sort((a, b) => a.priority - b.priority || b.lastSeenAt - a.lastSeenAt || String(a.targetName || "").localeCompare(String(b.targetName || ""), game.i18n.lang));
   };
 
@@ -1278,6 +1400,7 @@ function campaignAnalysisView(memorySearch = null) {
   return {
     attention,
     noticed,
+    firstAttention:attention[0] || null,
     attentionCount:attention.length,
     noticedCount:noticed.length,
     ambiguousCount:attention.filter((row) => row.isAmbiguous).length,
@@ -4750,6 +4873,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       openJournal: this._onOpenJournal,
       openMentionSource: this._onOpenMentionSource,
       openEvidenceTarget: this._onOpenEvidenceTarget,
+      resolveCampaignDecision: this._onResolveCampaignDecision,
+      undoCampaignDecision: this._onUndoCampaignDecision,
       openCustomLink: this._onOpenCustomLink,
       createRule: this._onCreateRule,
       linkRule: this._onLinkRule,
@@ -4866,6 +4991,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._healthReport = null;
     this._quickCaptureSourceRef = "";
     this._notebookEditing = false;
+    this._lastCampaignDecision = null;
   }
 
   _captureNavigationState() {
@@ -5650,6 +5776,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       searchEntries,
       campaignMemorySearch,
       campaignAnalysis,
+      lastCampaignDecision:this._lastCampaignDecision,
       searchState: {
         query: this.searchQuery,
         filter: this.searchFilter,
@@ -7490,6 +7617,84 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     } catch (error) {
       console.warn("Adventurer's Tome | Evidence target navigation failed safely", error);
       ui.notifications.warn("Adventurer's Tome: Could not open this evidence target.");
+    }
+  }
+
+  static async _onResolveCampaignDecision(_event, target) {
+    if (!game.user?.isGM) return;
+    const mode = String(target.dataset.decisionMode || "").trim();
+    const text = String(target.dataset.decisionText || "").trim();
+    const sourceUuid = String(target.dataset.sourceUuid || "").trim();
+    const targetUuid = String(target.dataset.targetUuid || "").trim();
+    if (!mode || !text || !sourceUuid) return;
+
+    const links = game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
+    const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+    const evidence = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+
+    target.disabled = true;
+    try {
+      if (mode === "choose") {
+        if (!targetUuid || !links?.linkCanonical) throw new Error("A canonical target is required.");
+        const hadLinkBefore = links.hasCanonicalLink?.({ sourceUuid, targetUuid }) === true;
+        await links.linkCanonical({ sourceUuid, targetUuid });
+        this._lastCampaignDecision = {
+          mode,
+          text,
+          sourceUuid,
+          targetUuid,
+          hadLinkBefore,
+          label:`${text} → ${String(target.dataset.targetName || "selected identity")}`
+        };
+        ui.notifications.info(`Tome: linked ${text} to ${String(target.dataset.targetName || "the selected identity")}.`);
+      } else if (mode === "keep" || mode === "mention-only") {
+        if (!learning?.ignoreOnce) throw new Error("Campaign learning is unavailable.");
+        await learning.ignoreOnce({ text, sourceUuid });
+        this._lastCampaignDecision = {
+          mode,
+          text,
+          sourceUuid,
+          targetUuid:"",
+          hadLinkBefore:false,
+          label:mode === "mention-only" ? `${text} kept as Mention only` : `${text} left unresolved for this source`
+        };
+        ui.notifications.info(mode === "mention-only"
+          ? `Tome: ${text} will remain Mention-only for this source.`
+          : `Tome: ${text} will stay unresolved for this source.`);
+      } else {
+        return;
+      }
+
+      await evidence?.sync?.({ reason:"guided-gm-decision", rescan:true });
+      await this.render({ parts:["main"] });
+    } catch (error) {
+      console.error("Adventurer's Tome | Guided GM decision failed", error);
+      ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not apply this decision."}`);
+    } finally {
+      target.disabled = false;
+    }
+  }
+
+  static async _onUndoCampaignDecision() {
+    if (!game.user?.isGM || !this._lastCampaignDecision) return;
+    const decision = { ...this._lastCampaignDecision };
+    const links = game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
+    const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+    const evidence = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+
+    try {
+      if (decision.mode === "choose" && decision.targetUuid && decision.hadLinkBefore !== true) {
+        await links?.unlinkCanonical?.({ sourceUuid:decision.sourceUuid, targetUuid:decision.targetUuid });
+      } else if (decision.mode === "keep" || decision.mode === "mention-only") {
+        await learning?.clear?.({ text:decision.text, sourceUuid:decision.sourceUuid, scope:"source" });
+      }
+      this._lastCampaignDecision = null;
+      await evidence?.sync?.({ reason:"guided-gm-decision-undo", rescan:true });
+      ui.notifications.info("Tome: last GM decision undone.");
+      await this.render({ parts:["main"] });
+    } catch (error) {
+      console.error("Adventurer's Tome | Guided GM decision undo failed", error);
+      ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not undo the last decision."}`);
     }
   }
 
