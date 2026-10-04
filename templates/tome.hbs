@@ -179,6 +179,7 @@
           <span><i class="fa-solid fa-diamond"></i><strong>{{selectedSession.questLinks.length}}</strong> Quest links</span>
           <span><i class="fa-solid fa-earth-europe"></i><strong>{{selectedSession.worldLinks.length}}</strong> World links</span>
           <span><i class="fa-solid fa-users"></i><strong>{{selectedSession.actorLinks.length}}</strong> Character links</span>
+          {{#if isGM}}<button type="button" class="at-session-review-stat {{#if selectedSession.gmReviewCount}}has-attention{{/if}}" data-action="openSourceAnalysis" data-source-uuid="{{selectedSession.gmReviewSourceUuid}}" title="Open Campaign Analysis for this Session"><i class="fa-solid fa-magnifying-glass-chart"></i><strong>{{selectedSession.gmReviewCount}}</strong><span>GM review</span></button>{{/if}}
         </div>
 
         {{#if selectedSession.hasHighlights}}
@@ -306,6 +307,7 @@
         <div><span>Sessions</span><strong>{{questDetail.sessionLinks.length}}</strong></div>
         <div><span>World</span><strong>{{questDetail.worldLinks.length}}</strong></div>
         <div><span>Characters</span><strong>{{questDetail.actorLinks.length}}</strong></div>
+        {{#if isGM}}<button type="button" class="at-quest-review-stat {{#if questDetail.gmReviewCount}}has-attention{{/if}}" data-action="openSourceAnalysis" data-source-uuid="{{questDetail.gmReviewSourceUuid}}" title="Open Campaign Analysis for this Quest"><span>GM review</span><strong>{{questDetail.gmReviewCount}}</strong></button>{{/if}}
         {{#if questDetail.firstSession}}<div class="wide"><span>First seen</span><button type="button" data-action="selectSession" data-journal-id="{{questDetail.firstSession.id}}">{{questDetail.firstSession.name}}</button></div>{{/if}}
         {{#if questDetail.lastSession}}<div class="wide"><span>Last linked</span><button type="button" data-action="selectSession" data-journal-id="{{questDetail.lastSession.id}}">{{questDetail.lastSession.name}}</button></div>{{/if}}
       </aside>
@@ -852,42 +854,42 @@
         <article><i class="fa-solid fa-box-archive"></i><span><small>Historical</small><strong>{{campaignMemorySearch.historical}}</strong></span></article>
       </div>
 
-      <section class="at-overview-intelligence-monitor {{#if campaignAnalysis.attentionCount}}has-attention{{/if}}">
+      <section class="at-overview-intelligence-monitor {{#if campaignAnalysisAll.attentionCount}}has-attention{{/if}}">
         <div class="at-overview-intelligence-head">
           <div>
             <span class="at-kicker">Campaign Intelligence</span>
             <h2><i class="fa-solid fa-binoculars"></i> Decision Monitor</h2>
             <p>What Tome needs from you right now. Normal cases should take only a few seconds to resolve.</p>
           </div>
-          <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-arrow-right"></i> Open Analysis{{#if campaignAnalysis.attentionCount}} · {{campaignAnalysis.attentionCount}}{{/if}}</button>
+          <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-arrow-right"></i> Open Analysis{{#if campaignAnalysisAll.attentionCount}} · {{campaignAnalysisAll.attentionCount}}{{/if}}</button>
         </div>
         <div class="at-campaign-analysis-stats at-overview-analysis-stats">
-          <article class="{{#if campaignAnalysis.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysis.ambiguousCount}}</strong></span></article>
-          <article class="{{#if campaignAnalysis.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysis.unresolvedCount}}</strong></span></article>
-          <article class="{{#if campaignAnalysis.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysis.reviewCount}}</strong></span></article>
-          <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysis.noticedCount}}</strong></span></article>
+          <article class="{{#if campaignAnalysisAll.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysisAll.ambiguousCount}}</strong></span></article>
+          <article class="{{#if campaignAnalysisAll.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysisAll.unresolvedCount}}</strong></span></article>
+          <article class="{{#if campaignAnalysisAll.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysisAll.reviewCount}}</strong></span></article>
+          <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysisAll.noticedCount}}</strong></span></article>
         </div>
-        {{#if campaignAnalysis.firstAttention}}
+        {{#if campaignAnalysisAll.firstAttention}}
         <div class="at-overview-next-decision">
-          <i class="fa-solid {{campaignAnalysis.firstAttention.attentionIcon}}"></i>
+          <i class="fa-solid {{campaignAnalysisAll.firstAttention.attentionIcon}}"></i>
           <div>
             <small>Next decision</small>
-            <strong>{{campaignAnalysis.firstAttention.question}}</strong>
-            <span>{{campaignAnalysis.firstAttention.sourceName}}{{#if campaignAnalysis.firstAttention.pageName}} · {{campaignAnalysis.firstAttention.pageName}}{{/if}}</span>
+            <strong>{{campaignAnalysisAll.firstAttention.question}}</strong>
+            <span>{{campaignAnalysisAll.firstAttention.sourceName}}{{#if campaignAnalysisAll.firstAttention.pageName}} · {{campaignAnalysisAll.firstAttention.pageName}}{{/if}}</span>
           </div>
           <div class="at-overview-decision-actions">
-            {{#if campaignAnalysis.firstAttention.hasRecommendation}}
+            {{#if campaignAnalysisAll.firstAttention.hasRecommendation}}
             <button type="button" class="at-primary"
               data-action="resolveCampaignDecision"
               data-decision-mode="choose"
-              data-decision-text="{{campaignAnalysis.firstAttention.decisionText}}"
-              data-source-uuid="{{campaignAnalysis.firstAttention.sourceUuid}}"
-              data-target-uuid="{{campaignAnalysis.firstAttention.recommended.uuid}}"
-              data-target-name="{{campaignAnalysis.firstAttention.recommended.name}}">
-              <i class="fa-solid fa-check"></i> Confirm ★ {{campaignAnalysis.firstAttention.recommended.name}}
+              data-decision-text="{{campaignAnalysisAll.firstAttention.decisionText}}"
+              data-source-uuid="{{campaignAnalysisAll.firstAttention.sourceUuid}}"
+              data-target-uuid="{{campaignAnalysisAll.firstAttention.recommended.uuid}}"
+              data-target-name="{{campaignAnalysisAll.firstAttention.recommended.name}}">
+              <i class="fa-solid fa-check"></i> Confirm ★ {{campaignAnalysisAll.firstAttention.recommended.name}}
             </button>
             {{/if}}
-            <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis">Review{{#unless campaignAnalysis.firstAttention.hasRecommendation}} now{{/unless}}</button>
+            <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis">Review{{#unless campaignAnalysisAll.firstAttention.hasRecommendation}} now{{/unless}}</button>
           </div>
         </div>
         {{else}}
@@ -947,7 +949,7 @@
           <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Analysis & Entity Review</h2>
           <p>See ambiguous identities, unresolved mentions and review candidates that actually need a GM decision.</p>
         </div>
-        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-arrow-right"></i> Open Analysis{{#if campaignAnalysis.attentionCount}} · {{campaignAnalysis.attentionCount}}{{/if}}</button>
+        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-arrow-right"></i> Open Analysis{{#if campaignAnalysisAll.attentionCount}} · {{campaignAnalysisAll.attentionCount}}{{/if}}</button>
       </section>
 
       <section class="at-campaign-tool-card">
@@ -1091,6 +1093,10 @@
         <button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i> Open full Memory</button>
       </header>
 
+      {{#if analysisSourceFilter}}
+      <div class="at-analysis-source-filter"><i class="fa-solid fa-filter"></i><span><strong>Focused review:</strong> showing decisions for the Session/Quest you opened from.</span><button type="button" data-action="navigate" data-tab="campaignToolsAnalysis">Show all decisions</button></div>
+      {{/if}}
+
       {{#if lastCampaignDecision}}
       <div class="at-guided-decision-undo">
         <i class="fa-solid fa-circle-check"></i>
@@ -1100,16 +1106,16 @@
       {{/if}}
 
       <div class="at-campaign-analysis-stats">
-        <article class="{{#if campaignAnalysis.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysis.ambiguousCount}}</strong></span></article>
-        <article class="{{#if campaignAnalysis.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysis.unresolvedCount}}</strong></span></article>
-        <article class="{{#if campaignAnalysis.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysis.reviewCount}}</strong></span></article>
-        <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysis.noticedCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysisAll.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysisAll.ambiguousCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysisAll.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysisAll.unresolvedCount}}</strong></span></article>
+        <article class="{{#if campaignAnalysisAll.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysisAll.reviewCount}}</strong></span></article>
+        <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysisAll.noticedCount}}</strong></span></article>
       </div>
 
       <section class="at-analysis-panel">
         <div class="at-analysis-panel-heading">
           <div><span class="at-kicker">Needs a GM decision</span><h3>Entity Review Queue</h3><p>Tome frames the question, shows the relevant context and offers the safest existing choices. Confirm one option or deliberately defer it.</p></div>
-          <span class="at-analysis-count">{{campaignAnalysis.attentionCount}} to review</span>
+          <span class="at-analysis-count">{{campaignAnalysisAll.attentionCount}} to review</span>
         </div>
 
         <div class="at-guided-decision-list">
@@ -1134,22 +1140,36 @@
             {{#if hasCandidates}}
             <div class="at-guided-candidate-list">
               {{#each candidates}}
-              <button type="button" class="at-guided-candidate {{#if recommended}}is-recommended{{/if}}"
-                data-action="resolveCampaignDecision"
-                data-decision-mode="choose"
-                data-decision-text="{{../decisionText}}"
-                data-source-uuid="{{../sourceUuid}}"
-                data-target-uuid="{{uuid}}"
-                data-target-name="{{name}}">
-                {{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}
-                <span>
-                  <small>{{#if recommended}}★ Tome recommends{{else}}Existing identity{{/if}}</small>
-                  <strong>{{name}}</strong>
-                  <em>{{detail}}</em>
-                  {{#if reason}}<span>{{reason}}</span>{{/if}}
-                </span>
-                <i class="fa-solid fa-check"></i>
-              </button>
+              <article class="at-guided-candidate-card {{#if recommended}}is-recommended{{/if}}">
+                <div class="at-guided-candidate-main">
+                  <div class="at-guided-candidate-portrait">{{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</div>
+                  <div class="at-guided-candidate-copy">
+                    <span class="at-guided-candidate-badge">{{#if recommended}}★ Tome recommends{{else}}Existing identity{{/if}}</span>
+                    <h5>{{name}}</h5>
+                    <p class="at-guided-candidate-detail">{{detail}}</p>
+                    {{#if reason}}<p class="at-guided-candidate-reason"><i class="fa-solid fa-magnifying-glass"></i> {{reason}}</p>{{/if}}
+                  </div>
+                  <button type="button" class="at-primary at-guided-select"
+                    data-action="resolveCampaignDecision"
+                    data-decision-mode="choose"
+                    data-decision-text="{{../decisionText}}"
+                    data-source-uuid="{{../sourceUuid}}"
+                    data-target-uuid="{{uuid}}"
+                    data-target-name="{{name}}">
+                    <i class="fa-solid fa-check"></i> This is the one
+                  </button>
+                </div>
+                {{#if hasMoreInfo}}
+                <details class="at-guided-more-info">
+                  <summary><i class="fa-solid fa-circle-info"></i> More info</summary>
+                  <div class="at-guided-more-grid">
+                    {{#if extraFacts.length}}<section><strong>Facts</strong>{{#each extraFacts}}<span>{{this}}</span>{{/each}}</section>{{/if}}
+                    {{#if extraRelations.length}}<section><strong>Relations</strong>{{#each extraRelations}}<span>{{this}}</span>{{/each}}</section>{{/if}}
+                    {{#if previousMentions.length}}<section><strong>Previous mentions</strong>{{#each previousMentions}}<span>{{this}}</span>{{/each}}</section>{{/if}}
+                  </div>
+                </details>
+                {{/if}}
+              </article>
               {{/each}}
             </div>
             {{else}}
@@ -1181,7 +1201,7 @@
       <section class="at-analysis-panel at-analysis-noticed">
         <div class="at-analysis-panel-heading">
           <div><span class="at-kicker">Mentioned, not canonically linked</span><h3>Tome noticed</h3><p>Ordinary active mentions that are not currently canonical Links. These are informational and do not require action unless you want to inspect them.</p></div>
-          <span class="at-analysis-count">{{campaignAnalysis.noticedCount}} noticed</span>
+          <span class="at-analysis-count">{{campaignAnalysisAll.noticedCount}} noticed</span>
         </div>
         <div class="at-analysis-noticed-grid">
           {{#each campaignAnalysis.noticed}}
