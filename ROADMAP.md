@@ -2594,3 +2594,23 @@ Campaign Analysis becomes a fast GM decision workflow:
 - player privacy and qa.31–qa.37 Campaign Memory semantics remain unchanged
 
 QA: `docs/V1.7_QA38_GUIDED_GM_DECISIONS.md`
+
+## v1.7.0-qa.39 — Decision UX & Contextual Indicators
+
+**Status:** QA / IMPLEMENTED
+
+Decision UX is optimized for table-speed readability:
+
+- Guided GM Decision candidates become full-width readable cards
+- candidate identity, portrait, role/profile metadata and context reason are visually dominant
+- **This is the one** is the primary per-candidate action
+- **More info** expands Facts, Relations and previous Mention evidence only when needed
+- Session and Quest return to information-first pages
+- the old large inline Campaign Analysis panel is retired
+- GM sees a compact **GM review** count beside normal Session/Quest link stats
+- clicking GM review opens Campaign Tools → Analysis focused on that source
+- focused Analysis can return to the global queue without affecting Overview
+- player views never receive the contextual GM review tile
+- qa.38 decision writes, no-auto-create policy and campaign authority remain unchanged
+
+QA: `docs/V1.7_QA39_DECISION_UX_CONTEXTUAL_INDICATORS.md`
