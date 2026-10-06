@@ -42,7 +42,8 @@ function emptyState() {
   return {
     version:VERSION,
     decisions:{},
-    sourceIgnores:{}
+    sourceIgnores:{},
+    sourceChoices:{}
   };
 }
 
@@ -53,7 +54,8 @@ function parseState(raw) {
     return {
       version:VERSION,
       decisions:parsed.decisions && typeof parsed.decisions === "object" ? parsed.decisions : {},
-      sourceIgnores:parsed.sourceIgnores && typeof parsed.sourceIgnores === "object" ? parsed.sourceIgnores : {}
+      sourceIgnores:parsed.sourceIgnores && typeof parsed.sourceIgnores === "object" ? parsed.sourceIgnores : {},
+      sourceChoices:parsed.sourceChoices && typeof parsed.sourceChoices === "object" ? parsed.sourceChoices : {}
     };
   } catch (_error) {
     return emptyState();
@@ -74,7 +76,8 @@ async function writeState(state, reason = "update") {
     const payload = {
       version:VERSION,
       decisions:state?.decisions || {},
-      sourceIgnores:state?.sourceIgnores || {}
+      sourceIgnores:state?.sourceIgnores || {},
+      sourceChoices:state?.sourceChoices || {}
     };
     await game.settings.set(MODULE_ID, SETTING_KEY, JSON.stringify(payload));
     writes += 1;
@@ -98,6 +101,8 @@ function decisionFor(text, { sourceUuid = "" } = {}) {
   const sourceKey = clean(sourceUuid);
   const sourceDecision = sourceKey ? state.sourceIgnores?.[sourceKey]?.[key] || null : null;
   if (sourceDecision) return clone({ ...sourceDecision, action:ACTIONS.SOURCE_IGNORED });
+  const sourceChoice = sourceKey ? state.sourceChoices?.[sourceKey]?.[key] : null;
+  if (sourceChoice) return clone({ ...sourceChoice, sourceChoice:true });
   const globalDecision = state.decisions?.[key] || null;
   return globalDecision ? clone(globalDecision) : null;
 }
@@ -242,6 +247,21 @@ async function recordCreated({ text, sourceUuid = "", targetUuid, targetName = "
   return writeState(state, "created");
 }
 
+async function chooseForSource({ text, sourceUuid, targetUuid } = {}) {
+  const key = normalize(text);
+  const source = clean(sourceUuid);
+  const target = await fromUuid(clean(targetUuid));
+  if (!key || !source || !target?.uuid) throw new Error("Source, mention and canonical target are required.");
+  const state = readState();
+  if (!state.sourceChoices[source]) state.sourceChoices[source] = {};
+  state.sourceChoices[source][key] = gmStamp({
+    action:ACTIONS.LINKED, text:clean(text), sourceUuid:source,
+    targetUuid:target.uuid, targetName:target.name, targetKind:target.documentName
+  });
+  if (state.sourceIgnores[source]?.[key]) delete state.sourceIgnores[source][key];
+  return writeState(state,"source-identity-choice");
+}
+
 async function markCampaignLinked({ text, sourceUuid = "", targetUuid = "" } = {}) {
   const key = normalize(text);
   if (!key) throw new Error("Candidate name is required.");
@@ -271,7 +291,10 @@ async function clear({ text, sourceUuid = "", scope = "global" } = {}) {
   if (!key) throw new Error("A candidate name is required.");
   const state = readState();
 
-  if (scope === "source") {
+  if (scope === "choice") {
+    const sourceKey = clean(sourceUuid);
+    if (state.sourceChoices[sourceKey]?.[key]) delete state.sourceChoices[sourceKey][key];
+  } else if (scope === "source") {
     const sourceKey = clean(sourceUuid);
     if (sourceKey && state.sourceIgnores?.[sourceKey]?.[key]) {
       delete state.sourceIgnores[sourceKey][key];
@@ -317,6 +340,7 @@ const publicApi = Object.freeze({
   suppress,
   ignoreOnce,
   linkExisting,
+  chooseForSource,
   recordCreated,
   markCampaignLinked,
   clear,

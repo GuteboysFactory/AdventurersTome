@@ -81,6 +81,7 @@ function atMeNormalizeRecord(row = {}) {
     targetUuid:atMeClean(row.targetUuid),
     targetName:atMeClean(row.targetName),
     targetKind:atMeClean(row.targetKind || "unknown"),
+    discoveryKind:atMeClean(row.discoveryKind),
     mentionText:atMeClean(row.mentionText),
     snippet:atMeClean(row.snippet),
     start:Number.isFinite(Number(row.start)) ? Number(row.start) : null,
@@ -99,7 +100,11 @@ function atMeNormalizeRecord(row = {}) {
     firstSeenAt:Number(row.firstSeenAt || now),
     lastSeenAt:Number(row.lastSeenAt || now),
     historicalAt:Number(row.historicalAt || 0) || null,
-    provenance:atMeClone(atMeArray(row.provenance))
+    provenance:atMeClone(atMeArray(row.provenance)),
+    outcome:atMeClean(row.outcome),
+    outcomeReason:atMeClean(row.outcomeReason),
+    identityBriefing:atMeClone(row.identityBriefing || null),
+    identityCandidates:atMeClone(atMeArray(row.identityCandidates))
   };
 }
 
@@ -353,6 +358,8 @@ function atMeFromDiscoveryRow(row, previous = null, recordId = "") {
             ? "resolved-identity"
             : "derived",
     relationState:atMeRelationState({ decision, targetUuid, linked }),
+    outcome:linked ? "LINKED" : "REVIEW",
+    outcomeReason:linked ? "canonical-campaign-link" : atMeClean(scoped?.reason || row?.resolution?.reason || "identity-needs-review"),
     linkedAtSync:linked,
     active:true,
     visibility:"gm-private",
@@ -367,6 +374,7 @@ function atMeFromDiscoveryRow(row, previous = null, recordId = "") {
         sourcePath:atMeClean(row?.source?.path),
         mentionId:atMeClean(row?.id)
       },
+      ...(row.consolidation ? [{provider:"campaign-candidate-consolidation",...atMeClone(row.consolidation)}] : []),
       ...atMeArray(row?.provenance)
     ]
   });
@@ -441,7 +449,26 @@ async function atMeSync(options = {}) {
     let ambiguous = 0;
 
     const occurrenceCounts = new Map();
-    for (const row of atMeArray(snapshot.mentions)) {
+    const moduleApi = game.modules.get(ATME_ID)?.api;
+    const newDiscovery = moduleApi?.campaignNewEntityDiscovery;
+    const discovered = newDiscovery?.scan ? await newDiscovery.scan({}) : null;
+    for (const rawRow of atMeArray(snapshot.mentions)) {
+      const consolidated = newDiscovery?.candidateForMention?.(rawRow);
+      let row = consolidated && atMeNormalize(consolidated.text) !== atMeNormalize(rawRow.text)
+        ? { ...rawRow, text:consolidated.text, kindHint:consolidated.classification?.kind,
+            resolution:null, consolidation:{rawText:rawRow.text,candidateId:consolidated.id} }
+        : rawRow;
+      // Legacy semantic suggestions also pass the same precision gate before
+      // becoming active Memory evidence or a GM recommendation.
+      const assess = moduleApi?.campaignEntityCreation?.assessExistingMatch;
+      if (assess && row.mentionType !== "explicit-link" && row.resolution) {
+        const eligible = (target) => target && assess({text:row.text,kind:row.kindHint,sourceUuid:row.sourceJournalUuid,target}).eligible;
+        row={...row,resolution:{...row.resolution,
+          candidates:atMeArray(row.resolution.candidates).filter((entry)=>eligible(entry.target || entry.entity || entry)),
+          selectedTarget:eligible(row.resolution.selectedTarget) ? row.resolution.selectedTarget : null
+        }};
+        if (!row.resolution.selectedTarget && !row.resolution.candidates.length)row.resolution={...row.resolution,decision:"unresolved",confidence:0,reason:"no-safe-existing-match"};
+      }
       const groupKey = atMeRecordGroupKey(row);
       const occurrenceOrdinal = Number(occurrenceCounts.get(groupKey) || 0) + 1;
       occurrenceCounts.set(groupKey, occurrenceOrdinal);
@@ -455,6 +482,52 @@ async function atMeSync(options = {}) {
       if (record.targetUuid) resolvedTargets += 1;
       if (record.relationState === "ambiguous") ambiguous += 1;
       else if (record.relationState === "unresolved") unresolved += 1;
+    }
+
+    // Feed new discovery into the existing Memory ledger/Analysis queue. The
+    // discovery stage stays read-only; creation and linking belong to resolution.
+    if (discovered && moduleApi?.campaignEntityCreation?.resolveCandidates) {
+      const outcomes = await moduleApi.campaignEntityCreation.resolveCandidates(discovered.candidates || []);
+      for (const candidate of outcomes) {
+        const id = `identity:${candidate.id}`;
+        const previous = previousById.get(id);
+        const matches = next.filter((record) => record.sourceUuid === candidate.sourceJournalUuid
+          && record.sourcePageUuid === candidate.sourcePageUuid
+          && atMeNormalize(record.mentionText) === atMeNormalize(candidate.text));
+        const document = candidate.targetUuid ? await fromUuid(candidate.targetUuid).catch(() => null) : null;
+        const fields = {
+          outcome:candidate.outcome,
+          outcomeReason:candidate.outcomeReason,
+          identityBriefing:candidate.identityBriefing,
+          identityCandidates:candidate.identityCandidates,
+          discoveryKind:candidate.classification?.kind,
+          targetUuid:candidate.targetUuid,
+          targetName:document?.name || candidate.text,
+          targetKind:document?.documentName === "Actor" ? "character" : document?.documentName === "Item" ? "item"
+            : document?.getFlag?.(ATME_ID,"worldProfile")?.category || candidate.resolutionKind || candidate.classification?.kind,
+          resolutionState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "review" : "resolved",
+          resolutionReason:candidate.outcomeReason,
+          relationState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "mentioned-review" : "linked-and-mentioned",
+          linkedAtSync:candidate.outcome !== "REVIEW"
+        };
+        if (matches.length) {
+          for (const record of matches) Object.assign(record, fields);
+        } else {
+          const journal = atMeSourceJournal(candidate.sourceJournalUuid);
+          next.push(atMeNormalizeRecord({
+            ...fields, id,
+            sourceUuid:candidate.sourceJournalUuid, sourcePageUuid:candidate.sourcePageUuid,
+            sourceKind:candidate.sourceKind, sourceName:candidate.sourceName, pageName:candidate.pageName,
+            sourceSort:journal?.sort, sourceOrdinal:atMeSourceOrdinal(journal,candidate.sourceKind),
+            mentionText:candidate.text, snippet:candidate.mentions?.[0]?.context || candidate.text,
+            start:candidate.mentions?.[0]?.start, end:candidate.mentions?.[0]?.end,
+            detectionConfidence:candidate.detection?.score,
+            firstSeenAt:previous?.firstSeenAt, active:true,
+            provenance:[{ provider:"campaign-new-entity-discovery", candidateId:candidate.id }]
+          }));
+          seen.add(id);
+        }
+      }
     }
 
     let historical = 0;
@@ -484,6 +557,12 @@ async function atMeSync(options = {}) {
     const after = JSON.stringify(ledger.records);
     if (before !== after) await atMeSetLedger(ledger);
 
+    resolvedTargets = next.filter((row) => row.active && row.targetUuid).length;
+    unresolved = next.filter((row) => row.active && !row.targetUuid).length;
+    ambiguous = next.filter((row) => row.active && row.relationState === "ambiguous").length;
+    const outcomes = Object.fromEntries(["LINKED","CREATED","REVIEW"].map((outcome) =>
+      [outcome, next.filter((row) => row.active && row.outcome === outcome).length]));
+
     ATME_STATS.created += created;
     ATME_STATS.updated += updated;
     ATME_STATS.historical += historical;
@@ -500,7 +579,8 @@ async function atMeSync(options = {}) {
       records:ledger.records.length,
       resolvedTargets,
       unresolved,
-      ambiguous
+      ambiguous,
+      outcomes
     });
 
     const app = game.modules.get(ATME_ID)?.api?.app?.();
@@ -704,6 +784,9 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("adventurersTomeSemanticMentionDiscoveryUpdated", () => atMeSchedule("mention-discovery-updated"));
+Hooks.on("adventurersTomeNewEntityDiscoveryUpdated", () => {
+  if (!atMeSyncing) atMeSchedule("new-entity-discovery-updated");
+});
 Hooks.on("adventurersTomeCampaignEntityLinkChanged", () => atMeSchedule("campaign-link-changed"));
 Hooks.on("adventurersTomeDeterministicAutoLinkCompleted", () => atMeSchedule("deterministic-auto-link-completed"));
 Hooks.on("renderApplicationV2", () => {

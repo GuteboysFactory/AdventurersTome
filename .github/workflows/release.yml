@@ -482,6 +482,9 @@ jobs:
           if [[ "$VERSION" == "1.6.0-qa.8" ]]; then
             NOTES="Adventurer's Tome v1.6.0-qa.8 adds Universal Entity Reconciliation, a read-only system-independent layer that classifies unresolved discovery entities against permission-filtered World and Compendium candidates using canonical UUID identity, conservative name comparison, corroborating semantic/context evidence, transparent scoring, and explicit ambiguity. It performs no auto-link, import, acquisition, or creation."
           fi
+          if [[ "$VERSION" == "1.7.0-qa.41" ]]; then
+            NOTES="Adventurer's Tome v1.7.0-qa.41 adds canonical relationship history with source evidence, temporal status, inverse links and permission-safe GM review. It preserves qa.40 identity fixes, correct Review type defaults and clean Session/Quest presentation. Validated with 114 regression tests. This is a test-channel prerelease for Foundry QA."
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             # A previous workflow version could publish from a feature branch.
             # Main is release authority: heal the tag to this main commit before replacing assets.

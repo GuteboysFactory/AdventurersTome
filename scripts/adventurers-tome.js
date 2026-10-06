@@ -1048,6 +1048,12 @@ function getTomeLinks(document) {
 
   const worldIds = new Set(normalize(links.world));
   for (const uuid of normalize(canonical.entityUuids)) {
+    const actor = /^Actor\.([^.]+)$/.exec(uuid);
+    const actorDocument = actor ? game.actors?.get(actor[1]) : null;
+    if (actorDocument && (game.user?.isGM || userCanObserveDocument(actorDocument, game.user))) {
+      actorIds.add(actor[1]);
+      continue;
+    }
     const match = /^JournalEntry\.([^.]+)$/.exec(uuid);
     if (match) {
       worldIds.add(match[1]);
@@ -1056,6 +1062,19 @@ function getTomeLinks(document) {
 
     const projectionId = campaignWorldProjectionIdForAuthorityUuid(uuid);
     if (projectionId) worldIds.add(projectionId);
+  }
+
+  // Present a proven Actor identity once, regardless of which legacy/category
+  // track stored the link. Never collapse independent documents by name.
+  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
+  for (const id of worldIds) {
+    const identity = identityApi?.identityFor?.({ canonicalUuid:`JournalEntry.${id}` });
+    const actor = /^Actor\.([^.]+)$/.exec(String(identity?.authorityUuid || ""));
+    const actorDocument = actor ? game.actors?.get(actor[1]) : null;
+    if (actorDocument && (game.user?.isGM || userCanObserveDocument(actorDocument, game.user))) {
+      actorIds.add(actor[1]);
+      worldIds.delete(id);
+    }
   }
 
   return {
@@ -1169,7 +1188,8 @@ function campaignMemorySearchView() {
       target.targetKindLabel,
       relation.relationLabel,
       sourceLabel,
-      lifecycle
+      lifecycle,
+      row.outcome, row.outcomeReason
     ].filter(Boolean).join(" ").toLowerCase();
 
     return {
@@ -1300,7 +1320,11 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     }
 
     const worldFacts = Array.isArray(profile?.facts) ? profile.facts : [];
-    for (const fact of worldFacts.slice(0, 4)) {
+    const briefingFacts = [...worldFacts].sort((a, b) => {
+      const useful = (fact) => /role|profession|occupation|faction|organization|organisation|location|relation/i.test(String(fact?.label || ""));
+      return Number(useful(b)) - Number(useful(a));
+    });
+    for (const fact of briefingFacts.slice(0, 6)) {
       const label = String(fact?.label || "").trim();
       const value = String(fact?.value || "").trim();
       if (!value || /^foundry link$/i.test(label)) continue;
@@ -1346,7 +1370,7 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
   if (previousMentions.length) {
     briefItems.push({ label:"Previously seen", value:previousMentions.slice(0, 3).join(" • "), icon:"fa-clock-rotate-left" });
   }
-  const visibleBriefItems = briefItems.filter((row) => row?.value).slice(0, 6);
+  const visibleBriefItems = briefItems.filter((row) => row?.value);
   const hasUsefulBriefing = Boolean(visibleBriefItems.length || briefSummary);
 
   return {
@@ -1472,10 +1496,22 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
       };
 
       const rawMention = campaignDecisionRawMention(base);
-      const rawCandidates = Array.isArray(rawMention?.resolution?.candidates) ? rawMention.resolution.candidates : [];
+      const rawCandidates = [
+        ...(Array.isArray(rawMention?.resolution?.candidates) ? rawMention.resolution.candidates : []),
+        ...(base.identityCandidates || []).map((target) => ({ target }))
+      ];
       const candidateMap = new Map();
+      const assessMatch = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation?.assessExistingMatch;
+      const sourceChoice = learning?.decisionFor?.(base.mentionText,{sourceUuid:base.sourceUuid});
+      const explicitUuid = base.mentionType === "explicit-reference" || base.authority === "source-inline"
+        ? base.targetUuid : sourceChoice?.sourceChoice && sourceChoice.sourceUuid === base.sourceUuid ? sourceChoice.targetUuid : "";
       for (const raw of rawCandidates) {
+        const target = raw.target || raw.entity || raw;
+        const precision = assessMatch?.({text:base.mentionText,kind:base.targetKind,sourceUuid:base.sourceUuid,target,explicitUuid});
+        if (precision && !precision.eligible) continue;
         const candidate = campaignDecisionCandidateMeta(raw, base.snippet);
+        candidate.safeExistingMatch = precision?.safe === true;
+        if (precision?.authorityUuid) candidate.uuid = precision.authorityUuid;
         if (!candidate.uuid || candidateMap.has(candidate.uuid)) continue;
         candidateMap.set(candidate.uuid, candidate);
       }
@@ -1485,15 +1521,21 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
           name:base.targetName,
           kind:base.targetKind
         }, score:Number(base.identityConfidence || base.confidence || 0) * 100 }, base.snippet);
-        if (fallback.uuid) candidateMap.set(fallback.uuid, fallback);
+        const precision = assessMatch?.({text:base.mentionText,kind:base.targetKind,sourceUuid:base.sourceUuid,target:{canonicalUuid:base.targetUuid,name:base.targetName,kind:base.targetKind},explicitUuid});
+        fallback.safeExistingMatch = precision?.safe === true;
+        if (precision?.authorityUuid) fallback.uuid = precision.authorityUuid;
+        if (fallback.uuid && !candidateMap.has(fallback.uuid) && (!precision || precision.eligible)) candidateMap.set(fallback.uuid, fallback);
       }
 
       const candidates = [...candidateMap.values()].sort((a, b) => b.score - a.score);
-      const selectedUuid = String(rawMention?.resolution?.selectedTarget?.canonicalUuid || "").trim();
-      const gap = candidates.length > 1 ? candidates[0].score - candidates[1].score : candidates[0]?.score || 0;
-      const recommendationUuid = selectedUuid || ((candidates[0]?.score >= 60 && gap >= 15) ? candidates[0].uuid : "");
+      const safeCandidates = candidates.filter((candidate)=>candidate.safeExistingMatch);
+      const recommendationUuid = !base.isAmbiguous && safeCandidates.length === 1 ? safeCandidates[0].uuid : "";
       for (const candidate of candidates) candidate.recommended = Boolean(recommendationUuid && candidate.uuid === recommendationUuid);
       const recommended = candidates.find((candidate) => candidate.recommended) || null;
+      const creationTypes = {character:"contact",person:"contact",npc:"contact",contact:"contact",actor:"contact",adventurer:"contact",
+        location:"location",place:"location",faction:"faction",organization:"faction",organisation:"faction",item:"item",gear:"item",lore:"lore"};
+      const creationType = creationTypes[String(base.discoveryKind || "").toLowerCase()]
+        || creationTypes[String(base.targetKind || "").toLowerCase()] || "contact";
 
       return {
         ...base,
@@ -1505,8 +1547,22 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
         hasRecommendation:Boolean(recommended),
         recommendationText:recommended
           ? (recommended.reason || `Tome's current evidence favors ${recommended.name}.`)
-          : "",
-        decisionText:String(base.mentionText || base.targetName || "").trim()
+          : "Tome has no safe existing match to suggest",
+        decisionText:String(base.mentionText || base.targetName || "").trim(),
+        identityBriefItems:base.identityBriefing?.briefItems || [],
+        creationTypeOptions:[
+          {value:"contact",label:"Contact / person"},{value:"location",label:"Location"},
+          {value:"faction",label:"Faction / organization"},{value:"item",label:"Item"},{value:"lore",label:"Lore"}
+        ].map((option)=>({...option,selected:option.value === creationType})),
+        outcomeReason:({
+          "insufficient-identity-evidence":"Identity or type needs a GM decision.",
+          "no-safe-existing-match":"Tome has no safe existing match to suggest",
+          "possible-duplicate-or-ambiguous-identity":"Possible duplicate or several existing identities. Choose the intended identity.",
+          "gm-unlink-suppression":"This identity was deliberately unlinked for this source.",
+          "clear-new-identity":"New identity identified.",
+          "creation-cancelled":"Creation was cancelled. This identity remains in review."
+        })[base.outcomeReason] || base.outcomeReason || base.resolutionReason,
+        canCreate:!base.targetUuid || !candidates.some((candidate)=>candidate.uuid === base.targetUuid)
       };
     }).sort((a, b) => a.priority - b.priority || b.lastSeenAt - a.lastSeenAt || String(a.targetName || "").localeCompare(String(b.targetName || ""), game.i18n.lang));
   };
@@ -1527,6 +1583,10 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
     hasNoticed:noticed.length > 0,
     sourceFilter
   };
+}
+
+function campaignRelationshipProfile(uuid) {
+  return game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.relationshipsFor?.(uuid) || [];
 }
 
 function campaignMentionHistoryForWorld(entry, profile = null) {
@@ -2013,6 +2073,33 @@ function linkedSessionsForTarget(targetDocument, targetView, sessions = [], targ
   });
 }
 
+function campaignNarrativeLinks(entry, world = [], actors = []) {
+  const legacyIds = new Set(getLegacyGroupActorIds());
+  const characters = actors.filter((view) => {
+    const actor = game.actors.get(view.id);
+    return actor && actorIsGroupMember(actor, legacyIds);
+  });
+  const linkedActors = candidatesFromExplicit(entry, "actors", actors);
+  const actorLinks = linkedActors.filter((view) => characters.some((character) => character.id === view.id));
+  const worldLinks = candidatesFromExplicit(entry, "world", world);
+  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
+  const authorityOf = (view) => identityApi?.identityFor?.({ canonicalUuid:`JournalEntry.${view.id}` })?.authorityUuid || `JournalEntry.${view.id}`;
+  for (const view of linkedActors) {
+    if (actorLinks.some((character) => character.id === view.id)) continue;
+    const uuid = `Actor.${view.id}`;
+    // Reuse a readable, proven NPC/Contact presentation. Identity authority
+    // remains the Actor; document type does not imply party membership.
+    const projection = world.find((candidate) => authorityOf(candidate) === uuid);
+    if (projection) {
+      if (!worldLinks.some((candidate) => authorityOf(candidate) === uuid)) worldLinks.push(projection);
+    } else {
+      // NPCs without a Journal still need a visible, working link.
+      worldLinks.push({ ...view, actorId:view.id, actorOnly:true, category:"npc", categoryLabel:"NPC", icon:"fa-user" });
+    }
+  }
+  return { worldLinks, actorLinks, characters };
+}
+
 function questDetailView(questView, sessions = [], world = [], actors = []) {
   if (!questView?.id) return null;
   const entry = game.journal.get(questView.id);
@@ -2038,10 +2125,11 @@ function questDetailView(questView, sessions = [], world = [], actors = []) {
       suggestionReason:"Session reference inferred from Quest text",
       suggestionMatchedTerm:String(session.displayTitle || session.name || "")
     }));
-  const worldLinks = candidatesFromExplicit(entry, "world", world).slice(0, 12);
-  const actorLinks = candidatesFromExplicit(entry, "actors", actors).slice(0, 12);
+  const narrativeLinks = campaignNarrativeLinks(entry, world, actors);
+  const worldLinks = narrativeLinks.worldLinks;
+  const actorLinks = narrativeLinks.actorLinks;
   const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 12);
-  const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 12);
+  const suggestedActorLinks = suggestedActorMentions(raw, narrativeLinks.characters, actorLinks).slice(0, 12);
   const suggestedMentions = reconcileSuggestedCollections([
     suggestedSessionLinks,
     suggestedWorldLinks,
@@ -2088,11 +2176,12 @@ function sessionDetailView(sessionView, quests = [], world = [], actors = []) {
   }
 
   const questLinks = candidatesFromExplicit(entry, "quests", quests).slice(0, 10);
-  const worldLinks = candidatesFromExplicit(entry, "world", world).slice(0, 10);
-  const actorLinks = candidatesFromExplicit(entry, "actors", actors).slice(0, 10);
+  const narrativeLinks = campaignNarrativeLinks(entry, world, actors);
+  const worldLinks = narrativeLinks.worldLinks;
+  const actorLinks = narrativeLinks.actorLinks;
   const suggestedQuestLinks = suggestedQuestMentions(raw, quests, questLinks).slice(0, 10);
   const suggestedWorldLinks = suggestedWorldMentions(raw, world, worldLinks).slice(0, 10);
-  const suggestedActorLinks = suggestedActorMentions(raw, actors, actorLinks).slice(0, 10);
+  const suggestedActorLinks = suggestedActorMentions(raw, narrativeLinks.characters, actorLinks).slice(0, 10);
   const suggestedMentions = reconcileSuggestedCollections([
     suggestedQuestLinks,
     suggestedWorldLinks,
@@ -4994,6 +5083,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       resolveCampaignDecision: this._onResolveCampaignDecision,
       undoCampaignDecision: this._onUndoCampaignDecision,
       openSourceAnalysis: this._onOpenSourceAnalysis,
+      decideRelationship: this._onDecideRelationship,
       openCustomLink: this._onOpenCustomLink,
       createRule: this._onCreateRule,
       linkRule: this._onLinkRule,
@@ -5541,6 +5631,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }).filter(Boolean);
       profileView = {
         ...base,
+        structuredRelationships:campaignRelationshipProfile(profileActor.uuid),
         biography: profile.biography,
         motto: profile.motto,
         firstSession: canViewInTome(firstSession) ? entryView(firstSession) : (actorCampaignSessions[0] || null),
@@ -5629,6 +5720,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const linkedActorInferred = Boolean(linkedActor && !profile.actorId);
       worldProfileView = {
         ...view,
+        structuredRelationships:campaignRelationshipProfile(worldEntry.uuid),
         journalId: worldEntry.id,
         linkedActor: linkedActorVisible ? actorView(linkedActor) : null,
         hasLinkedActor: linkedActorVisible,
@@ -5755,6 +5847,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const campaignAnalysis = game.user.isGM
       ? campaignAnalysisView(campaignMemorySearch, this.activeTab === "campaignToolsAnalysis" ? this._analysisSourceFilter : "")
       : null;
+    const relationshipApi = game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence;
+    const relationshipReview = game.user.isGM ? relationshipApi?.review?.(this.activeTab === "campaignToolsAnalysis" ? this._analysisSourceFilter || "" : "") || [] : [];
 
     const byRefKey = new Map(searchEntries.map((entry) => [entry.refKey, entry]));
     const favoriteEntries = favoriteRefs.map((ref) => byRefKey.get(ref)).filter(Boolean);
@@ -5762,12 +5856,14 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     if (selectedSession) {
       const sourceUuid = `JournalEntry.${selectedSession.id}`;
-      const pending = campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0;
+      const pending = (campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0)
+        + (game.user.isGM ? relationshipApi?.review?.(sourceUuid).length || 0 : 0);
       selectedSession = { ...selectedSession, refKey: `session:${selectedSession.id}`, isFavorite: favoriteSet.has(`session:${selectedSession.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid };
     }
     if (questDetail) {
       const sourceUuid = `JournalEntry.${questDetail.id}`;
-      const pending = campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0;
+      const pending = (campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0)
+        + (game.user.isGM ? relationshipApi?.review?.(sourceUuid).length || 0 : 0);
       questDetail = { ...questDetail, refKey: `quest:${questDetail.id}`, isFavorite: favoriteSet.has(`quest:${questDetail.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid };
     }
     if (profileView) profileView = { ...profileView, refKey: `actor:${profileView.id}`, isFavorite: favoriteSet.has(`actor:${profileView.id}`) };
@@ -5910,6 +6006,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       campaignMemorySearch,
       campaignAnalysis,
       campaignAnalysisAll,
+      relationshipReview,
       analysisSourceFilter:this._analysisSourceFilter,
       lastCampaignDecision:this._lastCampaignDecision,
       searchState: {
@@ -7713,7 +7810,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     try {
       const projectionId = campaignWorldProjectionIdForAuthorityUuid(uuid);
-      if (projectionId && game.journal.get(projectionId)) {
+      if (projectionId && canViewInTome(game.journal.get(projectionId))) {
         if (this.activeTab !== "worldProfile" || this.activeWorldId !== projectionId) this._pushNavigationState();
         this.activeWorldId = projectionId;
         this.activeTab = "worldProfile";
@@ -7765,6 +7862,17 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts:["main"] });
   }
 
+  static async _onDecideRelationship(_event, target) {
+    if (!game.user.isGM || target.disabled) return;
+    target.disabled=true;
+    try {
+      await game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.decide?.(target.dataset.evidenceId,target.dataset.relationshipDecision);
+      await this.render({parts:["main"]});
+    } catch (error) {
+      ui.notifications.warn(`Adventurer's Tome: ${error.message}`);
+    } finally { target.disabled=false; }
+  }
+
   static async _onResolveCampaignDecision(_event, target) {
     if (!game.user?.isGM) return;
     const mode = String(target.dataset.decisionMode || "").trim();
@@ -7779,16 +7887,27 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     target.disabled = true;
     try {
-      if (mode === "choose") {
+      if (mode === "create") {
+        const creation = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation;
+        const semanticType = target.closest(".at-guided-decision-card")?.querySelector(".at-review-create-type")?.value;
+        if (!creation?.apply || !learning?.confirm || !semanticType) throw new Error("Select an entity type before creation.");
+        await learning.confirm({ text, sourceUuid, kind:semanticType });
+        const result = await creation.apply({ text, sourceUuid, semanticType });
+        if (!result.created) return;
+        ui.notifications.info(`Tome: created ${text}.`);
+      } else if (mode === "choose") {
         if (!targetUuid || !links?.linkCanonical) throw new Error("A canonical target is required.");
         const hadLinkBefore = links.hasCanonicalLink?.({ sourceUuid, targetUuid }) === true;
+        const previousChoice = learning?.decisionFor?.(text, { sourceUuid });
         await links.linkCanonical({ sourceUuid, targetUuid });
+        await learning?.chooseForSource?.({ text, sourceUuid, targetUuid });
         this._lastCampaignDecision = {
           mode,
           text,
           sourceUuid,
           targetUuid,
           hadLinkBefore,
+          previousChoice:previousChoice?.sourceChoice ? previousChoice : null,
           label:`${text} → ${String(target.dataset.targetName || "selected identity")}`
         };
         ui.notifications.info(`Tome: linked ${text} to ${String(target.dataset.targetName || "the selected identity")}.`);
@@ -7832,6 +7951,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         await links?.unlinkCanonical?.({ sourceUuid:decision.sourceUuid, targetUuid:decision.targetUuid });
       } else if (decision.mode === "keep" || decision.mode === "mention-only") {
         await learning?.clear?.({ text:decision.text, sourceUuid:decision.sourceUuid, scope:"source" });
+      }
+      if (decision.mode === "choose") {
+        if (decision.previousChoice) await learning?.chooseForSource?.({ text:decision.text, sourceUuid:decision.sourceUuid, targetUuid:decision.previousChoice.targetUuid });
+        else await learning?.clear?.({ text:decision.text, sourceUuid:decision.sourceUuid, scope:"choice" });
       }
       this._lastCampaignDecision = null;
       await evidence?.sync?.({ reason:"guided-gm-decision-undo", rescan:true });
@@ -8822,8 +8945,8 @@ for (const hookName of ["createActor", "updateActor", "deleteActor", "createJour
 }
 Hooks.on("adventurersTomeCampaignDiscoveryUpdated", scheduleTomeRefresh);
 Hooks.on("adventurersTomeContactProjectionUpdated", scheduleTomeRefresh);
+Hooks.on("adventurersTomeRelationshipEvidenceUpdated", scheduleTomeRefresh);
 Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
   if (!active) window.setTimeout(flushQueuedTomeRefresh, 0);
 });
 Hooks.on("adventurersTomeAuthoringSaveSettled", () => window.setTimeout(flushQueuedTomeRefresh, 0));
-

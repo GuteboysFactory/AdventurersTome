@@ -1,0 +1,16 @@
+name: Identity regression tests
+on:
+  push:
+    branches: [main, v1.7.0-qa.40-identity-briefing-clean-session, v1.7.0-qa.41-relationship-history-convergence]
+  pull_request:
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/validate.mjs
+      - run: node --test tests/qa40-identity.test.mjs
+      - run: node --test tests/qa41-relationships.test.mjs

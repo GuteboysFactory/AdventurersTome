@@ -209,7 +209,7 @@
           <h3><i class="fa-solid fa-earth-europe"></i> People, places & lore</h3>
           <div class="at-session-link-grid">
             {{#each selectedSession.worldLinks}}
-            <button type="button" class="at-session-link-card" data-action="openWorldProfile" data-journal-id="{{id}}">
+            <button type="button" class="at-session-link-card" {{#if actorOnly}}data-action="openActor" data-actor-id="{{actorId}}"{{else}}data-action="openWorldProfile" data-journal-id="{{id}}"{{/if}}>
               <span><i class="fa-solid {{icon}}"></i>{{name}}</span><small>{{categoryLabel}}</small>
             </button>
             {{/each}}
@@ -229,11 +229,6 @@
           </div>
         </section>
         {{/if}}
-
-        <section class="at-session-detail-section at-session-detail-notes at-shareable-text">
-          <h3><i class="fa-solid fa-book-open"></i> Chronicle excerpt</h3>
-          <p>{{selectedSession.bodyPreview}}</p>
-        </section>
 
         <button type="button" class="at-primary at-session-open-full" data-action="openJournal" data-journal-id="{{selectedSession.id}}"><i class="fa-solid fa-book-open"></i> Open Full Session</button>
       </aside>
@@ -309,7 +304,7 @@
       <aside class="at-profile-panel at-linked-panel">
         <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
         {{#if questDetail.hasSessionLinks}}<h3>Sessions</h3><div class="at-link-chip-list">{{#each questDetail.sessionLinks}}<button type="button" data-action="selectSession" data-journal-id="{{id}}"><i class="fa-solid fa-book-open"></i>{{name}}</button>{{/each}}</div>{{/if}}
-        {{#if questDetail.hasWorldLinks}}<h3>World</h3><div class="at-link-chip-list">{{#each questDetail.worldLinks}}<button type="button" data-action="openWorldProfile" data-journal-id="{{id}}"><i class="fa-solid {{icon}}"></i>{{name}}</button>{{/each}}</div>{{/if}}
+        {{#if questDetail.hasWorldLinks}}<h3>People, places & lore</h3><div class="at-link-chip-list">{{#each questDetail.worldLinks}}<button type="button" {{#if actorOnly}}data-action="openActor" data-actor-id="{{actorId}}"{{else}}data-action="openWorldProfile" data-journal-id="{{id}}"{{/if}}><i class="fa-solid {{icon}}"></i>{{name}}</button>{{/each}}</div>{{/if}}
         {{#if questDetail.hasActorLinks}}<h3>Characters</h3><div class="at-link-chip-list">{{#each questDetail.actorLinks}}<button type="button" data-action="openProfile" data-actor-id="{{id}}"><i class="fa-solid fa-user"></i>{{name}}</button>{{/each}}</div>{{/if}}
         {{#unless questDetail.linkedCount}}<p class="at-empty">No canonical Campaign Links yet.</p>{{/unless}}
       </aside>
@@ -499,6 +494,15 @@
     </section>
     {{/if}}
 
+    {{#if profileView.structuredRelationships.length}}
+    <section class="at-profile-panel at-structured-relationships">
+      <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relationships</h2></div>
+      {{#each profileView.structuredRelationships}}
+      <div class="at-fact"><button type="button" data-action="openEvidenceTarget" data-target-uuid="{{otherUuid}}">{{name}} — {{label}}</button><small>{{stateLabel}} · {{evidenceCount}} evidence</small></div>
+      <details><summary>Relationship history</summary>{{#each history}}<p>{{sourceExcerpt}} <small>{{sourceName}} · {{label}} · {{stateLabel}}</small></p><button type="button" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}">Open source</button>{{/each}}</details>
+      {{/each}}
+    </section>
+    {{/if}}
     <section class="at-profile-relations at-profile-panel">
       <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relations</h2></div>
       <div class="at-relation-grid">
@@ -598,6 +602,15 @@
       <article class="at-profile-biography at-profile-panel at-shareable-text"><div class="at-profile-section-heading"><i class="fa-solid fa-book-open-reader"></i><h2>Known Information</h2>{{#if worldProfileView.syncedToJournal}}<span class="at-sync-badge"><i class="fa-solid fa-arrows-rotate"></i> Journal synced</span>{{/if}}</div>{{#if worldProfileView.body}}<p>{{worldProfileView.body}}</p>{{else}}<p class="at-empty">No Tome details have been added yet.</p>{{/if}}</article>
       <aside class="at-profile-facts at-profile-panel"><div class="at-profile-section-heading"><i class="fa-solid fa-bookmark"></i><h2>Facts</h2></div>{{#each worldProfileView.facts}}<div class="at-fact {{#if gmOnly}}is-gm-only{{/if}}"><span>{{label}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</span><strong>{{value}}</strong></div>{{else}}<p class="at-empty">No structured facts have been added yet.</p>{{/each}}</aside>
     </section>
+    {{#if worldProfileView.structuredRelationships.length}}
+    <section class="at-profile-panel at-structured-relationships">
+      <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relationships</h2></div>
+      {{#each worldProfileView.structuredRelationships}}
+      <div class="at-fact"><button type="button" data-action="openEvidenceTarget" data-target-uuid="{{otherUuid}}">{{name}} — {{label}}</button><small>{{stateLabel}} · {{evidenceCount}} evidence</small></div>
+      <details><summary>Relationship history</summary>{{#each history}}<p>{{sourceExcerpt}} <small>{{sourceName}} · {{label}} · {{stateLabel}}</small></p><button type="button" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}">Open source</button>{{/each}}</details>
+      {{/each}}
+    </section>
+    {{/if}}
     <section class="at-profile-panel at-profile-campaign-links">
       <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
       {{#if worldProfileView.hasCampaignLinks}}
@@ -1032,6 +1045,7 @@
               <span><i class="fa-solid {{relationIcon}}"></i> {{relationLabel}}</span>
               <span>{{lifecycleLabel}}</span>
               <span>{{mentionTypeLabel}}</span>
+              {{#if outcome}}<span title="{{outcomeReason}}">{{outcome}}</span>{{/if}}
             </div>
           </div>
 
@@ -1062,7 +1076,7 @@
         <div>
           <span class="at-kicker">Campaign intelligence</span>
           <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Analysis & Entity Review</h2>
-          <p>A GM-only triage surface for campaign identities and mentions that need attention. Nothing here changes canonical Links automatically.</p>
+          <p>A GM-only review surface. Clear identities are linked or created automatically; uncertain identities stay here for your decision.</p>
         </div>
         <button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i> Open full Memory</button>
       </header>
@@ -1085,6 +1099,25 @@
         <article class="{{#if campaignAnalysis.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysis.reviewCount}}</strong></span></article>
         <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysis.noticedCount}}</strong></span></article>
       </div>
+
+      {{#if isGM}}{{#if relationshipReview.length}}
+      <section class="at-analysis-panel">
+        <div class="at-analysis-panel-heading"><h3>Possible relationships</h3><span>{{relationshipReview.length}} to review</span></div>
+        {{#each relationshipReview}}
+        <article class="at-guided-decision-card">
+          <h4>{{subjectName}} — {{relationLabel}} — {{objectName}}</h4>
+          <p>{{sourceExcerpt}}</p><small>{{sourceName}} · Possible relationship</small>
+          <button type="button" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}">Source</button>
+          <footer class="at-guided-decision-footer">
+            <button type="button" data-action="decideRelationship" data-evidence-id="{{id}}" data-relationship-decision="confirm">Confirm relationship</button>
+            <button type="button" data-action="decideRelationship" data-evidence-id="{{id}}" data-relationship-decision="possible">Keep as possible / rumour</button>
+            <button type="button" data-action="decideRelationship" data-evidence-id="{{id}}" data-relationship-decision="reject">Reject</button>
+            <button type="button" data-action="decideRelationship" data-evidence-id="{{id}}" data-relationship-decision="unresolved">Leave unresolved</button>
+          </footer>
+        </article>
+        {{/each}}
+      </section>
+      {{/if}}{{/if}}
 
       <section class="at-analysis-panel">
         <div class="at-analysis-panel-heading">
@@ -1110,6 +1143,15 @@
               <span><i class="fa-solid fa-file-lines"></i> {{sourceCount}} sources</span>
               <span><i class="fa-solid {{sourceIcon}}"></i> {{sourceName}}{{#if pageName}} · {{pageName}}{{/if}}</span>
             </div>
+
+            {{#if identityBriefItems.length}}
+            <div class="at-guided-identity-brief">
+              {{#each identityBriefItems}}
+              <div><i class="fa-solid {{icon}}"></i><span><small>{{label}} · Source evidence</small><strong>{{value}}</strong></span></div>
+              {{/each}}
+            </div>
+            {{/if}}
+            {{#if outcomeReason}}<p class="at-guided-candidate-reason">REVIEW · {{outcomeReason}}</p>{{/if}}
 
             {{#if hasCandidates}}
             <div class="at-guided-candidate-list">
@@ -1167,12 +1209,16 @@
             {{/if}}
 
             <footer class="at-guided-decision-footer">
+              {{#if canCreate}}
+              <label>New identity type <select class="at-review-create-type">{{#each creationTypeOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+              <button type="button" data-action="resolveCampaignDecision" data-decision-mode="create" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-plus"></i> Create new identity</button>
+              {{/if}}
               {{#if isReview}}
               <button type="button" data-action="resolveCampaignDecision" data-decision-mode="mention-only" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-comment-dots"></i> Keep as Mention only</button>
               {{else}}
               <button type="button" data-action="resolveCampaignDecision" data-decision-mode="keep" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-clock"></i> Keep unresolved</button>
               {{/if}}
-              <small>Choose an identity to create the canonical Campaign Link for this source. Tome never chooses for you.</small>
+              <small>Choose an existing identity, create one after review, or defer this decision for this source.</small>
             </footer>
           </article>
           {{else}}

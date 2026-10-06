@@ -35,12 +35,24 @@ function atCelNormalizeUuids(value) {
     : [];
 }
 
+function atCelAuthorityUuid(uuid) {
+  const value = String(uuid || "").trim();
+  const identity = game.modules.get(ATCEL_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({ canonicalUuid:value });
+  const authority = String(identity?.authorityUuid || value).trim();
+  // Keep broken/unavailable references in their original track for inspection.
+  if (authority.startsWith("Actor.") && !atCelActorFromUuid(authority)) return value;
+  return authority;
+}
+
 function atCelCanonical(journal) {
   const raw = journal?.getFlag?.(ATCEL_ID, ATCEL_FLAG);
   const links = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const uuids = atCelNormalizeUuids([
+    ...atCelNormalizeUuids(links.actorUuids), ...atCelNormalizeUuids(links.entityUuids)
+  ].map(atCelAuthorityUuid));
   return {
-    actorUuids: atCelNormalizeUuids(links.actorUuids),
-    entityUuids: atCelNormalizeUuids(links.entityUuids)
+    actorUuids:uuids.filter((uuid) => uuid.startsWith("Actor.")),
+    entityUuids:uuids.filter((uuid) => !uuid.startsWith("Actor."))
   };
 }
 
@@ -53,6 +65,15 @@ function atCelLegacy(journal) {
   links.quests = Array.isArray(links.quests) ? links.quests : [];
   links.world = Array.isArray(links.world) ? links.world : [];
   links.actors = Array.isArray(links.actors) ? links.actors : [];
+  const actors = new Set(links.actors.map(String));
+  links.world = links.world.filter((id) => {
+    const authority = atCelAuthorityUuid(`JournalEntry.${id}`);
+    const actor = /^Actor\.([^.]+)$/.exec(authority);
+    if (!actor) return true;
+    actors.add(actor[1]);
+    return false;
+  });
+  links.actors = [...actors];
   return links;
 }
 
@@ -151,7 +172,7 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
   if (!game.user?.isGM) throw new Error("GM permission required.");
 
   const source = await atCelResolveUuid(sourceUuid);
-  const target = await atCelResolveUuid(targetUuid);
+  const target = await atCelResolveUuid(atCelAuthorityUuid(targetUuid));
   if (!source || source.documentName !== "JournalEntry") throw new Error("Session or Quest source Journal not found.");
   if (!target || !["Actor","Item","JournalEntry"].includes(target.documentName)) throw new Error("Campaign link target must be an Actor, Item or JournalEntry.");
 
@@ -210,7 +231,7 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
 
 function atCelHasCanonicalLink(sourceUuid, targetUuid) {
   const source = typeof sourceUuid === "string" ? game.journal?.get(sourceUuid.replace(/^JournalEntry\./, "")) : sourceUuid;
-  const target = String(targetUuid || "").trim();
+  const target = atCelAuthorityUuid(targetUuid);
   if (!source || !target) return false;
   const canonical = atCelCanonical(source);
   if (canonical.actorUuids.includes(target) || canonical.entityUuids.includes(target)) return true;
