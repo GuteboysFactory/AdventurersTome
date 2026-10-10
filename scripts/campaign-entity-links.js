@@ -107,6 +107,11 @@ function atCelLinkedActors(journal) {
   return actors.sort((a, b) => a.actor.name.localeCompare(b.actor.name, game.i18n?.lang, { numeric: true }));
 }
 
+async function atCelWriteDocument(document,changes,options) {
+  const review=globalThis.AdventurersTomeReviewDecision;
+  return review?.measure ? review.measure("journal-write",()=>document.update(changes,options)) : document.update(changes,options);
+}
+
 async function atCelSetActorLink(journal, actor, linked) {
   if (!game.user?.isGM) throw new Error("GM permission required.");
   if (!journal || journal.documentName !== "JournalEntry") throw new Error("Session or Quest Journal not found.");
@@ -125,7 +130,7 @@ async function atCelSetActorLink(journal, actor, linked) {
     actorIds.delete(actor.id);
   }
 
-  await journal.update({
+  await atCelWriteDocument(journal,{
     [`flags.${ATCEL_ID}.${ATCEL_FLAG}`]: {
       actorUuids: [...uuids],
       entityUuids: atCelCanonical(journal).entityUuids
@@ -134,7 +139,7 @@ async function atCelSetActorLink(journal, actor, linked) {
       ...legacy,
       actors: [...actorIds]
     }
-  });
+  }, {adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
 
   return linked;
 }
@@ -159,22 +164,24 @@ async function atCelSetLegacyReciprocal(document, key, id, linked = true) {
   const values = new Set((legacy[key] || []).map((value) => String(value || "")).filter(Boolean));
   if (linked) values.add(String(id || ""));
   else values.delete(String(id || ""));
-  await document.update({
+  await atCelWriteDocument(document,{
     [`flags.${ATCEL_ID}.${ATCEL_LEGACY_FLAG}`]: {
       ...legacy,
       [key]: [...values]
     }
-  });
+  }, {adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
   return true;
 }
 
 async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
+  globalThis.AdventurersTomeReviewDecision?.count("canonical-write","campaignLinkRefreshes");
   if (!game.user?.isGM) throw new Error("GM permission required.");
 
   const source = await atCelResolveUuid(sourceUuid);
   const target = await atCelResolveUuid(atCelAuthorityUuid(targetUuid));
   if (!source || source.documentName !== "JournalEntry") throw new Error("Session or Quest source Journal not found.");
-  if (!target || !["Actor","Item","JournalEntry"].includes(target.documentName)) throw new Error("Campaign link target must be an Actor, Item or JournalEntry.");
+  if (!target?.uuid || target.parent || typeof target.update !== "function"
+    || ["Folder","User","ChatMessage","Combat","Setting"].includes(target.documentName)) throw new Error("Campaign link target must be an existing root campaign document.");
 
   const sourceKind = atCelJournalKind(source);
   if (!["session","quest"].includes(sourceKind)) throw new Error("Campaign link source must be a Session or Quest.");
@@ -196,7 +203,7 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
       else worldIds.delete(target.id);
     }
 
-    await source.update({
+    await atCelWriteDocument(source,{
       [`flags.${ATCEL_ID}.${ATCEL_FLAG}`]: {
         actorUuids:canonical.actorUuids,
         entityUuids:[...entityUuids]
@@ -205,7 +212,7 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
         ...sourceLegacy,
         world:[...worldIds]
       }
-    });
+    }, {adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
 
     await atCelSetLegacyReciprocal(target, sourceKind === "session" ? "sessions" : "quests", source.id, linked);
   }
@@ -452,8 +459,9 @@ function atCelResetMount(root) {
 
 function atCelWrapManualJournalLink(panel, journal, kind) {
   const action = kind === "session" ? "selectSession" : "openQuestDetail";
-  const button = [...panel.querySelectorAll(`button[data-action="${action}"][data-journal-id]`)]
-    .find((candidate) => String(candidate.dataset.journalId || "") === journal.id);
+  const button = [...panel.querySelectorAll(`button[data-action="${action}"][data-journal-id]`),
+    ...panel.querySelectorAll('button[data-action="openContextEntity"][data-target-uuid]')]
+    .find((candidate) => String(candidate.dataset.journalId || "") === journal.id || candidate.dataset.targetUuid === journal.uuid);
   if (!button || button.closest(".at-cel-inline-chip")) return false;
 
   const wrapper = document.createElement("span");
@@ -472,17 +480,14 @@ function atCelWrapManualJournalLink(panel, journal, kind) {
 }
 
 function atCelManagerForActor(context, main) {
-  let panel = main.querySelector(".at-profile-campaign-links");
+  let panel = main.querySelector("[data-at-ei-links]") || main.querySelector(".at-entity-intelligence") || main.querySelector(".at-profile-campaign-links");
   const relations = main.querySelector(".at-profile-relations");
 
   if (!panel) {
+    if (!game.user?.isGM) return null;
     panel = document.createElement("section");
     panel.className = "at-profile-panel at-profile-campaign-links at-cel-created-campaign-links";
     panel.dataset.atCelOwnedPanel = "true";
-    panel.innerHTML = `
-      <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
-      <p class="at-empty at-cel-empty-summary">No campaign links yet.</p>
-    `;
     if (relations) relations.before(panel);
     else main.append(panel);
   }
@@ -493,18 +498,23 @@ function atCelManagerForActor(context, main) {
 
   if (!game.user?.isGM) return panel;
 
+  // A linked source may now have its single row in Appears in or another
+  // Context group. Keep the existing unlink action on that same UUID button.
+  const linkScope = panel.closest?.(".at-entity-intelligence") || panel;
+  if (linkScope !== panel) {
+    linkScope.dataset.atCelManager = "actor";
+    linkScope.dataset.actorId = context.actor.id;
+    linkScope.dataset.atCelAugmented = "true";
+  }
   const linked = atCelJournalLinksForActor(context.actor);
-  for (const journal of linked.sessions) atCelWrapManualJournalLink(panel, journal, "session");
-  for (const journal of linked.quests) atCelWrapManualJournalLink(panel, journal, "quest");
+  for (const journal of linked.sessions) atCelWrapManualJournalLink(linkScope, journal, "session");
+  for (const journal of linked.quests) atCelWrapManualJournalLink(linkScope, journal, "quest");
 
-  const editor = document.createElement("div");
+  const editor = document.createElement("details");
   editor.className = "at-cel-inline-editor";
   editor.dataset.atCelOwned = "true";
   editor.innerHTML = `
-    <div class="at-cel-inline-editor-head">
-      <span><i class="fa-solid fa-link"></i> Manage links</span>
-      <small>Sessions / Quests</small>
-    </div>
+    <summary>Manage links</summary>
     <div class="at-cel-add-row">
       <select data-at-cel-journal-picker>${atCelJournalOptions(context.actor)}</select>
       <button type="button" class="at-secondary" data-at-cel-add-journal><i class="fa-solid fa-plus"></i> Link Session / Quest</button>

@@ -160,6 +160,8 @@ function atecInstallObserver() {
 }
 
 function atecAttach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-explorer-catalog");
+  try {
   if (atecAttached) {
     atecInstallObserver();
     return true;
@@ -189,6 +191,7 @@ function atecAttach() {
 
   atecRegistry = module.api.universalDocuments;
   atecAttached = true;
+  globalThis.AdventurersTomeStartup?.count("universal-explorer-catalog","registrations");
   if (atecTimer) {
     window.clearInterval(atecTimer);
     atecTimer = null;
@@ -197,6 +200,7 @@ function atecAttach() {
   atecInstallObserver();
   console.info("Adventurer's Tome | Universal Registry consumer layer attached: Explorer + Catalog.");
   return true;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atecWatch() {

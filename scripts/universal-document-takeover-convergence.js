@@ -64,6 +64,8 @@ function atutcAudit() {
 }
 
 function atutcAttach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-takeover");
+  try {
   if (atutcAttached) return true;
   const module = atutcModule();
   const registry = module?.api?.universalDocuments;
@@ -77,12 +79,14 @@ function atutcAttach() {
   });
 
   atutcAttached = true;
+  globalThis.AdventurersTomeStartup?.count("universal-takeover","registrations");
   if (atutcTimer) {
     window.clearInterval(atutcTimer);
     atutcTimer = null;
   }
   console.info("Adventurer's Tome | Universal Document takeover resolver convergence attached.");
   return true;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atutcWatch() {

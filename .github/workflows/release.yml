@@ -164,6 +164,15 @@ jobs:
           if (m.download !== `${versionBase}/adventurers-tome.zip`) throw new Error(`Download URL does not match ${m.version}`);
           NODE
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Full regression and syntax validation
+        run: |
+          node tests/validate.mjs
+          node --test --test-concurrency=2 tests/*.test.mjs
+
       - name: Build Foundry package
         shell: bash
         env:
@@ -485,6 +494,13 @@ jobs:
           if [[ "$VERSION" == "1.7.0-qa.41" ]]; then
             NOTES="Adventurer's Tome v1.7.0-qa.41 adds canonical relationship history with source evidence, temporal status, inverse links and permission-safe GM review. It preserves qa.40 identity fixes, correct Review type defaults and clean Session/Quest presentation. Validated with 114 regression tests. This is a test-channel prerelease for Foundry QA."
           fi
+          if [[ "$VERSION" == "1.7.0" ]]; then
+            NOTES="$(cat docs/V1.7_STABLE_RELEASE.md)"
+            if gh release view "$VERSION" >/dev/null 2>&1; then
+              echo "Stable 1.7.0 already exists; refusing to replace it." >&2
+              exit 1
+            fi
+          fi
           if gh release view "$VERSION" >/dev/null 2>&1; then
             # A previous workflow version could publish from a feature branch.
             # Main is release authority: heal the tag to this main commit before replacing assets.
@@ -493,6 +509,7 @@ jobs:
             gh release upload "$VERSION" dist/module.json dist/adventurers-tome.zip --clobber
           else
             gh release create "$VERSION" dist/module.json dist/adventurers-tome.zip \
+              --target "$GITHUB_SHA" \
               --title "Adventurer's Tome $VERSION" \
               --notes "$NOTES" \
               "${PRERELEASE_ARGS[@]}"

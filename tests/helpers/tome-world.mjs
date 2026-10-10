@@ -45,15 +45,17 @@ function world(text = fixture, known = true) {
     fromUuid:async uuid=>docs.get(uuid)||null,
     JournalEntry:{create:async input=>{const entry=add(input.name,'JournalEntry',input.flags?.['adventurers-tome']);entry.ownership=input.ownership;return entry;}},
     document:{createElement:()=>({innerHTML:'',get textContent(){return this.innerHTML.replace(/<[^>]+>/g,'');},querySelectorAll:()=>[]})},
-    Hooks:{once:(name,fn)=>{if(!handlers.has(name))handlers.set(name,[]);handlers.get(name).push(fn);},on(){},callAll(){}}
+    Hooks:{once:(name,fn)=>{if(!handlers.has(name))handlers.set(name,[]);handlers.get(name).push(fn);},
+      on:(name,fn)=>{if(!handlers.has(name))handlers.set(name,[]);handlers.get(name).push(fn);},
+      callAll:(name,...args)=>{for(const callback of handlers.get(name)||[])callback(...args);}}
   });
   function load(file) {
     vm.runInContext(`{\n${fs.readFileSync(path.join(root,'scripts',file),'utf8')}\n}`,context,{filename:file});
   }
   context.self=context;
   vm.runInContext(fs.readFileSync(path.join(root,'vendor/compromise-14.17.0.js'),'utf8'),context,{filename:'compromise-14.17.0.js'});
-  for(const file of ['nlp-provider.js','campaign-link-semantic-mentions.js','campaign-identity-reconciliation.js','campaign-source-scoped-identity.js','campaign-deterministic-auto-link.js',
-    'campaign-review-learning.js','campaign-new-entity-discovery.js','campaign-confirmed-entity-creation.js','campaign-mention-evidence.js','campaign-relationship-evidence.js']) load(file);
+  for(const file of ['language-packs/en.js','language-packs/sv.js','campaign-language-foundation.js','nlp-provider.js','campaign-link-semantic-mentions.js','campaign-identity-reconciliation.js','campaign-source-scoped-identity.js','campaign-deterministic-auto-link.js',
+    'campaign-review-learning.js','campaign-new-entity-discovery.js','campaign-confirmed-entity-creation.js','campaign-mention-evidence.js','campaign-relationship-evidence.js','campaign-entity-intelligence.js']) load(file);
   for(const callback of handlers.get('init')||[])callback();
   for(const callback of handlers.get('ready')||[])callback();
   const entities = () => [...game.actors.contents,...game.items.contents,...game.journal.contents.filter(doc=>doc.getFlag('','worldProfile'))]
@@ -70,6 +72,7 @@ function world(text = fixture, known = true) {
   module.api.folderQuickCreate={bootstrap:async()=>({folders:Object.fromEntries(['contact','location','faction','item','lore','npc'].map(type=>[type,{id:type,type:'JournalEntry',name:type}]))}),
     quickCreate:async(folder,options)=>genericCreate(folder.id,{label:folder.name,profileCategory:folder.id},{id:'blank',facts:[]},folder,options)};
   return {api:module.api,game,storage,docs,links,session,page,add,context,
+    reload:file=>{load(file);handlers.get('ready').at(-1)();},
     scan:()=>module.api.campaignNewEntityDiscovery.scan(),
     resolve:async()=>module.api.campaignEntityCreation.resolveCandidates((await module.api.campaignNewEntityDiscovery.scan()).candidates)};
 }

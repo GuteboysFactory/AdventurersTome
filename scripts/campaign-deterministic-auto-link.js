@@ -197,7 +197,19 @@ function atDalResolveIdentity(input = {}) {
     };
   }
 
-  const exact = atDalCandidatePool().filter((candidate) => atDalNormalize(candidate.name) === normalized);
+  const learning=game.modules.get(ATDAL_ID)?.api?.campaignReviewLearning;
+  const choice=learning?.decisionFor?.(text,{sourceUuid});
+  let preferred=(choice?.sourceChoice || choice?.campaignDefault) ? choice.targetUuid : '';
+  if(choice?.campaignDefault) {
+    const scoped=game.modules.get(ATDAL_ID)?.api?.campaignSourceScopedIdentity?.resolveMention?.({text,sourceUuid,sourcePageUuid:input.row?.sourcePageUuid});
+    if(scoped?.sourceCanonical || scoped?.sourceInline) {
+      if(scoped.identityAmbiguous)return {decision:'ambiguous',deterministic:false,reason:scoped.reason,text,sourceUuid,candidates:scoped.candidates || []};
+      preferred=scoped.authorityUuid;
+    }
+  }
+  const exact = atDalCandidatePool().filter((candidate) => preferred
+    ? atDalAuthorityUuid(candidate) === preferred
+    : atDalNormalize(candidate.name) === normalized && !learning?.isPaused?.(atDalAuthorityUuid(candidate)));
   if (!exact.length) {
     return {
       contract:ATDAL_CONTRACT,
@@ -377,7 +389,8 @@ async function atDalAutoLinkRow(row) {
   }
 
   const consolidated = game.modules.get(ATDAL_ID)?.api?.campaignNewEntityDiscovery?.candidateForMention?.(row);
-  if (consolidated?.ambiguousSourceReference) {
+  const preference=game.modules.get(ATDAL_ID)?.api?.campaignReviewLearning?.decisionFor?.(row.text,{sourceUuid});
+  if (consolidated?.ambiguousSourceReference && !preference?.campaignDefault && !preference?.sourceChoice) {
     ATDAL_STATS.ambiguous += 1;
     return {linked:false,decision:"ambiguous",reason:"ambiguous-source-first-name-reference",text:row.text,sourceUuid};
   }
@@ -439,10 +452,12 @@ async function atDalScan(options = {}) {
     }
     if (!snapshot) return atDalAudit();
 
-    await game.modules.get(ATDAL_ID)?.api?.campaignNewEntityDiscovery?.scan?.({});
+    if(!options.reuseDiscovery)await game.modules.get(ATDAL_ID)?.api?.campaignNewEntityDiscovery?.scan?.({sourceUuid:options.sourceUuid});
 
     const results = [];
-    for (const row of atDalArray(snapshot.mentions)) {
+    for (const row of atDalArray(snapshot.mentions).filter(row=>!options.sourceUuid || row.sourceJournalUuid===options.sourceUuid)) {
+      await globalThis.AdventurersTomeIndex?.yieldControl?.();
+      options.assertCurrent?.();
       try {
         results.push(await atDalAutoLinkRow(row));
       } catch (error) {
@@ -458,7 +473,7 @@ async function atDalScan(options = {}) {
       }
     }
 
-    if (results.some((row) => row.linked)) {
+    if (!options.reuseDiscovery && results.some((row) => row.linked)) {
       try { await atDalEvidenceApi()?.sync?.({ reason:"deterministic-auto-link" }); }
       catch (_error) {}
       const app = game.modules.get(ATDAL_ID)?.api?.app?.();
@@ -499,6 +514,7 @@ function atDalAudit() {
 }
 
 function atDalSchedule(reason = "lifecycle", delay = 320) {
+  if(game.user?.isGM && globalThis.AdventurersTomeIndex?.request(reason))return;
   if (!game.user?.isGM) return;
   window.clearTimeout(atDalTimer);
   atDalTimer = window.setTimeout(() => {

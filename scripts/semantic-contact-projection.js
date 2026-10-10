@@ -326,9 +326,9 @@ function generatedFacts(group) {
     add("Origin", relation.origin ? titleCase(relation.origin) : "");
   }
 
-  // Canonical UUIDs are implementation metadata, not player-facing campaign
-  // knowledge. Keep them GM-only even when the Contact itself is visible.
-  if (group.linkedUuid) add("Foundry Link", group.linkedUuid, "gm");
+  // Canonical links already live in profile/source and projection metadata.
+  // Do not regenerate a GM fact on a shared Journal: startup migration would
+  // remove it to the private vault again on every reload.
   return facts;
 }
 
@@ -508,6 +508,8 @@ async function markInactive(journal) {
 }
 
 async function sync(options = {}) {
+  const startupToken=globalThis.AdventurersTomeStartup?.begin("contact-projection");
+  try {
   if (!game.user?.isGM) return {
     contract:CONTRACT,
     version:VERSION,
@@ -585,6 +587,7 @@ async function sync(options = {}) {
   } finally {
     syncing = false;
   }
+  } finally {globalThis.AdventurersTomeStartup?.end(startupToken);}
 }
 
 function snapshot() {

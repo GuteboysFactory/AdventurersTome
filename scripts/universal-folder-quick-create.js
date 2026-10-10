@@ -379,7 +379,11 @@ async function atFqEditGenericEntry(type, spec, template, folder, options = {}) 
     heroImage:"",
     actorId:"",
     facts:options.campaignIdentity
-      ? (options.campaignIdentity.briefItems || []).map((row) => ({ label:row.label, value:row.value, visibility:"gm" }))
+      ? (options.campaignIdentity.briefItems || []).map((row) => ({
+          label:['Role / profession','Historical role'].includes(row.label) ? row.label : `${row.label} (source excerpt)`,
+          value:row.value, visibility:"gm", provenance:{origin:'tome-analysis',sourceUuid:options.sourceUuid,sourceValue:row.value,
+            ...(row.temporalStatus?{temporalStatus:row.temporalStatus,evidence:(options.campaignIdentity.roleEvidence||[]).filter(item=>item.status===row.temporalStatus)}:{})}
+        }))
       : atFqTemplateFacts(template)
   };
 

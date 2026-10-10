@@ -1,7 +1,7 @@
 name: Identity regression tests
 on:
   push:
-    branches: [main, v1.7.0-qa.40-identity-briefing-clean-session, v1.7.0-qa.41-relationship-history-convergence]
+    branches: [main, v1.7.0-qa.40-identity-briefing-clean-session, v1.7.0-qa.41-relationship-history-convergence, v1.7.0-qa.42-entity-intelligence-contextual-navigation]
   pull_request:
 jobs:
   identity:
@@ -14,3 +14,10 @@ jobs:
       - run: node tests/validate.mjs
       - run: node --test tests/qa40-identity.test.mjs
       - run: node --test tests/qa41-relationships.test.mjs
+      - run: node --test tests/qa42-intelligence.test.mjs
+      - run: node --test tests/qa42-relationship-presentation.test.mjs
+      - run: node --test tests/qa42-context-dedupe.test.mjs
+      - run: node --test tests/qa42-clean-surfaces.test.mjs
+      - run: node --test tests/qa42-manual-identity-link.test.mjs
+      - run: node --test tests/qa42-startup-performance.test.mjs
+      - run: node --test tests/qa42-review-performance.test.mjs

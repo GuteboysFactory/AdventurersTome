@@ -662,8 +662,8 @@ function makeGmNoteId() {
 }
 
 function normalizeGmNote(note = {}) {
-  const type = GM_NOTE_TYPES[String(note?.type || "reminder").toLowerCase()] ? String(note.type).toLowerCase() : "reminder";
-  const status = GM_NOTE_STATUSES[String(note?.status || "open").toLowerCase()] ? String(note.status).toLowerCase() : "open";
+  const type = GM_NOTE_TYPES[String(note?.type || "reminder").toLowerCase()] ? String(note?.type || "reminder").toLowerCase() : "reminder";
+  const status = GM_NOTE_STATUSES[String(note?.status || "open").toLowerCase()] ? String(note?.status || "open").toLowerCase() : "open";
   const sessionTarget = Number(note?.sessionTarget || 0);
   return {
     id: String(note?.id || makeGmNoteId()),
@@ -1163,6 +1163,8 @@ function campaignMemoryRelationMeta(row = {}) {
 }
 
 function campaignMemorySearchView() {
+  const reviewToken=globalThis.AdventurersTomeReviewDecision?.beginPhase("memory-view");
+  try {
   if (!game.user?.isGM) return null;
   const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
   const snapshot = evidenceApi?.snapshot?.() || null;
@@ -1230,6 +1232,7 @@ function campaignMemorySearchView() {
     unresolved:rows.filter((row) => row.relationGroup === "unresolved").length,
     targetKinds
   };
+  } finally {globalThis.AdventurersTomeReviewDecision?.endPhase(reviewToken);}
 }
 
 function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
@@ -1306,7 +1309,8 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     if (entry?.folder?.name) briefItems.push({ label:"Folder / group", value:String(entry.folder.name), icon:"fa-folder" });
 
     if (profile?.category === "contact") {
-      const linkedActor = profile?.actorId ? game.actors?.get(profile.actorId) : resolveWorldActor(entry, profile);
+      const identity=game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:entry.uuid});
+      const linkedActor = identity?.authorityUuid?.startsWith("Actor.") ? game.actors?.get(identity.authorityUuid.slice(6)) : null;
       if (linkedActor) {
         const linkedProfile = getActorProfile(linkedActor);
         briefItems.push({
@@ -1360,8 +1364,13 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
   const baseScore = Number(raw?.score || 0);
 
   const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+  const learningApi=game.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
+  const historyRows=uuid && evidenceApi?.recordsForTarget
+    ? (evidenceApi.recordsForTarget(uuid,{includeHistorical:true,sort:'newest'})||[]).filter(row=>!learningApi?.isSourceTargetRemoved?.(row.sourceUuid,uuid)):[];
+  const historicalSources=game.user.isGM?[...new Map(historyRows.filter(row=>row.sourceUuid).map(row=>[row.sourceUuid,
+    {sourceUuid:row.sourceUuid,sourceName:row.sourceName||'Campaign source',targetUuid:uuid,targetName:name}])).values()]:[];
   const previousMentions = uuid && evidenceApi?.recordsForTarget
-    ? (evidenceApi.recordsForTarget(uuid, { includeHistorical:true, sort:"newest" }) || [])
+    ? historyRows
         .slice(0, 5)
         .map((row) => [row.sourceName, row.pageName].filter(Boolean).join(" · "))
         .filter(Boolean)
@@ -1390,10 +1399,12 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     extraFacts,
     extraRelations,
     previousMentions,
+    historicalSources,
     briefItems:visibleBriefItems,
     briefSummary,
     hasUsefulBriefing,
     briefingEmpty:!hasUsefulBriefing,
+    canReviewSourceFacts:uuid.startsWith('JournalEntry.') && Boolean(game.journal?.get(uuid.slice(13))?.getFlag?.(MODULE_ID,'worldProfile')),
     hasMoreInfo:Boolean(extraFacts.length || extraRelations.length || previousMentions.length)
   };
 }
@@ -1429,6 +1440,9 @@ function campaignDecisionQuestion(row = {}) {
 }
 
 function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
+  const reviewToken=globalThis.AdventurersTomeReviewDecision?.beginPhase("review-queue");
+  globalThis.AdventurersTomeReviewDecision?.count("review-queue","reviewRebuilds");
+  try {
   if (!game.user?.isGM) return null;
   const memory = memorySearch || campaignMemorySearchView();
   const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
@@ -1511,6 +1525,7 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
         if (precision && !precision.eligible) continue;
         const candidate = campaignDecisionCandidateMeta(raw, base.snippet);
         candidate.safeExistingMatch = precision?.safe === true;
+        candidate.matchRank = Number(precision?.rank || 0);
         if (precision?.authorityUuid) candidate.uuid = precision.authorityUuid;
         if (!candidate.uuid || candidateMap.has(candidate.uuid)) continue;
         candidateMap.set(candidate.uuid, candidate);
@@ -1523,14 +1538,20 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
         }, score:Number(base.identityConfidence || base.confidence || 0) * 100 }, base.snippet);
         const precision = assessMatch?.({text:base.mentionText,kind:base.targetKind,sourceUuid:base.sourceUuid,target:{canonicalUuid:base.targetUuid,name:base.targetName,kind:base.targetKind},explicitUuid});
         fallback.safeExistingMatch = precision?.safe === true;
+        fallback.matchRank = Number(precision?.rank || 0);
         if (precision?.authorityUuid) fallback.uuid = precision.authorityUuid;
         if (fallback.uuid && !candidateMap.has(fallback.uuid) && (!precision || precision.eligible)) candidateMap.set(fallback.uuid, fallback);
       }
 
-      const candidates = [...candidateMap.values()].sort((a, b) => b.score - a.score);
+      const candidates = [...candidateMap.values()].sort((a, b) => b.matchRank - a.matchRank || b.score - a.score);
       const safeCandidates = candidates.filter((candidate)=>candidate.safeExistingMatch);
       const recommendationUuid = !base.isAmbiguous && safeCandidates.length === 1 ? safeCandidates[0].uuid : "";
-      for (const candidate of candidates) candidate.recommended = Boolean(recommendationUuid && candidate.uuid === recommendationUuid);
+      for (const candidate of candidates) {
+        candidate.recommended = Boolean(recommendationUuid && candidate.uuid === recommendationUuid);
+        candidate.canReviewSourceFacts = candidate.canReviewSourceFacts && candidate.uuid.startsWith('JournalEntry.');
+        candidate.previousChoiceCount = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.choiceCount?.(base.decisionText || base.mentionText,candidate.uuid) || 0;
+        candidate.suggestCampaignDefault = candidate.previousChoiceCount >= 3;
+      }
       const recommended = candidates.find((candidate) => candidate.recommended) || null;
       const creationTypes = {character:"contact",person:"contact",npc:"contact",contact:"contact",actor:"contact",adventurer:"contact",
         location:"location",place:"location",faction:"faction",organization:"faction",organisation:"faction",item:"item",gear:"item",lore:"lore"};
@@ -1583,6 +1604,7 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
     hasNoticed:noticed.length > 0,
     sourceFilter
   };
+  } finally {globalThis.AdventurersTomeReviewDecision?.endPhase(reviewToken);}
 }
 
 function campaignRelationshipProfile(uuid) {
@@ -2380,6 +2402,8 @@ function resolveWorldActor(entryOrId, profile = null) {
 }
 
 async function migrateLegacyPrivateData() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("private-vault");
+  try {
   if (!game.user?.isGM) return { migrated: 0 };
 
   // v0.15.1 and earlier stored GM workflow state in world settings. Move it
@@ -2396,8 +2420,14 @@ async function migrateLegacyPrivateData() {
       const current = game.settings.get(MODULE_ID, privateKey);
       const currentEmpty = current == null || current === emptyValue || (emptyValue === "[]" && String(current).trim() === "[]");
       const legacyHasData = legacy != null && legacy !== emptyValue && !(emptyValue === "[]" && String(legacy).trim() === "[]");
-      if (currentEmpty && legacyHasData) await game.settings.set(MODULE_ID, privateKey, legacy);
-      if (legacyHasData) await game.settings.set(MODULE_ID, legacyKey, emptyValue);
+      if (currentEmpty && legacyHasData) {
+        await game.settings.set(MODULE_ID, privateKey, legacy);
+        globalThis.AdventurersTomeStartup?.count("private-vault","writes");
+      }
+      if (legacyHasData) {
+        await game.settings.set(MODULE_ID, legacyKey, emptyValue);
+        globalThis.AdventurersTomeStartup?.count("private-vault","writes");
+      }
     } catch (error) {
       console.warn(`Adventurer's Tome | Could not migrate private setting ${legacyKey}`, error);
     }
@@ -2405,6 +2435,7 @@ async function migrateLegacyPrivateData() {
 
   const vault = getPrivateVault();
   let vaultChanged = false;
+  const vaultBefore = JSON.stringify(vault);
   let migrated = 0;
   const cleanups = [];
   const uniqueObjects = (items = []) => {
@@ -2418,6 +2449,11 @@ async function migrateLegacyPrivateData() {
   };
 
   for (const document of [...game.actors.contents, ...game.journal.contents]) {
+    globalThis.AdventurersTomeStartup?.count("private-vault","documentsScanned");
+    const access = document.getFlag?.(MODULE_ID, FLAGS.ACCESS);
+    const profile = document.getFlag?.(MODULE_ID, document.documentName === "Actor" ? FLAGS.PROFILE : FLAGS.WORLD_PROFILE);
+    const hasPrivateProfile = [...(Array.isArray(profile?.facts) ? profile.facts : []),...(Array.isArray(profile?.relations) ? profile.relations : [])].some(row=>factVisibility(row?.visibility)==="gm");
+    if (!hasPrivateProfile && !Object.hasOwn(access || {},"notes") && !Object.hasOwn(access || {},"gmNotes")) continue;
     const key = privateVaultKey(document);
     const existing = vault[key] && typeof vault[key] === "object" ? vault[key] : { notes: [], facts: [], relations: [] };
     let next = {
@@ -2429,18 +2465,36 @@ async function migrateLegacyPrivateData() {
 
     const rawAccess = document.getFlag?.(MODULE_ID, FLAGS.ACCESS);
     if (rawAccess && typeof rawAccess === "object") {
-      const legacyNotes = normalizeGmNotes(rawAccess);
+      const stableNotes = (Array.isArray(rawAccess.notes) ? rawAccess.notes : []).map((note,index)=>({ ...note, id:note?.id || `legacy-${document.id}-${index}` }));
+      const legacyNotes = normalizeGmNotes({...rawAccess,notes:stableNotes}).map(note=>{
+        const prior = next.notes.find(row=>row.id === note.id);
+        // Defaults generated during normalization must not create a new record on retry.
+        const original = stableNotes.find(row=>row.id === note.id);
+        return prior ? {...note,createdAt:original?.createdAt || prior.createdAt,updatedAt:original?.updatedAt || prior.updatedAt} : note;
+      });
       if (legacyNotes.length) {
+        const before = next.notes.length;
         next.notes = uniqueObjects([...next.notes, ...legacyNotes]);
         vaultChanged = true;
-        migrated += legacyNotes.length;
+        migrated += next.notes.length - before;
+        globalThis.AdventurersTomeStartup?.count("private-vault","recordsScanned",legacyNotes.length);
       }
       if (Object.hasOwn(rawAccess, "notes") || Object.hasOwn(rawAccess, "gmNotes")) {
         const cleanAccess = {
           visibility: TOME_VISIBILITY[String(rawAccess.visibility || "inherit")] ? String(rawAccess.visibility) : "inherit",
           discovered: rawAccess.discovered == null ? defaultTomeDiscovered() : rawAccess.discovered !== false
         };
-        cleanups.push(() => document.setFlag(MODULE_ID, FLAGS.ACCESS, cleanAccess));
+        // Foundry merges object flags; omission does not remove legacy keys.
+        if (Object.hasOwn(rawAccess,"notes")) cleanAccess["-=notes"] = null;
+        if (Object.hasOwn(rawAccess,"gmNotes")) cleanAccess["-=gmNotes"] = null;
+        // Send deletion keys directly to the database update. An object-flag
+        // setter may merge/preprocess its value before constructing the update.
+        const accessUpdate = Object.fromEntries(Object.entries(cleanAccess).map(([field,value]) => [`flags.${MODULE_ID}.${FLAGS.ACCESS}.${field}`,value]));
+        cleanups.push(async () => {
+          await document.update(accessUpdate);
+          const remaining = document.getFlag?.(MODULE_ID, FLAGS.ACCESS) || {};
+          if (Object.hasOwn(remaining,"notes") || Object.hasOwn(remaining,"gmNotes")) throw new Error("Legacy private fields were not removed; private copy retained.");
+        });
         documentChanged = true;
       }
     }
@@ -2451,10 +2505,12 @@ async function migrateLegacyPrivateData() {
         const privateFacts = (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) === "gm");
         const privateRelations = (Array.isArray(rawProfile.relations) ? rawProfile.relations : []).filter((relation) => factVisibility(relation?.visibility) === "gm");
         if (privateFacts.length || privateRelations.length) {
+          const before = next.facts.length + next.relations.length;
           next.facts = uniqueObjects([...next.facts, ...privateFacts]);
           next.relations = uniqueObjects([...next.relations, ...privateRelations]);
           vaultChanged = true;
-          migrated += privateFacts.length + privateRelations.length;
+          migrated += next.facts.length + next.relations.length - before;
+          globalThis.AdventurersTomeStartup?.count("private-vault","recordsScanned",privateFacts.length + privateRelations.length);
           const cleanProfile = {
             ...rawProfile,
             facts: (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) !== "gm"),
@@ -2469,9 +2525,11 @@ async function migrateLegacyPrivateData() {
       if (rawProfile && typeof rawProfile === "object") {
         const privateFacts = (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) === "gm");
         if (privateFacts.length) {
+          const before = next.facts.length;
           next.facts = uniqueObjects([...next.facts, ...privateFacts]);
           vaultChanged = true;
-          migrated += privateFacts.length;
+          migrated += next.facts.length - before;
+          globalThis.AdventurersTomeStartup?.count("private-vault","recordsScanned",privateFacts.length);
           const cleanProfile = {
             ...rawProfile,
             facts: (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) !== "gm")
@@ -2490,9 +2548,20 @@ async function migrateLegacyPrivateData() {
 
   // Write the private copy first; only then remove legacy private fields from
   // shared Documents. This ordering prevents a failed migration from losing GM data.
-  if (vaultChanged) await game.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
-  for (const cleanup of cleanups) await cleanup();
+  globalThis.AdventurersTomeStartup?.count("private-vault","recordsRequiringMigration",migrated);
+  if (vaultChanged && JSON.stringify(vault) !== vaultBefore) {
+    await game.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
+    globalThis.AdventurersTomeStartup?.count("private-vault","vaultWrites");
+    globalThis.AdventurersTomeStartup?.count("private-vault","writes");
+  }
+  for (const cleanup of cleanups) {
+    await cleanup();
+    globalThis.AdventurersTomeStartup?.count("private-vault","cleanupWrites");
+    globalThis.AdventurersTomeStartup?.count("private-vault","writes");
+  }
+  globalThis.AdventurersTomeStartup?.count("private-vault","recordsMigrated",migrated);
   return { migrated };
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function worldEntryView(entry) {
@@ -5080,8 +5149,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       openJournal: this._onOpenJournal,
       openMentionSource: this._onOpenMentionSource,
       openEvidenceTarget: this._onOpenEvidenceTarget,
+      openContextEntity: this._onOpenContextEntity,
+      openContextSource: this._onOpenContextSource,
       resolveCampaignDecision: this._onResolveCampaignDecision,
+      linkExistingCampaignIdentity: this._onLinkExistingCampaignIdentity,
       undoCampaignDecision: this._onUndoCampaignDecision,
+      reviewSourceFacts: this._onReviewSourceFacts,
       openSourceAnalysis: this._onOpenSourceAnalysis,
       decideRelationship: this._onDecideRelationship,
       openCustomLink: this._onOpenCustomLink,
@@ -5145,6 +5218,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       generateSmallDemo: this._onGenerateSmallDemo,
       generateFullDemo: this._onGenerateFullDemo,
       removeDemo: this._onRemoveDemo,
+      removeHistoricalLink: this._onRemoveHistoricalLink,
+      matchingPreferences: this._onMatchingPreferences,
       openSettings: this._onOpenSettings,
       editAccess: this._onEditAccess,
       cancelAccess: this._onCancelAccess,
@@ -5191,6 +5266,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.searchQuery = "";
     this.searchFilter = "all";
     this._navigationHistory = [];
+    this.activeContextUuid = null;
     this._bulkUpdating = false;
     this._resizeObserver = null;
     this._viewportResizeHandler = null;
@@ -5214,6 +5290,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       activeRuleId: this.activeRuleId,
       activeAccessType: this.activeAccessType,
       activeAccessId: this.activeAccessId,
+      activeContextUuid: this.activeContextUuid,
       analysisSourceFilter: this._analysisSourceFilter
     };
   }
@@ -5235,6 +5312,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.activeRuleId = state.activeRuleId || null;
     this.activeAccessType = state.activeAccessType || null;
     this.activeAccessId = state.activeAccessId || null;
+    this.activeContextUuid = state.activeContextUuid || null;
     this._analysisSourceFilter = state.analysisSourceFilter || "";
     this.profileEditing = false;
     this._privateVaultActorId = null;
@@ -5247,7 +5325,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.activeTab === "worldProfile") return { activeTab: "world" };
     if (this.activeTab === "ruleDetail") return { activeTab: "rules" };
     if (this.activeTab === "access") return { activeTab: "settings" };
-    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
+    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
     return { activeTab: "home" };
   }
 
@@ -5403,6 +5481,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async _prepareContext(options) {
+    const token=globalThis.AdventurersTomeStartup?.begin("tome-render-context");
+    try {
     const context = await super._prepareContext(options);
 
     const sessions = sectionEntries("sessions").map((entry) => entryView(entry));
@@ -5631,7 +5711,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }).filter(Boolean);
       profileView = {
         ...base,
-        structuredRelationships:campaignRelationshipProfile(profileActor.uuid),
+        intelligence:game.modules.get(MODULE_ID)?.api?.entityIntelligence?.profile?.(profileActor.uuid),
         biography: profile.biography,
         motto: profile.motto,
         firstSession: canViewInTome(firstSession) ? entryView(firstSession) : (actorCampaignSessions[0] || null),
@@ -5720,7 +5800,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const linkedActorInferred = Boolean(linkedActor && !profile.actorId);
       worldProfileView = {
         ...view,
-        structuredRelationships:campaignRelationshipProfile(worldEntry.uuid),
+        intelligence:game.modules.get(MODULE_ID)?.api?.entityIntelligence?.profile?.(worldEntry.uuid),
         journalId: worldEntry.id,
         linkedActor: linkedActorVisible ? actorView(linkedActor) : null,
         hasLinkedActor: linkedActorVisible,
@@ -5844,9 +5924,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const campaignMemorySearch = game.user.isGM ? campaignMemorySearchView() : null;
     const campaignAnalysisAll = game.user.isGM ? campaignAnalysisView(campaignMemorySearch) : null;
-    const campaignAnalysis = game.user.isGM
-      ? campaignAnalysisView(campaignMemorySearch, this.activeTab === "campaignToolsAnalysis" ? this._analysisSourceFilter : "")
-      : null;
+    const campaignAnalysis = game.user.isGM && this.activeTab === "campaignToolsAnalysis" && this._analysisSourceFilter
+      ? campaignAnalysisView(campaignMemorySearch, this._analysisSourceFilter)
+      : campaignAnalysisAll;
     const relationshipApi = game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence;
     const relationshipReview = game.user.isGM ? relationshipApi?.review?.(this.activeTab === "campaignToolsAnalysis" ? this._analysisSourceFilter || "" : "") || [] : [];
 
@@ -5868,6 +5948,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if (profileView) profileView = { ...profileView, refKey: `actor:${profileView.id}`, isFavorite: favoriteSet.has(`actor:${profileView.id}`) };
     if (worldProfileView) worldProfileView = { ...worldProfileView, refKey: `world:${worldProfileView.id}`, isFavorite: favoriteSet.has(`world:${worldProfileView.id}`) };
+    const intelligenceApi = game.modules.get(MODULE_ID)?.api?.entityIntelligence;
+    if (selectedSession && this.activeTab === "sessions") selectedSession.intelligence = intelligenceApi?.profile?.(`JournalEntry.${selectedSession.id}`);
+    if (questDetail && this.activeTab === "questDetail") questDetail.intelligence = intelligenceApi?.profile?.(`JournalEntry.${questDetail.id}`);
+    const entityContext = this.activeTab === "entityContext" ? intelligenceApi?.profile?.(this.activeContextUuid) : null;
 
     const groupHomeLimit = clamp(Number(settings.groupHomeLimit || 3), 1, 8);
     const homeGroup = group.slice(0, groupHomeLimit);
@@ -5956,10 +6040,11 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isRulesNavActive: this.activeTab === "rules" || this.activeTab === "ruleDetail",
       isRuleDetail: this.activeTab === "ruleDetail" && Boolean(ruleDetail),
       isSearch: this.activeTab === "search",
-      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
-      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsAssistant"].includes(this.activeTab),
+      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
+      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant"].includes(this.activeTab),
       isCampaignToolsOverview: game.user.isGM && this.activeTab === "campaignToolsOverview",
       isCampaignToolsMemory: game.user.isGM && this.activeTab === "campaignToolsMemory",
+      isCampaignToolsIndex: game.user.isGM && this.activeTab === "campaignToolsIndex",
       isCampaignToolsAnalysis: game.user.isGM && this.activeTab === "campaignToolsAnalysis",
       isCampaignToolsAssistant: game.user.isGM && this.activeTab === "campaignToolsAssistant",
       isCampaignToolsAssistantNavActive: game.user.isGM && ["campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
@@ -5986,6 +6071,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       worldGroups,
       sessions: sessionRows,
       selectedSession,
+      entityContext,
       questDetail,
       quests,
       activeQuests,
@@ -6008,7 +6094,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       campaignAnalysisAll,
       relationshipReview,
       analysisSourceFilter:this._analysisSourceFilter,
-      lastCampaignDecision:this._lastCampaignDecision,
+      lastCampaignDecision:game.user.isGM ? (this._lastCampaignDecision || game.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.decisionHistory?.().find(row=>!row.undone)) : null,
       searchState: {
         query: this.searchQuery,
         filter: this.searchFilter,
@@ -6042,6 +6128,18 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         sessions: sessions.length
       }
     }, { inplace: false });
+    } finally {globalThis.AdventurersTomeStartup?.end(token);}
+  }
+
+  async _renderHTML(context, options) {
+    const html = await super._renderHTML(context, options);
+    const route = JSON.stringify({...this._captureNavigationState(), profileEditing:this.profileEditing, worldEditing:this.worldEditing});
+    this._viewContinuity = route === this._renderedContinuityRoute
+      ? globalThis.AdventurersTomeViewContinuity?.capture(this.element,
+        this._lastCampaignDecision ? `${this._lastCampaignDecision.sourceUuid}|${this._lastCampaignDecision.text}` : '',this._lastCampaignDecision?.label) : null;
+    if(route !== this._renderedContinuityRoute)globalThis.AdventurersTomeViewContinuity?.cancel(this.element);
+    this._renderedContinuityRoute = route;
+    return html;
   }
 
   async _onRender(context, options) {
@@ -6621,6 +6719,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         preview.src = resolveFoundryAssetUrl(value || preview.dataset.fallback || "icons/svg/book.svg");
       });
     }
+    this._restoreViewContinuity();
+  }
+
+  _restoreViewContinuity() {
+    globalThis.AdventurersTomeViewContinuity?.restoreSettled(this.element, this._viewContinuity);
+    this._viewContinuity = null;
   }
 
   _attachImageFallbacks() {
@@ -7804,6 +7908,16 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
+  static async _onOpenContextEntity(_event, target) {
+    const result = await game.modules.get(MODULE_ID)?.api?.entityIntelligence?.open?.(target.dataset.targetUuid, this);
+    if (result?.status !== "opened") ui.notifications.warn("Adventurer's Tome: This entity is missing or unavailable to you.");
+  }
+
+  static async _onOpenContextSource(_event, target) {
+    const result = await game.modules.get(MODULE_ID)?.api?.entityIntelligence?.open?.(target.dataset.sourceUuid, this, {pageUuid:target.dataset.pageUuid || ""});
+    if (result?.status !== "opened") ui.notifications.warn("Adventurer's Tome: This source or source page is missing or unavailable to you.");
+  }
+
   static async _onOpenEvidenceTarget(_event, target) {
     const uuid = String(target.dataset.targetUuid || "").trim();
     if (!uuid) return ui.notifications.warn("Adventurer's Tome: This evidence has no resolved target yet.");
@@ -7873,34 +7987,111 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     } finally { target.disabled=false; }
   }
 
+  static async _onLinkExistingCampaignIdentity(_event, target) {
+    if (!game.user?.isGM) return;
+    const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
+    const DialogV2 = foundry.applications.api.DialogV2;
+    const text = String(target.dataset.decisionText || "").trim();
+    const sourceUuid = String(target.dataset.sourceUuid || "").trim();
+    if (!text || !sourceUuid || !learning?.linkTargets || !DialogV2) return;
+    const hint = target.closest(".at-guided-decision-card")?.querySelector(".at-review-create-type")?.value || "all";
+    const catalog = learning.linkTargets().filter(row=>row.uuid !== sourceUuid);
+    const types = new Map([["all","All entity types"],["person","Contact / person"],["faction","Faction / organization"],["location","Location"],["item","Item"],["quest","Quest"],["session","Session"],["lore","Lore / Journal"]]);
+    for (const row of catalog) if (!types.has(row.kind)) types.set(row.kind,row.kind);
+    if (!types.has(hint)) types.set(hint,hint);
+    const content = `<div class="at-identity-picker" data-at-identity-picker="${escapeHtml(sourceUuid)}">
+      <p>Choose an existing identity for <strong>${escapeHtml(text)}</strong>. This applies only to this source.</p>
+      <div class="at-identity-picker-filters"><label>Search<input type="search" name="identitySearch" value="${escapeHtml(text)}" placeholder="Name, alias or context"></label>
+      <label>Entity type<select name="identityType">${[...types].map(([value,label])=>`<option value="${escapeHtml(value)}" ${value === hint ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label></div>
+      <p class="at-identity-picker-status" role="status"></p><div class="at-identity-picker-results" role="group" aria-label="Existing identities"></div>
+      <small>Select one identity, then confirm. You can change the type filter to broaden your search.</small></div>`;
+    let mounted = null;
+    const renderPicker = (_event, app) => {
+      const element = app?.element || app;
+      const root = element?.querySelector?.("[data-at-identity-picker]");
+      if (!root || root.dataset.atIdentityPicker !== sourceUuid || mounted === root) return;
+      mounted = root;
+      const search = root.querySelector('[name="identitySearch"]');
+      const type = root.querySelector('[name="identityType"]');
+      const results = root.querySelector(".at-identity-picker-results");
+      const confirm = element.querySelector('[data-action="confirm"]');
+      const update = () => {
+        const matches = learning.searchTargets(catalog,{query:search.value,kind:type.value});
+        results.innerHTML = matches.map(row=>{
+          const brief = campaignDecisionCandidateMeta({...row,canonicalUuid:row.uuid},text);
+          const items = (brief.briefItems || []).slice(0,6).map(item=>`${item.label}: ${String(item.value || "").slice(0,180)}`);
+          const context = [items.length ? items.join(" · ") : brief.detail,String(brief.briefSummary || "").slice(0,220)].filter(Boolean).join(" · ");
+          return `<label class="at-identity-picker-row"><input type="radio" name="canonicalIdentity" value="${escapeHtml(row.uuid)}"><span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(types.get(row.kind) || row.kind)}${row.folder ? ` · ${escapeHtml(row.folder)}` : ""}</small><small>${escapeHtml(context)}</small><code>${escapeHtml(row.uuid)}</code></span></label>`;
+        }).join("");
+        root.querySelector(".at-identity-picker-status").textContent = matches.length ? `${matches.length} existing identities` : "No matching identities. Change the search or choose All entity types.";
+        if (confirm) confirm.disabled = true;
+      };
+      search.addEventListener("input",update);
+      type.addEventListener("change",update);
+      results.addEventListener("change",()=>{if (confirm) confirm.disabled = !results.querySelector('input[name="canonicalIdentity"]:checked');});
+      update();
+      search.focus();
+    };
+    let confirmTime;
+    target.disabled = true;
+    try {
+      const result = await DialogV2.wait({
+        window:{title:"Tome — Link existing identity"},position:{width:580},content,modal:true,rejectClose:false,render:renderPicker,
+        buttons:[{action:"confirm",label:"Link selected identity",icon:"fa-solid fa-link",callback:(event,button)=>{confirmTime=event?.timeStamp ?? globalThis.performance?.now?.();return button.form.querySelector('input[name="canonicalIdentity"]:checked')?.value || null;}},
+          {action:"cancel",label:"Cancel",callback:()=>null}]
+      });
+      if (!result) return;
+      // The decision handler revalidates the UUID; catalog text never authorizes it.
+      const selected = catalog.find(row=>row.uuid === result);
+      await this.constructor._onResolveCampaignDecision.call(this,{timeStamp:confirmTime,dialogClosedAt:globalThis.performance?.now?.()},{disabled:false,dataset:{decisionMode:"choose",decisionText:text,sourceUuid,targetUuid:result,targetName:selected?.name || "selected identity"}});
+    } catch (error) {
+      ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not link this identity."}`);
+    } finally {
+      target.disabled = false;
+    }
+  }
+
   static async _onResolveCampaignDecision(_event, target) {
     if (!game.user?.isGM) return;
     const mode = String(target.dataset.decisionMode || "").trim();
     const text = String(target.dataset.decisionText || "").trim();
     const sourceUuid = String(target.dataset.sourceUuid || "").trim();
-    const targetUuid = String(target.dataset.targetUuid || "").trim();
+    let targetUuid = String(target.dataset.targetUuid || "").trim();
     if (!mode || !text || !sourceUuid) return;
 
     const links = game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
     const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
     const evidence = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
 
+    if (this._campaignDecisionPending || globalThis.AdventurersTomeReviewDecision?.isActive?.()) return;
+    this._campaignDecisionPending = true;
+    const review = globalThis.AdventurersTomeReviewDecision;
+    const profile = review?.begin(mode,this,_event);
+    const measure=(phase,work)=>review?.measure ? review.measure(phase,work) : work();
     target.disabled = true;
+    const beforeDecision = learning?.decisionSnapshot?.(text,sourceUuid);
     try {
       if (mode === "create") {
         const creation = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation;
         const semanticType = target.closest(".at-guided-decision-card")?.querySelector(".at-review-create-type")?.value;
         if (!creation?.apply || !learning?.confirm || !semanticType) throw new Error("Select an entity type before creation.");
-        await learning.confirm({ text, sourceUuid, kind:semanticType });
-        const result = await creation.apply({ text, sourceUuid, semanticType });
+        await measure("decision-save",()=>learning.confirm({ text, sourceUuid, kind:semanticType }));
+        const result = await measure("identity-create",()=>creation.apply({ text, sourceUuid, semanticType }));
         if (!result.created) return;
+        this._lastCampaignDecision={mode:"create",text,sourceUuid,targetUuid:result.targetUuid,hadLinkBefore:false,label:`Created ${text}`};
         ui.notifications.info(`Tome: created ${text}.`);
       } else if (mode === "choose") {
-        if (!targetUuid || !links?.linkCanonical) throw new Error("A canonical target is required.");
+        if (!targetUuid || !links?.linkCanonical || !learning?.chooseForSource) throw new Error("A canonical target is required.");
+        const selected = await measure("selection",()=>learning.canonicalTarget(targetUuid));
+        targetUuid = selected.uuid;
         const hadLinkBefore = links.hasCanonicalLink?.({ sourceUuid, targetUuid }) === true;
         const previousChoice = learning?.decisionFor?.(text, { sourceUuid });
-        await links.linkCanonical({ sourceUuid, targetUuid });
-        await learning?.chooseForSource?.({ text, sourceUuid, targetUuid });
+        await measure("canonical-write",()=>links.linkCanonical({ sourceUuid, targetUuid }));
+        try { await measure("decision-save",()=>learning.chooseForSource({ text, sourceUuid, targetUuid })); }
+        catch (error) {
+          if (!hadLinkBefore) await links.unlinkCanonical?.({sourceUuid,targetUuid});
+          throw error;
+        }
         this._lastCampaignDecision = {
           mode,
           text,
@@ -7908,12 +8099,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
           targetUuid,
           hadLinkBefore,
           previousChoice:previousChoice?.sourceChoice ? previousChoice : null,
+          previousIgnore:previousChoice?.action === "source-ignored" ? previousChoice : null,
           label:`${text} → ${String(target.dataset.targetName || "selected identity")}`
         };
         ui.notifications.info(`Tome: linked ${text} to ${String(target.dataset.targetName || "the selected identity")}.`);
       } else if (mode === "keep" || mode === "mention-only") {
         if (!learning?.ignoreOnce) throw new Error("Campaign learning is unavailable.");
-        await learning.ignoreOnce({ text, sourceUuid });
+        await measure("decision-save",()=>learning.ignoreOnce({ text, sourceUuid }));
         this._lastCampaignDecision = {
           mode,
           text,
@@ -7929,17 +8121,124 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return;
       }
 
-      await evidence?.sync?.({ reason:"guided-gm-decision", rescan:true });
-      await this.render({ parts:["main"] });
+      if (learning?.rememberDecision && this._lastCampaignDecision) {
+        try {
+          const sourceId = /^JournalEntry\.([^.]+)/.exec(sourceUuid)?.[1];
+          this._lastCampaignDecision = await learning.rememberDecision({...this._lastCampaignDecision,
+            sourceName:game.journal.get(sourceId)?.name || 'Campaign source'},beforeDecision);
+        } catch(error) {ui.notifications.warn('Decision saved, but recent history could not be saved.');}
+      }
+      try {
+        // Re-resolve known mentions against the saved GM choice; the narrative
+        // candidates already exist. Source edits retain their own invalidation.
+        await measure("memory-refresh",()=>evidence?.sync?.({ reason:"guided-gm-decision", rescan:mode !== "keep" && mode !== "mention-only", reuseDiscovery:true, sourceUuid, silent:true }));
+        await measure("relationship-refresh",()=>game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid}));
+      } catch(error) {
+        console.warn("Adventurer's Tome | Decision saved; derived refresh needs retry",error);
+        ui.notifications.warn("Decision saved. Derived views need refresh; reanalyse this source to retry.");
+      }
+      if(profile) await review.render();
+      else await this.render({ parts:["main"] });
     } catch (error) {
       console.error("Adventurer's Tome | Guided GM decision failed", error);
       ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not apply this decision."}`);
     } finally {
+      review?.finish(profile);
+      this._campaignDecisionPending = false;
       target.disabled = false;
     }
   }
 
-  static async _onUndoCampaignDecision() {
+  static async _onMatchingPreferences(event,target) {
+    if(!game.user?.isGM || this._campaignDecisionPending)return;
+    const api=game.modules.get(MODULE_ID)?.api,learning=api?.campaignReviewLearning;
+    const escape=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const {targetUuid,targetName,decisionText}=target.dataset;
+    let selection;
+    if(targetUuid) {
+      const count=learning.choiceCount(decisionText,targetUuid),paused=learning.isPaused(targetUuid);
+      selection=await foundry.applications.api.DialogV2.wait({window:{title:'Matching preferences'},rejectClose:false,
+        content:`<p><strong>${escape(targetName)}</strong> for “${escape(decisionText)}”</p>${count?`<p>Chosen in ${count} sessions.${count>=3?' You can make this your campaign default.':''}</p>`:''}<p>A campaign default applies to future mentions of this name. Choices made for a particular session take precedence.</p><p>Pausing keeps the identity and its existing links. You can still select it manually with Link existing.</p>`,
+        buttons:[...(!paused?[{action:'default',label:'Use as campaign default',callback:()=>({mode:'default',text:decisionText,targetUuid})}]:[]),
+          {action:'pause',label:paused?'Resume automatic matching':'Pause automatic matching',callback:()=>({mode:paused?'resume':'pause',text:decisionText,targetUuid})},
+          {action:'cancel',label:'Cancel',callback:()=>null}]});
+    }else {
+      const prefs=learning.matchingPreferences(),choices=[...Object.entries(prefs.nameDefaults).map(([key,row])=>({mode:'clear-default',text:key,targetUuid:row.targetUuid,label:`Remove default: ${row.text} → ${row.targetName}`})),
+        ...Object.entries(prefs.pausedIdentities).map(([uuid,row])=>({mode:'resume',targetUuid:uuid,text:row.text,label:`Resume automatic matching: ${row.targetName}`}))];
+      if(!choices.length){ui.notifications.info('No campaign defaults or paused identities. Open a Review candidate to set matching preferences.');return;}
+      selection=await foundry.applications.api.DialogV2.wait({window:{title:'Campaign matching preferences'},rejectClose:false,
+        content:`<p>Remove a campaign default or resume automatic matching. Existing session choices and links are kept.</p><select aria-label="Matching preference">${choices.map((row,index)=>`<option value="${index}">${escape(row.label)}</option>`).join('')}</select>`,
+        buttons:[{action:'apply',label:'Apply selected change',callback:(_event,_button,dialog)=>choices[Number(dialog.element.querySelector('select').value)]},{action:'cancel',label:'Cancel',callback:()=>null}]});
+    }
+    if(!selection || this._campaignDecisionPending)return;
+    this._campaignDecisionPending=true;
+    try {
+      this._lastCampaignDecision=await learning.setMatchingPolicy(selection);
+      try {await api.campaignMentionEvidence?.sync?.({rescan:true,sourceUuid:this._analysisSourceFilter || undefined,silent:true});}
+      catch(error){ui.notifications.warn('Preference saved. Run analysis again to refresh the queue.');}
+      await this.render({parts:['main']});ui.notifications.info('Matching preference saved. Undo is available in recent decisions.');
+    }catch(error){ui.notifications.error(`Tome: ${error.message}`);}
+    finally{this._campaignDecisionPending=false;}
+  }
+
+  static async _onRemoveHistoricalLink(event,target) {
+    if(!game.user?.isGM || this._campaignDecisionPending)return;
+    const {sourceUuid,targetUuid,sourceName,targetName}=target.dataset,api=game.modules.get(MODULE_ID)?.api;
+    const escape=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const confirmed=await foundry.applications.api.DialogV2.wait({window:{title:'Remove mistaken session link'},rejectClose:false,
+      content:`<p>Remove <strong>${escape(targetName)}</strong> from <strong>${escape(sourceName)}</strong>?</p><p>The identity and session text are kept. This association will no longer support historical matching or automatic linking. You can undo this in Recent GM decisions.</p>`,
+      buttons:[{action:'remove',label:'Remove this source link',callback:()=>true},{action:'cancel',label:'Cancel',callback:()=>false}]});
+    if(!confirmed || this._campaignDecisionPending)return;
+    this._campaignDecisionPending=true;target.disabled=true;
+    const review=globalThis.AdventurersTomeReviewDecision,profile=review?.begin('unlink',this,event);
+    try {
+      this._lastCampaignDecision=await api.campaignReviewLearning.removeHistoricalLink({sourceUuid,targetUuid});
+      try {
+        for(const source of new Set([sourceUuid,this._analysisSourceFilter].filter(Boolean))) {
+          await api.campaignMentionEvidence?.sync?.({rescan:true,sourceUuid:source,silent:true});
+          await api.campaignRelationshipEvidence?.sync?.({sourceUuid:source});
+        }
+      }catch(error){ui.notifications.warn('Link removed. Derived views need a refresh.');}
+      if(profile)await review.render();else await this.render({parts:['main']});
+      ui.notifications.info('Tome: source association removed. Undo is available in Recent GM decisions.');
+    }catch(error){ui.notifications.error(`Tome: ${error.message}`);}
+    finally{review?.finish(profile);this._campaignDecisionPending=false;target.disabled=false;}
+  }
+
+  static async _onUndoCampaignDecision(event, target) {
+    if (!game.user?.isGM) return;
+    const learningApi = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
+    let historyId = target?.dataset?.undoDecisionId;
+    if (event && !historyId && learningApi?.decisionHistory) {
+      const rows=learningApi.decisionHistory();
+      const escape=value=>String(value ?? '').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+      historyId=await foundry.applications.api.DialogV2.wait({
+        window:{title:'Recent GM decisions'},position:{width:720},rejectClose:false,
+        content:`<form><p>Select a decision to undo. Created documents are kept.</p>${rows.map(row=>`<label style="display:block;padding:10px;border-bottom:1px solid #665333"><input type="radio" name="decision" value="${escape(row.id)}" ${row.blocked?'disabled':''}> <strong>${escape(row.label)}</strong><br><small>${escape(row.sourceName)} · ${escape(new Date(row.at).toLocaleString())}${row.blocked?` · ${escape(row.blocked)}`:''}</small></label>`).join('') || '<p>No recent decisions.</p>'}</form>`,
+        buttons:[{action:'undo',label:'Undo selected decision',callback:(_event,button)=>button.form.querySelector('input[name="decision"]:checked')?.value || null},{action:'cancel',label:'Cancel',callback:()=>null}]
+      });
+      if(!historyId)return;
+    }
+    historyId ||= !event ? this._lastCampaignDecision?.id : null;
+    if(historyId && learningApi?.undoDecision) {
+      if(this._campaignDecisionPending || globalThis.AdventurersTomeReviewDecision?.isActive?.())return;
+      this._campaignDecisionPending=true;
+      const review=globalThis.AdventurersTomeReviewDecision,profile=review?.begin('undo',this,event);
+      try {
+        const decision=await learningApi.undoDecision(historyId);
+        this._lastCampaignDecision=learningApi.decisionHistory().find(row=>!row.undone) || null;
+        try {
+          if(decision.mode!=='correction') {
+            await game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence?.sync?.({reason:'guided-gm-decision-undo',rescan:true,sourceUuid:decision.sourceUuid});
+            await game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid:decision.sourceUuid});
+          }
+        }catch(error){ui.notifications.warn('Decision undone. Derived views need a refresh.');}
+        if(profile)await review.render();else await this.render({parts:['main']});
+        ui.notifications.info('Tome: selected decision undone.');
+      } catch(error) {ui.notifications.error(`Tome: ${error.message}`);}
+      finally {review?.finish(profile);this._campaignDecisionPending=false;}
+      return;
+    }
     if (!game.user?.isGM || !this._lastCampaignDecision) return;
     const decision = { ...this._lastCampaignDecision };
     const links = game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
@@ -7947,7 +8246,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const evidence = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
 
     try {
-      if (decision.mode === "choose" && decision.targetUuid && decision.hadLinkBefore !== true) {
+      if (["choose","create"].includes(decision.mode) && decision.targetUuid && decision.hadLinkBefore !== true) {
         await links?.unlinkCanonical?.({ sourceUuid:decision.sourceUuid, targetUuid:decision.targetUuid });
       } else if (decision.mode === "keep" || decision.mode === "mention-only") {
         await learning?.clear?.({ text:decision.text, sourceUuid:decision.sourceUuid, scope:"source" });
@@ -7955,15 +8254,50 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if (decision.mode === "choose") {
         if (decision.previousChoice) await learning?.chooseForSource?.({ text:decision.text, sourceUuid:decision.sourceUuid, targetUuid:decision.previousChoice.targetUuid });
         else await learning?.clear?.({ text:decision.text, sourceUuid:decision.sourceUuid, scope:"choice" });
+        if (decision.previousIgnore) await learning?.ignoreOnce?.({text:decision.text,sourceUuid:decision.sourceUuid});
+      }
+      if (decision.mode === "create") {
+        // Undo the source decision, preserving the authored canonical document.
+        await learning?.clear?.({text:decision.text,scope:"global"});
+        await learning?.ignoreOnce?.({text:decision.text,sourceUuid:decision.sourceUuid});
       }
       this._lastCampaignDecision = null;
-      await evidence?.sync?.({ reason:"guided-gm-decision-undo", rescan:true });
+      await evidence?.sync?.({ reason:"guided-gm-decision-undo", rescan:true,sourceUuid:decision.sourceUuid });
+      await game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid:decision.sourceUuid});
       ui.notifications.info("Tome: last GM decision undone.");
       await this.render({ parts:["main"] });
     } catch (error) {
       console.error("Adventurer's Tome | Guided GM decision undo failed", error);
       ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not undo the last decision."}`);
     }
+  }
+
+  static async _onReviewSourceFacts(_event,target) {
+    if(!game.user?.isGM)return;
+    const api=game.modules.get(MODULE_ID)?.api,review=api?.sourceFactReview;
+    const targetUuid=target.dataset.targetUuid;
+    let sourceUuid=target.dataset.sourceUuid;
+    const escape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    try {
+      if(!sourceUuid) {
+        const sources=new Map((api.campaignMentionEvidence?.recordsForTarget?.(targetUuid)||[]).map(row=>[row.sourceUuid,row.sourceName||row.sourceUuid]));
+        if(!sources.size){ui.notifications.info('No source evidence is recorded for this identity.');return;}
+        sourceUuid=await foundry.applications.api.DialogV2.wait({window:{title:'Select source for fact review'},rejectClose:false,
+          content:`<form><select name="source">${[...sources].map(([uuid,name])=>`<option value="${escape(uuid)}">${escape(name)}</option>`).join('')}</select></form>`,
+          buttons:[{action:'review',label:'Review source',callback:(_event,button)=>button.form.elements.source.value},{action:'cancel',label:'Cancel',callback:()=>null}]});
+        if(!sourceUuid)return;
+      }
+      const plan=await review.plan({targetUuid,sourceUuid,text:target.dataset.decisionText});
+      if(!plan.rows.length){ui.notifications.info('No supported field corrections found in this source.');return;}
+      const keys=await foundry.applications.api.DialogV2.wait({window:{title:`Review source facts — ${plan.targetName}`},position:{width:820},rejectClose:false,
+        content:`<form><p>${escape(plan.sourceName)}. Existing fields may include your edits. Only checked fields will change; other notes are kept.</p>${plan.rows.map(row=>`<label style="display:block;margin:12px 0"><input type="checkbox" name="correction" value="${escape(row.key)}"> <strong>${escape(row.label)}</strong><br>Current: ${escape(row.before)}<br>Proposal: ${row.removal?'Remove misleading field; keep the source evidence':escape(row.after)}</label>`).join('')}<details open><summary>Source evidence</summary>${plan.evidence.map(text=>`<p>${escape(text)}</p>`).join('')}</details></form>`,
+        buttons:[{action:'apply',label:'Apply checked corrections',callback:(_event,button)=>[...button.form.querySelectorAll('input[name="correction"]:checked')].map(node=>node.value)},{action:'cancel',label:'Cancel',callback:()=>null}]});
+      if(!keys?.length)return;
+      await review.apply(plan,keys);
+      this._lastCampaignDecision=api.campaignReviewLearning?.decisionHistory?.().find(row=>!row.undone) || null;
+      await this.render({parts:['main']});
+      ui.notifications.info('Selected source corrections saved. Other notes were kept.');
+    }catch(error){ui.notifications.error(`Tome: ${error.message}`);}
   }
 
   static async _onBrowseBackground() {
@@ -8601,6 +8935,8 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
+  const atReadyToken = globalThis.AdventurersTomeStartup?.begin("tome-ready");
+  try {
   if (game.user?.isGM) {
     try {
       const migration = await migrateLegacyPrivateData();
@@ -8614,6 +8950,10 @@ Hooks.once("ready", async () => {
   if (!module) throw new Error("Adventurer's Tome module package was not found during ready.");
   if (!module.api || typeof module.api !== "object") module.api = {};
   const coreApi = {
+    privateFactStore:Object.freeze({
+      read:(document)=>getPrivateOverlay(document).facts,
+      write:(document,facts)=>setPrivateOverlay(document,{facts})
+    }),
     open: () => getApp().render(true),
     app: () => getApp(),
     getGroup: () => getGroupActors(),
@@ -8833,6 +9173,7 @@ Hooks.once("ready", async () => {
   Object.assign(module.api, coreApi);
 
   installLauncher();
+  globalThis.AdventurersTomeStartup?.count("tome-ready","coreApiPublished");
 
   // qa.36 — token UX: Private Vault access belongs at the token, not in a
   // monolithic GM workspace. The HUD action is GM-only and opens the canonical
@@ -8884,6 +9225,7 @@ Hooks.once("ready", async () => {
     ui.notifications.info(`${targetDocument.name} was revealed by the GM.`);
   });
   console.log(`Adventurer's Tome | v${game.modules.get(MODULE_ID)?.version || "?"} ready for Foundry VTT ${game.version}`);
+  } finally { globalThis.AdventurersTomeStartup?.end(atReadyToken); }
 });
 
 // Keep an open Tome in sync with generic Foundry document changes. Debounce
@@ -8905,7 +9247,8 @@ function tomeHasActiveAuthoring() {
   ));
 }
 
-function scheduleTomeRefresh() {
+function scheduleTomeRefresh(document,changes,options={}) {
+  if(options.adventurersTomeReviewDecision || document?.reviewDecision) return;
   if (!tomeApp?.rendered) return;
 
   if (tomeApp._bulkUpdating || tomeHasActiveAuthoring()) {

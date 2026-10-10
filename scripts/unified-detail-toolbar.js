@@ -42,6 +42,7 @@ function atDtCategory(button) {
     action === "queueReveal"
     || action === "showToPlayers"
     || action === "quickNote"
+    || action === "reviewSourceFacts"
     || action === "editAccess"
     || action === "editProfile"
     || text.includes("queue reveal")

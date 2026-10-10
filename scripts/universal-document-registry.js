@@ -164,12 +164,16 @@ function atUdrBuildAudit(records, documents, duplicateUuids, invalidDocuments) {
 }
 
 function atUdrRebuild({ reason = "manual" } = {}) {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-registry");
+  try {
+  globalThis.AdventurersTomeStartup?.count("universal-registry","fullWorldScans");
   const nextRecords = new Map();
   const nextDocuments = new Map();
   const duplicateUuids = [];
   const invalidDocuments = [];
 
   for (const document of atUdrWorldDocuments()) {
+    globalThis.AdventurersTomeStartup?.count("universal-registry","documentsScanned");
     const record = atUdrRecord(document);
     if (!record) {
       invalidDocuments.push({
@@ -198,6 +202,7 @@ function atUdrRebuild({ reason = "manual" } = {}) {
   });
 
   return atUdrAudit;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atUdrSchedule(reason) {
@@ -281,8 +286,18 @@ Hooks.once("ready", () => {
 });
 
 for (const hookName of ATUDR_HOOKS) {
-  Hooks.on(hookName, (document) => {
+  Hooks.on(hookName, (document,changes,options={}) => {
     atUdrRecordLifecycle(hookName, document);
+    if(options.adventurersTomeReviewDecision || globalThis.AdventurersTomeReviewDecision?.isActive?.()) {
+      const record=atUdrRecord(document);
+      if(record) {
+        if(hookName.startsWith("delete")){atUdrRecords.delete(record.uuid);atUdrDocuments.delete(record.uuid);}
+        else {atUdrRecords.set(record.uuid,record);atUdrDocuments.set(record.uuid,document);}
+        atUdrRevision++;atUdrAudit=atUdrBuildAudit(atUdrRecords,atUdrDocuments,atUdrAudit?.duplicateUuids || [],atUdrAudit?.invalidDocuments || []);
+      }
+      if(!options.adventurersTomeReviewDecision)globalThis.AdventurersTomeReviewDecision?.deferExternal(document?.uuid,()=>atUdrSchedule(hookName));
+      return;
+    }
     atUdrSchedule(hookName);
   });
 }

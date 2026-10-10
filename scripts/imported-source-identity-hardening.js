@@ -96,6 +96,7 @@ function atiiPushRecent(event) {
 function atiiDocumentRows() {
   const rows = [];
   for (const journal of game.journal?.contents ?? []) {
+    globalThis.AdventurersTomeStartup?.count("imported-source-audit","documentsScanned");
     if (!atiiIsWorldJournal(journal)) continue;
     const profile = atiiProfile(journal);
     const flagUuid = String(journal.getFlag?.(ATII_ID, ATII_SOURCE_UUID) || "").trim();
@@ -125,6 +126,7 @@ function atiiDocumentRows() {
 function atiiFolderRows() {
   const rows = [];
   for (const folder of game.folders?.contents ?? []) {
+    globalThis.AdventurersTomeStartup?.count("imported-source-audit","foldersScanned");
     if (folder.type !== "JournalEntry" || !atiiWorldRootFor(folder)) continue;
     const sourceUuid = String(folder.getFlag?.(ATII_ID, ATII_SOURCE_FOLDER_UUID) || "").trim();
     if (!sourceUuid) continue;
@@ -150,6 +152,8 @@ function atiiDuplicateSourceUuids(rows) {
 }
 
 function atiiAudit() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("imported-source-audit");
+  try {
   const documents = atiiDocumentRows();
   const folders = atiiFolderRows();
   const uuidMismatches = documents.filter((row) => !row.flagProfileUuidMatch);
@@ -201,6 +205,7 @@ function atiiAudit() {
     };
   }
   return summary;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atiiFolderDragData(event) {
@@ -296,6 +301,8 @@ function atiiInstallFolderDropHardening() {
 }
 
 function atiiAttach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("imported-source-identity");
+  try {
   if (atiiAttached) return true;
   const module = atiiModule();
   const registry = module?.api?.universalDocuments;
@@ -308,12 +315,14 @@ function atiiAttach() {
   });
 
   atiiAttached = true;
+  globalThis.AdventurersTomeStartup?.count("imported-source-identity","registrations");
   if (atiiTimer) {
     window.clearInterval(atiiTimer);
     atiiTimer = null;
   }
   console.info("Adventurer's Tome | Imported source identity hardening attached.");
   return true;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atiiWatch() {

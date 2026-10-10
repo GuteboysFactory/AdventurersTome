@@ -104,7 +104,8 @@ function atMeNormalizeRecord(row = {}) {
     outcome:atMeClean(row.outcome),
     outcomeReason:atMeClean(row.outcomeReason),
     identityBriefing:atMeClone(row.identityBriefing || null),
-    identityCandidates:atMeClone(atMeArray(row.identityCandidates))
+    identityCandidates:atMeClone(atMeArray(row.identityCandidates)),
+    identityChoice:atMeClone(row.identityChoice || null)
   };
 }
 
@@ -123,7 +124,10 @@ async function atMeSetLedger(ledger) {
   if (!game.user?.isGM) return atMeLedger();
   const normalized = atMeLedger(ledger);
   normalized.updatedAt = Date.now();
-  await game.settings.set(ATME_ID, ATME_SETTING, JSON.stringify(normalized));
+  const review=globalThis.AdventurersTomeReviewDecision;
+  const write=()=>game.settings.set(ATME_ID, ATME_SETTING, JSON.stringify(normalized));
+  if(review?.measure) await review.measure("evidence-write",write);else await write();
+  review?.count("evidence-write","writes");
   return normalized;
 }
 
@@ -253,7 +257,7 @@ function atMeScopedResolution(row) {
     };
   }
 
-  if (result?.sourceCanonical === true || result?.sourceInline === true) return result;
+  if (result?.confirmedChoice === true || result?.sourceCanonical === true || result?.sourceInline === true) return result;
   if (result?.identityAmbiguous === true || result?.decision === "ambiguous") return result;
 
   const exact = deterministic?.resolveIdentity?.({
@@ -364,6 +368,7 @@ function atMeFromDiscoveryRow(row, previous = null, recordId = "") {
     active:true,
     visibility:"gm-private",
     firstSeenAt:Number(previous?.firstSeenAt || now),
+    identityChoice:scoped?.identityChoice || null,
     lastSeenAt:now,
     historicalAt:null,
     provenance:[
@@ -423,7 +428,20 @@ function atMeQuerySort(rows, mode = "newest") {
 }
 
 
+let atMePending = Promise.resolve();
+let atMeFullSync = null;
 async function atMeSync(options = {}) {
+  // Startup/global signals share work; scoped decisions must run after it.
+  if (!options.sourceUuid && atMeFullSync) return atMeFullSync;
+  const previous=atMePending;let release;atMePending=new Promise(resolve=>{release=resolve;});
+  const work=(async()=>{await previous;try{return await atMeSyncWork(options);}finally{release();}})();
+  if (options.sourceUuid) return work;
+  atMeFullSync=work;
+  try{return await work;}finally{if(atMeFullSync===work)atMeFullSync=null;}
+}
+async function atMeSyncWork(options = {}) {
+  const startupToken=globalThis.AdventurersTomeStartup?.begin("mention-sync");
+  try {
   if (!game.user?.isGM) return atMeSnapshot();
   if (atMeSyncing) return atMeSnapshot();
   atMeSyncing = true;
@@ -433,7 +451,7 @@ async function atMeSync(options = {}) {
     const discovery = atMeDiscoveryApi();
     let snapshot = discovery?.snapshot?.() || null;
     if ((!snapshot || options.rescan === true) && discovery?.scan) {
-      snapshot = await discovery.scan({ rescanDiscovery:options.rescanDiscovery === true });
+      snapshot = await discovery.scan({ rescanDiscovery:options.rescanDiscovery === true, sourceUuid:options.sourceUuid, silent:options.silent });
     }
     if (!snapshot) return atMeSnapshot();
 
@@ -451,8 +469,8 @@ async function atMeSync(options = {}) {
     const occurrenceCounts = new Map();
     const moduleApi = game.modules.get(ATME_ID)?.api;
     const newDiscovery = moduleApi?.campaignNewEntityDiscovery;
-    const discovered = newDiscovery?.scan ? await newDiscovery.scan({}) : null;
-    for (const rawRow of atMeArray(snapshot.mentions)) {
+    const discovered = options.reuseDiscovery ? newDiscovery?.snapshot?.() : newDiscovery?.scan ? await newDiscovery.scan({sourceUuid:options.sourceUuid,silent:options.silent}) : null;
+    for (const rawRow of atMeArray(snapshot.mentions).filter(row=>!options.sourceUuid || row.sourceJournalUuid === options.sourceUuid)) {
       const consolidated = newDiscovery?.candidateForMention?.(rawRow);
       let row = consolidated && atMeNormalize(consolidated.text) !== atMeNormalize(rawRow.text)
         ? { ...rawRow, text:consolidated.text, kindHint:consolidated.classification?.kind,
@@ -487,7 +505,9 @@ async function atMeSync(options = {}) {
     // Feed new discovery into the existing Memory ledger/Analysis queue. The
     // discovery stage stays read-only; creation and linking belong to resolution.
     if (discovered && moduleApi?.campaignEntityCreation?.resolveCandidates) {
-      const outcomes = await moduleApi.campaignEntityCreation.resolveCandidates(discovered.candidates || []);
+      const resolve=()=>moduleApi.campaignEntityCreation.resolveCandidates((discovered.candidates || []).filter(row=>!options.sourceUuid || row.sourceJournalUuid === options.sourceUuid),{allowCreate:options.allowCreate ?? !options.sourceUuid,assertCurrent:options.assertCurrent});
+      options.assertCurrent?.();
+      const outcomes = await (globalThis.AdventurersTomeStartup?.measure ? globalThis.AdventurersTomeStartup.measure("candidate-resolution",resolve) : resolve());
       for (const candidate of outcomes) {
         const id = `identity:${candidate.id}`;
         const previous = previousById.get(id);
@@ -500,6 +520,7 @@ async function atMeSync(options = {}) {
           outcomeReason:candidate.outcomeReason,
           identityBriefing:candidate.identityBriefing,
           identityCandidates:candidate.identityCandidates,
+          identityChoice:candidate.identityChoice || null,
           discoveryKind:candidate.classification?.kind,
           targetUuid:candidate.targetUuid,
           targetName:document?.name || candidate.text,
@@ -532,6 +553,7 @@ async function atMeSync(options = {}) {
 
     let historical = 0;
     for (const previous of current.records) {
+      if (options.sourceUuid && previous.sourceUuid !== options.sourceUuid) {next.push(previous);continue;}
       if (seen.has(previous.id)) continue;
       if (previous.active === false) {
         next.push(previous);
@@ -555,6 +577,7 @@ async function atMeSync(options = {}) {
 
     const before = JSON.stringify(atMeSortRows(current.records));
     const after = JSON.stringify(ledger.records);
+    options.assertCurrent?.();
     if (before !== after) await atMeSetLedger(ledger);
 
     resolvedTargets = next.filter((row) => row.active && row.targetUuid).length;
@@ -584,16 +607,21 @@ async function atMeSync(options = {}) {
     });
 
     const app = game.modules.get(ATME_ID)?.api?.app?.();
-    if (app?.rendered) void app.render({ parts:["main"] });
+    if (app?.rendered && !options.silent) void app.render({ parts:["main"] });
     return atMeClone(ledger);
   } catch (error) {
+    // Optimistic background work is deliberately cancelled when a GM decision
+    // changes its inputs. The index owns retrying this, not the failure path.
+    if(options.assertCurrent && error?.code==='TOME_INDEX_STALE')throw error;
     ATME_STATS.failures += 1;
     ATME_STATS.lastError = String(error?.message || error);
     console.warn("Adventurer's Tome | Campaign Mention Evidence sync failed safely", error);
+    if(options.assertCurrent)throw error;
     return atMeSnapshot();
   } finally {
     atMeSyncing = false;
   }
+  } finally {globalThis.AdventurersTomeStartup?.end(startupToken);}
 }
 
 function atMeSnapshot() {
@@ -756,6 +784,8 @@ function atMeAttach() {
 }
 
 function atMeSchedule(reason = "lifecycle") {
+  if(game.user?.isGM && globalThis.AdventurersTomeIndex?.request(reason)) return;
+  if (globalThis.AdventurersTomeReviewDecision?.isActive?.() && ["campaign-link-changed","new-entity-discovery-updated","mention-discovery-updated"].includes(reason)) return;
   if (!game.user?.isGM) return;
   window.clearTimeout(atMeTimer);
   atMeTimer = window.setTimeout(() => {

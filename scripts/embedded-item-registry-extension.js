@@ -7,7 +7,13 @@ function attachEmbeddedItemExtension() {
   const base = module?.api?.universalDocuments;
   if (!base || base.embeddedItems) return Boolean(base);
 
-  const resolveEmbedded = (uuid) => getActorEmbeddedItems().find((item) => item.uuid === String(uuid || "")) || null;
+  const resolveEmbedded = (uuid) => {
+    const match=String(uuid || "").match(/^Actor\.([^.]*)\.Item\.([^.]*)$/);
+    if(!match) return null;
+    const actor=game.actors?.get(match[1]);
+    const item=actor?.items?.get?.(match[2]) || actor?.items?.contents?.find(row=>row.id === match[2]);
+    return item?.uuid === String(uuid) ? item : null;
+  };
   const originalAudit = base.audit.bind(base);
   const originalHas = base.has.bind(base);
   const originalGet = base.get.bind(base);

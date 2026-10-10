@@ -51,6 +51,9 @@ function atcgConsumerEvidence(takeover = {}) {
 }
 
 function atcgAudit() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-convergence-audit");
+  try {
+  globalThis.AdventurersTomeStartup?.count("universal-convergence-audit","convergenceRuns");
   const registry = atcgModule()?.api?.universalDocuments;
   if (!registry) {
     return {
@@ -135,9 +138,12 @@ function atcgAudit() {
       consumers: foundry.utils.deepClone(takeover.consumers || {})
     } : null
   };
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atcgAttach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-convergence-gate");
+  try {
   if (atcgAttached) return true;
   const module = atcgModule();
   const registry = module?.api?.universalDocuments;
@@ -151,12 +157,14 @@ function atcgAttach() {
   });
 
   atcgAttached = true;
+  globalThis.AdventurersTomeStartup?.count("universal-convergence-gate","registrations");
   if (atcgTimer) {
     window.clearInterval(atcgTimer);
     atcgTimer = null;
   }
   console.info("Adventurer's Tome | v1.3 Universal convergence gate attached.");
   return true;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atcgWatch() {

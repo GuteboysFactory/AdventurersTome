@@ -72,7 +72,9 @@ function atSsNormalizeHtml(html) {
     }
   }
 
-  return { html: host.innerHTML, changed: changed || host.innerHTML !== source, summary };
+  // DOM serialization may differ from Foundry's sanitized representation even
+  // when no repair was performed. Preserve the original in that case.
+  return { html: changed ? host.innerHTML : source, changed, summary };
 }
 
 function atSsPrimaryPage(journal, section) {
@@ -154,19 +156,25 @@ function atSsQueuePresentation() {
 }
 
 async function atSsRepairExistingPages() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("summary-repair");
+  try {
   if (!game.user?.isGM || atSsRepairing) return;
   atSsRepairing = true;
   let repaired = 0;
   try {
     for (const journal of game.journal?.contents ?? []) {
       for (const page of journal.pages?.contents ?? []) {
+        globalThis.AdventurersTomeStartup?.count("summary-repair","pagesScanned");
         if (String(page.type || "text").toLowerCase() !== "text") continue;
         const raw = String(page?.text?.content ?? "");
         if (!raw.includes(ATSS_ATTR)) continue;
         const normalized = atSsNormalizeHtml(raw);
         if (!normalized.changed) continue;
+        globalThis.AdventurersTomeStartup?.count("summary-repair","pagesRequiringRepair");
         await page.update({ "text.content": normalized.html, "text.format": atSsTextFormat() }, { adventurersTomeSummaryRepair: true });
         repaired += 1;
+        globalThis.AdventurersTomeStartup?.count("summary-repair","pagesRepaired");
+        globalThis.AdventurersTomeStartup?.count("summary-repair","writes");
       }
     }
     if (repaired) {
@@ -178,6 +186,7 @@ async function atSsRepairExistingPages() {
   } finally {
     atSsRepairing = false;
   }
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 Hooks.on("preUpdateJournalEntryPage", (page, changes, options) => {

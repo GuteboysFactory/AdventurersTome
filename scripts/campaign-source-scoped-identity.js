@@ -104,6 +104,10 @@ function atSsiDocumentForUuid(uuid) {
   if (match) return game.items?.get(match[1]) || null;
   match = /^Scene\.([^.]+)$/.exec(value);
   if (match) return game.scenes?.get(match[1]) || null;
+  if(/^[^.]+\.[^.]+$/.test(value)) {
+    const collections=[game.actors,game.items,game.journal,game.scenes,...(game.collections?.values?.() || [])];
+    for(const collection of collections)for(const document of collection?.contents || [])if(document.uuid===value)return document;
+  }
   return null;
 }
 
@@ -154,8 +158,12 @@ function atSsiCandidateFromDocument(document) {
 }
 
 function atSsiDiscoveryEntity(uuid) {
-  const snapshot = atSsiDiscoveryApi()?.snapshot?.() || null;
   const wanted = atSsiClean(uuid);
+  const discovery = atSsiDiscoveryApi();
+  // The public lookup clones only this entity. Copying the whole registry for
+  // every source link multiplies work by mentions * links * world size.
+  if (typeof discovery?.get === "function") return discovery.get(wanted);
+  const snapshot = discovery?.snapshot?.() || null;
   return snapshot?.entities?.find?.((entity) => atSsiClean(entity?.canonicalUuid) === wanted) || null;
 }
 
@@ -354,6 +362,8 @@ function atSsiResult(decision, options = {}) {
     projectionCollapsed:Boolean(options.projectionCollapsed),
     sourceCanonical:Boolean(options.sourceCanonical),
     sourceInline:Boolean(options.sourceInline),
+    confirmedChoice:Boolean(options.confirmedChoice),
+    identityChoice:atSsiClone(options.identityChoice || null),
     sourceSignals:atSsiClone(options.sourceSignals || []),
     sourceUuid:atSsiClean(options.sourceUuid),
     sourcePageUuid:atSsiClean(options.sourcePageUuid),
@@ -371,6 +381,19 @@ function atSsiResolveMention(input = {}) {
     const text = atSsiClean(input.text || input.name);
     const normalized = atSsiNormalize(text);
     const journal = atSsiSourceJournal(sourceUuid);
+    const learning=game.modules.get(ATSSI_ID)?.api?.campaignReviewLearning;
+    const choice=learning?.decisionFor?.(text,{sourceUuid});
+    const confirmedResult=(selected)=>{
+      const authority=atSsiAuthorityUuid({canonicalUuid:selected.targetUuid});
+      const document=atSsiDocumentForUuid(authority);
+      if(!document)return atSsiResult("unresolved",{confirmedChoice:true,sourceUuid,sourcePageUuid,reason:"gm-selected-identity-deleted"});
+      const target=atSsiCandidateFromDocument(document);
+      return atSsiResult("resolved-gm-choice",{confidence:1,selectedTarget:target,candidates:[target],authorityUuid:authority,
+        identityKey:atSsiIdentityKey(target),identityCount:1,confirmedChoice:true,sourceUuid,sourcePageUuid,
+        identityChoice:{mode:selected.campaignDefault ? 'campaign-default' : selected.historicalChoice ? "historical" : "source",sourceUuid:selected.sourceUuid,targetUuid:authority,text:selected.text,historySources:selected.historySources || [selected.sourceUuid]},
+        reason:selected.campaignDefault ? 'explicit-gm-campaign-default' : selected.historicalChoice ? "consistent-historical-gm-choice" : "explicit-gm-source-choice"});
+    };
+    if(!choice?.campaignDefault && (choice?.sourceChoice || choice?.action==="linked") && choice.sourceUuid===sourceUuid)return confirmedResult(choice);
     const local = atSsiMatchingLocalCandidates(journal, sourcePageUuid, text);
 
     const localCanonical = atSsiReconcile(local.canonical);
@@ -444,6 +467,12 @@ function atSsiResolveMention(input = {}) {
         reason:"multiple-inline-identities-share-mention"
       });
     }
+
+    if(choice?.campaignDefault)return confirmedResult(choice);
+    const history=learning?.historicalChoiceFor?.(text,{sourceUuid});
+    if(history?.historicalAmbiguous)return atSsiResult("ambiguous",{sourceUuid,sourcePageUuid,confirmedChoice:true,identityAmbiguous:true,identityCount:history.targets.length,reason:"conflicting-historical-gm-choices",
+      candidates:history.targets.map(row=>({canonicalUuid:row.targetUuid,name:row.targetName,kind:row.targetKind}))});
+    if(history?.historicalChoice)return confirmedResult(history);
 
     const supplied = atSsiDedupeCandidates([
       ...atSsiArray(input.candidates),
@@ -566,7 +595,10 @@ const ATSSI_API = Object.freeze({
   version:ATSSI_VERSION,
   readOnly:true,
   writesPerformed:false,
-  resolveMention:(input = {}) => atSsiClone(atSsiResolveMention(input)),
+  resolveMention:(input = {}) => {
+    const work=()=>atSsiClone(atSsiResolveMention(input));
+    return globalThis.AdventurersTomeStartup?.measure ? globalThis.AdventurersTomeStartup.measure("source-identity-resolution",work) : work();
+  },
   audit:atSsiAudit
 });
 

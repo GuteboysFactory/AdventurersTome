@@ -490,7 +490,7 @@ test('manual creation still requires confirmation; concurrent resolution is idem
   assert.equal(w.game.journal.contents.filter(doc=>doc.name==='Silverfall Keep').length,1);
 });
 
-test('choosing a possible duplicate persists for this source and undo restores review',async()=>{
+test('choosing a possible duplicate supports safe historical reuse without a global alias; undo restores review',async()=>{
   const w=world('They met Elira Vos, a quartermaster.',false);
   const actor=w.add('Elira Voss','Actor');
   const main=fs.readFileSync(path.join(root,'scripts/adventurers-tome.js'),'utf8');
@@ -501,9 +501,13 @@ test('choosing a possible duplicate persists for this source and undo restores r
   assert.equal((await w.resolve())[0].outcome,'LINKED');
   const other=w.add('Session 3','JournalEntry',{type:'session'});
   const candidate={...(await w.scan()).candidates[0],sourceJournalUuid:other.uuid};
-  assert.equal((await w.api.campaignEntityCreation.resolveCandidates([candidate]))[0].outcome,'REVIEW','choice must not become a global alias');
+  const reused=(await w.api.campaignEntityCreation.resolveCandidates([candidate]))[0];
+  assert.equal(reused.outcome,'LINKED');assert.equal(reused.targetUuid,actor.uuid);assert.equal(reused.identityChoice.mode,'historical');
+  assert.equal(w.api.campaignReviewLearning.decisionFor('Elira Vos',{sourceUuid:other.uuid}),null,'choice must not become a global alias');
+  assert.ok(!(actor.flags.actorProfile?.aliases || []).includes('Elira Vos'));
   await vm.runInContext('DecisionActions._onUndoCampaignDecision()',w.context);
   assert.equal((await w.resolve())[0].outcome,'REVIEW');
+  assert.equal((await w.api.campaignEntityCreation.resolveCandidates([candidate]))[0].outcome,'REVIEW');
 });
 
 test('Session and Quest remain clean and review remains GM-only',()=>{

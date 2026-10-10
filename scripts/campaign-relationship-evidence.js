@@ -1,5 +1,6 @@
 const ATRE_ID = "adventurers-tome";
 const ATRE_SETTING = "campaignRelationshipEvidenceV1";
+const ATRE_GENERIC_TITLES = new Set(globalThis.AdventurersTomeLanguage.words("CHARACTER_TITLES"));
 const ATRE_TYPES = Object.freeze({
   FRIEND_OF:["Friend","Friend"], ACQUAINTANCE_OF:["Acquaintance","Acquaintance"],
   QUARTERMASTER_OF:["Quartermaster","Quartermaster"], COMMANDER_OF:["Commander","Commander"],
@@ -8,14 +9,16 @@ const ATRE_TYPES = Object.freeze({
   OPERATES_FROM:["Operates from","Base for"], KNOWS:["Knows","Known by"],
   OWES_FAVOUR_TO:["Owes a favour","Owed a favour by"], TRUSTS:["Trusts","Trusted by"],
   SERVES:["Serves","Served by"], MET:["Met","Met"], SPEAKS_WITH:["Speaks with","Speaks with"],
-  INFORMATION_PROVIDER:["Provides information","Receives information"]
+  INFORMATION_PROVIDER:["Provides information","Receives information"],
+  WORKS_WITH:["Works with","Works with"], STAYS_AT:["Stays at","Hosts"],
+  TREATED:["Treated","Treated by"]
 });
 // Semantic registry is independent of extractor vocabulary and campaign data.
 const ATRE_REGISTRY = Object.freeze(Object.fromEntries(Object.entries(ATRE_TYPES).map(([type,labels])=>[type,{
   label:labels[0],inverseLabel:labels[1],
   negativeLabel:type === "MEMBER_OF" ? "Not a member" : `Not: ${labels[0].toLowerCase()}`,
   inverseNegativeLabel:type === "MEMBER_OF" ? "Not a member" : `Not: ${labels[1].toLowerCase()}`,
-  symmetric:["FRIEND_OF","ACQUAINTANCE_OF","MET","SPEAKS_WITH"].includes(type)
+  symmetric:["FRIEND_OF","ACQUAINTANCE_OF","MET","SPEAKS_WITH","WORKS_WITH"].includes(type)
 }])));
 function atReNormalize(input) {
   const row={...input};
@@ -49,8 +52,11 @@ function atReHash(value) {
   return (hash >>> 0).toString(36);
 }
 function atReDocument(uuid) {
-  const [kind,id] = atReClean(uuid).split(".");
-  return (kind === "Actor" ? game.actors : kind === "Item" ? game.items : kind === "JournalEntry" ? game.journal : null)?.get(id) || null;
+  const [kind,id,pageKind,pageId] = atReClean(uuid).split(".");
+  const parent = (kind === "Actor" ? game.actors : kind === "Item" ? game.items : kind === "JournalEntry" ? game.journal : kind === "Scene" ? game.scenes : null)?.get(id) || null;
+  const known=pageKind === "JournalEntryPage" ? parent?.pages?.get?.(pageId) || parent?.pages?.contents?.find(page=>page.id === pageId) || null : pageKind ? null : parent;
+  if(known)return known;
+  try {return typeof fromUuidSync === "function" ? fromUuidSync(atReClean(uuid)) : null;}catch (_) {return null;}
 }
 function atReCanRead(document, user = game.user) {
   if (!document) return false;
@@ -133,9 +139,10 @@ function atReEntityIndex(sourceUuid) {
   }
   return aliases;
 }
-// English-provider helpers only: the state engine consumes their normalized output.
-function atReEnglishClause(sentence,predicateStart,objectEnd,hits) {
-  const boundaries=[...sentence.matchAll(/\b(?:and|but|whereas|while)\b|;/gi)]
+// Language providers supply vocabulary; the canonical state engine is unchanged.
+function atReLanguagePattern(key,language="en") { return language === "all" ? globalThis.AdventurersTomeLanguage.anyPattern(key) : globalThis.AdventurersTomeLanguage.pattern(key,language); }
+function atReLanguageClause(sentence,predicateStart,objectEnd,hits,language="en") {
+  const boundaries=[...sentence.matchAll(atReLanguagePattern("clauseBoundaries","all"))]
     .filter(hit=>!hits.some(entity=>hit.index>=entity.index && hit.index<entity.index+entity[0].length));
   const preceding=boundaries.filter(hit=>hit.index<predicateStart).at(-1);
   const following=boundaries.find(hit=>hit.index>=objectEnd);
@@ -150,17 +157,44 @@ function atReEnglishClause(sentence,predicateStart,objectEnd,hits) {
   }
   return {start,end,text:sentence.slice(start,end),prefix,suffix:sentence.slice(objectEnd,end)};
 }
-function atReEnglishTemporal(type,predicate,clause,ended) {
-  const prefix=clause.prefix.replace(/^.*\b(?:claimed|said|reported)\s+that\s+/i,"");
-  const current=/\b(?:still|currently|presently|now|remains?|continues?(?:\s+to)?)\b/i.test(prefix);
-  const historical=/\b(?:formerly|previously|once|used to|before that|former|was|were|had)\b/i.test(prefix)
-    || /\b(?:in the past|years ago|(?:from|during)\s+(?:an?\s+)?earlier\s+(?:journey|expedition))\b/i.test(clause.suffix)
-    || /\b(?:worked|operated|knew|trusted|owed|supplied|provided|served|commanded|met|recognized|recognised)\b/i.test(predicate);
-  const encounter=type === "MET" || type === "KNOWS" && /recogn(?:iz|is)ed/i.test(predicate);
-  return {temporalScope:ended || current ? "current" : encounter && type === "KNOWS" ? "unknown" : historical ? "historical"
-    : /\b(?:is|are|am)\b/i.test(prefix) || /\b(?:works?|working|operates?|knows|trusts|owes|passes|supplies|commands?|serves?|speaks?)\b/i.test(predicate)
+function atReLanguageTemporal(type,predicate,clause,ended,language="en") {
+  const prefix=clause.prefix.replace(atReLanguagePattern("reporting",language),"");
+  const current=atReLanguagePattern("current",language).test(prefix);
+  const historical=atReLanguagePattern("historicalPrefix",language).test(prefix)
+    || atReLanguagePattern("historicalSuffix",language).test(clause.suffix)
+    || atReLanguagePattern("pastPredicate",language).test(predicate);
+  const encounter=type === "MET" || type === "KNOWS" && atReLanguagePattern("recognition",language).test(predicate);
+  return {temporalScope:ended || current || type === "MEMBER_OF" && atReLanguagePattern("neverMembership",language).test(prefix) ? "current" : encounter && type === "KNOWS" ? "unknown" : historical ? "historical"
+    : atReLanguagePattern("copula",language).test(prefix) || atReLanguagePattern("presentPredicate",language).test(predicate)
       || ["FRIEND_OF","ACQUAINTANCE_OF","QUARTERMASTER_OF","COMMANDER_OF","KEEPER_OF","INFORMANT_FOR"].includes(type) ? "current" : "unknown",
     ...(encounter && historical ? {eventTemporalScope:"historical"} : {})};
+}
+function atReWithoutRoleApposition(value,language="en") {
+  return value.replace(atReLanguagePattern("roleApposition",language)," ");
+}
+function atReFoldedSource(text) {
+  let folded="",offset=0;
+  const boundaries=[0];
+  for(const character of text) {
+    const value=character.normalize("NFKD").replace(/\p{M}/gu,"");
+    if(!value)boundaries[boundaries.length-1]=offset+character.length;
+    else for(let index=0;index<value.length;index++) {
+      folded+=value[index];
+      boundaries.push(index===value.length-1 ? offset+character.length : offset);
+    }
+    offset+=character.length;
+  }
+  return {text:folded,boundaries};
+}
+function atReComposedSource(text) {
+  let composed="";
+  const boundaries=[0];
+  for(const hit of text.matchAll(/[^\p{M}]\p{M}*|\p{M}+/gu)) {
+    const value=hit[0].normalize("NFC");
+    composed+=value;
+    for(let index=0;index<value.length;index++)boundaries.push(index===value.length-1 ? hit.index+hit[0].length : hit.index);
+  }
+  return {text:composed,boundaries};
 }
 function atReExtract(entry, page, kind) {
   const text = atRePlain(page.text?.content);
@@ -174,50 +208,51 @@ function atReExtract(entry, page, kind) {
     let previousSubject = null;
     let previousObject = null;
     const localNames = new Map(aliases);
-    for (const sentenceHit of paragraph.matchAll(/[^.!?]+[.!?]?/g)) {
-      const sentence = sentenceHit[0].trim();
+    for (const sentenceHit of globalThis.AdventurersTomeLanguage.sentences(paragraph)) {
+      const sourceSentence = sentenceHit[0].trim();
+      const composed=atReComposedSource(sourceSentence);
+      const sentence = composed.text;
+      const language = "all";
       if (!sentence) continue;
+      // Match the same normalized names as the identity index, then map hits
+      // back to the untouched source, including decomposed accent characters.
+      const folded=atReFoldedSource(sentence);
       // Same-paragraph unique first names are references, never global aliases.
       for (const name of names.filter(name=>name.includes(" "))) {
-        if (!new RegExp(`(?<![\\p{L}\\p{N}])${escape(name)}(?![\\p{L}\\p{N}])`,"iu").test(sentence)) continue;
+        if (!new RegExp(`(?<![\\p{L}\\p{N}])${escape(name)}(?![\\p{L}\\p{N}])`,"iu").test(folded.text)) continue;
         const first = name.split(" ")[0];
         const person=[...aliases.get(name)].every(uuid=>{
           const doc=atReDocument(uuid);
           return doc?.documentName === "Actor" || ["contact","npc","character"].includes(doc?.getFlag?.(ATRE_ID,"worldProfile")?.category);
         });
-        if (!person || ["captain","commander"].includes(first)) continue;
+        if (!person || ATRE_GENERIC_TITLES.has(first)) continue;
         if (!localNames.has(first)) localNames.set(first,new Set(aliases.get(name)));
         else for (const uuid of aliases.get(name)) localNames.get(first).add(uuid);
       }
       const localPattern = [...localNames.keys()].sort((a,b)=>b.length-a.length).map(name=>name.split(" ").map(escape).join("\\s+")).join("|");
-      const hits = [...sentence.matchAll(new RegExp(`(?<![\\p{L}\\p{N}])(?:${localPattern})(?![\\p{L}\\p{N}])`,"giu"))];
+      const hits = [...folded.text.matchAll(new RegExp(`(?<![\\p{L}\\p{N}])(?:${localPattern})(?![\\p{L}\\p{N}])`,"giu"))].map(hit=>{
+        const start=folded.boundaries[hit.index],end=folded.boundaries[hit.index+hit[0].length];
+        const original=[sentence.slice(start,end)];original.index=start;return original;
+      });
       const resolve = name => {
         const matches = localNames.get(atReNorm(name).replace(/^the /u,""));
         return matches?.size === 1 ? [...matches][0] : "";
       };
-      let subject = hits[0] && /^[\s"“]*(?:at\b|according to\b|later\b)/i.test(sentence) ? null : hits[0];
+      let subject = hits[0] && atReLanguagePattern("intro",language).test(sentence) ? null : hits[0];
       let subjectUuid = subject ? resolve(subject[0]) : "";
       let tailStart = subject ? subject.index + subject[0].length : 0;
-      if (/^(?:He|She)\b/u.test(sentence) && previousSubject) { subjectUuid=previousSubject; subject=null; tailStart=sentence.match(/^(He|She)\b/u)[0].length; }
+      // In an introductory/reporting clause, a unique role apposition names
+      // the subject of its attached predicates, not the earlier narrator.
+      if(!subjectUuid) {
+        const roleSubjects=hits.filter(hit=>{
+          const after=sentence.slice(hit.index+hit[0].length);
+          return atReWithoutRoleApposition(after,"all")!==after;
+        });
+        if(roleSubjects.length===1)subjectUuid=resolve(roleSubjects[0][0]);
+      }
+      if (atReLanguagePattern("subjectPronoun",language).test(sentence) && previousSubject) { subjectUuid=previousSubject; subject=null; tailStart=sentence.match(atReLanguagePattern("subjectPronounCapture",language))[0].length; }
       const tail = sentence.slice(tailStart);
-      const clauses = [
-        ["FRIEND_OF",/\b(?:old\s+)?friend\s+of\s+(?:the\s+)?/gi],
-        ["ACQUAINTANCE_OF",/\b(?:old\s+)?acquaintance\s+of\s+(?:the\s+)?/gi],
-        ["QUARTERMASTER_OF",/\bquartermaster\s+of\s+(?:the\s+)?/gi],
-        ["COMMANDER_OF",/\b(?:(?:commander|captain)\s+of|commands?|commanded)\s+(?:the\s+)?/gi],
-        ["KEEPER_OF",/\bkeeper\s+of\s+(?:the\s+)?/gi],
-        ["MEMBER_OF",/\bmember\s+of\s+(?:the\s+)?/gi],
-        ["INFORMANT_FOR",/\b(?:informant\s+for|passes\s+information\s+to|supplied\s+information\s+to|supplies\s+information\s+to)\s+(?:the\s+)?/gi],
-        ["INFORMATION_PROVIDER",/\b(?:supplied|provided)\s+(?:the\s+)?/gi],
-        ["WORKS_FOR",/\b(?:works?\s+for|worked\s+for|working\s+for)\s+(?:the\s+)?/gi],
-        ["OPERATES_FROM",/\b(?:operates?|operated)\s+from\s+(?:the\s+)?/gi],
-        ["KNOWS",/\b(?:knows|knew|recognized|recognised)\s+(?:the\s+)?/gi],
-        ["TRUSTS",/\b(?:trusts|trusted)\s+(?:the\s+)?/gi],
-        ["OWES_FAVOUR_TO",/\b(?:owes|owed)\s+(?:the\s+)?/gi],
-        ["SERVES",/\b(?:serves?|served)\s+(?:the\s+)?/gi],
-        ["MET",/\bmet\s+(?:the\s+)?/gi],
-        ["SPEAKS_WITH",/\bspeaks?\s+with\s+(?:the\s+)?/gi]
-      ];
+      const clauses = globalThis.AdventurersTomeLanguage.relationshipRules();
       const compoundInformation = /\bbut\s+he\s+has\s+supplied\s+them\s+with\s+information\b/i.exec(tail);
       const explicitMembershipObject = /\bmember\s+of\s+(?:the\s+)?/i.exec(tail);
       const subjectNames=[...localNames.keys()].filter(name=>resolve(name) === subjectUuid);
@@ -225,68 +260,93 @@ function atReExtract(entry, page, kind) {
       if (compoundInformation && explicitMembershipObject && informantRole) {
         const objectPosition=tailStart+explicitMembershipObject.index+explicitMembershipObject[0].length;
         const namedObject=hits.find(hit=>hit.index===objectPosition);
-        if(namedObject)clauses.push(["INFORMANT_FOR",new RegExp(escape(explicitMembershipObject[0]),"g")]);
+        if(namedObject)clauses.push({type:"INFORMANT_FOR",regex:new RegExp(escape(explicitMembershipObject[0]),"g"),language:"en"});
       }
       let attributedSubject = subjectUuid;
       // A named subject immediately preceding "may be working for" is the
       // possible worker, not the person reporting their suspicion.
-      for (const [type, regex] of clauses) for (const match of tail.matchAll(regex)) {
+      for (const {type,regex,language} of clauses) for (const match of tail.matchAll(regex)) {
         const absolute = tailStart + match.index;
         const objectStart = absolute + match[0].length;
         let objectHit = hits.find(hit=>hit.index === objectStart);
         let pronounObject = "";
+        let explicitFriendPair = false;
+        if(type === "FRIEND_OF" && atReLanguagePattern("pair",language).test(match[0])) {
+          // Swedish coordinated subjects: "Nora och Elin är [inte] vänner".
+          // Require exactly that syntax, not two arbitrary names near "friends".
+          if(language === 'sv' && match[0] === 'vänner') {
+            const preceding=hits.filter(hit=>hit.index<absolute);
+            if(preceding.length!==2)continue;
+            const [a,b]=preceding;
+            if(sentence.slice(0,a.index).trim() || !/^\s+och\s+$/iu.test(sentence.slice(a.index+a[0].length,b.index))
+              || !/^\s+(?:är|var)\s+(?:inte\s+)?$/iu.test(sentence.slice(b.index+b[0].length,absolute)))continue;
+            explicitFriendPair=true;
+          }
+          const pair=[...new Set(hits.filter(hit=>hit.index<absolute).map(hit=>resolve(hit[0])).filter(uuid=>{const doc=atReDocument(uuid);return doc?.documentName==="Actor" || ["contact","npc","character"].includes(doc?.getFlag?.(ATRE_ID,"worldProfile")?.category);}))];
+          if(pair.length===2 && pair.includes(subjectUuid)){pronounObject=pair.find(uuid=>uuid!==subjectUuid);objectHit=[""];objectHit.index=objectStart;}
+        }
         if(!objectHit) {
-          const pronoun=/^(?:him|her|them|it)\b/i.exec(sentence.slice(objectStart));
+          const pronoun=atReLanguagePattern("objectPronoun",language).exec(sentence.slice(objectStart));
           const precedingObjects=new Set(hits.filter(hit=>hit.index<objectStart).map(hit=>resolve(hit[0])).filter(uuid=>uuid && uuid!==subjectUuid));
           pronounObject=precedingObjects.size === 1 ? [...precedingObjects][0] : precedingObjects.size ? "" : previousObject;
+          if(pronoun && atReLanguagePattern("organizationPronoun",language).test(pronoun[0]) && atReDocument(pronounObject)?.getFlag?.(ATRE_ID,"worldProfile")?.category!=="faction")pronounObject="";
           if(pronoun && pronounObject) {objectHit=[pronoun[0]];objectHit.index=objectStart;}
         }
         if (!objectHit) {
           diagnostics.push({reason:"object-not-resolved-or-unsupported-reference",sourceUuid:entry.uuid,excerpt:sentence,type});continue;
         }
         const objectUuid = pronounObject || resolve(objectHit[0]);
-        const clause=atReEnglishClause(sentence,absolute,objectStart+objectHit[0].length,hits);
-        const intervening = hits.filter(hit=>hit.index >= Math.max(tailStart,clause.start) && hit.index < absolute);
+        const clause=atReLanguageClause(sentence,absolute,objectStart+objectHit[0].length,hits,language);
+        const intervening = explicitFriendPair ? [] : hits.filter(hit=>hit.index >= Math.max(tailStart,clause.start) && hit.index < absolute);
         let actualSubject = subjectUuid;
         let predicateStart = tailStart;
         if (intervening.length) {
           const last = intervening[intervening.length-1];
-          const between = sentence.slice(last.index+last[0].length,absolute);
-          if (/^[\s,]+(?:(?:is|was|an?|the|old|former|used|to|may|might|be|been|has|had|not|no|longer|still|now|currently|formerly|previously|possibly|allegedly)\s+)*$/i.test(between)) {
+          const between = atReWithoutRoleApposition(sentence.slice(last.index+last[0].length,absolute),language);
+          if (atReLanguagePattern("interveningGuard",language).test(between)) {
             actualSubject=resolve(last[0]);predicateStart=last.index+last[0].length;
           }
-          else if (!/\b(?:and|but)\b/i.test(sentence.slice(last.index+last[0].length,absolute))) continue;
+          else if (!atReLanguagePattern("conjunction",language).test(sentence.slice(last.index+last[0].length,absolute))) continue;
         }
-        const before = sentence.slice(Math.max(tailStart,clause.start),absolute).replace(/^\s*(?:(?:claimed|said|reported)\s+that\s+)?(?:he|she|they)\s+/i,"");
+        const before = atReWithoutRoleApposition(sentence.slice(Math.max(tailStart,clause.start),absolute).replace(atReLanguagePattern("reportingPronoun",language),""),language);
         // Require an attached predicate/apposition, rather than arbitrary
         // vocabulary anywhere near two entity names.
-        if (!intervening.length && !/^[\s,]*(?:(?:is|was|an?|the|old|former|formerly|once|used|normally|occasionally|previously|still|now|currently|presently|remains?|continues?|no|longer|not|may|might|be|has|had|been|possibly|allegedly|rumored|rumoured|to)\s+)*$/i.test(before)
-          && !/\b(?:and|but)\s+(?:an?|the|occasionally|still|now|normally)?\s*$/i.test(before)) continue;
-        if (type === "OWES_FAVOUR_TO" && !/^\s+(?:an?\s+)?favou?r\b/i.test(sentence.slice(objectStart+objectHit[0].length))) continue;
-        if (type === "INFORMATION_PROVIDER" && (!/^\s+(?:with\s+)?information\b/i.test(sentence.slice(objectStart+objectHit[0].length)) || compoundInformation && informantRole))continue;
-        if(type === "KNOWS" && /recogn(?:iz|is)ed/i.test(match[0])) {
+        if (!explicitFriendPair && !intervening.length && !atReLanguagePattern("attachedGuard",language).test(before)
+          && !atReLanguagePattern("attachedConjunction",language).test(before)) continue;
+        if (type === "OWES_FAVOUR_TO" && !atReLanguagePattern("favourSuffix",language).test(sentence.slice(objectStart+objectHit[0].length))) continue;
+        if (type === "INFORMATION_PROVIDER" && (!atReLanguagePattern("informationSuffix",language).test(sentence.slice(objectStart+objectHit[0].length)) || compoundInformation && informantRole))continue;
+        if(type === "KNOWS" && atReLanguagePattern("recognition",language).test(match[0])) {
           const target=atReDocument(objectUuid);
-          if(!/^\s+from\s+(?:an?\s+)?earlier\s+journey\b/i.test(sentence.slice(objectStart+objectHit[0].length))
+          if(!atReLanguagePattern("recognitionSuffix",language).test(sentence.slice(objectStart+objectHit[0].length))
             || !(target?.documentName === "Actor" || ["contact","npc","character"].includes(target?.getFlag?.(ATRE_ID,"worldProfile")?.category)))continue;
         }
         if (!actualSubject || !objectUuid || actualSubject === objectUuid) {
           diagnostics.push({reason:"unresolved-canonical-endpoint",sourceUuid:entry.uuid,excerpt:sentence,type}); continue;
         }
-        const hedged = /\b(?:suspects?|may|might|perhaps|rumou?red|allegedly|possibly)\b/i.test(clause.text);
+        const claimContext=globalThis.AdventurersTomeLanguage.claimContext(clause.text);
+        const sentenceContext=globalThis.AdventurersTomeLanguage.claimContext(sentence);
+        // A local hedge must not turn a separate denial into speculation.
+        // Questions, explicit quotations and reporting frames bound the claim.
+        const enclosingReasons=sentenceContext.reasons.filter(reason=>['question','quotation','reported-claim'].includes(reason)
+          || reason==='conditional-or-intended' && /^(?:if|unless|om|ifall)\s/iu.test(sentence.trim()));
+        claimContext.reasons=[...new Set([...claimContext.reasons,...enclosingReasons])];
+        claimContext.assertable=claimContext.reasons.length===0;
+        const hedged = atReLanguagePattern("hedged",language).test(clause.text) || !claimContext.assertable;
         const relationPrefix = sentence.slice(Math.max(predicateStart,clause.start),absolute);
         const informationContrast = type === "INFORMANT_FOR" && compoundInformation && /member\s+of/i.test(match[0]);
-        const negated = !informationContrast && /\b(?:not|no longer|never)\b/i.test(relationPrefix);
-        const ended = !informationContrast && /\bno longer\b/i.test(relationPrefix);
+        const negated = !informationContrast && atReLanguagePattern("negated",language).test(relationPrefix);
+        const ended = !informationContrast && atReLanguagePattern("ended",language).test(relationPrefix);
         const status = hedged ? "possible" : ended ? "ended" : negated ? "negated" : "asserted";
-        const assertionClause=informationContrast ? atReEnglishClause(sentence,tailStart+compoundInformation.index+3,sentence.length,hits) : clause;
-        const temporal=atReEnglishTemporal(type,informationContrast ? compoundInformation[0] : match[0],assertionClause,ended);
-        const excerpt = informationContrast ? `${informantRole[0]} … ${sentence}` : sentence;
+        const assertionClause=informationContrast ? atReLanguageClause(sentence,tailStart+compoundInformation.index+3,sentence.length,hits,language) : clause;
+        const temporal=atReLanguageTemporal(type,informationContrast ? compoundInformation[0] : match[0],assertionClause,ended,language);
+        const excerpt = informationContrast ? `${informantRole[0]} … ${sourceSentence}` : sourceSentence;
         const endpoints=[actualSubject,objectUuid];
         if(ATRE_REGISTRY[type]?.symmetric)endpoints.sort();
         const identityKey = [endpoints[0],type,endpoints[1]].join("|");
         const key = [entry.uuid,page.uuid,identityKey,atReNorm(excerpt),status].join("|");
-        const sourceSpan={start:paragraphOffset+sentenceHit.index+sentenceHit[0].indexOf(sentence)+assertionClause.start,
-          end:paragraphOffset+sentenceHit.index+sentenceHit[0].indexOf(sentence)+assertionClause.end,text:assertionClause.text,coordinateSpace:"plain-text"};
+        const originalStart=composed.boundaries[assertionClause.start],originalEnd=composed.boundaries[assertionClause.end];
+        const sourceSpan={start:paragraphOffset+sentenceHit.index+sentenceHit[0].indexOf(sourceSentence)+originalStart,
+          end:paragraphOffset+sentenceHit.index+sentenceHit[0].indexOf(sourceSentence)+originalEnd,text:sourceSentence.slice(originalStart,originalEnd),coordinateSpace:"plain-text"};
         const legacyId=`rel-${atReHash(key)}`;
         const prior=evidence.find(row=>row.id === legacyId);
         // Keep established IDs/GM decisions for the first claim; additional
@@ -295,12 +355,13 @@ function atReExtract(entry, page, kind) {
           ? `rel-${atReHash(`${key}|${sourceSpan.start}|${sourceSpan.end}|${temporal.temporalScope}`)}` : legacyId;
         evidence.push({id,identityKey,subjectUuid:actualSubject,relationType:type,objectUuid,
           sourceUuid:entry.uuid,sourcePageUuid:page.uuid,sourceKind:kind,sourceName:entry.name,sourceExcerpt:excerpt,
-          sourceOffset:paragraphOffset+sentenceHit.index,provenance:[{provider:"explicit-relationship-pattern",rule:type}],
+          sourceOffset:paragraphOffset+sentenceHit.index,provenance:[{provider:"explicit-relationship-pattern",rule:type,language,packVersion:globalThis.AdventurersTomeLanguage.versionFor(language)}],
           sourceSpan,
           confidence:hedged ? 0.55 : 0.95,visibility:"source-bounded",chronology:atReChronology(entry,kind),
-          status,polarity:negated ? "negative" : "positive",certainty:hedged ? (/\brumou?red\b/i.test(sentence) ? "rumoured" : "possible") : "asserted",
+          status,polarity:negated ? "negative" : "positive",certainty:hedged ? (atReLanguagePattern("rumoured",language).test(sentence) || claimContext.certainty==='rumoured' ? "rumoured" : "possible") : "asserted",
+          interpretationReasons:claimContext.reasons,
           ...temporal,
-          changeSemantics:ended ? "no_longer" : /\bformer\b/i.test(relationPrefix) ? "former" : null,active:true});
+          changeSemantics:ended ? "no_longer" : atReLanguagePattern("former",language).test(relationPrefix) ? "former" : null,active:true});
         if(informationContrast)evidence[evidence.length-1].provenance.push({provider:"source-role-and-information",roleExcerpt:informantRole[0],roleOffset:paragraphOffset+informantRole.index});
         attributedSubject=actualSubject;
       }
@@ -318,34 +379,50 @@ function atReExtract(entry, page, kind) {
   // Multiple extraction paths for the same excerpt do not create copies.
   return {evidence:[...new Map(evidence.map(row=>[row.id,atReNormalize(row)])).values()],diagnostics};
 }
-function atReExtractVisible() {
+function atReExtractVisible(sourceUuid="") {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("relationship-extraction");
+  try {
   const evidence=[],diagnostics=[];
-  for (const entry of game.journal?.contents || []) {
+  for (const entry of (game.journal?.contents || []).filter(entry=>!sourceUuid || entry.uuid === sourceUuid)) {
+    globalThis.AdventurersTomeStartup?.count("relationship-extraction","documentsScanned");
     const kind=atReSourceKind(entry);
     if (!kind || !atReCanRead(entry)) continue;
     for (const page of entry.pages?.contents || []) {
       if (!atReCanRead(page) && !game.user?.isGM) continue;
+      globalThis.AdventurersTomeStartup?.count("relationship-extraction","sourcesExtracted");
       const result=atReExtract(entry,page,kind);
       evidence.push(...result.evidence);diagnostics.push(...result.diagnostics);
     }
   }
   return {evidence,diagnostics};
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
-async function atReSync() {
+async function atReSync(options={}) {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("relationship-sync");
+  try {
   if (!game.user?.isGM) return {evidence:[],decisions:[],diagnostics:[]};
-  if (atReBusy) return atReBusy;
+  if (atReBusy) {
+    // Full startup syncs coalesce; a scoped decision needs its own fresh pass.
+    if (!options.sourceUuid) return await atReBusy;
+    await atReBusy;return atReSync(options);
+  }
   const activeGM=game.users?.activeGM;
   if (activeGM && activeGM.id !== game.user.id) return atReSnapshot();
   atReBusy=atReWrite(async()=>{
-    const old=atReLedger(false),current=atReExtractVisible();
-    const map=new Map(old.evidence.map(row=>[row.id,{...row,active:row.origin === "provider" ? row.active !== false && !!atReDocument(row.sourceUuid) : false}]));
+    const old=atReLedger(false),current=atReExtractVisible(options.sourceUuid);
+    const map=new Map(old.evidence.map(row=>[row.id,{...row,active:options.sourceUuid && row.sourceUuid !== options.sourceUuid ? row.active : row.origin === "provider" ? row.active !== false && !!atReDocument(row.sourceUuid) : false}]));
     for(const row of current.evidence)map.set(row.id,{...map.get(row.id),...row});
     const ledger={version:2,evidence:[...map.values()],decisions:old.decisions};
-    await game.settings.set(ATRE_ID,ATRE_SETTING,JSON.stringify(ledger));
-    Hooks.callAll("adventurersTomeRelationshipEvidenceUpdated",{count:ledger.evidence.length});
+    const payload=JSON.stringify(ledger);
+    if (game.settings.get(ATRE_ID,ATRE_SETTING) !== payload) {
+      await game.settings.set(ATRE_ID,ATRE_SETTING,payload);
+      globalThis.AdventurersTomeStartup?.count("relationship-sync","writes");
+      Hooks.callAll("adventurersTomeRelationshipEvidenceUpdated",{count:ledger.evidence.length,reviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
+    } else globalThis.AdventurersTomeStartup?.count("relationship-sync","unchangedSyncs");
     return {...atReClone(ledger),evidence:ledger.evidence.map(atReNormalize),diagnostics:current.diagnostics};
   });
   try { return await atReBusy; } finally { atReBusy=null; }
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 function atReSnapshot() {
   // Players derive only from presently observable sources. They never read
@@ -460,6 +537,30 @@ function atReRelationshipsFor(uuid) {
       history:rows.map(row=>({...atReClone(row),...atRePresentation(row.relationType,atReResolution([row],snapshot.decisions),reverse)}))};
   }).filter(row=>game.user?.isGM || row.state === "current");
 }
+// Build from viewer-visible evidence BEFORE grouping, counting or resolving state.
+// The qa.41 profile API retains its contract; intelligence consumes this index once.
+function atReGraph() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("relationship-graph");
+  try {
+  globalThis.AdventurersTomeStartup?.count("relationship-graph","graphBuilds");
+  const snapshot=atReSnapshot(),groups=new Map();
+  for(const row of snapshot.evidence) {
+    if(!atReCanRead(atReDocument(row.subjectUuid)) || !atReCanRead(atReDocument(row.objectUuid)))continue;
+    const sourceDocument=atReDocument(row.sourceUuid),page=row.sourcePageUuid ? atReDocument(row.sourcePageUuid) : null;
+    const source=row.sourcePageUuid ? (page?.parent?.uuid === sourceDocument?.uuid || page?.uuid === sourceDocument?.uuid ? page : null) : sourceDocument;
+    if(!game.user?.isGM && (!atReCanRead(source) || row.visibility === "gm"))continue;
+    if(!groups.has(row.identityKey))groups.set(row.identityKey,[]);
+    groups.get(row.identityKey).push({...row,active:source ? row.active : false,sourceMissing:!source,sourceName:source?.parent?.name || source?.name || row.sourceName});
+  }
+  return [...groups.values()].map(rows=>{
+    const first=rows[0],resolution=atReResolution(rows,snapshot.decisions);
+    return {id:first.identityKey,subjectUuid:first.subjectUuid,objectUuid:first.objectUuid,relationType:first.relationType,
+      ...resolution,...atRePresentation(first.relationType,resolution),inverse:atRePresentation(first.relationType,resolution,true),
+      history:rows.map(row=>({...atReClone(row),...atRePresentation(row.relationType,atReResolution([row],snapshot.decisions)),
+        inverse:atRePresentation(row.relationType,atReResolution([row],snapshot.decisions),true)}))};
+  });
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
+}
 function atReReview(sourceUuid="") {
   if (!game.user?.isGM) return [];
   const snapshot=atReSnapshot();
@@ -481,12 +582,13 @@ async function atReDecide(evidenceId,action) {
     return atReClone(row);
   });
 }
-function atReSchedule() {
+function atReSchedule(document,changes,options={}) {
+  if (options.adventurersTomeReviewDecision || (globalThis.AdventurersTomeReviewDecision?.isActive?.() && document?.reason === "guided-gm-decision")) return;
   if(!game.user?.isGM)return;
   window.clearTimeout(atReTimer);
   atReTimer=window.setTimeout(()=>void atReSync().catch(error=>console.warn("Adventurer's Tome | Relationship sync",error)),260);
 }
-const ATRE_API=Object.freeze({version:2,sync:atReSync,snapshot:atReSnapshot,relationshipsFor:atReRelationshipsFor,review:atReReview,decide:atReDecide,ingest:atReIngest,normalize:atReNormalize,registry:ATRE_REGISTRY});
+const ATRE_API=Object.freeze({version:2,sync:atReSync,snapshot:atReSnapshot,relationshipsFor:atReRelationshipsFor,graph:atReGraph,sourceKind:atReSourceKind,review:atReReview,decide:atReDecide,ingest:atReIngest,normalize:atReNormalize,registry:ATRE_REGISTRY});
 Hooks.once("init",()=>game.settings.register(ATRE_ID,ATRE_SETTING,{scope:"user",config:false,type:String,default:JSON.stringify({version:1,evidence:[],decisions:[]})}));
 Hooks.once("ready",()=>{const module=game.modules.get(ATRE_ID);module.api ||= {};module.api.campaignRelationshipEvidence=ATRE_API;atReSchedule();});
 Hooks.on("adventurersTomeCampaignMentionEvidenceUpdated",atReSchedule);

@@ -1,10 +1,10 @@
-# Adventurer's Tome v1.0.0
+# Adventurer's Tome v1.7.0
 
 **Adventurer's Tome** is a system-agnostic campaign workspace and living campaign archive for Foundry VTT.
 
 > Foundry is the game table. Adventurer's Tome is the campaign's memory and heart.
 
-The 1.0 line is verified on **Foundry VTT 13.351**. Foundry V14 compatibility is planned for the 1.0.x hardening track.
+Version 1.7.0 is verified on **Foundry VTT 13.351**. See the [1.7.0 release notes](docs/V1.7_STABLE_RELEASE.md) for the implemented improvements.
 
 ## What Adventurer's Tome does
 
@@ -86,11 +86,11 @@ The Full GM Archive can contain unrevealed secrets and private notes. Keep it pr
 
 Use the stable manifest:
 
-`https://github.com/GuteboysFactory/AdventurersTome/releases/download/1.0.0/module.json`
+`https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json`
 
 Or install manually:
 
-1. Download `adventurers-tome.zip` from the v1.0.0 GitHub release.
+1. Download `adventurers-tome.zip` from the 1.7.0 GitHub release.
 2. Extract/install the module into Foundry's module data directory.
 3. Start Foundry VTT 13.351.
 4. Enable **Adventurer's Tome** under Manage Modules.

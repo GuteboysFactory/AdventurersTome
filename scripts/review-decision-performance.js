@@ -1,0 +1,23 @@
+// Per-click, content-free profiling and render batching. Authoritative writes
+// remain in the existing Campaign Link / learning APIs.
+const ATRD_PHASES=new Set(['handler-start','selection','journal-write','evidence-write','intelligence-invalidation','tome-render-context','relationship-sync','canonical-write','decision-save','identity-create','memory-refresh','relationship-refresh','context','memory-view','review-queue','render','dialog-close','relationship-graph','relationship-extraction','entity-intelligence','visible-document-pass']);
+let atRdActive=null,atRdLast=null;
+function atRdDeferExternal(uuid,refresh){if(atRdActive)atRdActive.external.set(String(uuid),refresh);else refresh();}
+function atRdTrackCreated(uuid){if(atRdActive)atRdActive.created.add(String(uuid));}
+const atRdNow=()=>globalThis.performance?.now?.()??Date.now();
+function atRdCount(phase,key,value=1){if(!atRdActive)return;const label=ATRD_PHASES.has(phase)?phase:'signals',safe=/^(?:calls|writes|renders|deferredRenders|fullScans|sourceScans|sourceVisits|analysisRuns|reviewRebuilds|graphBuilds|indexBuilds|cacheHits|passes|documentsScanned|sourcesExtracted|JournalEntry|JournalEntryPage|Actor|Item|invalidations|hooks|campaignLinkRefreshes|entityCreates|unchangedSyncs)$/.test(key)?key:'other';const row=atRdActive.stages[label]||={ms:0,counters:{}};row.counters[safe]=(row.counters[safe]||0)+Number(value||0);}
+function atRdBeginPhase(phase){return atRdActive?{owner:atRdActive,phase:ATRD_PHASES.has(phase)?phase:'signals',started:atRdNow()}:null;}
+function atRdEndPhase(token){if(!token||!atRdActive||token.owner!==atRdActive)return;const phase=ATRD_PHASES.has(token.phase)?token.phase:"signals";const row=atRdActive.stages[phase]||={ms:0,counters:{}};row.ms+=atRdNow()-token.started;}
+async function atRdMeasure(phase,work){const token=atRdBeginPhase(phase);try{return await work();}finally{atRdEndPhase(token);}}
+function atRdBegin(action,app,event){if(atRdActive)return null;const started=atRdNow();atRdActive={action:['choose','create','keep','mention-only','undo'].includes(action)?action:'other',started,created:new Set(),external:new Map(),stages:Object.fromEntries([...ATRD_PHASES].map(phase=>[phase,{ms:0,counters:{}}])),app,render:app.render};atRdCount('handler-start','calls');if(Number.isFinite(event?.timeStamp)&&event.timeStamp<=started)atRdActive.stages['handler-start'].ms=started-event.timeStamp;
+ atRdActive.clickStarted=Number.isFinite(event?.timeStamp)&&event.timeStamp<=started&&event.timeStamp>=0?event.timeStamp:started;
+ if(Number.isFinite(event?.dialogClosedAt)&&event.dialogClosedAt>=atRdActive.clickStarted)atRdActive.stages['dialog-close'].ms=event.dialogClosedAt-atRdActive.clickStarted;
+ atRdActive.dispatch=Hooks.callAll;const state=atRdActive;Hooks.callAll=function(...args){atRdCount("signals","hooks");return state.dispatch.apply(this,args);};
+ app.render=async()=>{atRdCount('render','deferredRenders');return app;};return atRdActive;
+}
+async function atRdRender(){if(!atRdActive)return;const state=atRdActive;await atRdMeasure('render',()=>state.render.call(state.app,{parts:['main']}));atRdCount('render','renders');}
+function atRdFinish(token){if(!token||atRdActive!==token)return;token.app.render=token.render;Hooks.callAll=token.dispatch;atRdLast={action:token.action,totalMs:Number((atRdNow()-token.clickStarted).toFixed(2)),stages:Object.fromEntries(Object.entries(token.stages).map(([name,row])=>[name,{ms:Number(row.ms.toFixed(2)),counters:{...row.counters}}]))};atRdActive=null;for(const [uuid,refresh]of token.external)if(![...token.created].some(root=>uuid===root||uuid.startsWith(`${root}.`)))refresh();if(game.user?.isGM){console.info("Adventurer's Tome | Review Decision Profile (overlapping phases)");console.table?.(Object.entries(atRdLast.stages).map(([phase,row])=>({phase,ms:row.ms,...row.counters})));console.info(`Adventurer's Tome | Review Decision Profile TOTAL ${atRdLast.totalMs} ms`);}}
+globalThis.AdventurersTomeReviewDecision=Object.freeze({begin:atRdBegin,finish:atRdFinish,measure:atRdMeasure,beginPhase:atRdBeginPhase,endPhase:atRdEndPhase,count:atRdCount,render:atRdRender,trackCreated:atRdTrackCreated,deferExternal:atRdDeferExternal,isActive:()=>!!atRdActive,snapshot:()=>game.user?.isGM&&atRdLast?foundry.utils.deepClone(atRdLast):null});
+for(const name of ['updateJournalEntry','updateJournalEntryPage','updateActor','updateItem','createJournalEntry','createJournalEntryPage','createActor','createItem'])Hooks.on(name,()=>{atRdCount('signals',name.startsWith('update') ? name.slice(6) : 'entityCreates');});
+
+Hooks.once('ready',()=>{const module=game.modules.get('adventurers-tome');module.api||={};module.api.reviewDecisionPerformance=globalThis.AdventurersTomeReviewDecision;});

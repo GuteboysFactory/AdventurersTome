@@ -9,52 +9,23 @@ const BANDS = Object.freeze({
   SUPPRESSED:"suppressed"
 });
 
-const CONNECTORS = new Set(["of","the","de","da","del","van","von","af","av"]);
-const LEADING_ARTICLES = new Set(["the","a","an","den","det","en","ett"]);
-const LEADING_CONTEXT_WORDS = new Set([
-  "before","after","during","behind","beside","beneath","above","near","on","in","at","from","to","toward","towards",
-  "through","across","within","outside","inside","around","shortly","later","meanwhile","rather","according","with","without",
-  "by","beyond","under","over","although",
-  "is","are","was","were","did","does","do","has","have","had","can","could","would","should","might","must",
-  "före","efter","under","bakom","bredvid","nära","på","i","från","till","mot","genom","över","med","utan",
-  "ar","var","kan","ska","skall","har","hade","vill","bor"
-]);
-const COMMON_SINGLETONS = new Set([
-  "the","a","an","and","but","or","before","after","during","according","near","on","in","at","from","to","toward","towards",
-  "shortly","somewhere","meanwhile","later","then","when","while","there","here","this","that","these","those","he","she","they",
-  "his","her","their","it","its","we","our","you","your","i","my","yes","no","one","although",
-  "is","are","was","were","did","does","do","has","have","had","can","could","would","should","might","must",
-  "den","det","en","ett","och","men","eller","före","efter","under","nära","på","i","från","till","mot","senare","där","här",
-  "ar","var","kan","ska","skall","har","hade","vill","bor"
-]);
+const CONNECTORS = new Set(globalThis.AdventurersTomeLanguage.words("CONNECTORS"));
+const LEADING_ARTICLES = new Set(globalThis.AdventurersTomeLanguage.words("LEADING_ARTICLES"));
+const LEADING_CONTEXT_WORDS = new Set(globalThis.AdventurersTomeLanguage.words("LEADING_CONTEXT_WORDS"));
+const COMMON_SINGLETONS = new Set(globalThis.AdventurersTomeLanguage.words("COMMON_SINGLETONS"));
 
-const CHARACTER_TITLES = new Set([
-  "brother","sister","captain","lord","lady","sir","dame","father","mother","master","mistress","doctor","dr","sergeant",
-  "general","commander","king","queen","prince","princess","duke","duchess","baron","baroness","abbot","abbess"
-]);
+const CHARACTER_TITLES = new Set(globalThis.AdventurersTomeLanguage.words("CHARACTER_TITLES"));
 
-const LOCATION_SUFFIXES = new Set([
-  "ford","pass","ruins","keep","marsh","pines","road","gate","tower","bridge","crossing","hollow","wood","woods","forest",
-  "vale","valley","hill","hills","mount","mountain","mountains","river","lake","mere","moor","village","town","city","fort",
-  "fortress","castle","cave","caves","mine","mines","isle","island","coast","harbor","harbour","bay","reach","watch",
-  "abbey","temple","monastery","shrine","sanctuary","citadel","stronghold","manor","palace","camp","outpost","chapel","inn","tavern","hotel"
-]);
+const LOCATION_SUFFIXES = new Set(globalThis.AdventurersTomeLanguage.words("LOCATION_SUFFIXES"));
 
-const FACTION_SUFFIXES = new Set([
-  "company","order","guild","clan","tribe","hand","guard","guards","brotherhood","sisterhood","circle","council","host","legion",
-  "army","cult","league","banner","wolves","riders","choir","militia","wardens"
-]);
+const FACTION_SUFFIXES = new Set(globalThis.AdventurersTomeLanguage.words("FACTION_SUFFIXES"));
 
-const ITEM_SUFFIXES = new Set([
-  "key","blade","sword","axe","bow","ring","crown","staff","wand","book","tome","map","stone","gem","amulet","relic","artifact",
-  "shield","helm","horn","lantern","chalice","seal","token"
-]);
+const ITEM_SUFFIXES = new Set(globalThis.AdventurersTomeLanguage.words("ITEM_SUFFIXES"));
 
-const LORE_SUFFIXES = new Set([
-  "oath","prophecy","legend","ritual","pact","curse","blessing","song","lay","tale","doctrine","creed","law","secret","accord"
-]);
+const LORE_SUFFIXES = new Set(globalThis.AdventurersTomeLanguage.words("LORE_SUFFIXES"));
 
 let lastSnapshot = null;
+let lastNotifiedContent = null;
 let scanTimer = null;
 
 const stats = {
@@ -170,6 +141,11 @@ function plainText(html) {
   host.innerHTML = String(html ?? "");
   return clean(host.textContent || host.innerText || "").replace(/\s+/g, " ");
 }
+function referenceSource(html) {
+  const host=document.createElement('div');
+  host.innerHTML=String(html??'').replace(/<br\s*\/?\s*>|<\/(?:p|div|li|h[1-6])>/giu,'\n');
+  return clean(host.textContent||host.innerText||'');
+}
 
 function discoveryApi() {
   return game.modules.get(MODULE_ID)?.api?.discovery || null;
@@ -224,7 +200,7 @@ function stripLeadingContext(tokens) {
   return out;
 }
 
-function candidateRuns(text) {
+function candidateRuns(text, knownIndex = {}) {
   const tokens = tokenize(text);
   const rows = [];
 
@@ -236,17 +212,18 @@ function candidateRuns(text) {
 
     for (let j = i + 1; j < tokens.length && run.length < 9; j += 1) {
       const gap = String(text).slice(lastEnd, tokens[j].start);
-      if (!/^\s+$/u.test(gap)) break;
+      if (!/^\s+$/u.test(gap) && !(gap.match(/^\.\s+$/u) && CHARACTER_TITLES.has(run.at(-1).normalized))) break;
 
       const normalized = tokens[j].normalized;
       // A conjunction can belong to a named establishment, but must not
       // combine a party enumeration such as Baran and Citronimus.
       const establishmentTail = tokens.slice(j + 1, j + 5).findIndex((token, offset, tail) =>
-        ["inn","tavern","hotel"].includes(token.normalized)
-        && tail.slice(0, offset + 1).every((part, k) => properToken(part.clean)
+        ["inn","tavern","hotel","vardshus","vardshuset"].includes(token.normalized)
+        && tail.slice(0, offset + 1).every((part, k) => (properToken(part.clean) || k === offset)
           && /^\s+$/u.test(String(text).slice(k ? tail[k-1].end : tokens[j].end, part.start))));
       const allowed = properToken(tokens[j].clean) || CONNECTORS.has(normalized)
-        || (normalized === "and" && establishmentTail >= 0)
+        || (["and","och"].includes(normalized) && establishmentTail >= 0)
+        || ((ITEM_SUFFIXES.has(normalized) || FACTION_SUFFIXES.has(normalized) || globalThis.AdventurersTomeLanguage.documentHead(tokens[j].clean)) && /(?:s|[’']s)$/iu.test(run[0].raw))
         || normalized === "militia";
       if (!allowed) break;
 
@@ -255,6 +232,7 @@ function candidateRuns(text) {
     }
 
     const trimmed = stripLeadingContext(run);
+    while (trimmed.length && CONNECTORS.has(trimmed.at(-1).normalized)) trimmed.pop();
     if (!trimmed.length) continue;
 
     const first = trimmed[0];
@@ -289,6 +267,15 @@ function candidateRuns(text) {
     i += Math.max(0, run.length - 1);
   }
 
+  // A Swedish possessive is evidence for a previously named base, never a
+  // reason to remove the final s from arbitrary names such as Jonas or Vis.
+  for (const row of rows) {
+    if (row.tokenCount !== 1 || !/s$/u.test(row.text)) continue;
+    const base=row.text.slice(0,-1),normalized=normalizeText(base);
+    if (!/^(?:\s+)(?:södra|norra|östra|västra|port|torg|väg|centrum)(?![\p{L}\p{N}])/iu.test(String(text).slice(row.end))) continue;
+    if (!rows.some(other=>other.normalized===normalized) && !knownIndex.names?.has(normalized)) continue;
+    row.text=base;row.normalized=normalized;row.end-=1;
+  }
   return rows;
 }
 
@@ -333,11 +320,15 @@ function scoreClassification(text, context, occurrence = {}) {
   const ctx = normalizeText(context);
   const anchored = Number.isFinite(occurrence.contextOffset);
   const beforeName = anchored ? normalizeText(String(context).slice(0, occurrence.contextOffset)) : ctx.slice(0, ctx.indexOf(phrase)).trim();
-  const afterName = anchored ? ` ${normalizeText(String(context).slice(occurrence.contextOffset + text.length))}` : ctx.slice(ctx.indexOf(phrase) + phrase.length);
-  const personRole = /^(?: a| an| the)? (?:travelling |traveling |occasional )?(quartermaster|ferryman|informant|commander|healer|officer|merchant|scout|captain|guide|keeper)\b/u.test(afterName);
+  const rawAfter = Number.isFinite(occurrence.contextOffset) ? String(context).slice(occurrence.contextOffset + text.length) : String(context).slice(String(context).indexOf(text)+text.length);
+  // Require an attached role, not the next named speaker ("According to X,
+  // Captain Y ..."). Modifiers such as former do not truncate the person's name.
+  const personRole = globalThis.AdventurersTomeLanguage.anyPattern("personRole").test(rawAfter)
+    || globalThis.AdventurersTomeLanguage.roleEvidence(context,[text]).length > 0;
+  const documentRole = globalThis.AdventurersTomeLanguage.anyPattern("documentRole").test(beforeName);
   // Motion/residence attached to this occurrence is place evidence. A generic
   // "in/from/near" elsewhere (or "left Gunther") is not enough.
-  const placeRole = /\b(?:toward|towards|arrived at|arrived in|remained in|stayed in|travelled to|traveled to|roads? north of|roads? south of|roads? east of|roads? west of)$/u.test(beforeName);
+  const placeRole = globalThis.AdventurersTomeLanguage.anyPattern("placeRole").test(beforeName);
 
   const scores = {
     character:0,
@@ -362,29 +353,29 @@ function scoreClassification(text, context, occurrence = {}) {
   if (CHARACTER_TITLES.has(first)) add("character", 0.72, "character-title");
   if (LOCATION_SUFFIXES.has(last)) add("location", 0.68, "location-suffix");
   if (FACTION_SUFFIXES.has(last)) add("faction", 0.56, "faction-suffix");
-  if (["order","guild","clan","brotherhood","fellowship"].includes(first) && parts.includes("of")) add("faction", 0.82, "faction-name-prefix");
-  if (ITEM_SUFFIXES.has(last)) add("item", 0.68, "item-suffix");
+  if (globalThis.AdventurersTomeLanguage.anyPattern("factionPrefix").test(phrase)) add("faction", 0.82, "faction-name-prefix");
+  if (ITEM_SUFFIXES.has(last) || parts.length>1 && globalThis.AdventurersTomeLanguage.documentHead(last)) add("item", 0.68, "item-suffix");
   if (LORE_SUFFIXES.has(last)) add("lore", 0.72, "lore-suffix");
 
-  if (/\b(met|named|called|healer|officer|man|woman|person|scout|merchant|guide|captain|brother|sister)\b/u.test(ctx)) {
+  if (globalThis.AdventurersTomeLanguage.anyPattern("characterContext").test(ctx)) {
     add("character", 0.28, "character-context");
   }
-  if (/\b(reached|arrived|entered|left|through|toward|towards|beneath|above|near|at|in|from|crossing|road|ruins|fortress|village|town|city)\b/u.test(ctx)) {
+  if (globalThis.AdventurersTomeLanguage.anyPattern("locationContext").test(ctx)) {
     add("location", 0.22, "location-context");
   }
-  if (/\b(soldiers? of|members? of|mark of|servants? of|warriors? of|agents? of|followers? of|faction|guild|clan|tribe|order|company|cult)\b/u.test(ctx)) {
+  if (globalThis.AdventurersTomeLanguage.anyPattern("factionContext").test(ctx)) {
     add("faction", 0.52, "faction-context");
   }
-  if (/\b(carried|carry|object|artifact|weapon|key|sword|ring|book|map|relic|item|open|unlock)\b/u.test(ctx)) {
+  if (globalThis.AdventurersTomeLanguage.anyPattern("itemContext").test(ctx)) {
     add("item", 0.30, "item-context");
   }
-  if (/\b(oath|legend|story|tale|prophecy|ritual|pact|curse|creed|secret|symbol|known as|remembered|forgotten)\b/u.test(ctx)) {
+  if (globalThis.AdventurersTomeLanguage.anyPattern("loreContext").test(ctx)) {
     add("lore", 0.32, "lore-context");
   }
 
-  if (phrase.includes("ruins")) add("location", 0.18, "location-lexeme");
-  if (phrase.includes("oath")) add("lore", 0.18, "lore-lexeme");
-  if (phrase.includes("key")) add("item", 0.18, "item-lexeme");
+  if (globalThis.AdventurersTomeLanguage.anyPattern("locationLexeme").test(phrase)) add("location", 0.18, "location-lexeme");
+  if (globalThis.AdventurersTomeLanguage.anyPattern("loreLexeme").test(phrase)) add("lore", 0.18, "lore-lexeme");
+  if (globalThis.AdventurersTomeLanguage.anyPattern("itemLexeme").test(phrase)) add("item", 0.18, "item-lexeme");
 
   // A role immediately attached to this name outweighs incidental vocabulary
   // elsewhere in the context (e.g. the surname Vale beside a river).
@@ -392,6 +383,10 @@ function scoreClassification(text, context, occurrence = {}) {
     scores.character = 0.99;
     scores.location = scores.faction = scores.item = scores.lore = 0;
     signals.character.push("person-role-apposition");
+  }
+  if(documentRole && !personRole && !CHARACTER_TITLES.has(first)) {
+    scores.item=0.99;scores.character=scores.location=scores.faction=scores.lore=0;
+    signals.item.push("document-title-source-role");
   }
   if (LOCATION_SUFFIXES.has(last) && last !== "watch" && !personRole) {
     scores.location = Math.max(0.9, scores.location);
@@ -451,7 +446,9 @@ function mergeAliases(rows, knownIndex) {
   // Place-name prefixes are distinct identities: Blackbridge is not an alias
   // for Blackbridge Watch. Only merge unique personal short names.
   const multi = rows.filter((row) => row.tokenCount > 1
-    && scoreClassification(row.text, row.context, row).kind === "character");
+    && (scoreClassification(row.text, row.context, row).kind === "character"
+      || (knownIndex?.entities || []).some(entity=>normalizeText(entity.name)===row.normalized
+        && ['character','contact','npc'].includes(entity.kind))));
   const aliases = new Map();
 
   for (const row of multi) {
@@ -473,13 +470,20 @@ function mergeAliases(rows, knownIndex) {
     const established = targets.filter((name)=>rows.some((full)=>full.normalized === name && full.start < row.start
       && full.sourceJournalUuid === row.sourceJournalUuid && full.sourcePageUuid === row.sourcePageUuid));
     if (established.length > 1) row.ambiguousSourceReference = true;
-    const target = rows.find((candidate) => candidate.normalized === targets[0]);
-    const authority = (entity) => game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid;
+    const localTarget = established.length === 1 ? established[0] : targets[0];
+    const target = rows.find((candidate) => candidate.normalized === localTarget);
+    const authority = (entity) => entity.analysisAuthority || game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid;
     const fullAuthorities = new Set((knownIndex?.entities || []).filter((entity) => normalizeText(entity.name) === target?.normalized).map(authority));
     const independentKnownName = (knownIndex?.entities || []).some((entity) => normalizeText(entity.name) === row.normalized && !fullAuthorities.has(authority(entity)));
-    if (targets.length === 1 && target.start < row.start && !independentKnownName
+    const competingFullName = (knownIndex?.entities || []).some((entity) => {
+      const parts=wordParts(entity.name),first=parts[CHARACTER_TITLES.has(parts[0])?1:0];
+      return parts.length>1 && first===row.normalized && normalizeText(globalThis.AdventurersTomeLanguage.nameForm(entity.name).text)!==normalizeText(globalThis.AdventurersTomeLanguage.nameForm(target?.text).text)
+        && !fullAuthorities.has(authority(entity));
+    });
+    if(targets.length && (competingFullName || independentKnownName))row.ambiguousSourceReference=true;
+    if (established.length === 1 && target.start < row.start && !independentKnownName && !competingFullName
       && target.sourceJournalUuid === row.sourceJournalUuid && target.sourcePageUuid === row.sourcePageUuid) {
-      row.aliasOf = targets[0];
+      row.aliasOf = localTarget;
       row.consolidationReason = "UNIQUE_SOURCE_FIRST_NAME_REFERENCE";
       stats.aliasMerged += 1;
     } else {
@@ -496,7 +500,7 @@ function aggregateCandidates(rawRows, knownIndex) {
 
     // Existing names and possible aliases must reach resolution, too.
 
-    if (row.tokenCount === 1 && COMMON_SINGLETONS.has(row.normalized)) {
+    if (row.tokenCount === 1 && COMMON_SINGLETONS.has(row.normalized) && !knownIndex.names.has(row.normalized)) {
       stats.commonFiltered += 1;
       return false;
     }
@@ -543,41 +547,111 @@ function aggregateCandidates(rawRows, knownIndex) {
   return [...byKey.values()];
 }
 
-function identityBriefing(grouped, text) {
+function identityBriefing(grouped, text, references=[]) {
   const names = new Set(grouped.occurrences.map((row) => normalizeText(row.text)));
-  const sentences = String(text).match(/[^.!?]+[.!?]?/gu) || [];
+  const sentences = globalThis.AdventurersTomeLanguage.sentences(text).map(hit=>hit[0]);
   let sameSubject = false;
   const relevant = sentences.map(clean).filter((sentence) => {
     const plain = normalizeText(sentence);
     const normalized = ` ${plain} `;
-    const pronounContinuation = sameSubject && /^(he|she|his|her)\b/u.test(plain);
+    const pronounContinuation = sameSubject && globalThis.AdventurersTomeLanguage.anyPattern("briefingPronoun").test(plain);
     sameSubject = [...names].some((name) => plain.startsWith(`${name} `)) || pronounContinuation;
     return pronounContinuation || [...names].some((name) => normalized.includes(` ${name} `));
   });
-  const roles = [...new Set(relevant.flatMap((sentence) => {
-    const normalized = normalizeText(sentence);
-    return [...names].flatMap((name) => {
-      const index = normalized.indexOf(name);
-      const after = normalized.slice(index + name.length);
-      const match = /^(?: a| an)? ((?:quartermaster|ferryman|informant|commander|healer|officer|merchant|scout|captain|guide)(?: and (?:occasional )?informant)?)/u.exec(after);
-      return match ? [match[1]] : [];
-    });
-  }))];
+  const starts=grouped.occurrences.every(row=>Number.isFinite(row.start)) ? new Set(grouped.occurrences.map(row=>row.start)) : null;
+  const roleEvidence=globalThis.AdventurersTomeLanguage.roleEvidence(text,grouped.occurrences.map(row=>row.text),starts,references);
+  const currentRoles=[...new Set(roleEvidence.filter(row=>row.status==='current').map(row=>row.role))];
+  const historicalRoles=[...new Set(roleEvidence.filter(row=>row.status==='historical').map(row=>row.role))];
+  // Keep the legacy display usable when only an explicitly former role exists.
+  const roles=currentRoles.length?currentRoles:historicalRoles;
   // These are attributed source excerpts, not asserted canonical relations.
   const briefItems = [];
-  if (roles.length) briefItems.push({ label:"Role / profession", value:roles.join(" / "), icon:"fa-briefcase" });
+  if (roles.length) briefItems.push({ label:"Role / profession", value:roles.join(" / "), icon:"fa-briefcase", temporalStatus:currentRoles.length?'current':'historical' });
   for (const [label, pattern, icon] of [
-    ["Faction / organization", /\b(wardens|faction|guild|militia|member|order)\b/iu, "fa-flag"],
-    ["Location", /\b(operates|works|watch|bridge|blackbridge|valley|ruins)\b/iu, "fa-location-dot"],
-    ["Relations (source)", /\b(friend|knows|knew|recognized|ow(?:e|ed)|supplied|cooperates|suspects|suspected)\b/iu, "fa-people-arrows"]
+    ["Faction / organization", globalThis.AdventurersTomeLanguage.anyPattern("briefingFaction"), "fa-flag"],
+    ["Location", globalThis.AdventurersTomeLanguage.anyPattern("briefingLocation"), "fa-location-dot"],
+    ["Relations (source)", globalThis.AdventurersTomeLanguage.anyPattern("briefingRelations"), "fa-people-arrows"]
   ]) {
-    const excerpts = relevant.filter((sentence) => pattern.test(sentence)).slice(0, 3);
+    const excerpts = relevant.filter((sentence) => pattern.test(normalizeText(sentence))).slice(0, 3);
     if (excerpts.length) briefItems.push({ label, value:excerpts.join(" "), icon });
   }
-  return { roles, briefItems, excerpts:relevant, sourceDerived:true };
+  if(historicalRoles.length && currentRoles.length)briefItems.push({label:'Historical role',value:historicalRoles.join(' / '),icon:'fa-clock-rotate-left',temporalStatus:'historical'});
+  return { roles, currentRoles, historicalRoles, roleEvidence, briefItems, excerpts:relevant, sourceDerived:true };
 }
 
+// The same pure page analysis runs in the worker and in compatibility tests.
+function analyzePage({text,referenceText:referenceTextInput,knownIndex,journal,page,kind}) {
+  const before={...stats};
+  const diagnostics=[],groups=[];
+      const raw = candidateRuns(text,knownIndex).map((row) => ({
+        ...row,
+        context:sourceContext(text, row.start, row.end),
+        contextOffset:row.start - Math.max(0, row.start - 105),
+        sourceKind:kind,
+        sourceJournalUuid:journal.uuid,
+        sourcePageUuid:page.uuid,
+        sourceName:journal.name,
+        pageName:page.name
+      }));
+      const referenceNames=raw.filter(row=>!COMMON_SINGLETONS.has(row.normalized));
+      const personNames=new Set(referenceNames.filter(row=>scoreClassification(row.text,row.context,row).kind==='character'
+        || knownIndex.entities.some(entity=>normalizeText(entity.name)===row.normalized&&['character','contact','npc'].includes(entity.kind))).map(row=>row.text));
+      // Legacy discovery offsets use collapsed whitespace. Analyse paragraphs
+      // separately and map back only when both coordinate spaces agree.
+      const referenceText=referenceTextInput;
+      const toOffset=offset=>referenceText.slice(0,offset).replace(/\s+/gu,' ').trimStart().length;
+      const references=referenceText.replace(/\s+/gu,' ')===text
+        ? globalThis.AdventurersTomeLanguage.references(referenceText,referenceNames.map(row=>row.text))
+          .filter(row=>personNames.has(row.resolved))
+          .map(row=>({...row,start:toOffset(row.start),end:toOffset(row.end),antecedentStart:toOffset(row.antecedentStart)})) : [];
+
+      stats.rawCandidates += raw.length;
+      const aggregate = aggregateCandidates(raw, knownIndex);
+      diagnostics.push(...raw.map((hit) => ({
+        sourceJournalUuid:journal.uuid, sourcePageUuid:page.uuid,
+        text:hit.text, start:hit.start, end:hit.end,
+        status:hit.aliasOf ? hit.consolidationReason : COMMON_SINGLETONS.has(hit.normalized) ? "COMMON_GRAMMAR_TOKEN" : "FINAL_CANDIDATE",
+        candidateNormalized:hit.aliasOf || hit.normalized,
+        candidateId:COMMON_SINGLETONS.has(hit.normalized) ? "" : `unknown:${page.uuid}:${hit.aliasOf || hit.normalized}`
+      })));
+
+      for (const grouped of aggregate) {
+        const occurrences = grouped.occurrences;
+        if (!occurrences.length) continue;
+
+        const typeVotes = occurrences.filter((row) => !row.aliasOf).map((row) => scoreClassification(row.text, row.context, row));
+        const classification = typeVotes
+          .sort((a, b) => b.confidence - a.confidence)[0] || { kind:"unknown", confidence:0, signals:[], alternatives:[] };
+
+        const representative = {
+          ...occurrences[0],
+          text:grouped.text,
+          normalized:grouped.normalized,
+          tokenCount:grouped.tokenCount,
+          classification
+        };
+        const occurrenceCount = new Set(occurrences.map((row) => `${row.consolidatedStart ?? row.start}:${row.consolidatedEnd ?? row.end}`)).size;
+        const detection = detectionAssessment(representative, occurrenceCount);
+
+        const disposition = detection.band === BANDS.HIGH && classification.confidence >= 0.45
+          ? BANDS.HIGH
+          : detection.band === BANDS.WEAK
+            ? BANDS.WEAK
+            : BANDS.REVIEW;
+
+        groups.push({grouped,classification,detection,disposition,briefing:identityBriefing(grouped,text,references)});
+      }
+      const counters=Object.fromEntries(Object.entries(stats).filter(([,value])=>typeof value==='number').map(([key,value])=>[key,value-before[key]]));
+      Object.assign(stats,before);
+      return {groups,diagnostics,counters};
+}
+globalThis.AdventurersTomeAnalyzePage=analyzePage;
+
 async function scan(options = {}) {
+  const startupToken=globalThis.AdventurersTomeStartup?.begin("new-entity-discovery");
+  try {
+  globalThis.AdventurersTomeReviewDecision?.count("memory-refresh",options.sourceUuid ? "sourceScans" : "fullScans");
+  globalThis.AdventurersTomeReviewDecision?.count("memory-refresh","analysisRuns");
   stats.scans += 1;
   stats.sources = 0;
   stats.pages = 0;
@@ -617,11 +691,13 @@ async function scan(options = {}) {
   }
 
   const knownIndex = knownIdentityIndex(discoverySnapshot, mentionSnapshot);
+  knownIndex.entities=knownIndex.entities.map(entity=>({name:entity.name,kind:entity.kind,canonicalUuid:entity.canonicalUuid,analysisAuthority:game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid}));
   const candidates = [];
   const suppressedCandidates = [];
   const diagnostics = [];
 
-  for (const source of campaignSources(user)) {
+  for (const source of campaignSources(user).filter(source=>!options.sourceUuid || source.journal.uuid === options.sourceUuid)) {
+    globalThis.AdventurersTomeReviewDecision?.count("memory-refresh","sourceVisits");
     const { journal, kind } = source;
     stats.sources += 1;
 
@@ -637,51 +713,14 @@ async function scan(options = {}) {
       const text = plainText(removeFoundryInlineRefs(safeHtml));
       if (!text) continue;
 
-      const raw = candidateRuns(text).map((row) => ({
-        ...row,
-        context:sourceContext(text, row.start, row.end),
-        contextOffset:row.start - Math.max(0, row.start - 105),
-        sourceKind:kind,
-        sourceJournalUuid:journal.uuid,
-        sourcePageUuid:page.uuid,
-        sourceName:journal.name,
-        pageName:page.name
-      }));
-
-      stats.rawCandidates += raw.length;
-      const aggregate = aggregateCandidates(raw, knownIndex);
-      diagnostics.push(...raw.map((hit) => ({
-        sourceJournalUuid:journal.uuid, sourcePageUuid:page.uuid,
-        text:hit.text, start:hit.start, end:hit.end,
-        status:hit.aliasOf ? hit.consolidationReason : COMMON_SINGLETONS.has(hit.normalized) ? "COMMON_GRAMMAR_TOKEN" : "FINAL_CANDIDATE",
-        candidateNormalized:hit.aliasOf || hit.normalized,
-        candidateId:COMMON_SINGLETONS.has(hit.normalized) ? "" : `unknown:${page.uuid}:${hit.aliasOf || hit.normalized}`
-      })));
-
-      for (const grouped of aggregate) {
-        const occurrences = grouped.occurrences;
-        if (!occurrences.length) continue;
-
-        const typeVotes = occurrences.filter((row) => !row.aliasOf).map((row) => scoreClassification(row.text, row.context, row));
-        const classification = typeVotes
-          .sort((a, b) => b.confidence - a.confidence)[0] || { kind:"unknown", confidence:0, signals:[], alternatives:[] };
-
-        const representative = {
-          ...occurrences[0],
-          text:grouped.text,
-          normalized:grouped.normalized,
-          tokenCount:grouped.tokenCount,
-          classification
-        };
-        const occurrenceCount = new Set(occurrences.map((row) => `${row.consolidatedStart ?? row.start}:${row.consolidatedEnd ?? row.end}`)).size;
-        const detection = detectionAssessment(representative, occurrenceCount);
-
-        const disposition = detection.band === BANDS.HIGH && classification.confidence >= 0.45
-          ? BANDS.HIGH
-          : detection.band === BANDS.WEAK
-            ? BANDS.WEAK
-            : BANDS.REVIEW;
-
+      const payload={text,referenceText:referenceSource(removeFoundryInlineRefs(safeHtml)),knownIndex,journal:{uuid:journal.uuid,name:journal.name},page:{uuid:page.uuid,name:page.name},kind};
+      const indexService=globalThis.AdventurersTomeIndex;
+      const analysis=indexService && user?.isGM
+        ? await indexService.analyzePage(payload,()=>analyzePage(payload)) : analyzePage(payload);
+      diagnostics.push(...analysis.diagnostics);
+      for(const [key,value] of Object.entries(analysis.counters || {}))stats[key]+=value;
+      for (const {grouped,classification,detection,disposition,briefing} of analysis.groups) {
+        const occurrences=grouped.occurrences;
         const learning = reviewLearningApi()?.decisionFor?.(grouped.text, { sourceUuid:journal.uuid }) || null;
         if (learning?.action === "suppressed") {
           suppressedCandidates.push({
@@ -746,7 +785,7 @@ async function scan(options = {}) {
           })),
           detection,
           classification,
-          identityBriefing:identityBriefing(grouped, text),
+          identityBriefing:briefing,
           identity:{
             status:"no-existing-canonical-match",
             confidence:0,
@@ -768,6 +807,11 @@ async function scan(options = {}) {
     }
   }
 
+  if(options.sourceUuid && lastSnapshot?.viewerUserId === clean(user?.id) && lastSnapshot?.viewerIsGM === Boolean(user?.isGM)) {
+    candidates.push(...(lastSnapshot.candidates || []).filter(row=>row.sourceJournalUuid !== options.sourceUuid));
+    suppressedCandidates.push(...(lastSnapshot.suppressedCandidates || []).filter(row=>row.sourceJournalUuid !== options.sourceUuid));
+    diagnostics.push(...(lastSnapshot.diagnostics || []).filter(row=>row.sourceJournalUuid !== options.sourceUuid));
+  }
   lastSnapshot = Object.freeze({
     contract:CONTRACT,
     version:VERSION,
@@ -802,8 +846,13 @@ async function scan(options = {}) {
     }
   });
 
-  Hooks.callAll("adventurersTomeNewEntityDiscoveryUpdated", clone(lastSnapshot.summary));
+  const content=JSON.stringify([lastSnapshot.viewerUserId,lastSnapshot.viewerIsGM,lastSnapshot.candidates,lastSnapshot.suppressedCandidates,lastSnapshot.diagnostics]);
+  if(!options.silent && content !== lastNotifiedContent) {
+    lastNotifiedContent=content;
+    Hooks.callAll("adventurersTomeNewEntityDiscoveryUpdated", clone(lastSnapshot.summary));
+  }
   return clone(lastSnapshot);
+  } finally {globalThis.AdventurersTomeStartup?.end(startupToken);}
 }
 
 function snapshot() {
@@ -886,8 +935,10 @@ const publicApi = Object.freeze({
   confidenceBands:Object.freeze({ ...BANDS }),
   scan,
   snapshot,
+  restoreSnapshot:(value)=>{if(game.user?.isGM && value?.viewerUserId===String(game.user.id) && value?.viewerIsGM)lastSnapshot=clone(value);},
   candidatesForSource,
   candidateForMention,
+  briefingFor:({text='',names=[]}={})=>game.user?.isGM ? clone(identityBriefing({occurrences:names.filter(Boolean).map(text=>({text}))},plainText(text))) : null,
   consolidate:(rows=[])=>clone(aggregateCandidates(clone(rows),knownIdentityIndex(discoveryApi()?.snapshot?.(),null))),
   suppressedForSource,
   audit
@@ -902,6 +953,8 @@ function attach() {
 }
 
 function scheduleScan(reason = "lifecycle") {
+  if(game.user?.isGM && globalThis.AdventurersTomeIndex?.request(reason)) return;
+  if (globalThis.AdventurersTomeReviewDecision?.isActive?.() && ["known-mentions-updated","campaign-learning-updated","discovery-updated"].includes(reason)) return;
   window.clearTimeout(scanTimer);
   scanTimer = window.setTimeout(() => {
     scanTimer = null;
@@ -919,7 +972,8 @@ Hooks.once("ready", () => {
   console.info("Adventurer's Tome | New Entity Discovery v1 ready (read-only).");
 });
 
-Hooks.on("updateJournalEntry", (journal) => {
+Hooks.on("updateJournalEntry", (journal,changes={},options={}) => {
+  if(options.adventurersTomeReviewDecision && Object.keys(changes).every(key=>key.startsWith("flags.adventurers-tome."))) return;
   const kind = journalKind(journal);
   if (kind === "session" || kind === "quest") scheduleScan("journal-updated");
 });

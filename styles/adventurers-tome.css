@@ -3501,6 +3501,11 @@
 .at-link-chip-list button { width:auto!important; height:auto!important; min-height:32px!important; max-height:none!important; display:inline-flex; align-items:center; gap:6px; padding:6px 9px; border:1px solid rgba(214,178,108,.18); background:rgba(24,17,10,.65); color:#d6b977; text-align:left; font-size:10px; }
 .at-link-chip-list button:hover { border-color:rgba(214,178,108,.48); background:rgba(48,31,17,.78); color:#f0d18e; }
 .at-link-chip-list i { color:#9d783b; }
+.at-entity-intelligence .at-context-section + .at-context-section { margin-top:18px; }
+.at-entity-intelligence .at-context-section-title { margin:0 0 10px; font-family:inherit; font-size:15px; font-weight:600; color:#d6b977; }
+.at-entity-intelligence .at-context-group-title { margin:10px 0 7px; font-family:inherit; font-size:12px; font-weight:500; color:#bba575; }
+.at-entity-intelligence .at-link-chip-list { gap:8px; }
+.at-entity-intelligence .at-link-chip-list .at-context-chip { font-size:12px; white-space:normal; overflow-wrap:anywhere; max-width:100%; }
 .at-profile-campaign-links { margin-top:16px; }
 .at-campaign-link-columns { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
 .at-session-detail-stats > span { min-width:0; }
@@ -7492,3 +7497,54 @@
 .at-layout-tiny .at-guided-identity-brief {
   grid-template-columns: 1fr;
 }
+/* Source-scoped GM identity picker; intentionally independent of profile layouts. */
+.at-identity-picker { color: #ead9b5; background: #17120c; padding: 16px; border: 1px solid #6c532b; }
+.at-identity-picker-filters { display: flex; gap: 12px; flex-wrap: wrap; }
+.at-identity-picker-filters label { flex: 1 1 180px; display: grid; gap: 5px; }
+.at-identity-picker input[type="search"], .at-identity-picker select { width: 100%; color: #ead9b5; background: #292118; border: 1px solid #806339; }
+.at-identity-picker-results { max-height: 340px; overflow-y: auto; display: grid; gap: 8px; margin: 10px 0; }
+.at-identity-picker-row { display: flex; align-items: flex-start; gap: 10px; border: 1px solid #69512d; padding: 10px; cursor: pointer; }
+.at-identity-picker-row:has(input:checked) { background: #3b2c18; border-color: #d2a446; }
+.at-identity-picker-row > span { min-width: 0; display: grid; gap: 4px; overflow-wrap: anywhere; }
+.at-identity-picker-row small, .at-identity-picker-row code { color: #c4ad80; font-size: 12px; white-space: normal; }
+.at-identity-picker-status { font-size: 12px; }
+
+/* Keep candidate maintenance controls together with matching button treatment. */
+.at-guided-candidate-tools {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.at-guided-candidate-tools > button { flex: 0 0 auto; width: auto; }
+.at-guided-source-links > summary.at-secondary {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: 3px;
+  font: inherit;
+  text-transform: uppercase;
+  list-style: none;
+}
+.at-guided-source-links > summary::-webkit-details-marker { display: none; }
+.at-guided-source-links > summary:focus-visible { outline: 2px solid #d4ad60; outline-offset: 2px; }
+.at-guided-source-link { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+.at-guided-review-summary { display: block; cursor: pointer; list-style: none; }
+.at-guided-review-summary::-webkit-details-marker { display: none; }
+.at-guided-review-summary h4::before { content: '\25B8'; display: inline-block; margin-right: 8px; }
+.at-guided-review-details[open] > .at-guided-review-summary h4::before { content: '\25BE'; }
+.at-guided-review-summary:focus-visible { outline: 2px solid #d4ad60; outline-offset: 4px; }
+.at-guided-review-summary .at-guided-decision-header p { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.at-guided-review-body { margin-top: 12px; }
+
+/* Shared reading scale for relationship and identity Review cards. */
+.at-shell .at-guided-review-summary h4 { font-size: 20px; font-weight: bold; color: #ead8ad; line-height: 1.3; margin: 0 0 10px; }
+.at-shell .at-guided-review-summary p,
+.at-shell .at-guided-review-body p { font-size: 14px; color: #ead8ad; line-height: 1.5; }
+.at-shell .at-guided-review-summary small,
+.at-shell .at-guided-decision-context { font-size: 12px; line-height: 1.4; }
+.at-shell .at-guided-review-summary .at-analysis-state { font-size: 11px; }
+.at-shell .at-guided-review-summary .at-guided-decision-header p { display: block; overflow: visible; }
+.at-shell .at-guided-identity-brief small { font-size: 11px; }
+.at-shell .at-guided-identity-brief strong { font-size: 14px; line-height: 1.5; }

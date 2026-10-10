@@ -203,15 +203,17 @@ async function apply(input = {}, automaticCandidate = null) {
     try { document = await fromUuid(targetUuid); }
     catch (_error) { document = null; }
     if (!document?.uuid) throw new Error("Created entity no longer resolves after creation.");
+    globalThis.AdventurersTomeReviewDecision?.trackCreated(document.uuid);
 
-    await learningApi()?.recordCreated?.({
+    const measure=(phase,work)=>globalThis.AdventurersTomeReviewDecision?.measure ? globalThis.AdventurersTomeReviewDecision.measure(phase,work) : work();
+    await measure("decision-save",()=>learningApi()?.recordCreated?.({
       text:prepared.text,
       sourceUuid:prepared.sourceUuid,
       targetUuid:document.uuid,
       targetName:document.name,
       targetKind:document.documentName,
       semanticType
-    });
+    }));
 
     let campaignLinked = false;
     let campaignLinkError = "";
@@ -219,23 +221,26 @@ async function apply(input = {}, automaticCandidate = null) {
       try {
         const linkApi = campaignLinksApi();
         if (!linkApi?.linkCanonical) throw new Error("Campaign Entity Links API is unavailable.");
-        await linkApi.linkCanonical({
+        await measure("canonical-write",()=>linkApi.linkCanonical({
           sourceUuid:prepared.sourceUuid,
           targetUuid:document.uuid
-        });
+        }));
         campaignLinked = true;
-        await learningApi()?.markCampaignLinked?.({
+        await measure("decision-save",()=>learningApi()?.markCampaignLinked?.({
           text:prepared.text,
           sourceUuid:prepared.sourceUuid,
           targetUuid:document.uuid
-        });
+        }));
       } catch (error) {
         campaignLinkError = String(error?.message || error);
         console.warn("Adventurer's Tome | Entity created but Campaign Link convergence failed", error);
       }
     }
 
-    await refreshDiscovery();
+    if (globalThis.AdventurersTomeReviewDecision?.isActive?.()) {
+      try {await moduleApi()?.discovery?.refreshDocument?.(document.uuid);}
+      catch (_error) {console.warn("Adventurer's Tome | Canonical creation saved; discovery view needs refresh.");}
+    } else await refreshDiscovery();
     creates += 1;
     Hooks.callAll("adventurersTomeCampaignEntityCreated", {
       text:prepared.text,
@@ -287,21 +292,28 @@ function identityAliases(target, document) {
   return [...new Set(values.map((value) => normalize(typeof value === "object" ? value?.name || value?.text || value?.value : value)).filter(Boolean))];
 }
 
-function nameSimilarity(left, right) {
+function nameSimilarity(left, right, minimum=0) {
   if (!left || !right || Math.max(left.length,right.length) > 160) return 0;
+  const length=Math.max(left.length,right.length);
+  const budget=Math.floor((1-minimum)*length+1e-9);
+  if(Math.abs(left.length-right.length)>budget)return 0;
   let previous = Array.from({length:right.length+1},(_,i)=>i);
   for(let i=1;i<=left.length;i++) {
     const current=[i];
     for(let j=1;j<=right.length;j++)current[j]=Math.min(previous[j]+1,current[j-1]+1,previous[j-1]+(left[i-1]===right[j-1]?0:1));
+    // No continuation can undo an edit cost already above the acceptance bound.
+    if(Math.min(...current)>budget)return 0;
     previous=current;
   }
   return 1-previous[right.length]/Math.max(left.length,right.length);
 }
 
-function assessExistingMatch({ text, kind="unknown", sourceUuid="", target={}, explicitUuid="" } = {}) {
+function assessExistingMatch({ text, kind="unknown", sourceUuid="", target={}, explicitUuid="", currentIdentityName="" } = {}) {
   const document = identityDocument(target);
   const uuid = clean(target.canonicalUuid || target.uuid);
-  const name = normalize(target.name || document?.name).replace(/^the /u,"");
+  // Persisted suggestions may carry the mention's old display name alongside
+  // another entity's UUID. Assess the current document, not that stale label.
+  const name = normalize(currentIdentityName || document?.name || target.name).replace(/^the /u,"");
   const wanted = normalize(text).replace(/^the /u,"");
   const profile = document?.getFlag?.(MODULE_ID,"worldProfile");
   const documentKind = normalize(document?.getFlag?.(MODULE_ID,"type"));
@@ -322,26 +334,43 @@ function assessExistingMatch({ text, kind="unknown", sourceUuid="", target={}, e
   if ((campaignSource || ["session","quest","rule"].includes(targetFamily)) && !(explicit && ["session","quest","rule"].includes(family))) return {...rejected,reason:"not-a-compatible-campaign-entity"};
   if (explicit) return {eligible:true,safe:true,reason:"explicit-canonical-identity",authorityUuid};
   if (family && targetFamily && family !== targetFamily) return {...rejected,reason:"incompatible-entity-type"};
-  if (wanted === name) return {eligible:true,safe:true,reason:"exact-normalized-full-name",authorityUuid};
-  if (identityAliases(target,document).some((alias)=>alias.replace(/^the /u,"") === wanted)) return {eligible:true,safe:true,reason:"known-alias",authorityUuid};
+  if (wanted === name) return {eligible:true,safe:true,rank:100,reason:"exact-normalized-full-name",authorityUuid};
+  const language=globalThis.AdventurersTomeLanguage;
+  const wantedForm=language.nameForm(wanted),targetForm=language.nameForm(name);
+  if(targetFamily==='person' && wantedForm.normalized===targetForm.normalized
+    && wantedForm.text.split(/\s+/u).length>=2 && (wantedForm.titles.length || targetForm.titles.length))
+    return {eligible:true,safe:true,rank:98,reason:'title-qualified-full-name',authorityUuid};
+  if (identityAliases(target,document).some((alias)=>alias.replace(/^the /u,"") === wanted)) return {eligible:true,safe:true,rank:95,reason:"known-alias",authorityUuid};
   const left=wanted.split(" "),right=name.split(" ");
-  const fullName = left.length>=2 && left.length===right.length && nameSimilarity(wanted,name)>=0.85
-    && left.every((part,i)=>nameSimilarity(part,right[i])>=0.7);
-  if (fullName) return {eligible:true,safe:false,reason:"strong-compatible-full-name",authorityUuid};
+  const fullName = left.length>=2 && left.length===right.length && nameSimilarity(wanted,name,0.85)>=0.85
+    && left.every((part,i)=>nameSimilarity(part,right[i],0.7)>=0.7);
+  if (fullName) return {eligible:true,safe:false,rank:70,reason:"strong-compatible-full-name",authorityUuid};
+  // Whole personal-name tokens are useful Review choices, never automatic
+  // aliases. Also block creating a full name beside an existing short-name person.
+  const shorterPerson=left.length<right.length?left:right,longerPerson=left.length<right.length?right:left;
+  if(targetFamily==="person" && (!family || family==="person") && left.length!==right.length
+    && shorterPerson.every(part=>part.length>=3) && (` ${longerPerson.join(" ")} `).includes(` ${shorterPerson.join(" ")} `)) {
+    // A complete first/last name token is stronger than incidental overlap,
+    // but remains a Review candidate rather than canonical authority.
+    const boundary=longerPerson[0]===shorterPerson[0] || longerPerson.at(-1)===shorterPerson.at(-1);
+    return {eligible:true,safe:false,rank:boundary?65:50,reason:"personal-name-fragment",authorityUuid};
+  }
   // A distinctive settlement prefix can indicate real place ambiguity.
   // Generic shared nouns (Lantern, Bell, Silver) cannot establish this.
   const shorter=left.length<right.length?left:right, longer=left.length<right.length?right:left;
   if (targetFamily === "location" && (!family || family === "location") && shorter.length===1
     && shorter[0].length>=8 && longer[0]===shorter[0]
     && !["settlement","watchtower","location","northern","southern"].includes(shorter[0])) {
-    return {eligible:true,safe:false,reason:"distinctive-place-name-prefix",authorityUuid};
+    return {eligible:true,safe:false,rank:10,reason:"distinctive-place-name-prefix",authorityUuid};
   }
   return rejected;
 }
 
 function possibleDuplicates(text, kind="unknown", sourceUuid="") {
+  const discovery=moduleApi()?.discovery;
+  const identities=typeof discovery?.identityCandidates === "function" ? discovery.identityCandidates() : discovery?.snapshot?.()?.entities;
   const rows = [
-    ...(moduleApi()?.discovery?.snapshot?.()?.entities || []),
+    ...(identities || []),
     ...(game.actors?.contents || []), ...(game.items?.contents || []),
     ...(game.journal?.contents || []).filter((doc) => doc.getFlag?.(MODULE_ID, "worldProfile"))
   ];
@@ -349,10 +378,25 @@ function possibleDuplicates(text, kind="unknown", sourceUuid="") {
   for (const row of rows) {
     const uuid = clean(row.canonicalUuid || row.uuid);
     const target={name:row.name,canonicalUuid:uuid,kind:row.kind || row.getFlag?.(MODULE_ID,"worldProfile")?.category || (row.documentName === "Actor" ? "character" : row.documentName === "Item" ? "item" : "entity"),aliases:row.aliases};
-    const match=assessExistingMatch({text,kind,sourceUuid,target});
-    if(match.eligible)matches.set(match.authorityUuid,{...target,match});
+    // A freshly read adapter identity can legitimately use a source name that
+    // differs from the Foundry document's display name. Persisted Review labels
+    // do not receive this authority.
+    const match=assessExistingMatch({text,kind,sourceUuid,target,currentIdentityName:row.name});
+    if(match.eligible && (!matches.has(match.authorityUuid) || Number(match.rank||0)>Number(matches.get(match.authorityUuid).match.rank||0)))matches.set(match.authorityUuid,{...target,match});
   }
-  return [...matches.values()];
+  // An unregistered longer fragment of a GM-chosen name is a possible duplicate,
+  // not an alias. Keep it in Review instead of creating or merging another person.
+  const wanted = normalize(text);
+  for (const choice of Object.values(learningApi()?.all?.()?.sourceChoices?.[sourceUuid] || {})) {
+    const document = identityDocument({canonicalUuid:choice.targetUuid});
+    const name = normalize(document?.name);
+    const confirmed = normalize(choice.text);
+    if (!document || matches.has(choice.targetUuid) || wanted.split(" ").length < 2
+      || name === wanted || !name.endsWith(` ${wanted}`) || !(` ${wanted} `).includes(` ${confirmed} `)) continue;
+    matches.set(choice.targetUuid,{name:document.name,canonicalUuid:choice.targetUuid,kind:document.documentName,
+      match:{eligible:true,safe:false,reason:"source-choice-name-variant",authorityUuid:choice.targetUuid}});
+  }
+  return [...matches.values()].sort((a,b)=>Number(b.match.rank||0)-Number(a.match.rank||0));
 }
 
 function automaticType(row) {
@@ -363,20 +407,22 @@ function automaticType(row) {
   if (Number(row.detection?.score || 0) < 0.82 || margin < 0.20) return "";
   if (kind === "character" && (signals.includes("person-role-apposition") || signals.includes("character-title"))) return "contact";
   if (["location","item","faction"].includes(kind) && Number(row.classification.confidence) >= 0.68
-    && signals.some((signal) => signal === `${kind}-suffix` || signal === `${kind}-lexeme` || signal === "faction-name-prefix")) return kind;
+    && signals.some((signal) => signal === `${kind}-suffix` || signal === `${kind}-lexeme` || signal === "faction-name-prefix" || kind==="item" && signal==="document-title-source-role")) return kind;
   return "";
 }
 
 let resolving = null;
-async function resolveCandidates(rows = []) {
+async function resolveCandidates(rows = [], options = {}) {
   if (!game.user?.isGM) return [];
   // Only the active GM creates campaign documents; other GMs still get review.
-  if (resolving) { await resolving; return resolveCandidates(rows); }
+  if (resolving) { await resolving; return resolveCandidates(rows,options); }
   let finish;
   resolving = new Promise((resolve) => { finish = resolve; });
   try {
     const results = [];
     for (const row of rows) {
+      await globalThis.AdventurersTomeIndex?.yieldControl?.();
+      options.assertCurrent?.();
       const result = { ...clone(row), outcome:"REVIEW", outcomeReason:"insufficient-identity-evidence", targetUuid:"", identityCandidates:[] };
       try {
         const sourceUuid = row.sourceJournalUuid;
@@ -391,19 +437,46 @@ async function resolveCandidates(rows = []) {
         }
         const exact = moduleApi().campaignDeterministicAutoLink.resolveIdentity({ text:row.text, sourceUuid });
         const strongType = Number(row.classification?.confidence || 0) >= 0.68
-          && (row.classification?.signals || []).some((signal)=>/-suffix$|-lexeme$|person-role-apposition|character-title|faction-name-prefix/u.test(signal));
+          && (row.classification?.signals || []).some((signal)=>/-suffix$|-lexeme$|person-role-apposition|character-title|faction-name-prefix|document-title-source-role/u.test(signal));
         const matchingKind = strongType ? row.classification?.kind : "unknown";
         result.resolutionKind = matchingKind;
-        const matches = possibleDuplicates(row.text,matchingKind,sourceUuid);
+        let matches = possibleDuplicates(row.text,matchingKind,sourceUuid);
+        // A guessed type must not hide an existing exact-name identity and
+        // lead to a duplicate creation attempt. Lexical suffix guesses yield
+        // to an exact identity; attached contradictory evidence stays in Review.
+        if(strongType) {
+          const attachedType=(row.classification?.signals || []).some(signal=>
+            /person-role-apposition|character-title|faction-name-prefix|document-title-source-role|location-source-role/u.test(signal));
+          for(const candidate of possibleDuplicates(row.text,'unknown',sourceUuid)) {
+            if(normalize(candidate.name)!==normalize(row.text) || matches.some(old=>old.match.authorityUuid===candidate.match.authorityUuid))continue;
+            matches.push({...candidate,match:{...candidate.match,safe:!attachedType && candidate.match.safe,
+              reason:attachedType?'source-type-conflict':candidate.match.reason}});
+          }
+        }
+        const pausedMatches=matches.filter(target=>learningApi()?.isPaused?.(target.match.authorityUuid));
+        matches=matches.filter(target=>!learningApi()?.isPaused?.(target.match.authorityUuid));
         const safeMatches = matches.filter((target)=>target.match.safe);
         result.identityAmbiguous = safeMatches.length > 1 || row.ambiguousSourceReference === true;
         const scoped = moduleApi()?.campaignSourceScopedIdentity?.resolveMention?.({ text:row.text, sourceUuid, sourcePageUuid:row.sourcePageUuid });
-        const chosen = learned?.sourceChoice && learned.sourceUuid === sourceUuid
+        if(scoped?.confirmedChoice && !scoped.authorityUuid && !learned?.campaignDefault) {
+          result.identityAmbiguous=scoped.identityAmbiguous;
+          result.identityCandidates=scoped.candidates || [];
+          result.outcomeReason=scoped.reason;
+          results.push(result);continue;
+        }
+        result.identityChoice=scoped?.identityChoice || null;
+        const chosen = (learned?.sourceChoice || learned?.action === "created") && learned.sourceUuid === sourceUuid
           ? await fromUuid(learned.targetUuid) : null;
+        const preferred=learned?.campaignDefault ? await fromUuid(learned.targetUuid) : null;
+        if(learned?.campaignDefault && !preferred) {result.outcomeReason='campaign-default-identity-deleted';results.push(result);continue;}
+        if (learned?.sourceChoice && !chosen?.uuid) {
+          result.outcomeReason = "gm-selected-identity-deleted";
+          results.push(result);
+          continue;
+        }
         const exactSafe = exact?.deterministic && matches.some((target)=>target.match.safe && target.match.authorityUuid === exact.targetUuid);
-        const selectedUuid = chosen?.uuid || (scoped?.sourceInline && !scoped.identityAmbiguous
-          ? scoped.authorityUuid : row.ambiguousSourceReference ? "" : scoped?.sourceCanonical && !scoped.identityAmbiguous
-            ? scoped.authorityUuid : exactSafe ? exact.targetUuid : safeMatches.length === 1 ? safeMatches[0].match.authorityUuid : "");
+        const scopedUuid=!scoped?.identityAmbiguous && (scoped?.confirmedChoice || scoped?.sourceInline || scoped?.sourceCanonical) ? scoped.authorityUuid : '';
+        const selectedUuid = chosen?.uuid || scopedUuid || preferred?.uuid || (row.ambiguousSourceReference ? '' : exactSafe ? exact.targetUuid : safeMatches.length === 1 ? safeMatches[0].match.authorityUuid : '');
         const targetUuid = selectedUuid ? moduleApi()?.campaignIdentityReconciliation?.identityFor?.({ canonicalUuid:selectedUuid })?.authorityUuid || selectedUuid : "";
         if (chosen?.uuid) result.identityAmbiguous = false;
         if (targetUuid) {
@@ -412,6 +485,7 @@ async function resolveCandidates(rows = []) {
           const blocked = journal?.getFlag?.(MODULE_ID,"campaignAutoLinkPolicyV1")?.suppressedTargetUuids?.includes(targetUuid);
           if (blocked) result.outcomeReason = "gm-unlink-suppression";
           else {
+            options.assertCurrent?.();
             if (!campaignLinksApi()?.hasCanonicalLink?.({ sourceUuid, targetUuid })) {
               await campaignLinksApi().linkCanonical({ sourceUuid, targetUuid });
             }
@@ -422,11 +496,16 @@ async function resolveCandidates(rows = []) {
         } else {
           result.identityCandidates = matches;
           if (result.identityAmbiguous || result.identityCandidates.length) result.outcomeReason = "possible-duplicate-or-ambiguous-identity";
+          else if(pausedMatches.length)result.outcomeReason='automatic-matching-paused';
           else {
             result.outcomeReason = "no-safe-existing-match";
+            if(globalThis.AdventurersTomeIndex?.historicalForName?.(row.text)?.length) {
+              result.outcomeReason='A previous identity with this name was deleted. Link an existing identity or deliberately create a new one.';
+              results.push(result);continue;
+            }
             const semanticType = automaticType(row);
             const activeGM = game.users?.activeGM;
-            if (semanticType && (!activeGM || activeGM.id === game.user.id)) {
+            if (options.allowCreate !== false && semanticType && (!activeGM || activeGM.id === game.user.id)) {
               const created = await apply({ text:row.text, kind:row.classification.kind, sourceUuid, semanticType }, row);
               result.targetUuid = created.targetUuid || "";
               result.outcome = created.created && created.campaignLinked ? "CREATED" : "REVIEW";

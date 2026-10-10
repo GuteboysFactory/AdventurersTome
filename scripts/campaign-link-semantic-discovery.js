@@ -11,6 +11,7 @@ const CONFIDENCE_BANDS = Object.freeze({
 });
 
 let lastSnapshot = null;
+let lastNotifiedContent = null;
 let scanTimer = null;
 
 const stats = {
@@ -434,6 +435,10 @@ function summarizeResolution(resolution) {
 }
 
 async function scan(options = {}) {
+  const startupToken=globalThis.AdventurersTomeStartup?.begin("mention-discovery");
+  try {
+  globalThis.AdventurersTomeReviewDecision?.count("memory-refresh",options.sourceUuid ? "sourceScans" : "fullScans");
+  globalThis.AdventurersTomeReviewDecision?.count("memory-refresh","analysisRuns");
   stats.scans += 1;
   stats.sources = 0;
   stats.pages = 0;
@@ -470,7 +475,8 @@ async function scan(options = {}) {
   const suppressedRows = [];
   const seen = new Set();
 
-  for (const source of campaignSources(user)) {
+  for (const source of campaignSources(user).filter(source=>!options.sourceUuid || source.journal.uuid === options.sourceUuid)) {
+    globalThis.AdventurersTomeReviewDecision?.count("memory-refresh","sourceVisits");
     const { journal, kind } = source;
     stats.sources += 1;
 
@@ -523,6 +529,7 @@ async function scan(options = {}) {
         if (seen.has(key)) continue;
         seen.add(key);
 
+        await globalThis.AdventurersTomeIndex?.yieldControl?.();
         const resolution = resolver.resolve(candidate);
         const assessment = explicitAssessment(resolution);
         if (resolution?.decision === "resolved-canonical") stats.resolvedCanonical += 1;
@@ -571,6 +578,7 @@ async function scan(options = {}) {
           if (seen.has(key)) continue;
           seen.add(key);
 
+          await globalThis.AdventurersTomeIndex?.yieldControl?.();
           const resolution = resolver.resolve(candidate);
           const assessment = proseAssessment({
             displayName,
@@ -614,6 +622,10 @@ async function scan(options = {}) {
     }
   }
 
+  if(options.sourceUuid && lastSnapshot?.viewerUserId === clean(user?.id) && lastSnapshot?.viewerIsGM === Boolean(user?.isGM)) {
+    rows.push(...(lastSnapshot.mentions || []).filter(row=>row.sourceJournalUuid !== options.sourceUuid));
+    suppressedRows.push(...(lastSnapshot.suppressedMentions || []).filter(row=>row.sourceJournalUuid !== options.sourceUuid));
+  }
   lastSnapshot = Object.freeze({
     contract:CONTRACT,
     version:VERSION,
@@ -646,8 +658,13 @@ async function scan(options = {}) {
     }
   });
 
-  Hooks.callAll("adventurersTomeSemanticMentionDiscoveryUpdated", clone(lastSnapshot.summary));
+  const content=JSON.stringify([lastSnapshot.viewerUserId,lastSnapshot.viewerIsGM,lastSnapshot.mentions,lastSnapshot.suppressedMentions]);
+  if(!options.silent && content !== lastNotifiedContent) {
+    lastNotifiedContent=content;
+    Hooks.callAll("adventurersTomeSemanticMentionDiscoveryUpdated", clone(lastSnapshot.summary));
+  }
   return clone(lastSnapshot);
+  } finally {globalThis.AdventurersTomeStartup?.end(startupToken);}
 }
 
 function snapshot() {
@@ -706,6 +723,7 @@ const publicApi = Object.freeze({
   confidenceBands:Object.freeze({ ...CONFIDENCE_BANDS }),
   scan,
   snapshot,
+  restoreSnapshot:(value)=>{if(game.user?.isGM && value?.viewerUserId===String(game.user.id) && value?.viewerIsGM)lastSnapshot=clone(value);},
   mentionsForSource,
   suppressedForSource,
   audit
@@ -720,6 +738,8 @@ function attach() {
 }
 
 function scheduleScan(reason = "lifecycle") {
+  if(game.user?.isGM && globalThis.AdventurersTomeIndex?.request(reason)) return;
+  if (globalThis.AdventurersTomeReviewDecision?.isActive?.() && ["known-mentions-updated","campaign-learning-updated","discovery-updated"].includes(reason)) return;
   window.clearTimeout(scanTimer);
   scanTimer = window.setTimeout(() => {
     scanTimer = null;
@@ -737,7 +757,8 @@ Hooks.once("ready", () => {
   console.info("Adventurer's Tome | Semantic Mention Discovery v1 ready (Sessions/Quests, read-only).");
 });
 
-Hooks.on("updateJournalEntry", (journal) => {
+Hooks.on("updateJournalEntry", (journal,changes={},options={}) => {
+  if(options.adventurersTomeReviewDecision && Object.keys(changes).every(key=>key.startsWith("flags.adventurers-tome."))) return;
   const kind = journalKind(journal);
   if (kind === "session" || kind === "quest") scheduleScan("journal-updated");
 });

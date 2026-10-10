@@ -73,6 +73,8 @@ function atcsnInstallNavigationGuard(app, registry) {
 }
 
 function atcsnAttach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-search-navigation");
+  try {
   if (atcsnAttached) return true;
   const module = atcsnModule();
   const registry = module?.api?.universalDocuments;
@@ -135,6 +137,7 @@ function atcsnAttach() {
   atcsnApp = app;
   atcsnRegistry = module.api.universalDocuments;
   atcsnAttached = true;
+  globalThis.AdventurersTomeStartup?.count("universal-search-navigation","registrations");
   atcsnInstallNavigationGuard(app, atcsnRegistry);
 
   // The consumer can attach after an already-open Tome has completed its first
@@ -153,6 +156,7 @@ function atcsnAttach() {
   }
   console.info("Adventurer's Tome | Universal Registry consumer layer attached: Search + Navigation.");
   return true;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atcsnWatch() {

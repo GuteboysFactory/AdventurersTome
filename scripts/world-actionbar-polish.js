@@ -44,6 +44,7 @@ function atWabCategory(button) {
 
   if (
     action === "quickNote"
+    || action === "reviewSourceFacts"
     || action === "editAccess"
     || action === "editWorldProfile"
     || text.includes("gm note")

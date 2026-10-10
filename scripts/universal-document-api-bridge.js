@@ -5,6 +5,8 @@ let timer = null;
 let attached = false;
 
 function attach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-bridge");
+  try {
   if (attached) return true;
   const module = game.modules.get(ID);
   if (!module?.api || typeof module.api !== "object") return false;
@@ -21,6 +23,7 @@ function attach() {
     console.error("Adventurer's Tome | Universal Document Registry API bridge attach failed", error);
     return false;
   }
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function watch() {

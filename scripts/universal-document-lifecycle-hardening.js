@@ -194,6 +194,8 @@ function atlhCoverageSnapshot() {
 }
 
 function atlhAudit() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-lifecycle-audit");
+  try {
   const registry = atlhRegistry();
   const registryAudit = registry?.audit?.() || null;
   const pending = [...atlhPending.values()].map((event) => atlhPublicEvent({
@@ -220,9 +222,12 @@ function atlhAudit() {
     registryHealthy,
     healthy: registryHealthy && pending.length === 0 && failures.length === 0
   };
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atlhAttach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-lifecycle");
+  try {
   if (atlhAttached) return true;
   const module = atlhModule();
   const registry = module?.api?.universalDocuments;
@@ -243,12 +248,14 @@ function atlhAttach() {
   });
 
   atlhAttached = true;
+  globalThis.AdventurersTomeStartup?.count("universal-lifecycle","registrations");
   if (atlhTimer) {
     window.clearInterval(atlhTimer);
     atlhTimer = null;
   }
   console.info("Adventurer's Tome | Universal Document lifecycle hardening audit attached.");
   return true;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atlhWatch() {

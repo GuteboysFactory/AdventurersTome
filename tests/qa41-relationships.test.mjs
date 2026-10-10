@@ -22,6 +22,50 @@ function source(w,text,number=null,kind='session') {
   doc.pages={contents:[page]};w.docs.set(page.uuid,page);return doc;
 }
 const relation=(w,type)=>w.relations.relationshipsFor(w.elira.uuid).find(row=>row.relationType===type);
+
+for(const asContact of [false,true])test(`Role apposition preserves cooperation, denied membership, past treatment and continuing friendship (${asContact?'Contact':'Actor'})`,async()=>{
+ const w=setup('');const healer=w.add('Lysa Marr',asContact?'JournalEntry':'Actor',asContact?{worldProfile:{category:'contact'}}:{});
+ w.page.text.content='At the southern edge of the ruins they encountered Lysa Marr, a travelling healer who currently works with the Pale Wardens but is not a formal member of the order. Lysa had treated Elira Voss several years earlier after an ambush near Blackbridge Watch, and the two have remained friends since then.';
+ await w.relations.sync();await w.relations.sync();
+ const rows=w.relations.relationshipsFor(healer.uuid);
+ assert.equal(rows.find(row=>row.relationType==='WORKS_WITH')?.state,'current');
+ assert.equal(rows.find(row=>row.relationType==='MEMBER_OF')?.state,'negative');
+ assert.equal(rows.find(row=>row.relationType==='TREATED')?.state,'historical');
+ assert.equal(rows.find(row=>row.relationType==='FRIEND_OF')?.state,'current');
+ assert.ok(!rows.some(row=>row.relationType==='WORKS_FOR'));
+ const evidence=w.relations.snapshot().evidence;assert.equal(evidence.length,4);assert.equal(new Set(evidence.map(row=>row.id)).size,4);
+ assert.ok(evidence.every(row=>w.page.text.content.slice(row.sourceSpan.start,row.sourceSpan.end)===row.sourceSpan.text));
+ assert.equal(w.relations.relationshipsFor(w.elira.uuid).find(row=>row.relationType==='TREATED')?.label,'Treated by');
+});
+
+test('Nested merchant subject owns staying-at evidence, without implying guilt or a relation to an item',async()=>{
+ const w=setup('');w.add('Mara Venn','Actor');w.add('Baran','Actor');const merchant=w.add('Seren Holt','JournalEntry',{worldProfile:{category:'contact'}});
+ const inn=w.add('Fox and Lantern Inn','JournalEntry',{worldProfile:{category:'location'}});w.add('Blackglass Key','Item');
+ w.page.text.content='Later that evening, Mara warned Baran that Seren Holt, a travelling merchant currently staying at the Fox and Lantern Inn, had been asking unusual questions about the Blackglass Key. Mara did not know whether Seren was simply curious or involved in the disappearances.';
+ await w.relations.sync();const rows=w.relations.snapshot().evidence;assert.equal(rows.length,1);assert.equal(rows[0].subjectUuid,merchant.uuid);assert.equal(rows[0].objectUuid,inn.uuid);assert.equal(rows[0].relationType,'STAYS_AT');assert.equal(rows[0].temporalScope,'current');
+ assert.equal(w.relations.relationshipsFor(inn.uuid)[0].label,'Hosts');
+});
+
+test('Generic quest vocabulary keeps cooperation, residence and treatment independent across reload',async()=>{
+ const w=genericWorld();const other=w.add('Dorian West','Actor'),inn=w.add('Amber Lodge','JournalEntry',{worldProfile:{category:'location'}});
+ w.session.flags.type='quest';w.page.text.content='Rhea North, a local healer who currently works with Copper Circle, treated Dorian West years ago. Rhea currently stays at Amber Lodge.';
+ await w.relations.sync();const before=w.relations.snapshot().evidence;assert.equal(before.length,3);assert.ok(before.every(row=>row.sourceKind==='quest'));
+ assert.equal(before.find(row=>row.relationType==='TREATED').objectUuid,other.uuid);
+ w.reload('campaign-relationship-evidence.js');await w.api.campaignRelationshipEvidence.sync();
+ assert.deepEqual(Array.from(w.api.campaignRelationshipEvidence.snapshot().evidence,row=>row.id),Array.from(before,row=>row.id));
+ assert.equal(w.api.campaignRelationshipEvidence.relationshipsFor(inn.uuid)[0].state,'current');
+});
+
+test('Ambiguous pair and organization pronouns do not invent canonical relationships',async()=>{
+ const w=genericWorld();w.add('Dorian West','Actor');w.add('Tala Reed','Actor');w.add('Silver Circle','JournalEntry',{worldProfile:{category:'faction'}});
+ w.page.text.content='Rhea North met Dorian West and Tala Reed, and the two have remained friends. Rhea works with Copper Circle and Silver Circle but is not a formal member of the order.';
+ await w.relations.sync();const rows=w.relations.snapshot().evidence;assert.ok(!rows.some(row=>row.relationType==='FRIEND_OF'||row.relationType==='MEMBER_OF'));
+});
+
+test('Hedged residence remains possible and denied cooperation remains separate',async()=>{
+ const w=genericWorld();w.add('Amber Lodge','JournalEntry',{worldProfile:{category:'location'}});w.page.text.content='Rhea North may currently be staying at Amber Lodge but does not work with Copper Circle.';
+ await w.relations.sync();const rows=w.relations.relationshipsFor(w.person.uuid);assert.equal(rows.find(row=>row.relationType==='STAYS_AT')?.state,'possible');assert.equal(rows.find(row=>row.relationType==='WORKS_WITH')?.state,'negative');
+});
 test('Assertion-local formerly and now bind separately to service and command',async()=>{
   const w=genericWorld();w.page.text.content='Rhea North formerly served Copper Circle but now commands Copper Circle.';await w.relations.sync();
   const rows=w.relations.snapshot().evidence;assert.equal(rows.find(row=>row.relationType==='SERVES').temporalScope,'historical');
@@ -325,7 +369,10 @@ test('Session-only excerpt removal retains list preview, full data, Quest and cl
   assert.ok(!template.includes('Chronicle excerpt'));assert.ok(!template.includes('{{selectedSession.bodyPreview}}'));
   assert.match(template,/\{\{listSummary\}\}/);assert.match(template,/Open Full Session/);
   assert.match(template,/data-action="openSourceAnalysis"/);assert.match(template,/data-action="decideRelationship"/);
-  assert.match(template,/profileView.structuredRelationships/);assert.match(template,/worldProfileView.structuredRelationships/);
+  assert.match(template,/profileView.intelligence/);assert.match(template,/worldProfileView.intelligence/);
+  assert.match(template,/Relationship history \/ sources/);
+  assert.match(template,/<h2>Relationships<\/h2>/);
+  assert.match(template,/\{\{> entityRelationships this\}\}/);
   const main=fs.readFileSync(path.join(root,'scripts/adventurers-tome.js'),'utf8');
   assert.match(main,/bodyPreview = truncate\(/);assert.match(main,/decideRelationship: this\._onDecideRelationship/);
 });

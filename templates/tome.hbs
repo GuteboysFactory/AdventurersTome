@@ -1,3 +1,47 @@
+{{#*inline "entityRelationships"}}
+{{#if available}}
+<section class="at-profile-panel at-structured-relationships">
+  <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relationships</h2></div>
+  {{#each relationships}}
+  <article class="at-relationship-row">
+  <div class="at-fact"><button type="button" data-action="openContextEntity" data-target-uuid="{{otherUuid}}">{{name}} — {{label}}</button><small>{{stateLabel}} · {{evidenceCount}} evidence</small></div>
+  <details><summary>Why connected?</summary>
+    <p>{{label}} · {{stateLabel}} · {{evidenceCount}} evidence</p>
+    <p>Relevant source: {{latest.sourceName}}</p>
+    <p>{{latest.sourceExcerpt}}</p><small>{{latest.provenanceLabel}}</small>
+    {{#if latest.sourceMissing}}<p class="at-empty">Source or source page missing</p>{{else}}<button type="button" data-action="openContextSource" data-source-uuid="{{latest.sourceUuid}}" data-page-uuid="{{latest.sourcePageUuid}}">Open source</button>{{/if}}
+  </details>
+  <details><summary>Relationship history / sources</summary>
+    {{#each history}}<div class="at-fact"><p>{{sourceExcerpt}}</p><small>{{sourceName}} · {{label}} · {{stateLabel}} · {{provenanceLabel}}</small>
+    {{#if sourceMissing}}<p class="at-empty">Source or source page missing</p>{{else}}<button type="button" data-action="openContextSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}">Open source</button>{{/if}}
+    </div>{{/each}}
+  </details>
+  </article>
+  {{else}}<p class="at-empty">No visible canonical relationships yet.</p>{{/each}}
+</section>
+{{/if}}
+{{/inline}}
+{{#*inline "entityContextRow"}}
+<button type="button" class="at-context-chip" data-at-context-uuid="{{uuid}}" data-action="openContextEntity" data-target-uuid="{{uuid}}">{{name}}</button>
+{{/inline}}
+{{#*inline "entityContext"}}
+{{#if available}}
+{{#if context.count}}
+<section class="at-profile-panel at-entity-intelligence">
+  <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Entity Context</h2></div>
+  {{#if enrichment}}<small>{{enrichment.label}}</small>{{/if}}
+  {{#if context.appearanceGroups.length}}<div class="at-context-section"><h3 class="at-context-section-title">Appears in</h3>{{#each context.appearanceGroups}}<h4 class="at-context-group-title">{{label}}</h4><div class="at-link-chip-list">{{#each entries}}{{> entityContextRow this}}{{/each}}</div>{{/each}}</div>{{/if}}
+  {{#if context.navigationGroups.length}}<div class="at-context-section" data-at-ei-links><h3 class="at-context-section-title">Related</h3>{{#each context.navigationGroups}}<h4 class="at-context-group-title">{{label}}</h4><div class="at-link-chip-list">{{#each entries}}{{> entityContextRow this}}{{/each}}</div>{{/each}}</div>{{/if}}
+</section>
+{{/if}}
+{{/if}}
+{{/inline}}
+{{#*inline "entityIntelligence"}}
+{{#if profileSurface}}
+{{> entityRelationships this}}
+{{> entityContext this}}
+{{/if}}
+{{/inline}}
 <div class="at-shell {{settings.themeClass}}">
   <header class="at-topbar">
     <button class="at-brand" type="button" data-action="navigate" data-tab="home">
@@ -173,6 +217,7 @@
           {{#if isGM}}<button type="button" class="at-access-icon" data-action="queueReveal" data-ref-key="{{selectedSession.refKey}}" title="Add to Reveal Queue"><i class="fa-solid fa-eye-low-vision"></i></button><button type="button" class="at-access-icon" data-action="showToPlayers" data-ref-key="{{selectedSession.refKey}}" title="Show to Players"><i class="fa-solid fa-bullhorn"></i></button><button type="button" class="at-access-icon" data-action="quickNote" data-document-type="journal" data-document-id="{{selectedSession.id}}" title="GM Notes"><i class="fa-solid fa-note-sticky"></i></button><button type="button" class="at-access-icon" data-action="editAccess" data-document-type="journal" data-document-id="{{selectedSession.id}}" title="Tome permissions"><i class="fa-solid fa-shield-halved"></i></button>{{/if}}<button type="button" class="at-favorite-icon {{#if selectedSession.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{selectedSession.refKey}}" title="{{#if selectedSession.isFavorite}}Remove from favorites{{else}}Add to favorites{{/if}}"><i class="{{#if selectedSession.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i></button>
         </header>
 
+        {{#if canGoBack}}<button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>{{/if}}
         <p class="at-session-detail-summary">{{selectedSession.summary}}</p>{{#if isGM}}{{#if selectedSession.access.restricted}}<div class="at-access-badges">{{#if selectedSession.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if selectedSession.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{#if selectedSession.access.openNotes.length}}<div class="at-gm-note-stack">{{#each selectedSession.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
 
         <div class="at-session-detail-stats">
@@ -482,27 +527,7 @@
       </aside>
     </section>
 
-    {{#if profileView.hasCampaignLinks}}
-    <section class="at-profile-panel at-profile-campaign-links">
-      <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
-      <div class="at-campaign-link-columns">
-        {{#if profileView.campaignSessions.length}}<div><h3>Sessions</h3><div class="at-link-chip-list">{{#each profileView.campaignSessions}}<button type="button" data-action="selectSession" data-journal-id="{{id}}"><i class="fa-solid fa-book-open"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
-        {{#if profileView.campaignQuests.length}}<div><h3>Quests</h3><div class="at-link-chip-list">{{#each profileView.campaignQuests}}<button type="button" data-action="openQuestDetail" data-journal-id="{{id}}"><i class="fa-solid fa-diamond"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
-        {{#if profileView.campaignWorld.length}}<div><h3>World</h3><div class="at-link-chip-list">{{#each profileView.campaignWorld}}<button type="button" data-action="openWorldProfile" data-journal-id="{{id}}"><i class="fa-solid {{icon}}"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
-        {{#if profileView.incomingRelations.length}}<div><h3>Linked by</h3><div class="at-link-chip-list">{{#each profileView.incomingRelations}}<button type="button" data-action="openProfile" data-actor-id="{{source.id}}"><i class="fa-solid fa-people-arrows"></i>{{source.name}} · {{label}}</button>{{/each}}</div></div>{{/if}}
-      </div>
-    </section>
-    {{/if}}
-
-    {{#if profileView.structuredRelationships.length}}
-    <section class="at-profile-panel at-structured-relationships">
-      <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relationships</h2></div>
-      {{#each profileView.structuredRelationships}}
-      <div class="at-fact"><button type="button" data-action="openEvidenceTarget" data-target-uuid="{{otherUuid}}">{{name}} — {{label}}</button><small>{{stateLabel}} · {{evidenceCount}} evidence</small></div>
-      <details><summary>Relationship history</summary>{{#each history}}<p>{{sourceExcerpt}} <small>{{sourceName}} · {{label}} · {{stateLabel}}</small></p><button type="button" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}">Open source</button>{{/each}}</details>
-      {{/each}}
-    </section>
-    {{/if}}
+    {{> entityIntelligence profileView.intelligence profileSurface=true}}
     <section class="at-profile-relations at-profile-panel">
       <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relations</h2></div>
       <div class="at-relation-grid">
@@ -591,7 +616,7 @@
         <button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <nav class="at-breadcrumbs" aria-label="Breadcrumb"><button type="button" data-action="navigate" data-tab="home">Home</button><i class="fa-solid fa-chevron-right"></i><button type="button" data-action="navigate" data-tab="world">World</button><i class="fa-solid fa-chevron-right"></i><span>{{worldProfileView.name}}</span></nav>
       </div>
-      <div class="at-profile-toolbar-actions"><button type="button" class="at-secondary at-favorite-button {{#if worldProfileView.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{worldProfileView.refKey}}"><i class="{{#if worldProfileView.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i> {{#if worldProfileView.isFavorite}}Favorited{{else}}Favorite{{/if}}</button><button type="button" class="at-secondary" data-action="openJournal" data-journal-id="{{worldProfileView.id}}" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-book-open"></i> Open Journal</button>{{#if worldProfileView.hasLinkedActor}}{{#if isGM}}<button type="button" class="at-secondary" data-action="openActor" data-actor-id="{{worldProfileView.linkedActor.id}}" title="Open the linked Foundry Actor sheet"><i class="fa-solid fa-id-card"></i> Open Sheet</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="actor" data-document-id="{{worldProfileView.linkedActor.id}}"><i class="fa-solid fa-user-shield"></i> Actor Access</button>{{/if}}{{/if}}{{#if isGM}}<button type="button" class="at-secondary" data-action="queueReveal" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-eye-low-vision"></i> Queue Reveal</button><button type="button" class="at-secondary" data-action="showToPlayers" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-bullhorn"></i> Show to Players</button><button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button><button type="button" class="at-primary" data-action="editWorldProfile"><i class="fa-solid fa-pen-to-square"></i> Edit Tome Entry</button>{{/if}}</div>
+      <div class="at-profile-toolbar-actions"><button type="button" class="at-secondary at-favorite-button {{#if worldProfileView.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{worldProfileView.refKey}}"><i class="{{#if worldProfileView.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i> {{#if worldProfileView.isFavorite}}Favorited{{else}}Favorite{{/if}}</button><button type="button" class="at-secondary" data-action="openJournal" data-journal-id="{{worldProfileView.id}}" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-book-open"></i> Open Journal</button>{{#if worldProfileView.hasLinkedActor}}{{#if isGM}}<button type="button" class="at-secondary" data-action="openActor" data-actor-id="{{worldProfileView.linkedActor.id}}" title="Open the linked Foundry Actor sheet"><i class="fa-solid fa-id-card"></i> Open Sheet</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="actor" data-document-id="{{worldProfileView.linkedActor.id}}"><i class="fa-solid fa-user-shield"></i> Actor Access</button>{{/if}}{{/if}}{{#if isGM}}<button type="button" class="at-secondary" data-action="queueReveal" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-eye-low-vision"></i> Queue Reveal</button><button type="button" class="at-secondary" data-action="showToPlayers" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-bullhorn"></i> Show to Players</button><button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button><button type="button" class="at-secondary" data-action="reviewSourceFacts" data-target-uuid="JournalEntry.{{worldProfileView.id}}">Review source facts</button><button type="button" class="at-primary" data-action="editWorldProfile"><i class="fa-solid fa-pen-to-square"></i> Edit Tome Entry</button>{{/if}}</div>
     </section>
     <section class="at-world-profile-hero">
       <div class="at-world-profile-art {{#unless worldProfileView.img}}at-no-image{{/unless}}">{{#if worldProfileView.img}}<img src="{{worldProfileView.img}}" alt="{{worldProfileView.name}}">{{else}}<i class="fa-solid {{worldProfileView.icon}}"></i>{{/if}}</div>
@@ -602,27 +627,10 @@
       <article class="at-profile-biography at-profile-panel at-shareable-text"><div class="at-profile-section-heading"><i class="fa-solid fa-book-open-reader"></i><h2>Known Information</h2>{{#if worldProfileView.syncedToJournal}}<span class="at-sync-badge"><i class="fa-solid fa-arrows-rotate"></i> Journal synced</span>{{/if}}</div>{{#if worldProfileView.body}}<p>{{worldProfileView.body}}</p>{{else}}<p class="at-empty">No Tome details have been added yet.</p>{{/if}}</article>
       <aside class="at-profile-facts at-profile-panel"><div class="at-profile-section-heading"><i class="fa-solid fa-bookmark"></i><h2>Facts</h2></div>{{#each worldProfileView.facts}}<div class="at-fact {{#if gmOnly}}is-gm-only{{/if}}"><span>{{label}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</span><strong>{{value}}</strong></div>{{else}}<p class="at-empty">No structured facts have been added yet.</p>{{/each}}</aside>
     </section>
-    {{#if worldProfileView.structuredRelationships.length}}
-    <section class="at-profile-panel at-structured-relationships">
-      <div class="at-profile-section-heading"><i class="fa-solid fa-people-arrows"></i><h2>Relationships</h2></div>
-      {{#each worldProfileView.structuredRelationships}}
-      <div class="at-fact"><button type="button" data-action="openEvidenceTarget" data-target-uuid="{{otherUuid}}">{{name}} — {{label}}</button><small>{{stateLabel}} · {{evidenceCount}} evidence</small></div>
-      <details><summary>Relationship history</summary>{{#each history}}<p>{{sourceExcerpt}} <small>{{sourceName}} · {{label}} · {{stateLabel}}</small></p><button type="button" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}">Open source</button>{{/each}}</details>
-      {{/each}}
-    </section>
-    {{/if}}
+    {{> entityIntelligence worldProfileView.intelligence profileSurface=true}}
+    {{#if worldProfileView.hasSuggestedCampaignMentions}}
     <section class="at-profile-panel at-profile-campaign-links">
       <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
-      {{#if worldProfileView.hasCampaignLinks}}
-      <div class="at-campaign-link-columns">
-        {{#if worldProfileView.campaignSessions.length}}<div><h3>Sessions</h3><div class="at-link-chip-list">{{#each worldProfileView.campaignSessions}}<button type="button" data-action="selectSession" data-journal-id="{{id}}"><i class="fa-solid fa-book-open"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
-        {{#if worldProfileView.campaignQuests.length}}<div><h3>Quests</h3><div class="at-link-chip-list">{{#each worldProfileView.campaignQuests}}<button type="button" data-action="openQuestDetail" data-journal-id="{{id}}"><i class="fa-solid fa-diamond"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
-        {{#if worldProfileView.campaignActors.length}}<div><h3>Characters</h3><div class="at-link-chip-list">{{#each worldProfileView.campaignActors}}<button type="button" data-action="openProfile" data-actor-id="{{id}}"><i class="fa-solid fa-user"></i>{{name}}</button>{{/each}}</div></div>{{/if}}
-      </div>
-      {{else}}
-      <p class="at-empty">No canonical Campaign Links yet.</p>
-      {{/if}}
-
       {{#if worldProfileView.hasSuggestedCampaignMentions}}
       <div class="at-quest-suggested">
         <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Tome noticed <span>{{worldProfileView.suggestedCampaignCount}}</span></h3>
@@ -638,6 +646,7 @@
       </div>
       {{/if}}
     </section>
+    {{/if}}
 
     {{#if isGM}}
     {{#if worldProfileView.hasMentionHistory}}
@@ -829,9 +838,11 @@
       <button type="button" class="{{#if isCampaignToolsOverview}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" class="{{#if isCampaignToolsMemory}}active{{/if}}" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
       <button type="button" class="{{#if isCampaignToolsAnalysis}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
+      <button type="button" class="{{#if isCampaignToolsIndex}}active{{/if}}" data-action="navigate" data-tab="campaignToolsIndex"><i class="fa-solid fa-database"></i><span>Index</span></button>
       <button type="button" class="{{#if isCampaignToolsAssistantNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
+    {{#if isCampaignToolsIndex}}<section class="at-campaign-index" data-at-campaign-index></section>{{/if}}
     {{#if isCampaignToolsOverview}}
     <section class="at-campaign-tools-overview">
       <div class="at-campaign-tools-summary">
@@ -1078,6 +1089,7 @@
           <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Analysis & Entity Review</h2>
           <p>A GM-only review surface. Clear identities are linked or created automatically; uncertain identities stay here for your decision.</p>
         </div>
+        <button type="button" class="at-secondary" data-action="matchingPreferences">Matching preferences</button>
         <button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i> Open full Memory</button>
       </header>
 
@@ -1104,9 +1116,13 @@
       <section class="at-analysis-panel">
         <div class="at-analysis-panel-heading"><h3>Possible relationships</h3><span>{{relationshipReview.length}} to review</span></div>
         {{#each relationshipReview}}
-        <article class="at-guided-decision-card">
+        <article class="at-guided-decision-card" data-at-review-key="relationship|{{id}}">
+          <details class="at-guided-review-details">
+          <summary class="at-guided-review-summary">
           <h4>{{subjectName}} — {{relationLabel}} — {{objectName}}</h4>
           <p>{{sourceExcerpt}}</p><small>{{sourceName}} · Possible relationship</small>
+          </summary>
+          <div class="at-guided-review-body">
           <button type="button" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}">Source</button>
           <footer class="at-guided-decision-footer">
             <button type="button" data-action="decideRelationship" data-evidence-id="{{id}}" data-relationship-decision="confirm">Confirm relationship</button>
@@ -1114,6 +1130,8 @@
             <button type="button" data-action="decideRelationship" data-evidence-id="{{id}}" data-relationship-decision="reject">Reject</button>
             <button type="button" data-action="decideRelationship" data-evidence-id="{{id}}" data-relationship-decision="unresolved">Leave unresolved</button>
           </footer>
+          </div>
+          </details>
         </article>
         {{/each}}
       </section>
@@ -1127,7 +1145,9 @@
 
         <div class="at-guided-decision-list">
           {{#each campaignAnalysis.attention}}
-          <article class="at-guided-decision-card {{#if isAmbiguous}}is-ambiguous{{/if}} {{#if isUnresolved}}is-unresolved{{/if}} {{#if isReview}}is-review{{/if}}">
+          <article data-at-review-key="{{sourceUuid}}|{{decisionText}}" class="at-guided-decision-card {{#if isAmbiguous}}is-ambiguous{{/if}} {{#if isUnresolved}}is-unresolved{{/if}} {{#if isReview}}is-review{{/if}}">
+            <details class="at-guided-review-details">
+            <summary class="at-guided-review-summary">
             <header class="at-guided-decision-header">
               <div class="at-guided-decision-icon"><i class="fa-solid {{attentionIcon}}"></i></div>
               <div>
@@ -1144,6 +1164,9 @@
               <span><i class="fa-solid {{sourceIcon}}"></i> {{sourceName}}{{#if pageName}} · {{pageName}}{{/if}}</span>
             </div>
 
+            {{#if outcomeReason}}<p class="at-guided-candidate-reason">REVIEW · {{outcomeReason}}</p>{{/if}}
+            </summary>
+            <div class="at-guided-review-body">
             {{#if identityBriefItems.length}}
             <div class="at-guided-identity-brief">
               {{#each identityBriefItems}}
@@ -1151,7 +1174,7 @@
               {{/each}}
             </div>
             {{/if}}
-            {{#if outcomeReason}}<p class="at-guided-candidate-reason">REVIEW · {{outcomeReason}}</p>{{/if}}
+
 
             {{#if hasCandidates}}
             <div class="at-guided-candidate-list">
@@ -1184,6 +1207,14 @@
                     <i class="fa-solid fa-check"></i> This is the one
                   </button>
                 </div>
+                <div class="at-guided-candidate-tools">
+                  {{#if suggestCampaignDefault}}<p class="at-guided-candidate-reason">Chosen in {{previousChoiceCount}} sessions. Use Matching preferences to make this your campaign default.</p>{{/if}}
+                  <button type="button" class="at-secondary" data-action="matchingPreferences" data-target-uuid="{{uuid}}" data-target-name="{{name}}" data-decision-text="{{../decisionText}}">Matching preferences</button>
+                  {{#if canReviewSourceFacts}}<button type="button" class="at-secondary" data-action="reviewSourceFacts" data-target-uuid="{{uuid}}" data-source-uuid="{{../sourceUuid}}" data-decision-text="{{../decisionText}}">Review source facts</button>{{/if}}
+                  {{#if historicalSources.length}}<details class="at-guided-source-links"><summary class="at-secondary">Manage previous session links</summary>
+                    {{#each historicalSources}}<div class="at-guided-source-link"><span>{{sourceName}}</span><button type="button" class="at-secondary" data-action="removeHistoricalLink" data-source-uuid="{{sourceUuid}}" data-target-uuid="{{targetUuid}}" data-source-name="{{sourceName}}" data-target-name="{{targetName}}">Remove this source link</button></div>{{/each}}
+                  </details>{{/if}}
+                </div>
                 {{#if hasMoreInfo}}
                 <details class="at-guided-more-info">
                   <summary><i class="fa-solid fa-circle-info"></i> More info</summary>
@@ -1211,6 +1242,9 @@
             <footer class="at-guided-decision-footer">
               {{#if canCreate}}
               <label>New identity type <select class="at-review-create-type">{{#each creationTypeOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+              {{/if}}
+              <button type="button" data-action="linkExistingCampaignIdentity" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-link"></i> Link existing</button>
+              {{#if canCreate}}
               <button type="button" data-action="resolveCampaignDecision" data-decision-mode="create" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-plus"></i> Create new identity</button>
               {{/if}}
               {{#if isReview}}
@@ -1220,6 +1254,8 @@
               {{/if}}
               <small>Choose an existing identity, create one after review, or defer this decision for this source.</small>
             </footer>
+            </div>
+            </details>
           </article>
           {{else}}
           <div class="at-analysis-clean"><i class="fa-solid fa-circle-check"></i><div><strong>No identity decisions waiting.</strong><p>Campaign Memory currently has no active ambiguous, unresolved or review-state mentions.</p></div></div>
@@ -2027,4 +2063,5 @@ The expedition trail was recovered in Session 2.</pre>
   {{/if}}
 
   <div class="at-selection-share" data-at-selection-share hidden><button type="button" data-action="sendSelectionToChat"><i class="fa-solid fa-comment"></i> Public</button><button type="button" data-action="whisperSelectionToChat"><i class="fa-solid fa-user-secret"></i> Whisper…</button></div>
+{{#if entityContext}}<main class="at-page"><section class="at-profile-panel"><button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>{{#if entityContext.available}}<h1>{{entityContext.entity.name}}</h1>{{> entityIntelligence entityContext profileSurface=true}}{{else}}<p class="at-empty">Entity missing or unavailable to you.</p>{{/if}}</section></main>{{/if}}
 </div>

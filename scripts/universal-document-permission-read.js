@@ -24,14 +24,18 @@ function atprCanRead(document, module, seen = new Set()) {
 }
 
 function atprActiveRows(base, module) {
+  const token=globalThis.AdventurersTomeStartup?.begin("universal-permission-pass");
+  try {
   const rows = new Map();
   for (const row of base.snapshot?.() ?? []) if (row?.uuid) rows.set(row.uuid, row);
   for (const row of base.embeddedItems?.() ?? []) if (row?.uuid) rows.set(row.uuid, { ...row, documentName: "Item", embedded: true });
 
+  globalThis.AdventurersTomeStartup?.count("universal-permission-pass","documentsScanned",rows.size);
   return [...rows.values()].filter((row) => {
     const document = base.resolve(row.uuid);
     return atprCanRead(document, module);
   });
+  } finally {globalThis.AdventurersTomeStartup?.end(token);}
 }
 
 function atprActiveSummary(base, module) {
@@ -87,6 +91,8 @@ function atprSanitizedRelationAudit(base) {
 }
 
 function atprAttach() {
+  const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-permission-read");
+  try {
   if (atprAttached) return true;
   const module = atprModule();
   const base = module?.api?.universalDocuments;
@@ -141,12 +147,14 @@ function atprAttach() {
   });
 
   atprAttached = true;
+  globalThis.AdventurersTomeStartup?.count("universal-permission-read","registrations");
   if (atprTimer) {
     window.clearInterval(atprTimer);
     atprTimer = null;
   }
   console.info("Adventurer's Tome | Permission-aware Universal Document read layer attached.");
   return true;
+  } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 
 function atprWatch() {

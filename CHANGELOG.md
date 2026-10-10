@@ -1,3 +1,7 @@
+## 1.7.0 — 2026-10-11
+
+Stable promotion of the verified 1.7 QA build. Includes bilingual Swedish/English analysis, Campaign Index and background processing, identity and relationship review improvements, decision history/Undo, private GM fact correction, scroll preservation and review/name cleanup. See [release notes](docs/V1.7_STABLE_RELEASE.md).
+
 # CHANGELOG
 
 ## 1.7.0-qa.40 — Identity Briefing & Clean Session UX

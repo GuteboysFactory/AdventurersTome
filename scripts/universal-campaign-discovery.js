@@ -5,7 +5,10 @@ const CONTRACT = "adventurers-tome-universal-campaign-discovery";
 const VERSION = 1;
 
 let lastSnapshot = null;
+let lastNotifiedContent = null;
 let scanTimer = null;
+const scanFlights = new Map();
+let scheduledScanBusy = false, scheduledScanDirty = false;
 
 const stats = {
   scans:0,
@@ -353,6 +356,15 @@ function addStructuralRelationships(entityMap) {
 }
 
 async function scan(options = {}) {
+  const user=currentUser(options), context=clone(options.context || {});
+  if (["ready","registry-rebuilt","updates-during-scan"].includes(context.reason)) delete context.reason;
+  const key=Object.keys(context).length ? Symbol("custom-scan") : JSON.stringify([user?.id,Boolean(user?.isGM),options.includeCompendiums !== false]);
+  if(scanFlights.has(key)) {globalThis.AdventurersTomeStartup?.count("discovery-scan","coalescedCalls");return scanFlights.get(key);}
+  const token=globalThis.AdventurersTomeStartup?.begin("discovery-scan");
+  const work=Promise.resolve().then(()=>scanWork(options));scanFlights.set(key,work);
+  try{return await work;}finally{scanFlights.delete(key);globalThis.AdventurersTomeStartup?.end(token);}
+}
+async function scanWork(options = {}) {
   stats.scans += 1;
   stats.worldDocuments = 0;
   stats.compendiumEntries = 0;
@@ -382,7 +394,7 @@ async function scan(options = {}) {
   stats.worldDocuments = entityMap.size;
 
   if (includeCompendiums) {
-    const packs = await compendiumEntities(user);
+    const packs = await (globalThis.AdventurersTomeStartup?.measure("discovery-compendiums",()=>compendiumEntities(user)) ?? compendiumEntities(user));
     for (const entity of packs) {
       if (uuidIndex.has(entity.canonicalUuid)) continue;
       entityMap.set(entity.key, entity);
@@ -403,11 +415,11 @@ async function scan(options = {}) {
 
       let rows = [];
       try {
-        rows = await adapters.execute("entityDiscovery", {
+        rows = await (globalThis.AdventurersTomeStartup?.measure("discovery-adapter",()=>adapters.execute("entityDiscovery", {
           source,
           user,
           context:clone(options?.context || {})
-        });
+        })) ?? adapters.execute("entityDiscovery", {source,user,context:clone(options?.context || {})}));
       } catch (error) {
         stats.failures += 1;
         stats.lastError = String(error?.message || error);
@@ -476,6 +488,7 @@ async function scan(options = {}) {
     contract:CONTRACT,
     version:VERSION,
     generatedAt:Date.now(),
+    viewerUserId:clean(user?.id),viewerIsGM:Boolean(user?.isGM),
     systemId:String(game.system?.id || ""),
     systemVersion:String(game.system?.version || ""),
     readOnly:true,
@@ -496,10 +509,26 @@ async function scan(options = {}) {
     }
   });
 
-  Hooks.callAll("adventurersTomeCampaignDiscoveryUpdated", clone(lastSnapshot.summary));
+  const content=JSON.stringify([lastSnapshot.viewerUserId,lastSnapshot.viewerIsGM,lastSnapshot.systemId,lastSnapshot.systemVersion,lastSnapshot.includeCompendiums,lastSnapshot.entities,lastSnapshot.relationships]);
+  if(content !== lastNotifiedContent) {
+    lastNotifiedContent=content;
+    Hooks.callAll("adventurersTomeCampaignDiscoveryUpdated", clone(lastSnapshot.summary));
+  }
   return clone(lastSnapshot);
 }
 
+// Refresh one authoritative world entity without compendium or adapter scans.
+async function refreshDocument(uuid) {
+  if(!game.user?.isGM || !lastSnapshot || lastSnapshot.viewerUserId !== clean(game.user.id) || !lastSnapshot.viewerIsGM) return null;
+  const document=await fromUuid(uuid).catch(()=>null);
+  if(!document || !canObserve(document,game.user) || document.parent) return null;
+  const registry=universalDocumentRegistryApi();
+  const record={uuid:document.uuid,id:document.id,name:document.name,documentName:document.documentName,folderUuid:document.folder?.uuid || "",parentUuid:""};
+  const entity=worldEntity(record,registry,new Map());
+  const entities=lastSnapshot.entities.filter(row=>row.canonicalUuid !== uuid);entities.push(entity);
+  lastSnapshot=Object.freeze({...lastSnapshot,entities,summary:{...lastSnapshot.summary,entities:entities.length}});
+  return clone(entity);
+}
 function snapshot() {
   return clone(lastSnapshot);
 }
@@ -508,6 +537,12 @@ function get(keyOrUuid) {
   if (!lastSnapshot) return null;
   const wanted = clean(keyOrUuid);
   return clone(lastSnapshot.entities.find((entity) => entity.key === wanted || entity.canonicalUuid === wanted) || null);
+}
+
+// Duplicate resolution needs identity fields, not full profiles/provenance.
+// This is a fresh projection of the current viewer snapshot, not a cache.
+function identityCandidates() {
+  return clone((lastSnapshot?.entities || []).map(({name,canonicalUuid,kind,aliases})=>({name,canonicalUuid,kind,aliases})));
 }
 
 function relationshipsFor(keyOrUuid) {
@@ -533,8 +568,10 @@ const publicApi = Object.freeze({
   version:VERSION,
   readOnly:true,
   scan,
+  refreshDocument,
   snapshot,
   get,
+  identityCandidates,
   relationshipsFor,
   semanticOnly:()=>clone(lastSnapshot?.semanticOnly || []),
   unresolved:()=>clone(lastSnapshot?.unresolved || []),
@@ -550,14 +587,17 @@ function attach() {
 }
 
 function scheduleScan(reason = "lifecycle") {
+  scheduledScanDirty=true;
+  if(scheduledScanBusy) return;
   window.clearTimeout(scanTimer);
   scanTimer = window.setTimeout(() => {
     scanTimer = null;
+    scheduledScanBusy=true;scheduledScanDirty=false;
     void scan({ includeCompendiums:true, context:{ reason } }).catch((error) => {
       stats.failures += 1;
       stats.lastError = String(error?.message || error);
       console.warn("Adventurer's Tome | Campaign discovery scan failed safely", error);
-    });
+    }).finally(()=>{scheduledScanBusy=false;if(scheduledScanDirty)scheduleScan("updates-during-scan");});
   }, 120);
 }
 
