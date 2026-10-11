@@ -45,7 +45,7 @@ test('Withdrawal removes queued content and applies to durable recipient inbox',
 test('Forged author and malformed payloads never enter recipient storage',async()=>{
  const w=setup(),a=w.client('a'),gm=w.client('gm'),note=await a.api.save({text:'Valid'});await a.api.share(note.id,'gm',note.revision);
  // Clear the legitimate receipt to exercise incoming validation independently.
- w.states.gm.inbox={};
+ w.states.gm={version:1,books:{},inbox:{}};
  const message=w.messages[0],packet=message.getFlag('', 'chronicleDelivery'),record=structuredClone(w.states.a.books.gm[note.id]);packet.ownerId='b';
  assert.equal(await gm.adapter.receive({messageId:message.id,record}),false);assert.equal((await gm.api.sharedRows()).length,0);
  packet.ownerId='a';record.note.targetUuids={hidden:true};assert.equal(await gm.adapter.receive({messageId:message.id,record}),false);

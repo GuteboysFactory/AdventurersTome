@@ -12,6 +12,18 @@ assert.ok(playerHtml.includes('data-player-chronicle="personal"'));assert.ok(!pl
 const gmHtml=template({isGM:true,isCampaignToolsPage:true,isCampaignToolsAnalysis:true,settings:{nav:{}},campaignAnalysis:{}});
 assert.ok(!gmHtml.includes('class="<details>'));
 assert.ok(gmHtml.includes('data-player-chronicle="rumours"'));
+const dashboardHtml=template({isGM:true,isGmDashboard:true,gmDashboard:{nextSession:10,stats:{},due:[],activeQuests:[],currentLocation:null,pinned:[]},settings:{nav:{}}});
+assert.ok(dashboardHtml.includes('data-pc-next-session-signals'));
+const intelligence={available:true,entity:{uuid:'Actor.lysa'},relationships:[],context:{count:0,appearanceGroups:[],navigationGroups:[]}};
+const entitySurfaces=[
+ ['Actor profile',template({isProfile:true,profileView:{name:'Lysa',intelligence},settings:{nav:{}}}),'Actor.lysa'],
+ ['World profile',template({isWorldProfile:true,worldProfileView:{id:'place',name:'Greyhaven',intelligence},settings:{nav:{}}}),'Actor.lysa'],
+ ['Session',template({isSessions:true,selectedSession:{id:'session-9',displayTitle:'Session 9'},settings:{nav:{}}}),'JournalEntry.session-9'],
+ ['Quest',template({isQuestDetail:true,questDetail:{id:'quest-1',name:'The Letter'},settings:{nav:{}}}),'JournalEntry.quest-1'],
+ ['Generic entity',template({entityContext:{...intelligence},settings:{nav:{}}}),'Actor.lysa']
+];
+for(const [surface,html,target] of entitySurfaces)assert.ok(html.includes(`data-player-chronicle="entity" data-target-uuid="${target}"`),`${surface} should mount Chronicle against its canonical identity`);
+for(const [surface,html] of entitySurfaces)assert.ok(!template({isGM:true,...(surface==='Actor profile'?{isProfile:true,profileView:{name:'Lysa',intelligence}}:surface==='World profile'?{isWorldProfile:true,worldProfileView:{id:'place',name:'Greyhaven',intelligence}}:surface==='Session'?{isSessions:true,selectedSession:{id:'session-9',displayTitle:'Session 9'}}:surface==='Quest'?{isQuestDetail:true,questDetail:{id:'quest-1',name:'The Letter'}}:{entityContext:{...intelligence}}),settings:{nav:{}}}).includes('data-player-chronicle="entity"'),`${surface} must not mount a player Chronicle for the GM`);
 const server=http.createServer((req,res)=>{
  if(req.url==='/'){res.setHeader('Content-Type','text/html');res.end(playerHtml);return;}
  const file=path.resolve(root,'.'+decodeURIComponent(req.url.split('?')[0]));
@@ -31,9 +43,9 @@ try {
   const user={id:'player',name:'Player',active:true},gm={id:'gm',name:'GM',isGM:true,active:true};const values={};let serial=0;
   globalThis.CONFIG={queries:{}};
   for(const recipient of [user,gm])recipient.query=async(name,data)=>{const before=game.user;game.user=recipient;try{return await CONFIG.queries[name](structuredClone(data));}finally{game.user=before;}};
-  const target={uuid:'Actor.lysa',name:'Lysa Marr',documentName:'Actor',getFlag:()=>null,testUserPermission:()=>true};
+  const target={uuid:'Actor.lysa',name:'Lysa Marr',documentName:'Actor',getFlag:()=>null,testUserPermission:()=>true},session={uuid:'JournalEntry.source',name:'Session 9',documentName:'JournalEntry',getFlag:()=>null,testUserPermission:()=>true};
   const api={canView:d=>!d.hidden,entityIntelligence:{open:async uuid=>globalThis.openedUuid=uuid},app:()=>({constructor:{_onResolveCampaignDecision:async()=>globalThis.dismissed=true}})};
-  globalThis.game={user,users:{contents:[user,gm],get:id=>[user,gm].find(u=>u.id===id)},world:{id:'qa18'},modules:new Map([['adventurers-tome',{api}]]),actors:{contents:[target,{...target,uuid:'Actor.secret',name:'Hidden spoiler',hidden:true}]},journal:{contents:[{...target,uuid:'JournalEntry.source',name:'Session 9'}]},items:{contents:[]},scenes:{contents:[]},messages:{contents:[]},settings:{register:()=>{},get:()=>values[game.user.id],set:async(_m,_k,v)=>{values[game.user.id]=structuredClone(v);}}};
+  globalThis.game={user,users:{contents:[user,gm],get:id=>[user,gm].find(u=>u.id===id)},world:{id:'qa18'},modules:new Map([['adventurers-tome',{api}]]),actors:{contents:[target,{...target,uuid:'Actor.secret',name:'Hidden spoiler',hidden:true}]},journal:{contents:[session]},items:{contents:[]},scenes:{contents:[]},messages:{contents:[]},settings:{register:()=>{},get:()=>values[game.user.id],set:async(_m,_k,v)=>{values[game.user.id]=structuredClone(v);}}};
   globalThis.fromUuid=async uuid=>[...game.actors.contents,...game.journal.contents].find(d=>d.uuid===uuid);
   globalThis.ChatMessage={create:async data=>{const message={...data,id:`message${++serial}`,author:game.user,timestamp:Date.now(),getFlag:(_m,k)=>data.flags['adventurers-tome'][k]};game.messages.contents.push(message);return message;}};
   globalThis.foundry={utils:{randomID:()=>`note${++serial}`},applications:{api:{DialogV2:{wait:config=>new Promise(resolve=>{
@@ -47,9 +59,14 @@ try {
  await page.addStyleTag({path:path.join(root,'styles/adventurers-tome.css')});await page.addStyleTag({path:path.join(root,'styles/player-chronicle.css')});
  await page.locator('[data-pc="new"]').click();
  assert.equal(await page.locator('option').filter({hasText:'Hidden spoiler'}).count(),0);
- await page.locator('[name="title"]').fill('Tankar om Lysa');await page.locator('[name="text"]').fill('Jag vill fråga Lysa om brevet.');await page.locator('[name="target"]').selectOption('Actor.lysa');await page.locator('[name="bookmark"]').check();
+ await page.locator('[name="title"]').fill('Tankar om Lysa');await page.locator('[name="text"]').fill('Jag vill fråga Lysa om brevet.');await page.locator('[name="momentDate"]').fill('2026-10-04');await page.locator('[name="target"]').selectOption('Actor.lysa');await page.locator('[name="bookmark"]').check();
  await page.locator('[data-test-dialog-action="save"]').click();await page.locator('.at-chronicle-card').waitFor();
  assert.match(await page.locator('.at-chronicle-card h3').innerText(),/★ Tankar/);
+ await page.evaluate(async()=>{game.i18n={localize:key=>key==='AT.Chronicle.Known'?'Känt för mig':key};await trigger('renderApplicationV2',{},document);});assert.equal(await page.locator('[data-pc-view="known"]').innerText(),'Känt för mig');
+ await page.locator('[data-pc-view="known"]').click();assert.equal(await page.locator('.at-known-entity').count(),1);assert.match(await page.locator('.at-known-entity').innerText(),/Lysa Marr/);
+ await page.locator('[data-pc-search]').fill('Lysa');assert.match(await page.locator('[data-pc-results]').innerText(),/Tankar om Lysa/);
+ await page.locator('[data-pc-search]').fill('');await page.locator('[data-pc-view="moments"]').click();assert.match(await page.locator('[data-pc-results]').innerText(),/Remembered 10\/4\/2026|Remembered 4\/10\/2026|Remembered 2026-10-04/);
+ await page.locator('[data-pc-view="notes"]').click();
  await page.locator('[data-pc="gm"]').click();await page.locator('[data-test-dialog-action="save"]').click();
  await page.waitForFunction(()=>game.messages.contents.length===1);
  assert.deepEqual(await page.evaluate(()=>game.messages.contents[0].whisper),['gm']);
@@ -60,12 +77,26 @@ try {
  assert.equal(await page.evaluate(()=>game.messages.contents[0].content.includes('Jag vill fråga Lysa')),false);
  await page.locator('[data-pc-open]').first().click();assert.equal(await page.evaluate(()=>openedUuid),'Actor.lysa');
  await page.locator('[data-pc-search]').fill('missing');assert.equal(await page.locator('.at-chronicle-card:visible').count(),0);await page.locator('[data-pc-search]').fill('');
+ await page.evaluate(async()=>{
+  const c=game.modules.get('adventurers-tome').api.playerChronicle;
+  await c.save({title:'Session-only memory',text:'This belongs to Session 9.',targetUuids:['JournalEntry.source']});
+  document.body.insertAdjacentHTML('beforeend','<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="Actor.lysa"></section>');
+  await trigger('renderApplicationV2',{},document);
+ });
+ const entityHost=page.locator('[data-player-chronicle="entity"]').last();await entityHost.locator('.at-chronicle-card').first().waitFor();
+ assert.ok(await entityHost.locator('.at-chronicle-card').count()>=1);assert.match(await entityHost.innerText(),/Tankar om Lysa/);assert.doesNotMatch(await entityHost.innerText(),/Session-only memory/);
+ await entityHost.locator('[data-pc-view="known"]').click();assert.match(await entityHost.locator('[data-pc-results]').innerText(),/Lysa Marr/);assert.doesNotMatch(await entityHost.locator('[data-pc-results]').innerText(),/Session 9/);
+ await entityHost.locator('[data-pc-view="notes"]').click();await entityHost.locator('[data-pc="new"]').click();
+ assert.ok((await page.locator('[name="target"]').evaluate(select=>[...select.selectedOptions].map(option=>option.value))).includes('Actor.lysa'));await page.locator('[data-test-dialog-action="cancel"]').click();
+ await entityHost.evaluate(host=>host.remove());
  await page.screenshot({path:path.join(root,'../qa18-chronicle-preview.png'),fullPage:true});
  await page.evaluate(async()=>{game.user=game.users.get('gm');await AdventurersTomeChronicleStorage.importDeliveries();document.querySelector('[data-player-chronicle]').dataset.playerChronicle='signals';await trigger('renderApplicationV2',{},document);});
  await page.locator('h2').filter({hasText:'Player Signals'}).waitFor();assert.equal(await page.locator('.at-chronicle-card').count(),1);assert.ok(!(await page.locator('.at-chronicle').innerText()).includes('Privat ändring'));
+ await page.evaluate(async()=>{document.body.insertAdjacentHTML('beforeend','<section data-next-session="true"><div data-pc-next-session-signals></div></section>');await trigger('renderApplicationV2',{},document);});
+ await page.locator('.at-player-signal-summary').waitFor();assert.match(await page.locator('.at-player-signal-summary').innerText(),/Interest.*Lysa Marr.*Player.*Tankar om Lysa/s);
  await page.evaluate(async()=>{document.body.insertAdjacentHTML('beforeend','<article class="at-guided-decision-card"><header class="at-guided-decision-header"><p>A traveller claimed Lysa smuggles goods.</p></header><button data-save-rumour data-source-uuid="JournalEntry.source" data-decision-text="Traveller">Save as rumour</button></article>');await trigger('renderApplicationV2',{},document);});
  await page.locator('[data-save-rumour]').click();await page.locator('[name="subject"]').selectOption('Actor.lysa');await page.locator('[name="claim"]').fill('Unproven claim about Lysa');assert.match(await page.locator('[name="excerpt"]').inputValue(),/traveller/);await page.locator('[data-test-dialog-action="save"]').click();await page.waitForFunction(()=>globalThis.dismissed);
  const rumours=await page.evaluate(()=>game.modules.get('adventurers-tome').api.playerChronicle.privateRows());assert.equal(rumours[0].rumour.certainty,'rumoured');assert.equal(rumours[0].rumour.sourceUuid,'JournalEntry.source');
  assert.deepEqual(errors,[]);assert.equal((await page.evaluate(()=>notices)).filter(m=>!m.startsWith('Saved as an unconfirmed')).length,0);
- console.log('PASS: actual template, player navigation, visible entity picker, note/bookmark, explicit GM delivery, snapshot isolation, canonical navigation, search, GM inbox and rumour review.');
+ console.log('PASS: Chronicle on actor, world, session, quest and generic entity surfaces; canonical targeting, target-isolated notes, Known to Me, default entity linking, GM boundary, player navigation, explicit delivery, snapshot isolation, search, Next Session signals and rumour review.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

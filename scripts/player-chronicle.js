@@ -75,6 +75,40 @@ function createPlayerChronicle(env) {
     }
     return result;
   }
+  async function knownEntities() {
+    const own=await privateRows(),shared=(await sharedRows()).filter(row=>row.ownerId!==me().id);
+    const sourceRows=[...own,...shared],notes=new Map();
+    for(const row of sourceRows) {
+      const ownerId=row.ownerId||me().id,key=`${ownerId}:${row.id}`;
+      const current=notes.get(key);
+      if(!current||Number(row.updatedAt||0)>Number(current.updatedAt||0))notes.set(key,{...row,ownerId});
+    }
+    const result=new Map();
+    for(const row of notes.values())for(const entity of row.linked||[]) {
+      const found=result.get(entity.uuid)||{...entity,mentions:[]};
+      found.mentions.push({noteId:row.id,ownerId:row.ownerId,title:row.title||'Untitled note',visibility:row.visibility||'private',signalType:row.signalType||'Interest',momentDate:row.momentDate||'',updatedAt:Number(row.updatedAt)||0});
+      result.set(entity.uuid,found);
+    }
+    return [...result.values()].map(entity=>({...entity,mentions:entity.mentions.sort((a,b)=>b.updatedAt-a.updatedAt)}))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+  }
+  async function nextSessionSignals() {
+    if(!me().isGM)return [];
+    const rows=(await sharedRows({gmOnly:true})).filter(row=>row.visibility==='gm'&&row.ownerId!==me().id&&!row.rumour);
+    const buckets=new Map();
+    for(const row of rows) {
+      const links=row.linked?.length?row.linked:[null];
+      for(const entity of links) {
+        const type=String(row.signalType||'Interest'),key=`${entity?.uuid||'unlinked'}:${type}`;
+        const bucket=buckets.get(key)||{entity,signalType:type,entries:[],players:new Set()};
+        bucket.players.add(row.ownerId);
+        bucket.entries.push({id:row.id,ownerId:row.ownerId,playerName:users().find(user=>user.id===row.ownerId)?.name||'Player',title:row.title||'Untitled note',text:row.text||'',updatedAt:Number(row.updatedAt)||0});
+        buckets.set(key,bucket);
+      }
+    }
+    return [...buckets.values()].map(bucket=>({entity:bucket.entity,signalType:bucket.signalType,playerCount:bucket.players.size,entries:bucket.entries.sort((a,b)=>b.updatedAt-a.updatedAt)}))
+      .sort((a,b)=>b.playerCount-a.playerCount||b.entries.length-a.entries.length||b.entries[0]?.updatedAt-a.entries[0]?.updatedAt||a.signalType.localeCompare(b.signalType));
+  }
   async function save(input,{id,expectedRevision,encrypt=false,phrase}={}) {
     const doc=mine('private');id=id||env.id();
     const old=(doc.getFlag(ATPC_ID,'chronicleEntries')||{})[id];
@@ -85,7 +119,13 @@ function createPlayerChronicle(env) {
     if(text.length>20000)throw Error('A note can contain up to 20,000 characters.');
     const links=[...new Set(input.targetUuids||[])];if(links.length>20)throw Error('Use at most 20 linked entities.');
     for(const uuid of links)if(!await target(uuid))throw Error('A linked entity is missing or no longer visible. Remove that link before saving.');
-    const note={title,text,targetUuids:links,bookmark:Boolean(input.bookmark),signalType:['Interest','Suspicion','Goal','Question','Theory','Relationship','Fear','Unfinished business'].includes(input.signalType)?input.signalType:'Interest',updatedAt:env.now(),createdAt:old?.createdAt||env.now()};
+    const momentDate=String(input.momentDate||'');
+    if(momentDate) {
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(momentDate))throw Error('Choose a valid remembered-moment date.');
+      const [year,month,day]=momentDate.split('-').map(Number),check=new Date(Date.UTC(year,month-1,day));
+      if(check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day)throw Error('Choose a valid remembered-moment date.');
+    }
+    const note={title,text,targetUuids:links,bookmark:Boolean(input.bookmark),momentDate,signalType:['Interest','Suspicion','Goal','Question','Theory','Relationship','Fear','Unfinished business'].includes(input.signalType)?input.signalType:'Interest',updatedAt:env.now(),createdAt:old?.createdAt||env.now()};
     if(input.rumour) {
       if(!me().isGM)throw Error('Only a GM can save a campaign rumour.');
       if(!input.rumour.subjectUuid||!links.includes(input.rumour.subjectUuid)||!links.includes(input.rumour.sourceUuid))throw Error('A rumour needs a visible subject and source.');
@@ -112,7 +152,7 @@ function createPlayerChronicle(env) {
     const recipients=users().filter(user=>visibility==='gm' ? user.id===me().id||user.isGM : dest.testUserPermission(user,'OBSERVER'));
     const links=[];
     for(const uuid of note.targetUuids){const doc=await env.resolve(uuid);if(doc&&recipients.every(user=>env.canView(doc,user)))links.push(uuid);}
-    const snapshot={title:note.title,text:note.text,bookmark:note.bookmark,signalType:note.signalType,targetUuids:links,updatedAt:env.now(),sourceRevision:note.revision};
+    const snapshot={title:note.title,text:note.text,bookmark:note.bookmark,momentDate:note.momentDate||'',createdAt:note.createdAt||note.updatedAt,signalType:note.signalType,targetUuids:links,updatedAt:env.now(),sourceRevision:note.revision};
     // Repeated sends of the same revision do not duplicate notifications.
     const existing=(dest.getFlag(ATPC_ID,'chronicleEntries')||{})[id];
     if(existing&&!existing.deleted&&existing.note?.sourceRevision===note.revision&&existing.delivered&&!env.deliveryPending?.(id,visibility))return {shared:true,alreadyShared:true};
@@ -146,6 +186,6 @@ function createPlayerChronicle(env) {
       await env.createJournal({name:`Chronicle · ${owner.name} · ${kind}`,ownership,flags:{[ATPC_ID]:{chronicleV1:{version:1,kind,ownerId:owner.id},chronicleEntries:{}}}});
     }
   }
-  return Object.freeze({privateRows,sharedRows,save,unlock,share,withdraw,remove,provision,target,lock:()=>sessions.clear(),ready:()=>Boolean(book('private')),isChronicle:doc=>Boolean(header(doc)||header(doc?.parent))});
+  return Object.freeze({privateRows,sharedRows,knownEntities,nextSessionSignals,save,unlock,share,withdraw,remove,provision,target,lock:()=>sessions.clear(),ready:()=>Boolean(book('private')),isChronicle:doc=>Boolean(header(doc)||header(doc?.parent))});
 }
 globalThis.createPlayerChronicle=createPlayerChronicle;

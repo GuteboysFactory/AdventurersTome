@@ -45,6 +45,38 @@ test('Setup is GM-only and repeatable; no canonical duplicates are created',asyn
  const w=world();await assert.rejects(()=>w.client('a').provision(),/Only a GM/);await w.client('gm').provision();const count=w.docs.length;await w.client('gm').provision();assert.equal(w.docs.length,count);assert.equal(w.docs.filter(d=>d.name==='Lysa Marr').length,1);
 });
 
+test('Known to Me derives visible canonical entities from private notes and received shares without duplicating own shares',async()=>{
+ const w=world(),gm=w.client('gm'),a=w.client('a'),b=w.client('b');await gm.provision();
+ const privateNote=await a.save({title:'The repaired lantern',text:'Lysa brought the lantern.',targetUuids:[w.target.uuid],momentDate:'2026-10-04'});
+ await a.share(privateNote.id,'gm',privateNote.revision);
+ const partyNote=await b.save({title:'Lysa knows the keeper',text:'We met her at the gate.',targetUuids:[w.target.uuid]});
+ await b.share(partyNote.id,'party',partyNote.revision);
+ const known=await a.knownEntities();assert.equal(known.length,1);assert.equal(known[0].uuid,w.target.uuid);assert.equal(known[0].mentions.length,2);
+ assert.ok(known[0].mentions.some(row=>row.visibility==='private'&&row.momentDate==='2026-10-04'));
+ assert.ok(known[0].mentions.some(row=>row.visibility==='party'&&row.ownerId==='b'));
+ assert.equal((await w.client('b').knownEntities()).some(row=>row.mentions.some(note=>note.ownerId==='a')),false);
+});
+
+test('Next Session aggregates only player notes explicitly shared with the GM',async()=>{
+ const w=world(),gm=w.client('gm'),a=w.client('a'),b=w.client('b');await gm.provision();
+ const first=await a.save({title:'Ask about the gate',text:'I want to ask Lysa about the gate.',targetUuids:[w.target.uuid],signalType:'Interest'});await a.share(first.id,'gm',first.revision);
+ const second=await a.save({title:'Question the keeper',text:'We should question Lysa.',targetUuids:[w.target.uuid],signalType:'Interest'});await a.share(second.id,'gm',second.revision);
+ const other=await b.save({title:'Suspicious lantern',text:'This stays party-only.',targetUuids:[w.target.uuid],signalType:'Suspicion'});await b.share(other.id,'party',other.revision);
+ await b.save({title:'Private theory',text:'This is private.',targetUuids:[w.target.uuid],signalType:'Suspicion'});
+ const gmNote=await gm.save({title:'GM prep only',text:'Not a player signal.',targetUuids:[w.target.uuid],signalType:'Goal'});await gm.share(gmNote.id,'gm',gmNote.revision);
+ const signals=await gm.nextSessionSignals();assert.equal(signals.length,1);assert.equal(signals[0].entity.uuid,w.target.uuid);assert.equal(signals[0].signalType,'Interest');
+ assert.equal(signals[0].playerCount,1);assert.equal(signals[0].entries.length,2);assert.ok(signals[0].entries.every(row=>row.playerName==='Alice'));
+ assert.ok(!JSON.stringify(signals).includes('party-only'));assert.ok(!JSON.stringify(signals).includes('private.'));assert.ok(!JSON.stringify(signals).includes('Not a player signal'));
+ assert.equal((await a.nextSessionSignals()).length,0);
+});
+
+test('Remembered-moment dates are validated as actual calendar dates',async()=>{
+ const w=world(),gm=w.client('gm');await gm.provision();
+ await assert.rejects(()=>w.client('a').save({text:'Bad date',momentDate:'2026-02-30'}),/valid remembered-moment date/);
+ const note=await w.client('a').save({text:'A dated memory',momentDate:'2026-02-28'});
+ assert.equal((await w.client('a').privateRows()).find(row=>row.id===note.id).momentDate,'2026-02-28');
+});
+
 test('Rumour stores a GM-only unconfirmed claim and provenance without creating an identity',async()=>{
  const w=world(),gm=w.client('gm');await gm.provision();const count=w.docs.length;
  const input={title:'Rumour',text:'A traveller claims Lysa smuggles goods',targetUuids:[w.target.uuid],rumour:{subjectUuid:w.target.uuid,sourceUuid:w.target.uuid,sourceText:'Unproven statement'}};
