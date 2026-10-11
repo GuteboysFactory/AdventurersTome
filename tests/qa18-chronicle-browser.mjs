@@ -53,10 +53,11 @@ try {
  await page.locator('[data-pc="gm"]').click();await page.locator('[data-test-dialog-action="save"]').click();
  await page.waitForFunction(()=>game.messages.contents.length===1);
  assert.deepEqual(await page.evaluate(()=>game.messages.contents[0].whisper),['gm']);
+ assert.equal(await page.evaluate(()=>game.messages.contents[0].flags['adventurers-tome'].chronicleDelivery.snapshot.note.text),'Jag vill fråga Lysa om brevet.');
  await page.locator('[data-pc="edit"]').click();await page.locator('[name="text"]').fill('Privat ändring');await page.locator('[data-test-dialog-action="save"]').click();
  await page.waitForFunction(()=>document.querySelector('.at-chronicle-text')?.textContent==='Privat ändring');
  assert.equal(await page.evaluate(async()=>(await game.modules.get('adventurers-tome').api.playerChronicle.sharedRows())[0].text),'Jag vill fråga Lysa om brevet.');
- assert.equal(await page.evaluate(()=>JSON.stringify(game.messages.contents).includes('Jag vill fråga Lysa')),false);
+ assert.equal(await page.evaluate(()=>game.messages.contents[0].content.includes('Jag vill fråga Lysa')),false);
  await page.locator('[data-pc-open]').first().click();assert.equal(await page.evaluate(()=>openedUuid),'Actor.lysa');
  await page.locator('[data-pc-search]').fill('missing');assert.equal(await page.locator('.at-chronicle-card:visible').count(),0);await page.locator('[data-pc-search]').fill('');
  await page.screenshot({path:path.join(root,'../qa18-chronicle-preview.png'),fullPage:true});

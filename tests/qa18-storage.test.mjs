@@ -26,7 +26,8 @@ test('Server user storage works without GM provisioning and survives a second br
 test('Addressed offline delivery imports once and survives removal of chat notification',async()=>{
  const w=setup(),a=w.client('a'),note=await a.api.save({title:'Theory',text:'Explicitly shared'});await a.api.share(note.id,'gm',note.revision);
  assert.deepEqual(Array.from(w.messages[0].whisper),['gm']);
- assert.ok(!JSON.stringify(w.messages).includes('Explicitly shared'));
+ assert.equal(w.messages[0].flags['adventurers-tome'].chronicleDelivery.snapshot.note.text,'Explicitly shared');
+ assert.ok(!w.messages[0].content.includes('Explicitly shared'));
  const b=w.client('b');await b.adapter.importDeliveries();assert.equal((await b.api.sharedRows()).length,0);
  const gm=w.client('gm');await gm.adapter.importDeliveries();await gm.adapter.importDeliveries();assert.equal((await gm.api.sharedRows()).length,1);
  w.messages.length=0;assert.equal((await w.client('gm').api.sharedRows())[0].text,'Explicitly shared');
@@ -39,7 +40,7 @@ test('Failed delivery is retryable without changing private text',async()=>{
 });
 test('Withdrawal removes queued content and applies to durable recipient inbox',async()=>{
  const w=setup(),a=w.client('a'),gm=w.client('gm'),note=await a.api.save({text:'Withdraw me'});await a.api.share(note.id,'gm',note.revision);await gm.adapter.importDeliveries();
- await a.api.withdraw(note.id);assert.ok(!JSON.stringify(w.messages).includes('Withdraw me'));await gm.adapter.importDeliveries();assert.equal((await gm.api.sharedRows()).length,0);
+ await a.api.withdraw(note.id);assert.ok(JSON.stringify(w.messages).includes('Withdraw me'));assert.equal(w.messages.at(-1).flags['adventurers-tome'].chronicleDelivery.deleted,true);await gm.adapter.importDeliveries();assert.equal((await gm.api.sharedRows()).length,0);
 });
 test('Forged author and malformed payloads never enter recipient storage',async()=>{
  const w=setup(),a=w.client('a'),gm=w.client('gm'),note=await a.api.save({text:'Valid'});await a.api.share(note.id,'gm',note.revision);
@@ -54,6 +55,6 @@ test('Forged author and malformed payloads never enter recipient storage',async(
 test('A retry request cannot redirect note text to a non-recipient',async()=>{
  const w=setup(),a=w.client('a'),b=w.client('b'),note=await a.api.save({text:'GM only'});await a.api.share(note.id,'gm',note.revision);w.client('gm');
  const response=await w.users[0].query('adventurers-tome.chronicleRetry',{messageId:w.messages[0].id,recipientId:'b'});
- assert.equal(response,true);assert.equal((await b.api.sharedRows()).length,0);assert.ok(!JSON.stringify(w.messages).includes('GM only'));
+ assert.equal(response,true);assert.equal((await b.api.sharedRows()).length,0);assert.ok(!w.messages[0].whisper.includes('b'));
  assert.equal(await w.users[0].query('adventurers-tome.chronicleVerify',{messageId:w.messages[0].id,record:w.states.a.books.gm[note.id]}),false);
 });

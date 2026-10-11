@@ -29,7 +29,7 @@ const pcMessage=id=>game.messages?.get?.(id)||game.messages?.contents?.find(mess
 function pcPayload(record){return record?.deleted?{id:record.id,revision:record.revision,deleted:true}:{id:record?.id,revision:record?.revision,note:structuredClone(record?.note)};}
 function pcValid(message) {
   const packet=pcPacket(message);
-  return packet?.version===2&&['gm','party'].includes(packet.visibility)&&packet.ownerId===message.author?.id
+  return [2,3].includes(packet?.version)&&['gm','party'].includes(packet.visibility)&&packet.ownerId===message.author?.id
     &&/^[a-zA-Z0-9]+$/.test(packet.noteId)&&/^[a-zA-Z0-9]+$/.test(packet.revision);
 }
 function pcCurrent(message) {
@@ -50,10 +50,11 @@ async function pcReceive({messageId,record,receiptToken}={}) {
   const packet=pcPacket(message),owner=message.author;
   if(!message.whisper?.includes(game.user.id)||packet.visibility==='gm'&&!game.user.isGM)return false;
   if(!record||record.id!==packet.noteId||record.revision!==packet.revision||Boolean(record.deleted)!==packet.deleted||JSON.stringify(record).length>50000)return false;
+  if(packet.version===3&&JSON.stringify(pcPayload(record))!==JSON.stringify(pcPayload(packet.snapshot)))return false;
   if(!record.deleted&&(!record.note||typeof record.note.text!=='string'||typeof record.note.title!=='string'||!Array.isArray(record.note.targetUuids)||record.note.targetUuids.some(uuid=>typeof uuid!=='string')||record.note.rumour))return false;
   const stamp=Number(message.timestamp)||0,key=owner.id+':'+packet.visibility,id=record.id;
   const existing=pcRead().inbox?.[key]?.[id];if(existing?.deliveryStamp>=stamp)return true;
-  if(!record.deleted&&(!owner.active||!await owner.query(PC_VERIFY,{messageId,record:pcPayload(record),receiptToken},{timeout:8000})))return false;
+  if(packet.version===2&&!record.deleted&&(!owner.active||!await owner.query(PC_VERIFY,{messageId,record:pcPayload(record),receiptToken},{timeout:8000})))return false;
   await pcWrite(state=>{state.inbox[key]||={};if((state.inbox[key][id]?.deliveryStamp||0)>=stamp)return;state.inbox[key][id]={...pcPayload(record),deliveryStamp:stamp};});
   return true;
 }
@@ -85,21 +86,23 @@ async function pcSend(message,{force=false}={}) {
 async function pcDeliver({id,ownerId,recipients,visibility,record}) {
   if(!recipients.length)throw Error('No recipients are available. The saved version remains in your Chronicle.');
   if(ownerId!==game.user.id)throw Error('A player can only share their own Chronicle.');
-  let message=game.messages?.contents?.find(m=>m.author?.id===ownerId&&pcPacket(m)?.revision===record.revision&&pcPacket(m)?.noteId===id&&pcPacket(m)?.visibility===visibility);
+  const matches=m=>m.author?.id===ownerId&&pcPacket(m)?.revision===record.revision&&pcPacket(m)?.noteId===id&&pcPacket(m)?.visibility===visibility;
+  let message=game.messages?.contents?.find(m=>matches(m)&&pcPacket(m)?.version===3);
   if(!message) {
     const escaped=String(game.user.name).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     message=await ChatMessage.create({content:'<p>Adventurer’s Tome — '+escaped+' '+(record.deleted?'withdrew a shared note':'shared a note')+'.</p><button type="button" data-pc-open-signals="'+id+'">Open '+(visibility==='gm'?'Player Signals':'My Chronicle')+'</button>',whisper:recipients,
-      flags:{[PCSTORE_ID]:{chronicleDelivery:{version:2,ownerId,visibility,noteId:id,revision:record.revision,deleted:Boolean(record.deleted)}}}});
+      flags:{[PCSTORE_ID]:{chronicleDelivery:{version:3,ownerId,visibility,noteId:id,revision:record.revision,deleted:Boolean(record.deleted),snapshot:pcPayload(record)}}}});
   }
-  return {pendingRecipients:await pcSend(message)};
+  return {pendingRecipients:[]};
 }
 async function pcImportDeliveries() {
   for(const message of game.messages?.contents||[]) {
     if(!pcValid(message))continue;
-    if(message.author.id===game.user.id){await pcSend(message);continue;}
+    if(message.author.id===game.user.id){if(pcPacket(message).version===2)await pcSend(message);continue;}
     if(!message.whisper?.includes(game.user.id))continue;
     const packet=pcPacket(message),existing=pcRead().inbox?.[packet.ownerId+':'+packet.visibility]?.[packet.noteId];
     if(existing?.deliveryStamp>=Number(message.timestamp))continue;
+    if(packet.version===3){await pcReceive({messageId:message.id,record:packet.snapshot});continue;}
     if(packet.deleted){await pcReceive({messageId:message.id,record:{id:packet.noteId,revision:packet.revision,deleted:true}});continue;}
     if(!message.author.active)continue;
     await message.author.query(PC_RETRY,{messageId:message.id},{timeout:12000}).catch(()=>{});
@@ -115,7 +118,8 @@ Hooks.on('createChatMessage',message=>{if(pcValid(message))void pcImportDeliveri
 Hooks.on('userConnected',()=>{void pcImportDeliveries().catch(()=>{});});
 function pcPending(id,kind) {
   const state=pcRead(),record=state.books?.[kind]?.[id];
-  const message=game.messages?.contents?.find(m=>m.author?.id===game.user.id&&pcPacket(m)?.noteId===id&&pcPacket(m)?.revision===record?.revision&&pcPacket(m)?.visibility===kind);
-  return !message||(message.whisper||[]).some(userId=>game.users.get(userId)&&!state.deliveryAcks?.[message.id]?.includes(userId));
+  const messages=[...(game.messages?.contents||[])].filter(m=>m.author?.id===game.user.id&&pcPacket(m)?.noteId===id&&pcPacket(m)?.revision===record?.revision&&pcPacket(m)?.visibility===kind);
+  const message=messages.find(m=>pcPacket(m)?.version===3)||messages[0];
+  return !message||pcPacket(message)?.version!==3&&(message.whisper||[]).some(userId=>game.users.get(userId)&&!state.deliveryAcks?.[message.id]?.includes(userId));
 }
 globalThis.AdventurersTomeChronicleStorage=Object.freeze({books:pcStorageBooks,deliver:pcDeliver,receive:pcReceive,importDeliveries:pcImportDeliveries,pending:pcPending});

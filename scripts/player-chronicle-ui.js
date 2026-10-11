@@ -39,10 +39,11 @@ function pcCard(row,own) {
 }
 async function pcRender(root=document) {
   const c=pcApi()?.playerChronicle;if(!c||!root?.querySelectorAll)return;
-  for(const host of root.querySelectorAll('[data-player-chronicle]')) {
+  const hosts=[...root.querySelectorAll('[data-player-chronicle]')];
+  if(hosts.some(host=>host.dataset.playerChronicle!=='rumours'))try{await globalThis.AdventurersTomeChronicleStorage.importDeliveries();}catch(error){ui.notifications.warn(`Chronicle shares could not refresh: ${error.message}`);}
+  for(const host of hosts) {
     const epoch=(pcEpochs.get(host)||0)+1;pcEpochs.set(host,epoch);
     const mode=host.dataset.playerChronicle,signals=mode==='signals',rumours=mode==='rumours';if((signals||rumours)&&!game.user.isGM)continue;
-    if(signals)try{await globalThis.AdventurersTomeChronicleStorage.importDeliveries();}catch(error){ui.notifications.warn(`Player Signals could not refresh: ${error.message}`);}
     const own=signals?[]:await c.privateRows();
     const shared=rumours?[]:await c.sharedRows({gmOnly:signals});
     if(epoch!==pcEpochs.get(host)||!host.isConnected)continue;
