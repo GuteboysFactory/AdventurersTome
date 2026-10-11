@@ -42,6 +42,7 @@ async function pcRender(root=document) {
   for(const host of root.querySelectorAll('[data-player-chronicle]')) {
     const epoch=(pcEpochs.get(host)||0)+1;pcEpochs.set(host,epoch);
     const mode=host.dataset.playerChronicle,signals=mode==='signals',rumours=mode==='rumours';if((signals||rumours)&&!game.user.isGM)continue;
+    if(signals)try{await globalThis.AdventurersTomeChronicleStorage.importDeliveries();}catch(error){ui.notifications.warn(`Player Signals could not refresh: ${error.message}`);}
     const own=signals?[]:await c.privateRows();
     const shared=rumours?[]:await c.sharedRows({gmOnly:signals});
     if(epoch!==pcEpochs.get(host)||!host.isConnected)continue;
