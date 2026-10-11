@@ -1,8 +1,33 @@
+## 1.8.0 — 2026-10-11
+
+Stable promotion of the verified Player Chronicle QA build. Players can keep private campaign notes, choose explicit GM or party sharing, record remembered moments, and browse knowledge derived only from notes visible to them. GMs can review player-shared signals without turning them into campaign facts. Chronicle references are available on Tome entity surfaces while private player notes remain outside Campaign Index and campaign analysis. See [release notes](docs/V1.8_STABLE_RELEASE.md).
+
 ## 1.7.0 — 2026-10-11
 
 Stable promotion of the verified 1.7 QA build. Includes bilingual Swedish/English analysis, Campaign Index and background processing, identity and relationship review improvements, decision history/Undo, private GM fact correction, scroll preservation and review/name cleanup. See [release notes](docs/V1.7_STABLE_RELEASE.md).
 
 # CHANGELOG
+
+## 1.8.0-qa.4 — Chronicle Entity Surface Verification
+
+- Adds cross-surface regression checks for Player Chronicle on Actor, World, Session, Quest and generic entity details.
+- Verifies each surface uses its canonical Foundry UUID, filters notes to that entity, preselects the entity when creating a note, and keeps the player Chronicle panel out of GM views.
+- No runtime behavior or campaign data format changed; the audit confirms the existing integration works consistently across all five surfaces.
+
+## 1.8.0-qa.3 — Player Signals in Next Session Prep
+
+- Adds a GM-only Player Signals summary to Next Session Dashboard, grouped by explicit signal type and currently visible canonical entity.
+- Shows distinct player and signal counts plus the shared note context, with a direct route to the existing Player Signals review.
+- Includes only live notes deliberately shared with the GM. Private notes, party-only shares, withdrawn snapshots and GM-authored notes are excluded.
+- Keeps signals descriptive and user-authored; Tome does not convert them into campaign facts or inferred intentions.
+
+## 1.8.0-qa.2 — Player Knowledge & Memory Views
+
+- Adds **Known to Me**, derived only from the current user's private notes and explicitly shared notes visible to them. Each entity stays linked by canonical UUID and shows the notes that mention it.
+- Adds an optional, player-entered remembered-moment date and a chronological timeline. Note edit timestamps are never treated as event dates.
+- Expands My Chronicle search across private notes, received shares, signal type and currently visible linked entity names.
+- Keeps all derived views user-scoped and outside Campaign Index, Campaign Memory, campaign discovery and shared search.
+- Defers broader narrative synthesis; Next Session shows only transparent counts and excerpts from explicit GM-shared signals.
 
 ## 1.7.0-qa.40 — Identity Briefing & Clean Session UX
 

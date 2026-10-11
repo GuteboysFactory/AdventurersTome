@@ -860,18 +860,19 @@ function semanticContactEvidenceVisible(document, user = game.user) {
   return true;
 }
 
-function canViewInTome(document) {
+function canViewInTome(document, user = game.user) {
   if (!document) return false;
-  if (game.user?.isGM) return true;
+  if (document.getFlag?.(MODULE_ID,'chronicleV1') || document.parent?.getFlag?.(MODULE_ID,'chronicleV1')) return false;
+  if (user?.isGM) return true;
   // Tome renders full campaign content, so require Foundry OBSERVER or better.
   // LIMITED visibility is intentionally not enough, which prevents Tome from
   // exposing more content than the underlying Foundry document permission.
-  if (!userCanObserveDocument(document, game.user)) return false;
+  if (!userCanObserveDocument(document, user)) return false;
 
   // Defense in depth for automatic semantic Contact projections: even if a
   // Journal's persisted ownership is stale, every Tome surface re-checks the
   // live source/target Actor evidence for the current viewer.
-  if (!semanticContactEvidenceVisible(document, game.user)) return false;
+  if (!semanticContactEvidenceVisible(document, user)) return false;
 
   const access = getTomeAccess(document);
   if (access.visibility === "gm") return false;
@@ -6040,7 +6041,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isRulesNavActive: this.activeTab === "rules" || this.activeTab === "ruleDetail",
       isRuleDetail: this.activeTab === "ruleDetail" && Boolean(ruleDetail),
       isSearch: this.activeTab === "search",
-      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
+      isMyChronicle: this.activeTab === "myChronicle" && !game.user.isGM,
+      isPlayerSignals: this.activeTab === "campaignToolsSignals" && game.user.isGM,
+      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant", "campaignToolsSignals", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
       isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant"].includes(this.activeTab),
       isCampaignToolsOverview: game.user.isGM && this.activeTab === "campaignToolsOverview",
       isCampaignToolsMemory: game.user.isGM && this.activeTab === "campaignToolsMemory",
@@ -8971,7 +8974,7 @@ Hooks.once("ready", async () => {
       };
     },
     getAccess: (document) => getTomeAccess(document),
-    canView: (document) => canViewInTome(document),
+    canView: (document, user = game.user) => canViewInTome(document, user),
     setAccess: async (document, access = {}) => {
       if (!game.user.isGM) throw new Error("Only a GM can change Adventurer's Tome access metadata.");
       if (!document?.setFlag) throw new Error("A Foundry Document is required.");
@@ -9171,6 +9174,7 @@ Hooks.once("ready", async () => {
     moduleId: MODULE_ID
   };
   Object.assign(module.api, coreApi);
+  Hooks.callAll?.("adventurersTomeCoreApiReady", module.api);
 
   installLauncher();
   globalThis.AdventurersTomeStartup?.count("tome-ready","coreApiPublished");

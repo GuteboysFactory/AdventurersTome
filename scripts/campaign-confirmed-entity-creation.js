@@ -455,6 +455,26 @@ async function resolveCandidates(rows = [], options = {}) {
         }
         const pausedMatches=matches.filter(target=>learningApi()?.isPaused?.(target.match.authorityUuid));
         matches=matches.filter(target=>!learningApi()?.isPaused?.(target.match.authorityUuid));
+        // A nearby full name can anchor a later first name in this source only.
+        // Never persist a global alias or choose between competing identities.
+        if(matches.length===1 && !row.ambiguousSourceReference && matches[0].match.reason==='personal-name-fragment') {
+          const candidate=matches[0],form=globalThis.AdventurersTomeLanguage.nameForm(candidate.name);
+          const first=normalize(form.text).split(' ')[0];
+          const mentions=row.mentions || [];
+          const full=normalize(form.text);
+          const page=await fromUuid(row.sourcePageUuid);
+          const host=document.createElement('div');host.innerHTML=String(page?.text?.content||'');
+          const sourceText=String(host.textContent||'').trim().replace(/\s+/gu,' ');
+          const anchored=first===normalize(row.text)&&mentions.length>0&&mentions.every(mention=>{
+            if(!Number.isInteger(mention.start)||mention.start<0||normalize(sourceText.slice(mention.start,mention.end))!==normalize(row.text))return false;
+            const context=normalize(sourceText.slice(Math.max(0,mention.start-240),mention.start));
+            const at=context.lastIndexOf(full);
+            const after=at<0?'':context.slice(at+full.length);
+            return at>=0 && (at===0||context[at-1]===' ') && (after===''||after.startsWith(' '))
+              && !/\b(?:which|either|another|different|vilken|endera|annan|annat)\b/u.test(after);
+          });
+          if(anchored)matches=[{...candidate,match:{...candidate.match,safe:true,rank:92,reason:'nearby-source-full-name'}}];
+        }
         const safeMatches = matches.filter((target)=>target.match.safe);
         result.identityAmbiguous = safeMatches.length > 1 || row.ambiguousSourceReference === true;
         const scoped = moduleApi()?.campaignSourceScopedIdentity?.resolveMention?.({ text:row.text, sourceUuid, sourcePageUuid:row.sourcePageUuid });

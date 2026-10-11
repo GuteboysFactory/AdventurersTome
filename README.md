@@ -1,10 +1,12 @@
-# Adventurer's Tome v1.7.0
+# Adventurer's Tome v1.8.0
 
 **Adventurer's Tome** is a system-agnostic campaign workspace and living campaign archive for Foundry VTT.
 
 > Foundry is the game table. Adventurer's Tome is the campaign's memory and heart.
 
-Version 1.7.0 is verified on **Foundry VTT 13.351**. See the [1.7.0 release notes](docs/V1.7_STABLE_RELEASE.md) for the implemented improvements.
+Version 1.8.0 is the stable Player Chronicle release, verified on **Foundry VTT 13.351**. It adds private player notes, explicit sharing, player-scoped knowledge and remembered moments, GM Player Signals, and Chronicle links across Tome entity views. See the [1.8.0 release notes](docs/V1.8_STABLE_RELEASE.md).
+
+Version 1.7.0 is verified on **Foundry VTT 13.351**. See the [1.7.0 release notes](docs/V1.7_STABLE_RELEASE.md) for its campaign-index and campaign-analysis improvements.
 
 ## What Adventurer's Tome does
 

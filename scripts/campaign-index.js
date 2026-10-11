@@ -96,6 +96,7 @@ async function analyzePage(payload,fallback) {
   return value;
 }
 function sourceKind(doc) {
+  if(doc.getFlag?.(ID,'chronicleV1'))return '';
   const type=String(doc.getFlag?.(ID,'type') || '').toLowerCase();
   if(['session','sessions','quest','quests'].includes(type))return type.startsWith('session')?'session':'quest';
   const seen=new Set();
@@ -113,7 +114,7 @@ function sourceFingerprint(doc,dep) {
   return {source:sourceData(doc),dep,links:doc.getFlag?.(ID,'campaignEntityLinksV1'),legacyLinks:doc.getFlag?.(ID,'links')};
 }
 function documents() {
-  return [...(game.actors?.contents || []),...(game.items?.contents || []),...(game.journal?.contents || []),...(game.scenes?.contents || [])];
+  return [...(game.actors?.contents || []),...(game.items?.contents || []),...(game.journal?.contents || []),...(game.scenes?.contents || [])].filter(doc=>!doc.getFlag?.(ID,'chronicleV1'));
 }
 function learning() {const value=api().campaignReviewLearning?.all?.() || {};delete value.decisionHistory;return value;}
 function dependencies() {
@@ -268,8 +269,8 @@ Hooks.once('ready',()=>{
   api().campaignIndex=globalThis.AdventurersTomeIndex;ready=true;
   if(gm())void load().then(()=>{restore();request('ready');});
 });
-for(const kind of ['Actor','Item','JournalEntry','JournalEntryPage','Scene','Folder'])for(const action of ['create','update','delete'])Hooks.on(`${action}${kind}`,()=>request('document-change'));
+for(const kind of ['Actor','Item','JournalEntry','JournalEntryPage','Scene','Folder'])for(const action of ['create','update','delete'])Hooks.on(`${action}${kind}`,(doc)=>{if(!doc?.getFlag?.(ID,'chronicleV1')&&!doc?.parent?.getFlag?.(ID,'chronicleV1'))request('document-change');});
 Hooks.on('adventurersTomeCampaignLearningUpdated',(event={})=>{if(!['created','campaign-linked'].includes(event.reason))decisionEpoch++;request('gm-decision');});
-Hooks.on('updateSetting',()=>request('setting-change'));
+Hooks.on('updateSetting',setting=>{if(setting?.key!==`${ID}.playerChronicleV1`)request('setting-change');});
 Hooks.on('renderApplicationV2',(_app,element)=>renderStatus(element?.[0] || element));
 Hooks.on('updateUser',()=>{if(!gm()){failWorker('GM access changed.');state=blank();db?.close();db=null;loaded=null;globalThis.indexedDB?.deleteDatabase(`tome-index:${game.world?.id}:${game.user.id}`);}else request('user-change');});

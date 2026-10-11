@@ -43,6 +43,7 @@ function currentUser(options = {}) {
 
 function canObserve(document, user) {
   if (!document || !user) return false;
+  if(document.getFlag?.(MODULE_ID,'chronicleV1')||document.parent?.getFlag?.(MODULE_ID,'chronicleV1'))return false;
   if (user.isGM) return true;
   try {
     if (typeof document.testUserPermission === "function") return document.testUserPermission(user, "OBSERVER") === true;

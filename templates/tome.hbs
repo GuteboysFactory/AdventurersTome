@@ -40,6 +40,7 @@
 {{#if profileSurface}}
 {{> entityRelationships this}}
 {{> entityContext this}}
+{{#if available}}{{#unless @root.isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="{{entity.uuid}}"></section>{{/unless}}{{/if}}
 {{/if}}
 {{/inline}}
 <div class="at-shell {{settings.themeClass}}">
@@ -57,7 +58,7 @@
       {{#if settings.nav.world}}<button type="button" class="{{#if isWorldNavActive}}active{{/if}}" data-action="navigate" data-tab="world"><i class="fa-solid fa-earth-europe"></i><span>World</span></button>{{/if}}
       {{#if settings.nav.rules}}<button type="button" class="{{#if isRulesNavActive}}active{{/if}}" data-action="navigate" data-tab="rules"><i class="fa-solid fa-scroll"></i><span>Rules</span></button>{{/if}}
       {{#if settings.nav.search}}<button type="button" class="{{#if isSearch}}active{{/if}}" data-action="navigate" data-tab="search"><i class="fa-solid fa-magnifying-glass"></i><span>Search</span></button>{{/if}}
-      {{#if isGM}}<button type="button" class="{{#if isCampaignToolsNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-toolbox"></i><span>Campaign Tools</span></button>{{/if}}
+      {{#if isGM}}<button type="button" class="{{#if isCampaignToolsNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-toolbox"></i><span>Campaign Tools</span></button>{{else}}<button type="button" class="{{#if isMyChronicle}}active{{/if}}" data-action="navigate" data-tab="myChronicle"><i class="fa-solid fa-book"></i><span>My Chronicle</span></button>{{/if}}
     </nav>
 
     <div class="at-gm-top-actions">
@@ -68,6 +69,8 @@
     </div>
   </header>
 
+  {{#if isMyChronicle}}<main class="at-page"><section class="at-chronicle" data-player-chronicle="personal"></section></main>{{/if}}
+  {{#if isPlayerSignals}}<main class="at-page"><button type="button" data-action="navigate" data-tab="campaignToolsOverview">Campaign Tools</button><section class="at-chronicle" data-player-chronicle="signals"></section></main>{{/if}}
   {{#if isHome}}
   <main class="at-home {{settings.homeModeClass}} {{settings.homeHeroLayoutClass}} {{settings.homeHeroHeightClass}} {{settings.homeHeroShadeClass}} {{settings.homeHeroFocusClass}} {{#unless settings.homeCardsVisible}}at-home-no-cards {{/unless}}{{#unless homeSidebarVisible}}at-home-no-sidebar{{/unless}}">
     {{#if homeSidebarVisible}}
@@ -218,7 +221,7 @@
         </header>
 
         {{#if canGoBack}}<button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>{{/if}}
-        <p class="at-session-detail-summary">{{selectedSession.summary}}</p>{{#if isGM}}{{#if selectedSession.access.restricted}}<div class="at-access-badges">{{#if selectedSession.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if selectedSession.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{#if selectedSession.access.openNotes.length}}<div class="at-gm-note-stack">{{#each selectedSession.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
+        <p class="at-session-detail-summary">{{selectedSession.summary}}</p>{{#unless isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="JournalEntry.{{selectedSession.id}}"></section>{{/unless}}{{#if isGM}}{{#if selectedSession.access.restricted}}<div class="at-access-badges">{{#if selectedSession.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if selectedSession.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{#if selectedSession.access.openNotes.length}}<div class="at-gm-note-stack">{{#each selectedSession.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
 
         <div class="at-session-detail-stats">
           <span><i class="fa-solid fa-diamond"></i><strong>{{selectedSession.questLinks.length}}</strong> Quest links</span>
@@ -326,7 +329,7 @@
         <div class="at-quest-detail-meta"><span class="at-quest-status at-status-{{questDetail.status}}">{{questDetail.statusLabel}}</span>{{#if questDetail.featured}}<span class="at-featured-badge"><i class="fa-solid fa-star"></i> Featured</span>{{/if}}</div>
         <span class="at-kicker">Quest thread</span>
         <h1>{{questDetail.name}}</h1>
-        <p>{{questDetail.summary}}</p>{{#if isGM}}{{#if questDetail.access.restricted}}<div class="at-access-badges">{{#if questDetail.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if questDetail.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{/if}}
+        <p>{{questDetail.summary}}</p>{{#unless isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="JournalEntry.{{questDetail.id}}"></section>{{/unless}}{{#if isGM}}{{#if questDetail.access.restricted}}<div class="at-access-badges">{{#if questDetail.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if questDetail.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{/if}}
       </div>
       <aside class="at-quest-detail-glance">
         <div><span>Sessions</span><strong>{{questDetail.sessionLinks.length}}</strong></div>
@@ -839,10 +842,12 @@
       <button type="button" class="{{#if isCampaignToolsMemory}}active{{/if}}" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
       <button type="button" class="{{#if isCampaignToolsAnalysis}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="{{#if isCampaignToolsIndex}}active{{/if}}" data-action="navigate" data-tab="campaignToolsIndex"><i class="fa-solid fa-database"></i><span>Index</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsSignals"><i class="fa-solid fa-comment"></i><span>Player Signals</span></button>
       <button type="button" class="{{#if isCampaignToolsAssistantNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
     {{#if isCampaignToolsIndex}}<section class="at-campaign-index" data-at-campaign-index></section>{{/if}}
+    {{#if isCampaignToolsAnalysis}}<details><summary>Saved Rumours</summary><section class="at-chronicle" data-player-chronicle="rumours"></section></details>{{/if}}
     {{#if isCampaignToolsOverview}}
     <section class="at-campaign-tools-overview">
       <div class="at-campaign-tools-summary">
@@ -1250,6 +1255,7 @@
               {{#if isReview}}
               <button type="button" data-action="resolveCampaignDecision" data-decision-mode="mention-only" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-comment-dots"></i> Keep as Mention only</button>
               {{else}}
+              <button type="button" data-save-rumour data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}">Save as rumour…</button>
               <button type="button" data-action="resolveCampaignDecision" data-decision-mode="keep" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-clock"></i> Keep unresolved</button>
               {{/if}}
               <small>Choose an existing identity, create one after review, or defer this decision for this source.</small>
@@ -1404,6 +1410,10 @@
       <article class="at-settings-card at-command-card">
         <div class="at-section-title"><div><span class="at-kicker">Adventure pressure</span><h2><i class="fa-solid fa-diamond"></i> Active Quests</h2></div><button type="button" class="at-secondary" data-action="navigate" data-tab="quests">All Quests</button></div>
         <div class="at-command-list compact">{{#each gmDashboard.activeQuests}}<button type="button" class="at-command-link" data-action="openQuestDetail" data-journal-id="{{id}}"><i class="fa-solid {{#if featured}}fa-star{{else}}fa-diamond{{/if}}"></i><span><strong>{{name}}</strong><small>{{homeSummary}}</small></span></button>{{else}}<div class="at-empty">No active quests.</div>{{/each}}</div>
+      </article>
+      <article class="at-settings-card at-command-card at-command-player-signals">
+        <div class="at-section-title"><div><span class="at-kicker">Player Chronicle</span><h2><i class="fa-solid fa-comments"></i> Player Signals</h2><p>Only notes players explicitly shared with you. These are player thoughts, not confirmed campaign facts.</p></div><button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsSignals">All signals</button></div>
+        <div data-pc-next-session-signals><p>Loading explicitly shared player signals…</p></div>
       </article>
       <article class="at-settings-card at-command-card">
         <div class="at-section-title"><div><span class="at-kicker">Live session kit</span><h2><i class="fa-solid fa-toolbox"></i> At the Table</h2></div></div>
