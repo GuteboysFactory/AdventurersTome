@@ -13,6 +13,15 @@ function install(w) {
 }
 const payload=()=>({text:'Mira works as a guide.',referenceText:'Mira works as a guide.',knownIndex:{names:new Set(),singleAliases:new Set(),entities:[]},journal:{uuid:'JournalEntry.source',name:'Test'},page:{uuid:'JournalEntry.source.JournalEntryPage.page',name:'Notes'},kind:'session'});
 
+test('Personal Chronicle saves do not queue campaign analysis; campaign settings still do',async()=>{
+  const w=world('',false),index=install(w);await index.drain();
+  assert.equal(index.status().queued,false);
+  w.context.Hooks.callAll('updateSetting',{key:'adventurers-tome.playerChronicleV1'});
+  assert.equal(index.status().queued,false);
+  w.context.Hooks.callAll('updateSetting',{key:'adventurers-tome.campaignPolicy'});
+  assert.equal(index.status().queued,true);
+});
+
 test('stale background cancellation retries without a sync failure; real errors still warn',async()=>{
   const w=world('Mira works as a guide.',false);let warnings=0;
   w.context.console={...w.context.console,warn:()=>warnings++};

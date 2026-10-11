@@ -55,6 +55,7 @@ function atUdrParentUuid(document) {
 }
 
 function atUdrRecord(document) {
+  if (document?.getFlag?.('adventurers-tome','chronicleV1') || document?.parent?.getFlag?.('adventurers-tome','chronicleV1')) return null;
   const documentName = String(document?.documentName || "");
   const uuid = String(document?.uuid || "");
   if (!uuid || !ATUDR_SUPPORTED.includes(documentName)) return null;
@@ -287,6 +288,7 @@ Hooks.once("ready", () => {
 
 for (const hookName of ATUDR_HOOKS) {
   Hooks.on(hookName, (document,changes,options={}) => {
+    if(document?.getFlag?.('adventurers-tome','chronicleV1')||document?.parent?.getFlag?.('adventurers-tome','chronicleV1'))return;
     atUdrRecordLifecycle(hookName, document);
     if(options.adventurersTomeReviewDecision || globalThis.AdventurersTomeReviewDecision?.isActive?.()) {
       const record=atUdrRecord(document);

@@ -104,6 +104,7 @@ function folderNames(folder) {
 
 function journalKind(journal) {
   if (!journal) return "";
+  if (journal.getFlag?.(MODULE_ID,'chronicleV1')) return '';
   const flagged = clean(journal.getFlag?.(MODULE_ID, "type")).toLowerCase();
   if (flagged === "session" || flagged === "sessions") return "session";
   if (flagged === "quest" || flagged === "quests") return "quest";

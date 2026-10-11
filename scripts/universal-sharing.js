@@ -45,6 +45,7 @@ function atusSourceTitle(root = document.querySelector(ATUS_ROOT)) {
 
 function atusCleanClone(container, { playerSafe = false } = {}) {
   const remove = [
+    '.at-chronicle',
     "script", "style", "form", "input", "textarea", "select", "option", "button",
     "iframe", "canvas", "audio", "video",
     ".at-profile-toolbar", ".at-detail-toolbar", ".at-topbar", ".at-page-tools",

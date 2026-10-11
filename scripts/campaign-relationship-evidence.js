@@ -77,6 +77,7 @@ function atRePlain(html) {
   return String(element.textContent || "").replace(/\r/g, "");
 }
 function atReSourceKind(entry) {
+  if(entry.getFlag?.(ATRE_ID,'chronicleV1'))return '';
   const type = atReNorm(entry.getFlag?.(ATRE_ID,"type"));
   if (["session","quest"].includes(type)) return type;
   const seen=new Set();
