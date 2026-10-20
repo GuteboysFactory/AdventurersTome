@@ -1,4 +1,10 @@
-# Adventurer’s Tome 1.9.0
+# Adventurer’s Tome 2.0.0
+
+Version 2.0.0 adds the **Integration API** for external Foundry modules: versioned registration, owned adapters, reviewed additions to known information, and explicit one-read authorization for a GM's private contextual notes.
+
+Existing Adapter API v1 integrations remain compatible. The optional example module is for developers/testing and is not required for normal use. See the [2.0.0 release notes](docs/V2.0_STABLE_RELEASE.md) and [Integration API contract](docs/INTEGRATION_API.md). No campaign reimport is needed.
+
+## Previous release: 1.9.0
 
 Version 1.9.0 adds the **Migration Toolkit** and a shared **Import & Export** workspace. It includes the campaign-tested TAF → Realm Guard conversion, portable campaign media, account mapping, private-data transfer and reviewed contact recovery.
 

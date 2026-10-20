@@ -92,7 +92,7 @@ function atSaNormalizeAdapter(idOrAdapter, maybeAdapter) {
   });
 }
 
-function atSaRegister(idOrAdapter, maybeAdapter, options = {}) {
+function atSaRegisterRecord(idOrAdapter, maybeAdapter, options = {}) {
   const adapter = atSaNormalizeAdapter(idOrAdapter, maybeAdapter);
   const replace = options?.replace === true;
   const existing = ATSA_REGISTRY.get(adapter.id);
@@ -107,7 +107,21 @@ function atSaRegister(idOrAdapter, maybeAdapter, options = {}) {
     Hooks.callAll("adventurersTomeAdapterRegistered", atSaPublicDescriptor(adapter));
   } catch (_error) {}
 
-  return adapter.id;
+  return adapter;
+}
+
+function atSaRegister(idOrAdapter, maybeAdapter, options = {}) {
+  return atSaRegisterRecord(idOrAdapter, maybeAdapter, options).id;
+}
+
+// Additive v1 receipt: cleanup cannot remove a later replacement of this id.
+function atSaRegisterHandle(idOrAdapter, maybeAdapter, options = {}) {
+  const adapter = atSaRegisterRecord(idOrAdapter, maybeAdapter, options);
+  return Object.freeze({
+    id: adapter.id,
+    isCurrent: () => ATSA_REGISTRY.get(adapter.id) === adapter,
+    unregister: () => ATSA_REGISTRY.get(adapter.id) === adapter ? atSaUnregister(adapter.id) : false
+  });
 }
 
 function atSaUnregister(id) {
@@ -450,6 +464,7 @@ const ATSA_PUBLIC_API = Object.freeze({
   version:ATSA_VERSION,
   capabilities:Object.freeze([...ATSA_CAPABILITIES]),
   register:atSaRegister,
+  registerHandle:atSaRegisterHandle,
   unregister:atSaUnregister,
   get:atSaGet,
   list:atSaList,

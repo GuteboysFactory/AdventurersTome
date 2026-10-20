@@ -47,3 +47,16 @@ if(manifest.version==='1.9.0') {
   for(const file of ['docs/V1.9_STABLE_RELEASE.md','scripts/window-dock.js','styles/window-dock.css','styles/campaign-overview.css','styles/campaign-workspace.css'])if(!fs.existsSync(file))throw Error(`Missing stable release file: ${file}`);
   if(!manifest.esmodules.includes('scripts/window-dock.js'))throw Error('Missing launcher minimization runtime');
 }
+
+if(manifest.version.startsWith('2.0.')) {
+  if(manifest.version==='2.0.0'&&!fs.existsSync('docs/V2.0_STABLE_RELEASE.md'))throw Error('Missing stable 2.0 release notes');
+  for(const file of ['scripts/integration-api.js','docs/INTEGRATION_API.md','tests/qa20-integration-api.test.mjs','examples/tome-example-integration/module.json','examples/tome-example-integration/example.js'])if(!fs.existsSync(file))throw Error(`Missing Integration API foundation: ${file}`);
+  for(const file of ['scripts/world-system-adapters.js','scripts/integration-api.js','scripts/migration-core.js','scripts/migration-import.js','scripts/player-chronicle.js','scripts/window-dock.js'])if(!manifest.esmodules.includes(file))throw Error(`Missing 2.0 or inherited runtime: ${file}`);
+  if(manifest.esmodules.indexOf('scripts/integration-api.js')<manifest.esmodules.indexOf('scripts/world-system-adapters.js'))throw Error('Integration API must load after Adapter API');
+  console.log('PASS: Integration API, example module and inherited runtime included.');
+  if(manifest.version!=='2.0.0-qa.1')for(const file of ['docs/INTEGRATION_SUBMISSIONS.md','tests/qa20-integration-submissions.test.mjs'])if(!fs.existsSync(file))throw Error(`Missing reviewed-submission foundation: ${file}`);
+  if(!['2.0.0-qa.1','2.0.0-qa.2'].includes(manifest.version)) {
+    for(const file of ['docs/INTEGRATION_PRIVATE_NOTES.md','tests/qa20-integration-private-notes.test.mjs'])if(!fs.existsSync(file))throw Error(`Missing private-note authorization foundation: ${file}`);
+    if(!manifest.esmodules.includes('scripts/contextual-private-vault.js'))throw Error('Missing private contextual note provider');
+  }
+}

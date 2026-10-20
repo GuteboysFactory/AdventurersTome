@@ -1999,6 +1999,17 @@ Planned direction:
 - explicit authorization around private GM data
 - foundations for future Campaign Brain capabilities
 
+### Completed 2.0 scope — Integration registration and lifecycle
+
+- Implemented: versioned `api.integrations`, core/adapter readiness handshake, active-module registration and owned adapter cleanup.
+- Existing Adapter API v1 remains compatible; additive registration receipts prevent cleanup from deleting replacements.
+- Public contract and optional system-independent example module: `docs/INTEGRATION_API.md`, `examples/tome-example-integration/`.
+- Automated lifecycle/isolation/legacy tests and a full release regression gate are included. Stable release: 2.0.0.
+- qa.2 foundation: reviewed additions to public known information, using the existing semantic permission/write flow; no private-data grants. See `docs/INTEGRATION_SUBMISSIONS.md`.
+- qa.3 foundation: explicit GM-approved, one-read, 60-second private contextual note grants, bound to the integrating handle, GM and target; no private-fact or cross-GM access. See `docs/INTEGRATION_PRIVATE_NOTES.md`.
+- The first-read/replay-rejection path was confirmed in Foundry. The combined gate covers legacy behavior, privacy, layout and launcher stability. Broader write/private-data scopes remain future work.
+- My Chronicle polish and further migration/Genesys mechanics remain deferred.
+
 ---
 
 # v2.1 — Campaign Brain
@@ -2054,14 +2065,14 @@ System-independence rule: **Reference-system versions must never become Tome run
 
 # Current handoff snapshot
 
-**Release line:** `v1.9.0 — Migration Toolkit and UI consolidation`  
-**Promoted QA baseline:** `v1.9.0-qa.4.16`, plus the approved Session Chronicle-before-links layout  
-**Prior stable baseline:** `v1.8.0 — Player Chronicle`  
-**Verified Foundry baseline:** `V13.351`  
-**Completed foundations:** v1.5 Adapter API, v1.6 Universal Semantic Layer, v1.7 Campaign Memory/analysis, v1.8 Player Chronicle  
-**Current migration scope:** TAF → Realm Guard campaign-tested; further adapters/Genesys mechanics deferred  
-**Next major milestone:** `v2.0 — Integration API / External Adapters`  
-**Later:** `v2.1 — Campaign Brain`
+**Release line:** v2.0.0 — Integration API / External Adapters
+**Promoted QA baseline:** v2.0.0-qa.3, plus a test-only correction removing the obsolete 1.8/1.9 telemetry version whitelist
+**Prior stable baseline:** v1.9.0 — Migration Toolkit and UI consolidation
+**Verified Foundry baseline:** V13.351; direct V14 verification remains separate
+**Completed foundations:** Adapter API, Universal Semantic Layer, Campaign Memory, Player Chronicle, Migration Toolkit and versioned external integration lifecycle/review/authorization
+**Migration scope:** TAF → Realm Guard campaign-tested; further adapters/Genesys mechanics deferred
+**Next major milestone:** v2.1 — Campaign Brain
+**Deferred UI:** My Chronicle visual refresh remains optional future work
 
 ## v1.3 final status
 

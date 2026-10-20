@@ -1,0 +1,24 @@
+{
+  "id": "tome-example-integration",
+  "title": "Tome Integration Example (developer fixture)",
+  "description": "Optional local QA fixture for Tome Integration API v1; explicit review and private-note authorization helpers.",
+  "version": "0.3.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13.351"
+  },
+  "relationships": {
+    "requires": [
+      {
+        "id": "adventurers-tome",
+        "type": "module",
+        "compatibility": {
+          "minimum": "2.0.0-qa.3"
+        }
+      }
+    ]
+  },
+  "esmodules": [
+    "example.js"
+  ]
+}

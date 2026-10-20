@@ -1,5 +1,31 @@
 ## 1.9.0 — Migration Toolkit and a clearer Tome
 
+## 2.0.0 — Integration API
+
+- Add versioned integration registration, readiness hooks and namespaced owned adapters; retain existing Adapter API v1 compatibility.
+- Add explicit review for plain-text additions to existing Actor/Journal known information, with permission and stale-plan checks.
+- Add GM-approved, single-read, 60-second access to one target's private contextual notes; no write grant or access to other GMs' notes/private facts.
+- Include developer contracts and an optional example integration. Existing 1.9 migration and UI behavior remain included.
+
+## 2.0.0-qa.3 — local QA (unpublished)
+
+- Add explicit native GM authorization for one read of that GM’s contextual notes for one Actor/Journal target, expiring after 60 seconds.
+- Bind grants to the integration handle, approving GM, target and provider; support revocation and reject stale/replayed requests. No private-note reads before approval or permission writes.
+- Filter returned note fields, isolate other GM records, document the shared-client trust boundary and include an opt-in dummy-note fixture.
+
+## 2.0.0-qa.2 — local QA (unpublished)
+
+- Add handle-scoped plain-text submissions for existing Actor/Journal known information, with native review and explicit approval.
+- Reuse semantic permissions and conflict checks; preserve existing HTML/plain formats, reject impersonation fields, and expire/consume review tickets.
+- Add an explicit optional test fixture and real semantic planner/executor regression coverage. No private-data grant or cross-client transport.
+
+## 2.0.0-qa.1 — local QA (unpublished)
+
+- Add versioned external Integration API readiness, compatibility negotiation and active-module registration.
+- Namespace owned adapters and bind cleanup to exact registration receipts; preserve existing Adapter API v1 behavior.
+- Include public hook/data-boundary documentation and an optional read-only example integration.
+- Campaign submissions, private-data authorization and further migration adapters remain future work.
+
 - Promote the campaign-tested TAF → Realm Guard migration and shared Import & Export workspace, including media, account mapping, privacy-preserving transfers, contact review and safe retry.
 - Include the completed Campaign Tools style pass, grouped Player Signals, stable library/profile controls and minimization into the existing movable launcher.
 - Put Session Chronicle text before linked content while retaining compact counters above it and preserving editing/source actions.
