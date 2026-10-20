@@ -293,3 +293,8 @@ for (const hookName of ["renderApplication", "renderApplicationV2", "createJourn
 Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
   if (!active) atA6Schedule(160);
 });
+
+Hooks.on("adventurersTomePrepareView", () => {
+  atA6EnhanceDetail();
+  atA6EnhanceManager();
+});

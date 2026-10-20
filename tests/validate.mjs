@@ -33,3 +33,17 @@ if(['1.7.0-qa.43','1.7.0','1.8.0-qa.1','1.8.0-qa.2','1.8.0-qa.3','1.8.0-qa.4'].i
   console.log('PASS: required qa.43 role attribution and name-form resolution files.');
 }
 if(manifest.version==='1.8.0-qa.4')for(const file of ['tests/qa18-chronicle-browser.mjs','docs/V1.8_QA4_CHRONICLE_ENTITY_SURFACES.md'])if(!fs.existsSync(file))throw Error(`Missing qa.4 Chronicle entity-surface file: ${file}`);
+if(manifest.version.startsWith('1.9.')) {
+  for(const file of ['scripts/migration-core.js','scripts/migration-ui.js','styles/migration.css','templates/migration.hbs','tests/qa19-migration.test.mjs','docs/V1.9_QA1_MIGRATION_TOOLKIT.md','scripts/campaign-index.js','scripts/campaign-entity-intelligence.js','scripts/player-chronicle.js','scripts/player-chronicle-storage.js','scripts/player-chronicle-ui.js','scripts/campaign-rumour-review.js'])if(!fs.existsSync(file))throw Error(`Missing migration or inherited feature: ${file}`);
+  for(const file of ['scripts/migration-core.js','scripts/migration-ui.js','scripts/player-chronicle.js','scripts/player-chronicle-storage.js','scripts/player-chronicle-ui.js','scripts/campaign-index.js'])if(!manifest.esmodules.includes(file))throw Error(`Feature missing from manifest: ${file}`);
+  if(manifest.version==='1.9.0'||/^1\.9\.0-qa\.(?:[2-9]|\d{2,})(?:\.\d+)?$/.test(manifest.version))for(const file of ['scripts/migration-adapters.js','scripts/migration-taf-realm-guard.js','scripts/migration-import.js'])if(!manifest.esmodules.includes(file))throw Error(`Missing qa.2 import runtime: ${file}`);
+  if(!manifest.styles.includes('styles/migration.css'))throw Error('Migration style missing from manifest');
+  if(['1.9.0','1.9.0-qa.3','1.9.0-qa.4','1.9.0-qa.4.1','1.9.0-qa.4.2','1.9.0-qa.4.3','1.9.0-qa.4.4','1.9.0-qa.4.10','1.9.0-qa.4.11','1.9.0-qa.4.12','1.9.0-qa.4.13','1.9.0-qa.4.14','1.9.0-qa.4.15','1.9.0-qa.4.16'].includes(manifest.version)&&!manifest.esmodules.includes('scripts/migration-private-data.js'))throw Error('Missing owner-scoped migration runtime');
+  if((manifest.version==='1.9.0'||manifest.version.startsWith('1.9.0-qa.4'))&&!manifest.esmodules.includes('scripts/transfer-content.js'))throw Error('Missing shared content transfer engine');
+  console.log('PASS: migration and inherited Chronicle/index runtime included.');
+}
+
+if(manifest.version==='1.9.0') {
+  for(const file of ['docs/V1.9_STABLE_RELEASE.md','scripts/window-dock.js','styles/window-dock.css','styles/campaign-overview.css','styles/campaign-workspace.css'])if(!fs.existsSync(file))throw Error(`Missing stable release file: ${file}`);
+  if(!manifest.esmodules.includes('scripts/window-dock.js'))throw Error('Missing launcher minimization runtime');
+}

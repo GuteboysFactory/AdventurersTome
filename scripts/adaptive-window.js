@@ -122,7 +122,7 @@ function atAwResolve(mode = atAwMode(), saved = atAwSavedState(), viewport = atA
 }
 
 function atAwCanPosition(app) {
-  return Boolean(app?.rendered && app?.element && app.element.style);
+  return Boolean(app?.rendered && !app?._atWindowDocked && app?.element && app.element.style);
 }
 
 function atAwInstallStyles() {
@@ -166,7 +166,7 @@ function atAwInstallStyles() {
 }
 
 async function atAwSaveState(app) {
-  if (!app?.position) return;
+  if (!app?.position || app._atWindowDocked) return;
   const { width, height, left, top } = app.position;
   if (![width, height, left, top].every((value) => Number.isFinite(Number(value)))) return;
   const viewport = atAwViewport();
@@ -178,6 +178,8 @@ async function atAwSaveState(app) {
     viewportWidth: Math.round(viewport.width),
     viewportHeight: Math.round(viewport.height)
   });
+  // Rendering/observing an unchanged window is not a new user preference.
+  if (game.settings.get(ATAW_MODULE_ID, "windowState") === payload) return;
   await game.settings.set(ATAW_MODULE_ID, "windowState", payload);
 }
 
@@ -247,9 +249,10 @@ function atAwPatchApp(app) {
   };
 
   app._scheduleWindowStateSave = function () {
+    if(this._atWindowDocked)return;
     clearTimeout(this._windowStateTimer);
     this._windowStateTimer = setTimeout(() => {
-      if (!this.rendered) return;
+      if (!this.rendered || this._atWindowDocked) return;
       atAwSaveState(this).catch((error) => console.warn("Adventurer's Tome | Could not save adaptive client window state", error));
     }, 300);
   };

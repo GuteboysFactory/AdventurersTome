@@ -46,7 +46,7 @@
 <div class="at-shell {{settings.themeClass}}">
   <header class="at-topbar">
     <button class="at-brand" type="button" data-action="navigate" data-tab="home">
-      {{#if settings.hasLogo}}<span class="at-brand-logo"><img src="{{settings.logoUrl}}" alt="Campaign logo"></span>{{else}}<span class="at-brand-icon"><i class="fa-solid fa-book-open"></i></span>{{/if}}
+      {{#if settings.hasLogo}}<span class="at-brand-logo"><img data-at-tome-image src="{{atImageSrc settings.logoUrl}}" alt="Campaign logo"></span>{{else}}<span class="at-brand-icon"><i class="fa-solid fa-book-open"></i></span>{{/if}}
       <span class="at-brand-text"><small>ADVENTURER'S</small><strong>TOME</strong></span>
     </button>
 
@@ -63,14 +63,28 @@
 
     <div class="at-gm-top-actions">
       <button type="button" class="at-icon-button {{#if isManual}}active{{/if}}" title="Adventurer's Tome Manual" data-action="openManual"><i class="fa-solid fa-circle-question"></i></button>
-      {{#if isGM}}
-        <button type="button" class="at-icon-button at-settings-critical {{#if isSettings}}active{{/if}}" title="Campaign Settings" data-action="openSettings"><i class="fa-solid fa-gear"></i></button>
-      {{/if}}
+      <details class="at-tools-menu"><summary class="at-icon-button at-settings-critical" title="Settings & Tools" aria-label="Settings & Tools"><i class="fa-solid fa-gear"></i></summary><div class="at-tools-menu-items">
+        <button type="button" data-action="openMigration"><i class="fa-solid fa-arrows-rotate"></i> Import &amp; Export</button>
+        {{#if isGM}}<button type="button" data-action="openMigration" data-transfer-tab="export" data-transfer-kind="gm-private"><i class="fa-solid fa-vault"></i> Export GM Notes &amp; Vault</button><button type="button" data-action="openSettings"><i class="fa-solid fa-gear"></i> Campaign Settings</button>{{else}}<button type="button" data-action="openMigration" data-transfer-tab="export"><i class="fa-solid fa-book"></i> Export my Chronicle</button>{{/if}}
+      </div></details>
     </div>
   </header>
 
   {{#if isMyChronicle}}<main class="at-page"><section class="at-chronicle" data-player-chronicle="personal"></section></main>{{/if}}
-  {{#if isPlayerSignals}}<main class="at-page"><button type="button" data-action="navigate" data-tab="campaignToolsOverview">Campaign Tools</button><section class="at-chronicle" data-player-chronicle="signals"></section></main>{{/if}}
+  {{#if isPlayerSignals}}
+  <main class="at-page at-campaign-tools-page at-campaign-workspace at-campaign-signals-page">
+    <section class="at-page-heading at-campaign-tools-heading"><div><span class="at-kicker">GM workspace</span><h1>Player signals</h1><p>Thoughts, questions and theories your players chose to share with you.</p></div><span class="at-workspace-private"><i class="fa-solid fa-lock"></i> Shared with the GM</span></section>
+    <nav class="at-campaign-tools-tabs" aria-label="Campaign Tools sections">
+      <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsIndex"><i class="fa-solid fa-database"></i><span>Index</span></button>
+      <button type="button" class="active" aria-current="page" data-action="navigate" data-tab="campaignToolsSignals"><i class="fa-solid fa-comment"></i><span>Player Signals</span></button>
+      <button type="button" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
+    </nav>
+    <section class="at-chronicle" data-player-chronicle="signals"></section>
+  </main>
+  {{/if}}
   {{#if isHome}}
   <main class="at-home {{settings.homeModeClass}} {{settings.homeHeroLayoutClass}} {{settings.homeHeroHeightClass}} {{settings.homeHeroShadeClass}} {{settings.homeHeroFocusClass}} {{#unless settings.homeCardsVisible}}at-home-no-cards {{/unless}}{{#unless homeSidebarVisible}}at-home-no-sidebar{{/unless}}">
     {{#if homeSidebarVisible}}
@@ -150,7 +164,7 @@
         <article class="at-card at-home-widget {{sizeClass}} at-group-preview">
           <div class="at-card-header"><span>The Group</span>{{#if ../settings.nav.group}}<button type="button" data-action="navigate" data-tab="group">View group</button>{{/if}}</div>
           <div class="at-portrait-row">
-            {{#each ../homeGroup}}<button type="button" data-action="openProfile" data-actor-id="{{id}}" title="View {{name}} profile"><img src="{{img}}" alt="{{name}}"><strong>{{name}}</strong><small>{{displayRole}}</small></button>{{else}}<div class="at-empty">GM can add player characters in Campaign Settings.</div>{{/each}}
+            {{#each ../homeGroup}}<button type="button" data-action="openProfile" data-actor-id="{{id}}" title="View {{name}} profile"><img data-at-tome-image src="{{atImageSrc img}}" alt="{{name}}"><strong>{{name}}</strong><small>{{displayRole}}</small></button>{{else}}<div class="at-empty">GM can add player characters in Campaign Settings.</div>{{/each}}
           </div>
         </article>
         {{/if}}
@@ -221,7 +235,7 @@
         </header>
 
         {{#if canGoBack}}<button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>{{/if}}
-        <p class="at-session-detail-summary">{{selectedSession.summary}}</p>{{#unless isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="JournalEntry.{{selectedSession.id}}"></section>{{/unless}}{{#if isGM}}{{#if selectedSession.access.restricted}}<div class="at-access-badges">{{#if selectedSession.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if selectedSession.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{#if selectedSession.access.openNotes.length}}<div class="at-gm-note-stack">{{#each selectedSession.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
+        <p class="at-session-detail-summary">{{selectedSession.summary}}</p>{{#if isGM}}{{#if selectedSession.access.restricted}}<div class="at-access-badges">{{#if selectedSession.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if selectedSession.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{#if selectedSession.access.openNotes.length}}<div class="at-gm-note-stack">{{#each selectedSession.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
 
         <div class="at-session-detail-stats">
           <span><i class="fa-solid fa-diamond"></i><strong>{{selectedSession.questLinks.length}}</strong> Quest links</span>
@@ -229,6 +243,8 @@
           <span><i class="fa-solid fa-users"></i><strong>{{selectedSession.actorLinks.length}}</strong> Character links</span>
           {{#if isGM}}<button type="button" class="at-session-review-stat {{#if selectedSession.gmReviewCount}}has-attention{{/if}}" data-action="openSourceAnalysis" data-source-uuid="{{selectedSession.gmReviewSourceUuid}}" title="Open Campaign Analysis for this Session"><i class="fa-solid fa-magnifying-glass-chart"></i><strong>{{selectedSession.gmReviewCount}}</strong><span>GM review</span></button>{{/if}}
         </div>
+
+        <div class="at-session-story" data-at-session-story></div>
 
         {{#if selectedSession.hasHighlights}}
         <section class="at-session-detail-section">
@@ -278,6 +294,7 @@
         </section>
         {{/if}}
 
+        {{#unless isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="JournalEntry.{{selectedSession.id}}"></section>{{/unless}}
         <button type="button" class="at-primary at-session-open-full" data-action="openJournal" data-journal-id="{{selectedSession.id}}"><i class="fa-solid fa-book-open"></i> Open Full Session</button>
       </aside>
       {{/if}}
@@ -369,7 +386,7 @@
     <section class="at-character-grid">
       {{#each group}}
       <article class="at-character-card">
-        <button type="button" class="at-character-image" data-action="openProfile" data-actor-id="{{id}}"><img src="{{img}}" alt="{{name}}"></button>
+        <button type="button" class="at-character-image" data-action="openProfile" data-actor-id="{{id}}"><img data-at-tome-image src="{{atImageSrc img}}" alt="{{name}}"></button>
         <div class="at-character-body">
           <span>{{displayRole}}</span>
           <h2>{{name}}</h2>
@@ -406,7 +423,7 @@
 
       <section class="at-profile-editor-layout">
         <aside class="at-profile-editor-image">
-          <img src="{{profileEditor.previewImage}}" data-at-profile-preview data-fallback="{{profileEditor.actorImg}}" alt="{{profileEditor.name}}">
+          <img data-at-tome-image src="{{atImageSrc profileEditor.previewImage}}" data-at-profile-preview data-fallback="{{profileEditor.actorImg}}" alt="{{profileEditor.name}}">
           <label>Profile image
             <div class="at-profile-image-input">
               <input type="text" name="profileHeroImage" value="{{profileEditor.heroImage}}" placeholder="Leave blank to use Actor portrait">
@@ -502,7 +519,7 @@
     </section>
 
     <section class="at-profile-hero">
-      <div class="at-profile-art"><img src="{{profileView.img}}" alt="{{profileView.name}}"></div>
+      <div class="at-profile-art"><img data-at-tome-image src="{{atImageSrc profileView.img}}" alt="{{profileView.name}}"></div>
       <div class="at-profile-intro">
         <span class="at-kicker">{{profileView.displayRole}}</span>
         <h1>{{profileView.name}}</h1>
@@ -536,7 +553,7 @@
       <div class="at-relation-grid">
         {{#each profileView.relations}}
         <button type="button" class="at-relation-card {{#if semantic}}is-semantic{{/if}}" data-action="{{action}}" {{#if actorId}}data-actor-id="{{actorId}}"{{/if}} {{#if journalId}}data-journal-id="{{journalId}}"{{/if}} {{#unless action}}disabled{{/unless}}>
-          <img src="{{target.img}}" alt="{{target.name}}">
+          <img data-at-tome-image src="{{atImageSrc target.img}}" alt="{{target.name}}">
           <span>
             <strong>{{target.name}}</strong>
             <em>{{label}}{{#if gmOnly}} <i class="fa-solid fa-lock" title="GM only"></i>{{/if}}</em>
@@ -567,7 +584,7 @@
       <div class="at-world-card-grid">
         {{#each entries}}
         <button type="button" class="at-world-card" data-action="openWorldProfile" data-journal-id="{{id}}">
-          <span class="at-world-card-art {{#unless img}}at-no-image{{/unless}}">{{#if img}}<img src="{{img}}" alt="{{name}}">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
+          <span class="at-world-card-art {{#unless img}}at-no-image{{/unless}}">{{#if img}}<img data-at-tome-image src="{{atImageSrc img}}" alt="{{name}}">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
           <span class="at-world-card-copy"><em>{{categoryLabel}}</em><strong>{{name}}</strong>{{#if subtitle}}<b>{{subtitle}}</b>{{/if}}<small>{{summary}}</small></span>
           <i class="fa-solid fa-chevron-right"></i>
         </button>
@@ -588,7 +605,7 @@
       </section>
       <section class="at-world-editor-layout">
         <aside class="at-profile-editor-image">
-          <img src="{{worldProfileEditor.previewImage}}" data-at-world-preview data-fallback="{{worldProfileEditor.journalImg}}" alt="{{worldProfileEditor.name}}">
+          <img data-at-tome-image src="{{atImageSrc worldProfileEditor.previewImage}}" data-at-world-preview data-fallback="{{worldProfileEditor.journalImg}}" alt="{{worldProfileEditor.name}}">
           <label>Profile image<div class="at-profile-image-input"><input type="text" name="worldHeroImage" value="{{worldProfileEditor.heroImage}}" placeholder="Leave blank to use Journal image"><button type="button" class="at-secondary" data-action="browseWorldImage" title="Browse"><i class="fa-solid fa-folder-open"></i></button></div></label>
           <p class="at-help">This image belongs to Adventurer's Tome only. The Journal image is not changed.</p>
         </aside>
@@ -622,7 +639,7 @@
       <div class="at-profile-toolbar-actions"><button type="button" class="at-secondary at-favorite-button {{#if worldProfileView.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{worldProfileView.refKey}}"><i class="{{#if worldProfileView.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i> {{#if worldProfileView.isFavorite}}Favorited{{else}}Favorite{{/if}}</button><button type="button" class="at-secondary" data-action="openJournal" data-journal-id="{{worldProfileView.id}}" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-book-open"></i> Open Journal</button>{{#if worldProfileView.hasLinkedActor}}{{#if isGM}}<button type="button" class="at-secondary" data-action="openActor" data-actor-id="{{worldProfileView.linkedActor.id}}" title="Open the linked Foundry Actor sheet"><i class="fa-solid fa-id-card"></i> Open Sheet</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="actor" data-document-id="{{worldProfileView.linkedActor.id}}"><i class="fa-solid fa-user-shield"></i> Actor Access</button>{{/if}}{{/if}}{{#if isGM}}<button type="button" class="at-secondary" data-action="queueReveal" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-eye-low-vision"></i> Queue Reveal</button><button type="button" class="at-secondary" data-action="showToPlayers" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-bullhorn"></i> Show to Players</button><button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button><button type="button" class="at-secondary" data-action="reviewSourceFacts" data-target-uuid="JournalEntry.{{worldProfileView.id}}">Review source facts</button><button type="button" class="at-primary" data-action="editWorldProfile"><i class="fa-solid fa-pen-to-square"></i> Edit Tome Entry</button>{{/if}}</div>
     </section>
     <section class="at-world-profile-hero">
-      <div class="at-world-profile-art {{#unless worldProfileView.img}}at-no-image{{/unless}}">{{#if worldProfileView.img}}<img src="{{worldProfileView.img}}" alt="{{worldProfileView.name}}">{{else}}<i class="fa-solid {{worldProfileView.icon}}"></i>{{/if}}</div>
+      <div class="at-world-profile-art {{#unless worldProfileView.img}}at-no-image{{/unless}}">{{#if worldProfileView.img}}<img data-at-tome-image src="{{atImageSrc worldProfileView.img}}" alt="{{worldProfileView.name}}">{{else}}<i class="fa-solid {{worldProfileView.icon}}"></i>{{/if}}</div>
       <div class="at-profile-intro"><span class="at-kicker">{{worldProfileView.categoryLabel}}</span><h1>{{worldProfileView.name}}</h1>{{#if worldProfileView.subtitle}}<h2>{{worldProfileView.subtitle}}</h2>{{/if}}{{#if worldProfileView.summary}}<p>{{worldProfileView.summary}}</p>{{/if}}</div>
     </section>
     {{#if isGM}}{{#if worldProfileView.access.openNotes.length}}<div class="at-gm-note-stack at-detail-gm-note">{{#each worldProfileView.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
@@ -775,7 +792,7 @@
         {{#each searchState.favorites}}
         <article class="at-search-shelf-card">
           <button type="button" class="at-search-shelf-open" data-action="{{action}}" {{#if actor}}data-actor-id="{{id}}"{{else}}data-journal-id="{{id}}"{{/if}} data-ref-key="{{refKey}}">
-            <span class="at-search-shelf-icon">{{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
+            <span class="at-search-shelf-icon">{{#if img}}<img data-at-tome-image src="{{atImageSrc img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
             <span><em>{{category}}</em><strong>{{name}}</strong><small>{{meta}}</small></span>
           </button>
           <button type="button" class="at-favorite-icon is-favorite" data-action="toggleFavorite" data-ref-key="{{refKey}}" title="Remove from favorites"><i class="fa-solid fa-star"></i></button>
@@ -792,7 +809,7 @@
         {{#each searchState.recent}}
         <article class="at-search-shelf-card compact">
           <button type="button" class="at-search-shelf-open" data-action="{{action}}" {{#if actor}}data-actor-id="{{id}}"{{else}}data-journal-id="{{id}}"{{/if}} data-ref-key="{{refKey}}">
-            <span class="at-search-shelf-icon">{{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
+            <span class="at-search-shelf-icon">{{#if img}}<img data-at-tome-image src="{{atImageSrc img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
             <span><em>{{category}}</em><strong>{{name}}</strong><small>{{meta}}</small></span>
           </button>
         </article>
@@ -814,7 +831,7 @@
         {{#each searchEntries}}
         <article class="at-search-result-row" data-at-search-row data-search-text="{{searchText}}" data-search-category="{{filterKey}}">
           <button type="button" class="at-search-result-main" data-action="{{action}}" {{#if actor}}data-actor-id="{{id}}"{{else}}data-journal-id="{{id}}"{{/if}} data-ref-key="{{refKey}}">
-            <span class="at-search-result-icon">{{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
+            <span class="at-search-result-icon">{{#if img}}<img data-at-tome-image src="{{atImageSrc img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</span>
             <span class="at-search-result-copy"><em>{{category}}{{#if meta}} · {{meta}}{{/if}}</em><strong>{{name}}</strong><small>{{summary}}</small></span>
             <i class="fa-solid fa-chevron-right"></i>
           </button>
@@ -830,11 +847,14 @@
 
 
   {{#if isCampaignToolsPage}}
-  <main class="at-page at-campaign-tools-page">
+  <main class="at-page at-campaign-tools-page {{#if isCampaignToolsOverview}}at-campaign-overview-page{{else}}at-campaign-workspace{{/if}}">
     <section class="at-page-heading at-campaign-tools-heading">
-      <span class="at-kicker">GM workspace</span>
-      <h1><i class="fa-solid fa-toolbox"></i> Campaign Tools</h1>
-      <p>Campaign memory, analysis and campaign-intelligence workflows in one GM-only workspace.</p>
+      <div>
+        <span class="at-kicker">GM workspace</span>
+        <h1>{{#if isCampaignToolsOverview}}Campaign overview{{/if}}{{#if isCampaignToolsMemory}}Campaign memory{{/if}}{{#if isCampaignToolsAnalysis}}Campaign analysis{{/if}}{{#if isCampaignToolsIndex}}Campaign index{{/if}}{{#if isCampaignToolsAssistant}}Session assistant{{/if}}</h1>
+        <p>{{#if isCampaignToolsOverview}}Your next decisions, private notes and campaign tools — together at a glance.{{/if}}{{#if isCampaignToolsMemory}}Find the people, places and clues mentioned across your sessions and quests.{{/if}}{{#if isCampaignToolsAnalysis}}Review uncertain identities and relationships with the source close at hand.{{/if}}{{#if isCampaignToolsIndex}}See what Tome has analysed and manage the sources behind campaign matching.{{/if}}{{#if isCampaignToolsAssistant}}Prepare the next session, capture ideas and keep your private notes together.{{/if}}</p>
+      </div>
+      {{#if isCampaignToolsOverview}}<div class="at-ov-session"><span><i class="fa-solid fa-book-open"></i> Next session</span><strong>{{settings.gmNotebook.nextSession}}</strong><small><i class="fa-solid fa-lock"></i> Private GM workspace</small></div>{{else}}<span class="at-workspace-private"><i class="fa-solid fa-lock"></i> Private GM workspace</span>{{/if}}
     </section>
 
     <nav class="at-campaign-tools-tabs" aria-label="Campaign Tools sections">
@@ -847,59 +867,9 @@
     </nav>
 
     {{#if isCampaignToolsIndex}}<section class="at-campaign-index" data-at-campaign-index></section>{{/if}}
-    {{#if isCampaignToolsAnalysis}}<details><summary>Saved Rumours</summary><section class="at-chronicle" data-player-chronicle="rumours"></section></details>{{/if}}
+    {{#if isCampaignToolsAnalysis}}<details class="at-workspace-rumours"><summary><i class="fa-solid fa-comment-dots"></i> Saved rumours <small>Unconfirmed claims kept separate from campaign facts</small></summary><section class="at-chronicle" data-player-chronicle="rumours"></section></details>{{/if}}
     {{#if isCampaignToolsOverview}}
-    <section class="at-campaign-tools-overview">
-      <div class="at-campaign-tools-summary">
-        <article><i class="fa-solid fa-database"></i><span><small>Evidence</small><strong>{{campaignMemorySearch.total}}</strong></span></article>
-        <article><i class="fa-solid fa-link"></i><span><small>Linked + Mentioned</small><strong>{{campaignMemorySearch.linked}}</strong></span></article>
-        <article><i class="fa-solid fa-triangle-exclamation"></i><span><small>Unresolved</small><strong>{{campaignMemorySearch.unresolved}}</strong></span></article>
-        <article><i class="fa-solid fa-box-archive"></i><span><small>Historical</small><strong>{{campaignMemorySearch.historical}}</strong></span></article>
-      </div>
-
-      <section class="at-overview-intelligence-monitor {{#if campaignAnalysisAll.attentionCount}}has-attention{{/if}}">
-        <div class="at-overview-intelligence-head">
-          <div>
-            <span class="at-kicker">Campaign Intelligence</span>
-            <h2><i class="fa-solid fa-binoculars"></i> Decision Monitor</h2>
-            <p>What Tome needs from you right now. Normal cases should take only a few seconds to resolve.</p>
-          </div>
-          <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-arrow-right"></i> Open Analysis{{#if campaignAnalysisAll.attentionCount}} · {{campaignAnalysisAll.attentionCount}}{{/if}}</button>
-        </div>
-        <div class="at-campaign-analysis-stats at-overview-analysis-stats">
-          <article class="{{#if campaignAnalysisAll.ambiguousCount}}has-attention{{/if}}"><i class="fa-solid fa-triangle-exclamation"></i><span><small>Ambiguous</small><strong>{{campaignAnalysisAll.ambiguousCount}}</strong></span></article>
-          <article class="{{#if campaignAnalysisAll.unresolvedCount}}has-attention{{/if}}"><i class="fa-solid fa-circle-question"></i><span><small>Unresolved</small><strong>{{campaignAnalysisAll.unresolvedCount}}</strong></span></article>
-          <article class="{{#if campaignAnalysisAll.reviewCount}}has-attention{{/if}}"><i class="fa-solid fa-magnifying-glass"></i><span><small>Review</small><strong>{{campaignAnalysisAll.reviewCount}}</strong></span></article>
-          <article><i class="fa-solid fa-wand-magic-sparkles"></i><span><small>Tome noticed</small><strong>{{campaignAnalysisAll.noticedCount}}</strong></span></article>
-        </div>
-        {{#if campaignAnalysisAll.firstAttention}}
-        <div class="at-overview-next-decision">
-          <i class="fa-solid {{campaignAnalysisAll.firstAttention.attentionIcon}}"></i>
-          <div>
-            <small>Next decision</small>
-            <strong>{{campaignAnalysisAll.firstAttention.question}}</strong>
-            <span>{{campaignAnalysisAll.firstAttention.sourceName}}{{#if campaignAnalysisAll.firstAttention.pageName}} · {{campaignAnalysisAll.firstAttention.pageName}}{{/if}}</span>
-          </div>
-          <div class="at-overview-decision-actions">
-            {{#if campaignAnalysisAll.firstAttention.hasRecommendation}}
-            <button type="button" class="at-primary"
-              data-action="resolveCampaignDecision"
-              data-decision-mode="choose"
-              data-decision-text="{{campaignAnalysisAll.firstAttention.decisionText}}"
-              data-source-uuid="{{campaignAnalysisAll.firstAttention.sourceUuid}}"
-              data-target-uuid="{{campaignAnalysisAll.firstAttention.recommended.uuid}}"
-              data-target-name="{{campaignAnalysisAll.firstAttention.recommended.name}}">
-              <i class="fa-solid fa-check"></i> Confirm ★ {{campaignAnalysisAll.firstAttention.recommended.name}}
-            </button>
-            {{/if}}
-            <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis">Review{{#unless campaignAnalysisAll.firstAttention.hasRecommendation}} now{{/unless}}</button>
-          </div>
-        </div>
-        {{else}}
-        <div class="at-overview-all-clear"><i class="fa-solid fa-circle-check"></i><span><strong>No GM decisions waiting.</strong><small>Campaign Intelligence is clear.</small></span></div>
-        {{/if}}
-      </section>
-
+    <section class="at-campaign-tools-overview at-overview-v2" aria-label="Campaign overview">
       {{#if lastCampaignDecision}}
       <div class="at-guided-decision-undo">
         <i class="fa-solid fa-circle-check"></i>
@@ -908,68 +878,102 @@
       </div>
       {{/if}}
 
-      <section class="at-campaign-notebook-overview">
-        <div class="at-section-title">
-          <div>
-            <span class="at-kicker">GM command deck</span>
-            <h2><i class="fa-solid fa-chart-simple"></i> Notebook Overview</h2>
-            <p>Your private campaign briefing. Next planned session: <strong>{{settings.gmNotebook.nextSession}}</strong>.</p>
+      <div class="at-ov-focus-grid">
+        <section class="at-overview-intelligence-monitor at-ov-panel {{#if campaignAnalysisAll.attentionCount}}has-attention{{/if}}" aria-labelledby="at-ov-decisions-title">
+          <header class="at-ov-panel-heading">
+            <span class="at-ov-icon at-ov-icon-review"><i class="fa-solid fa-binoculars"></i></span>
+            <div><span class="at-kicker">Campaign intelligence</span><h2 id="at-ov-decisions-title">Needs your attention</h2></div>
+            <span class="at-ov-badge {{#if campaignAnalysisAll.attentionCount}}is-pending{{else}}is-clear{{/if}}">{{#if campaignAnalysisAll.attentionCount}}{{campaignAnalysisAll.attentionCount}} waiting{{else}}All clear{{/if}}</span>
+          </header>
+
+          <div class="at-ov-status {{#if campaignAnalysisAll.attentionCount}}is-pending{{else}}is-clear{{/if}}">
+            <i class="fa-solid {{#if campaignAnalysisAll.attentionCount}}fa-scale-balanced{{else}}fa-circle-check{{/if}}"></i>
+            <div>{{#if campaignAnalysisAll.attentionCount}}<strong>A few choices need your judgment.</strong><p>Review uncertain names and findings before they become campaign links.</p>{{else}}<strong>No decisions waiting.</strong><p>When Tome needs your judgment about a name or a finding, it will appear here.</p>{{/if}}</div>
           </div>
-        </div>
-        <div class="at-notebook-stats">
-          <span><strong>{{settings.gmNotebook.stats.open}}</strong><small>Open</small></span>
-          <span><strong>{{settings.gmNotebook.stats.pinned}}</strong><small>Pinned</small></span>
-          <span class="due"><strong>{{settings.gmNotebook.stats.due}}</strong><small>Due</small></span>
-          <span><strong>{{settings.gmNotebook.stats.secrets}}</strong><small>Secrets</small></span>
-          <span><strong>{{settings.gmNotebook.stats.reveals}}</strong><small>Reveals</small></span>
-          <span><strong>{{settings.gmNotebook.stats.resolved}}</strong><small>Resolved</small></span>
-        </div>
-        <div class="at-campaign-note-preview">
-          {{#each settings.gmNotebook.overviewRows}}
-          {{#unless resolved}}
-          <article class="at-campaign-note-preview-row">
-            <i class="fa-solid {{typeIcon}}"></i>
-            <div><strong>{{title}}</strong><small>{{documentName}} · {{typeLabel}}{{#if due}} · Due{{/if}}</small><p>{{body}}</p></div>
-            {{#unless standalone}}<button type="button" data-action="openNoteSource" data-document-type="{{documentType}}" data-document-id="{{documentId}}" title="Open source"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>{{/unless}}
+
+          <div class="at-ov-decision-stats">
+            <div class="{{#if campaignAnalysisAll.ambiguousCount}}has-attention{{/if}}"><strong>{{campaignAnalysisAll.ambiguousCount}}</strong><span>Ambiguous<small>More than one match</small></span></div>
+            <div class="{{#if campaignAnalysisAll.unresolvedCount}}has-attention{{/if}}"><strong>{{campaignAnalysisAll.unresolvedCount}}</strong><span>Unresolved<small>No clear match yet</small></span></div>
+            <div class="{{#if campaignAnalysisAll.reviewCount}}has-attention{{/if}}"><strong>{{campaignAnalysisAll.reviewCount}}</strong><span>To review<small>Waiting for your choice</small></span></div>
+            <div><strong>{{campaignAnalysisAll.noticedCount}}</strong><span>Tome noticed<small>Findings to explore</small></span></div>
+          </div>
+
+          {{#if campaignAnalysisAll.firstAttention}}
+          <div class="at-overview-next-decision at-ov-next-decision">
+            <div class="at-ov-next-copy"><small>Next decision</small><strong>{{campaignAnalysisAll.firstAttention.question}}</strong><span>{{campaignAnalysisAll.firstAttention.sourceName}}{{#if campaignAnalysisAll.firstAttention.pageName}} · {{campaignAnalysisAll.firstAttention.pageName}}{{/if}}</span></div>
+            <div class="at-overview-decision-actions">
+              {{#if campaignAnalysisAll.firstAttention.hasRecommendation}}
+              <button type="button" class="at-primary" data-action="resolveCampaignDecision" data-decision-mode="choose" data-decision-text="{{campaignAnalysisAll.firstAttention.decisionText}}" data-source-uuid="{{campaignAnalysisAll.firstAttention.sourceUuid}}" data-target-uuid="{{campaignAnalysisAll.firstAttention.recommended.uuid}}" data-target-name="{{campaignAnalysisAll.firstAttention.recommended.name}}"><i class="fa-solid fa-check"></i> Confirm {{campaignAnalysisAll.firstAttention.recommended.name}}</button>
+              {{/if}}
+              <button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsAnalysis">Review decision <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+          </div>
+          {{/if}}
+
+          <footer class="at-ov-panel-footer"><span>You decide what becomes part of the campaign.</span><button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis">Open Analysis <i class="fa-solid fa-arrow-right"></i></button></footer>
+        </section>
+
+        <section class="at-campaign-notebook-overview at-ov-panel" aria-labelledby="at-ov-notebook-title">
+          <header class="at-ov-panel-heading">
+            <span class="at-ov-icon at-ov-icon-notes"><i class="fa-solid fa-book-bookmark"></i></span>
+            <div><span class="at-kicker">Your private notes</span><h2 id="at-ov-notebook-title">GM Notebook</h2></div>
+            <button type="button" class="at-ov-text-button" data-action="openNotebook">Open notebook <i class="fa-solid fa-arrow-right"></i></button>
+          </header>
+
+          <div class="at-ov-notebook-stats">
+            <div><strong>{{settings.gmNotebook.stats.open}}</strong><span>Open notes</span></div>
+            <div><strong>{{settings.gmNotebook.stats.pinned}}</strong><span>Pinned</span></div>
+            <div class="{{#if settings.gmNotebook.stats.due}}has-attention{{/if}}"><strong>{{settings.gmNotebook.stats.due}}</strong><span>Due this session</span></div>
+            <div><strong>{{settings.gmNotebook.stats.secrets}}</strong><span>Secrets</span></div>
+            <div><strong>{{settings.gmNotebook.stats.reveals}}</strong><span>Reveals</span></div>
+            <div><strong>{{settings.gmNotebook.stats.resolved}}</strong><span>Resolved</span></div>
+          </div>
+
+          {{#if settings.gmNotebook.overviewRows.length}}
+          <div class="at-campaign-note-preview at-ov-note-list" tabindex="0" aria-label="Recent private GM notes">
+            {{#each settings.gmNotebook.overviewRows}}
+            {{#unless resolved}}
+            <article class="at-campaign-note-preview-row {{#if due}}is-due{{/if}}">
+              <i class="fa-solid {{typeIcon}}"></i><div><strong>{{title}}</strong><small>{{documentName}} · {{typeLabel}}{{#if due}} · Due{{/if}}</small><p>{{body}}</p></div>
+              {{#unless standalone}}<button type="button" data-action="openNoteSource" data-document-type="{{documentType}}" data-document-id="{{documentId}}" title="Open source"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>{{/unless}}
+            </article>
+            {{/unless}}
+            {{/each}}
+          </div>
+          {{else}}
+          <div class="at-ov-notes-empty"><i class="fa-solid fa-feather-pointed"></i><div><strong>A place for your next idea.</strong><p>Keep reminders, secrets and scene notes ready for the next session.</p></div></div>
+          {{/if}}
+
+          <footer class="at-ov-panel-footer"><span><i class="fa-solid fa-lock"></i> Only you can read your notes.</span><button type="button" class="at-secondary" data-action="openQuickCapture"><i class="fa-solid fa-plus"></i> Capture a note</button></footer>
+        </section>
+      </div>
+
+      <section class="at-ov-tools" aria-labelledby="at-ov-tools-title">
+        <header class="at-ov-tools-heading"><div><span class="at-kicker">Where would you like to go?</span><h2 id="at-ov-tools-title">Your campaign toolkit</h2></div><span>Find the story. Prepare the session. Hear your players.</span></header>
+        <div class="at-ov-tool-grid">
+          <article class="at-ov-tool at-ov-memory">
+            <span class="at-ov-icon at-ov-icon-memory"><i class="fa-solid fa-brain"></i></span>
+            <h3>Campaign Memory</h3><p>Find where people, places and events appeared in your campaign.</p>
+            <dl class="at-ov-memory-stats"><div><dt>Evidence</dt><dd>{{campaignMemorySearch.total}}</dd></div><div><dt>Linked & mentioned</dt><dd>{{campaignMemorySearch.linked}}</dd></div><div><dt>Unresolved</dt><dd>{{campaignMemorySearch.unresolved}}</dd></div><div><dt>Historical</dt><dd>{{campaignMemorySearch.historical}}</dd></div></dl>
+            <footer><button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsMemory">Search Memory <i class="fa-solid fa-arrow-right"></i></button><button type="button" class="at-ov-text-button" data-action="navigate" data-tab="campaignToolsIndex" title="View background analysis and check for changes">Analysis index</button></footer>
           </article>
-          {{/unless}}
-          {{else}}<div class="at-empty at-wide">No private GM notes yet.</div>{{/each}}
+          <article class="at-ov-tool at-ov-assistant">
+            <span class="at-ov-icon at-ov-icon-assistant"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <h3>Session Assistant</h3><p>Turn your notes into a plan, keep reveals ready and follow up after play.</p>
+            <ul class="at-ov-tool-steps"><li><i class="fa-solid fa-calendar-check"></i><span>Prepare the next session</span></li><li><i class="fa-solid fa-eye"></i><span>Manage what players discover</span></li><li><i class="fa-solid fa-flag-checkered"></i><span>Close out the session</span></li></ul>
+            <footer><button type="button" class="at-secondary" data-action="openGmDashboard">Prepare session <i class="fa-solid fa-arrow-right"></i></button><button type="button" class="at-ov-text-button" data-action="navigate" data-tab="campaignToolsAssistant">All assistant tools</button></footer>
+          </article>
+          <article class="at-ov-tool at-ov-signals">
+            <span class="at-ov-icon at-ov-icon-signals"><i class="fa-solid fa-comments"></i></span>
+            <h3>Player Signals</h3><p>Bring your players’ shared questions, requests and discoveries into your prep.</p>
+            <div class="at-ov-tool-callout"><i class="fa-solid fa-comment-dots"></i><span>See what your players want to explore next.</span></div>
+            <footer><button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsSignals">View player signals <i class="fa-solid fa-arrow-right"></i></button></footer>
+          </article>
         </div>
-      </section>
-
-      <section class="at-campaign-tool-card">
-        <div>
-          <span class="at-kicker">Campaign Memory</span>
-          <h2><i class="fa-solid fa-brain"></i> Evidence Search</h2>
-          <p>Search, filter and trace where campaign entities were mentioned. Canonical Links remain separate and Foundry UUIDs remain authoritative.</p>
-        </div>
-        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-arrow-right"></i> Open Memory</button>
-      </section>
-
-      <section class="at-campaign-tool-card">
-        <div>
-          <span class="at-kicker">Campaign Intelligence</span>
-          <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Analysis & Entity Review</h2>
-          <p>See ambiguous identities, unresolved mentions and review candidates that actually need a GM decision.</p>
-        </div>
-        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-arrow-right"></i> Open Analysis{{#if campaignAnalysisAll.attentionCount}} · {{campaignAnalysisAll.attentionCount}}{{/if}}</button>
-      </section>
-
-      <section class="at-campaign-tool-card">
-        <div>
-          <span class="at-kicker">GM Workflow</span>
-          <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Assistant Tools</h2>
-          <p>Prepare the next session, capture GM notes, manage reveals and close out a finished session without crowding the global header.</p>
-        </div>
-        <button type="button" class="at-primary" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-arrow-right"></i> Open Assistant</button>
-      </section>
-
-      <section class="at-campaign-tools-roadmap">
-        <span><i class="fa-solid fa-circle-nodes"></i> Campaign Tools is the GM home for campaign intelligence.</span>
-        <small>Analysis and entity review are now live here; links/graph can follow as the campaign-intelligence workspace grows.</small>
       </section>
     </section>
     {{/if}}
+
 
     {{#if isCampaignToolsMemory}}
     <section class="at-memory-search" data-at-memory-search-root>
@@ -977,7 +981,7 @@
         <div>
           <span class="at-kicker">Campaign Memory</span>
           <h2><i class="fa-solid fa-brain"></i> Evidence Search</h2>
-          <p>Search the GM-private Mention ledger without changing canonical Links or campaign data.</p>
+          <p>Find mentions across sessions and quests, then open the original source for context.</p>
         </div>
         <div class="at-memory-search-stats">
           <span><strong>{{campaignMemorySearch.total}}</strong> total</span>
@@ -1186,7 +1190,7 @@
               {{#each candidates}}
               <article class="at-guided-candidate-card {{#if recommended}}is-recommended{{/if}}">
                 <div class="at-guided-candidate-main">
-                  <div class="at-guided-candidate-portrait">{{#if img}}<img src="{{img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</div>
+                  <div class="at-guided-candidate-portrait">{{#if img}}<img data-at-tome-image src="{{atImageSrc img}}" alt="">{{else}}<i class="fa-solid {{icon}}"></i>{{/if}}</div>
                   <div class="at-guided-candidate-copy">
                     <span class="at-guided-candidate-badge">{{#if recommended}}★ Tome recommends{{else}}Existing identity{{/if}}</span>
                     <h5>{{name}}</h5>
@@ -1792,7 +1796,7 @@ The expedition trail was recovered in Session 2.</pre>
             <div class="at-settings-grid at-artwork-grid">
               <div>
                 <h3>Campaign Logo</h3>
-                <div class="at-logo-preview"><img data-at-logo-preview src="{{settings.logoUrl}}" alt="Campaign logo preview" {{#unless settings.hasLogo}}hidden{{/unless}}><i class="fa-solid fa-book-open"></i></div>
+                <div class="at-logo-preview"><img data-at-logo-preview data-at-tome-image src="{{atImageSrc settings.logoUrl}}" alt="Campaign logo preview" {{#unless settings.hasLogo}}hidden{{/unless}}><i class="fa-solid fa-book-open"></i></div>
                 <label>Logo image path<input type="text" name="campaignLogo" value="{{settings.logo}}" placeholder="Leave blank for Tome book icon"></label>
                 <div class="at-inline-actions"><button type="button" data-action="browseSettingImage" data-input-name="campaignLogo"><i class="fa-solid fa-folder-open"></i> Browse</button></div>
               </div>
@@ -1880,7 +1884,7 @@ The expedition trail was recovered in Session 2.</pre>
           <div class="at-settings-card at-member-settings">
             <div class="at-section-title"><div><h2><i class="fa-solid fa-user-check"></i> Active Group Members</h2><p>Tick an Actor and it appears automatically on Group. Tome profile metadata stays separate from the game system.</p></div></div>
             <div class="at-actor-picker">
-              {{#each actorOptions}}<label class="at-actor-option"><input type="checkbox" name="groupActor" value="{{id}}" {{#if selected}}checked{{/if}}><img src="{{img}}" alt="{{name}}"><span><strong>{{name}}</strong><small>{{displayRole}}</small></span></label>{{else}}<div class="at-empty">No Actors exist in this World yet.</div>{{/each}}
+              {{#each actorOptions}}<label class="at-actor-option"><input type="checkbox" name="groupActor" value="{{id}}" {{#if selected}}checked{{/if}}><img data-at-tome-image src="{{atImageSrc img}}" alt="{{name}}"><span><strong>{{name}}</strong><small>{{displayRole}}</small></span></label>{{else}}<div class="at-empty">No Actors exist in this World yet.</div>{{/each}}
             </div>
           </div>
         </section>
@@ -2038,8 +2042,7 @@ The expedition trail was recovered in Session 2.</pre>
 
         <section class="at-settings-panel" data-at-settings-panel="developer" hidden>
           <div class="at-settings-card at-structure-card"><div><h2><i class="fa-solid fa-folder-tree"></i> Tome Journal Structure</h2><p>Create or verify the recommended Sessions, Quests, World subfolders, and Rules structure.</p></div><button type="button" data-action="initializeStructure"><i class="fa-solid fa-folder-plus"></i> Create / Verify Folders</button></div>
-          <div class="at-settings-card at-structure-card at-import-launch-card"><div><h2><i class="fa-solid fa-file-import"></i> Tome Importer</h2><p>Open the Import 2.0 workflow with dry-run preview, cross-link review, history, and one-level undo.</p></div><button type="button" data-action="openImporter" data-import-mode="auto"><i class="fa-solid fa-arrow-right-to-bracket"></i> Open Tome Importer</button></div>
-          <div class="at-settings-card at-structure-card at-export-launch-card"><div><h2><i class="fa-solid fa-file-export"></i> Tome Exporter</h2><p>Download a re-importable Tome Package, a player-safe package, or a private full GM archive.</p></div><button type="button" data-action="openExporter"><i class="fa-solid fa-arrow-up-from-bracket"></i> Open Tome Exporter</button></div>
+          <div class="at-settings-card at-structure-card"><div><h2><i class="fa-solid fa-arrows-rotate"></i> Import &amp; Export</h2><p>Import logs and Tome packages, export content or backups, and move a campaign between worlds or systems.</p></div><button type="button" data-action="openMigration"><i class="fa-solid fa-route"></i> Open Import &amp; Export</button></div>
           <div class="at-settings-card at-health-card">
             <div class="at-section-title"><div><span class="at-kicker">Polish & Hardening</span><h2><i class="fa-solid fa-stethoscope"></i> Tome Health Check</h2><p>Scan for stale Favorites/Recents, broken cross-links, deleted relation targets, malformed Tome flags, duplicate Session numbers, and ambiguous duplicate names.</p></div></div>
             {{#if settings.healthReport}}

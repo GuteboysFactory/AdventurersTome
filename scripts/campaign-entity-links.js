@@ -439,13 +439,17 @@ function atCelManagerForJournal(context) {
   return section;
 }
 
+function atCelUnwrapManualLink(wrapper) {
+  const original = [...wrapper.children].find((child) => child.matches?.("button[data-action][data-journal-id], button[data-action='openContextEntity'][data-target-uuid]"));
+  if (original) wrapper.replaceWith(original);
+  else wrapper.remove();
+}
+
 function atCelResetMount(root) {
   root.querySelectorAll('[data-at-cel-owned-panel="true"]').forEach((node) => node.remove());
 
   root.querySelectorAll(".at-cel-inline-chip").forEach((wrapper) => {
-    const original = [...wrapper.children].find((child) => child.matches?.("button[data-action][data-journal-id]"));
-    if (original) wrapper.replaceWith(original);
-    else wrapper.remove();
+    atCelUnwrapManualLink(wrapper);
   });
 
   root.querySelectorAll('[data-at-cel-owned="true"]').forEach((node) => node.remove());
@@ -507,19 +511,43 @@ function atCelManagerForActor(context, main) {
     linkScope.dataset.atCelAugmented = "true";
   }
   const linked = atCelJournalLinksForActor(context.actor);
+  const active = new Set([
+    ...linked.sessions.map(journal => `session:${journal.id}`),
+    ...linked.quests.map(journal => `quest:${journal.id}`)
+  ]);
+  for (const wrapper of linkScope.querySelectorAll?.(".at-cel-inline-chip") || []) {
+    const unlink = wrapper.querySelector("[data-at-cel-unlink-journal]");
+    if (!active.has(unlink?.dataset.atCelUnlinkJournal)) atCelUnwrapManualLink(wrapper);
+  }
   for (const journal of linked.sessions) atCelWrapManualJournalLink(linkScope, journal, "session");
   for (const journal of linked.quests) atCelWrapManualJournalLink(linkScope, journal, "quest");
 
-  const editor = document.createElement("details");
+  // Keep a live manager in place across delayed refresh hooks: recreating it
+  // closes its details and throws away the selected target/focus.
+  const options = atCelJournalOptions(context.actor);
+  let editor = panel.querySelector?.(":scope > .at-cel-inline-editor[data-at-cel-owned]");
+  if (editor) {
+    const picker = editor.querySelector("[data-at-cel-journal-picker]");
+    if (picker && picker.dataset.atCelOptions !== options) {
+      const selected = picker.value;
+      picker.innerHTML = options;
+      picker.dataset.atCelOptions = options;
+      picker.value = [...picker.options].some(option => option.value === selected) ? selected : "";
+    }
+    return panel;
+  }
+  editor = document.createElement("details");
   editor.className = "at-cel-inline-editor";
   editor.dataset.atCelOwned = "true";
   editor.innerHTML = `
     <summary>Manage links</summary>
     <div class="at-cel-add-row">
-      <select data-at-cel-journal-picker>${atCelJournalOptions(context.actor)}</select>
+      <select data-at-cel-journal-picker>${options}</select>
       <button type="button" class="at-secondary" data-at-cel-add-journal><i class="fa-solid fa-plus"></i> Link Session / Quest</button>
     </div>
   `;
+  const picker = editor.querySelector?.("[data-at-cel-journal-picker]");
+  if (picker) picker.dataset.atCelOptions = options;
   panel.append(editor);
   return panel;
 }
@@ -529,6 +557,21 @@ function atCelMount() {
   const root = app?.element;
   if (!root?.isConnected) return;
   const context = atCelCurrentContext(app);
+
+  if (context?.type === "actor" && game.user?.isGM) {
+    const main = root.querySelector(".at-profile-page");
+    if (!main) return;
+    if (main.dataset.atCelActor && main.dataset.atCelActor !== context.actor.id) atCelResetMount(root);
+    main.dataset.atCelActor = context.actor.id;
+    const preferred = main.querySelector("[data-at-ei-links]") || main.querySelector(".at-entity-intelligence");
+    if (preferred) {
+      for (const legacy of main.querySelectorAll('[data-at-cel-owned-panel="true"]')) {
+        if (legacy !== preferred) legacy.remove();
+      }
+    }
+    atCelManagerForActor(context, main);
+    return;
+  }
 
   atCelResetMount(root);
   if (!context) return;
@@ -836,3 +879,9 @@ Hooks.on("renderApplicationV2", (app) => {
 for (const hookName of ["updateJournalEntry", "updateActor", "createJournalEntry", "deleteJournalEntry", "createActor", "deleteActor"]) {
   Hooks.on(hookName, () => atCelQueue(80));
 }
+
+// Profile link controls must exist before the first paint and continuity restore,
+// not arrive in a later timer that shifts every following relationship card.
+Hooks.on("adventurersTomeViewPrepared", (app) => {
+  if (app === atCelApp() && app.activeTab === "profile") atCelMount();
+});

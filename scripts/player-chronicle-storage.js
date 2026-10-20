@@ -122,4 +122,17 @@ function pcPending(id,kind) {
   const message=messages.find(m=>pcPacket(m)?.version===3)||messages[0];
   return !message||pcPacket(message)?.version!==3&&(message.whisper||[]).some(userId=>game.users.get(userId)&&!state.deliveryAcks?.[message.id]?.includes(userId));
 }
-globalThis.AdventurersTomeChronicleStorage=Object.freeze({books:pcStorageBooks,deliver:pcDeliver,receive:pcReceive,importDeliveries:pcImportDeliveries,pending:pcPending});
+function pcExportOwn(){return globalThis.AdventurersTomePrivateMigration.ownBundle({user:()=>game.user,world:()=>game.world,read:pcRead});}
+async function pcImportOwn(bundle,packageId){
+  const receipt=(await pcMigrationReceipts()).find(row=>row.packageId===packageId&&row.sourceWorldId===bundle.source?.worldId&&row.sourceOwnerId===bundle.source?.ownerId&&row.targetOwnerId===game.user.id)||
+    (bundle.source?.worldId===game.world.id&&bundle.source?.ownerId===game.user.id?{sourceWorldId:game.world.id,sourceOwnerId:game.user.id,targetOwnerId:game.user.id,links:[]}:null);
+  let result;
+  await pcWrite(async state=>{result=await globalThis.AdventurersTomePrivateMigration.restoreOwn({user:()=>game.user,read:()=>state,write:async next=>{Object.assign(state,next);}},bundle,receipt);});
+  return result;
+}
+async function pcMigrationReceipts(){
+  const rows=(game.messages?.contents||[]).filter(message=>message.author?.isGM&&message.whisper?.includes(game.user.id)).map(message=>message.getFlag(PCSTORE_ID,'migrationReceiptV1')).filter(row=>row?.version===1&&row.targetOwnerId===game.user.id&&Array.isArray(row.links));
+  if(rows.length)await pcWrite(state=>{state.migrationReceipts||=[];for(const row of rows){state.migrationReceipts=state.migrationReceipts.filter(old=>old.packageId!==row.packageId||old.sourceOwnerId!==row.sourceOwnerId);state.migrationReceipts.push(structuredClone(row));}});
+  return pcRead().migrationReceipts||[];
+}
+globalThis.AdventurersTomeChronicleStorage=Object.freeze({books:pcStorageBooks,deliver:pcDeliver,receive:pcReceive,importDeliveries:pcImportDeliveries,pending:pcPending,exportOwn:pcExportOwn,importOwn:pcImportOwn,receipts:pcMigrationReceipts});

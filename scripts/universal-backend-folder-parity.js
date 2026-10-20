@@ -39,6 +39,7 @@ const ATBFP_STATS = {
 };
 
 let atBfpSyncing = false;
+let atBfpMigrationPaused = false;
 let atBfpTimer = null;
 let atBfpLastSnapshot = null;
 
@@ -374,6 +375,16 @@ function atBfpSourceSummary(source) {
   return "";
 }
 
+function atBfpMigrationBody(source, fallback) {
+  const migration = source.flags?.[ATBFP_ID]?.migrationV1;
+  // New TAF conversion stores plain text; keep its paragraphs in the Tome mirror.
+  // Do not broaden the ordinary summary fallback to unrelated/private system notes.
+  if (globalThis.game?.system?.id !== "realm-guard" || source.documentName !== "Actor" || migration?.sourceSystem?.systemId !== "taf") return fallback;
+  const notes = String(source.system?.notes || "");
+  if (!notes.startsWith("TAF source reference\n")) return fallback;
+  return String(source.system?.biography || "").trim() || notes.trim() || fallback;
+}
+
 function atBfpProjectionProfile(source, category, current = {}) {
   const profile = current && typeof current === "object" && !Array.isArray(current) ? atBfpClone(current) : {};
   profile.category = category === "npc-group" ? "npc" : category;
@@ -383,7 +394,7 @@ function atBfpProjectionProfile(source, category, current = {}) {
       ? (source.type ? String(source.type).replace(/\b\w/g, (char) => char.toUpperCase()) : "Item")
       : "Foundry Journal";
   profile.summary = atBfpSourceSummary(source);
-  profile.body = profile.summary;
+  profile.body = atBfpMigrationBody(source, profile.summary);
   profile.heroImage = atBfpClean(source.img);
   profile.sourceUuid = atBfpClean(source.uuid);
   profile.sourceDocumentType = atBfpClean(source.documentName);
@@ -628,6 +639,7 @@ async function atBfpBuildSnapshot(bootstrap, bindingsState, reason) {
 }
 
 async function atBfpSync(options = {}) {
+  if (atBfpMigrationPaused) return atBfpClone(atBfpLastSnapshot);
   if (atBfpSyncing) return atBfpClone(atBfpLastSnapshot);
   if (!game.user?.isGM) return atBfpClone(atBfpLastSnapshot);
 
@@ -693,7 +705,7 @@ async function atBfpSync(options = {}) {
 }
 
 function atBfpSchedule(reason = "lifecycle", delay = 180) {
-  if (!game.user?.isGM || atBfpSyncing) return;
+  if (!game.user?.isGM || atBfpSyncing || atBfpMigrationPaused) return;
   window.clearTimeout(atBfpTimer);
   atBfpTimer = window.setTimeout(() => {
     atBfpTimer = null;
@@ -950,6 +962,8 @@ const ATBFP_API = Object.freeze({
   registry:atBfpRegistry,
   sync:atBfpSync,
   schedule:atBfpSchedule,
+  pauseForMigration:async()=>{atBfpMigrationPaused=true;window.clearTimeout(atBfpTimer);atBfpTimer=null;while(atBfpSyncing)await new Promise(resolve=>window.setTimeout(resolve,20));},
+  resumeAfterMigration:()=>{atBfpMigrationPaused=false;atBfpSchedule('migration-finished',180);},
   audit:atBfpAudit,
   isManagedProjection:atBfpIsManagedProjection,
   isManagedMirror:atBfpIsManagedMirror,

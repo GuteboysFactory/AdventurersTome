@@ -236,7 +236,7 @@ function renderStatus(root) {
     const caret=wasTyping?document.activeElement.selectionStart:null;
     const label=state.paused?'Paused':lastError?'Needs attention':running?'Analysing in the background':!active()?'Waiting for the active GM':again?'Changes queued':'Up to date';
     host.innerHTML=`<h2><i class="fa-solid fa-database"></i> Campaign index</h2><p>Analysis is saved on this browser for this world and GM. Foundry documents and your decisions remain authoritative.</p>
-      <div class="at-index-status"><strong>${label}</strong><span>${escape(current)}</span><span>${completed} / ${total} sources · ${hits} reused pages · ${misses} analysed pages</span></div>
+      <div class="at-index-status ${lastError||workerError||storageError?'has-error':state.paused?'is-paused':running?'is-running':''}"><strong>${label}</strong><span>${escape(current)}</span><span>${completed} / ${total} sources · ${hits} reused pages · ${misses} analysed pages</span></div>
       <div class="at-index-controls"><button data-index-action="pause">${state.paused?'Continue':'Pause'}</button><button data-index-action="check">Check changes</button><button data-index-action="rebuild" ${running?'disabled':''}>Rebuild analysis index</button></div>
       ${[lastError,workerError,storageError].filter(Boolean).map(error=>`<p role="alert">${escape(error)}</p>`).join('')}
       <p>Archiving pauses automatic matching; existing links and history remain. Deleted documents are historical markers, never usable links. Restore the original Foundry document to keep its identity.</p>
@@ -271,6 +271,16 @@ Hooks.once('ready',()=>{
 });
 for(const kind of ['Actor','Item','JournalEntry','JournalEntryPage','Scene','Folder'])for(const action of ['create','update','delete'])Hooks.on(`${action}${kind}`,(doc)=>{if(!doc?.getFlag?.(ID,'chronicleV1')&&!doc?.parent?.getFlag?.(ID,'chronicleV1'))request('document-change');});
 Hooks.on('adventurersTomeCampaignLearningUpdated',(event={})=>{if(!['created','campaign-linked'].includes(event.reason))decisionEpoch++;request('gm-decision');});
-Hooks.on('updateSetting',setting=>{if(setting?.key!==`${ID}.playerChronicleV1`)request('setting-change');});
+Hooks.on('updateSetting',setting=>{
+  const key=setting?.key;
+  if(!key)return;
+  // Client presentation and private account settings cannot change campaign
+  // matching. In particular, saving the observed window must not start a job.
+  const localKeys=['windowState','windowMode','tomeTransparency','launcherPosition','favorites','recentItems','recentRefs','lastActiveTab','playerChronicleV1'];
+  if(localKeys.some(name=>key===`${ID}.${name}`))return;
+  const scope=game.settings.settings?.get(key)?.scope;
+  if(scope==='client'||scope==='user')return;
+  request('setting-change');
+});
 Hooks.on('renderApplicationV2',(_app,element)=>renderStatus(element?.[0] || element));
 Hooks.on('updateUser',()=>{if(!gm()){failWorker('GM access changed.');state=blank();db?.close();db=null;loaded=null;globalThis.indexedDB?.deleteDatabase(`tome-index:${game.world?.id}:${game.user.id}`);}else request('user-change');});

@@ -315,8 +315,10 @@ async function atAfRenderPages(detail) {
   shell.innerHTML = `<div class="at-af-pages-head"><div><span class="at-kicker">Journal-backed content</span><h2>${section === "quests" ? "Quest Pages" : "Session Pages"}</h2><p>Real Foundry Journal pages, authored inside Tome.</p></div>${add}</div>${body}`;
 
   if (section === "sessions") {
+    const story = container.querySelector("[data-at-session-story]");
     const open = container.querySelector(".at-session-open-full");
-    if (open) open.insertAdjacentElement("beforebegin", shell);
+    if (story) story.append(shell);
+    else if (open) open.insertAdjacentElement("beforebegin", shell);
     else container.append(shell);
   } else container.append(shell);
 
@@ -513,7 +515,7 @@ function atAfAddCreateButtons(root) {
     : [["sessions", root.querySelector(".at-sessions-page .at-page-tools")], ["quests", root.querySelector(".at-quests-page .at-page-tools")], ["world", root.querySelector(".at-world-page .at-world-heading")]];
 
   for (const [section, host] of configs) {
-    if (!host || host.querySelector(`[data-at-af-create="${section}"]`)) continue;
+    if (!host || host.querySelector(`[data-at-af-create="${section}"], [data-at-a3-create="${section}"]`)) continue;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "at-primary at-authoring-create";
@@ -626,4 +628,9 @@ for (const hookName of ["createJournalEntry", "updateJournalEntry", "deleteJourn
 
 Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
   if (!active) window.setTimeout(atAfQueue, 140);
+});
+
+Hooks.on("adventurersTomePrepareView", () => {
+  const root = document.querySelector(ATAF_ROOT);
+  if (root) { atAfBadge(root); atAfAddCreateButtons(root); }
 });

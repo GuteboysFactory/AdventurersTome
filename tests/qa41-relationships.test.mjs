@@ -23,6 +23,19 @@ function source(w,text,number=null,kind='session') {
 }
 const relation=(w,type)=>w.relations.relationshipsFor(w.elira.uuid).find(row=>row.relationType===type);
 
+test('Imported biographies reuse the extractor as review suggestions; private flags are excluded and repeated analysis replaces stale claims',async()=>{
+ const w=setup('');w.elira.flags.migrationV1={packageId:'p'};w.elira.system={biography:'Elira Voss is a friend of Gunther.',notes:''};w.elira.flags['gm-notes']={notes:'Elira Voss serves Pale Wardens.'};
+ const first=await w.relations.suggestMigration([w.elira]);assert.equal(first.sources,1);assert.equal(first.suggestions,1);assert.equal(w.relations.review().length,1);assert.equal(relation(w,'FRIEND_OF').state,'possible');assert.equal(relation(w,'SERVES'),undefined);
+ await w.relations.suggestMigration([w.elira]);assert.equal(w.relations.snapshot().evidence.filter(r=>r.active).length,1);
+ w.elira.system.biography='No claim remains.';await w.relations.suggestMigration([w.elira]);assert.equal(w.relations.snapshot().evidence.filter(r=>r.active).length,0);
+ w.game.user={id:'p',isGM:false};await assert.rejects(()=>w.relations.suggestMigration([w.elira]),/GM/);
+});
+test('Relationship folder context proposes a known identity only when its owner is unambiguous',async()=>{
+ const w=setup('');w.gunther.flags.migrationV1={packageId:'p'};w.gunther.system={biography:''};w.gunther.folder={id:'f',name:'Elira Voss Relationship'};
+ await w.relations.suggestMigration([w.gunther]);assert.equal(w.relations.review()[0].relationType,'KNOWS');assert.equal(w.relations.review()[0].certainty,'possible');
+ w.add('Elira Voss','Actor');await w.relations.suggestMigration([w.gunther]);assert.equal(w.relations.snapshot().evidence.filter(r=>r.active).length,0);
+});
+
 for(const asContact of [false,true])test(`Role apposition preserves cooperation, denied membership, past treatment and continuing friendship (${asContact?'Contact':'Actor'})`,async()=>{
  const w=setup('');const healer=w.add('Lysa Marr',asContact?'JournalEntry':'Actor',asContact?{worldProfile:{category:'contact'}}:{});
  w.page.text.content='At the southern edge of the ruins they encountered Lysa Marr, a travelling healer who currently works with the Pale Wardens but is not a formal member of the order. Lysa had treated Elira Voss several years earlier after an ambush near Blackbridge Watch, and the two have remained friends since then.';

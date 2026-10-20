@@ -488,7 +488,7 @@ function atReProviderId(providerId,row,includeSpan=true) {
   if(includeSpan && row.sourceSpan)parts.push(JSON.stringify([row.sourceSpan.start,row.sourceSpan.end,row.sourceSpan.text]));
   return `provider-${atReHash(parts.join("|"))}`;
 }
-async function atReIngest(providerId,assertions) {
+async function atReIngest(providerId,assertions,options={}) {
   if(!game.user?.isGM)throw new Error("GM permission required.");
   if(!atReClean(providerId) || !Array.isArray(assertions))throw new Error("Provider id and assertions required.");
   const prepared=assertions.map(input=>{
@@ -502,13 +502,14 @@ async function atReIngest(providerId,assertions) {
       provenance:[...(Array.isArray(row.provenance) ? row.provenance : []),{provider:providerId}],active:true};
   });
   return atReWrite(async()=>{
-    const ledger=atReLedger(false),map=new Map(ledger.evidence.map(row=>[row.id,row]));
+    const replace=new Set(options.replaceSources||[]);
+    const ledger=atReLedger(false),map=new Map(ledger.evidence.map(row=>[row.id,row.providerId===providerId&&replace.has(row.sourceUuid)?{...row,active:false}:row]));
     const result=[];
     for(const row of prepared) {
       const legacy=map.get(atReProviderId(providerId,row,false));
       const spanKey=value=>JSON.stringify(value ? [value.start,value.end,value.text] : null);
       const final=legacy?.origin === "provider" && spanKey(legacy.sourceSpan) === spanKey(row.sourceSpan) ? {...row,id:legacy.id} : row;
-      if(!map.has(final.id))map.set(final.id,final);
+      if(!map.has(final.id)||replace.has(final.sourceUuid))map.set(final.id,final);
       result.push(final);
     }
     ledger.evidence=[...map.values()];
@@ -589,7 +590,30 @@ function atReSchedule(document,changes,options={}) {
   window.clearTimeout(atReTimer);
   atReTimer=window.setTimeout(()=>void atReSync().catch(error=>console.warn("Adventurer's Tome | Relationship sync",error)),260);
 }
-const ATRE_API=Object.freeze({version:2,sync:atReSync,snapshot:atReSnapshot,relationshipsFor:atReRelationshipsFor,graph:atReGraph,sourceKind:atReSourceKind,review:atReReview,decide:atReDecide,ingest:atReIngest,normalize:atReNormalize,registry:ATRE_REGISTRY});
+async function atReSuggestMigration(documents) {
+  if(!game.user?.isGM)throw Error('GM permission required.');
+  let sources=0;const suggestions=[],sourceUuids=[];
+  for(const entry of documents){
+    if(!game.user?.isGM)throw Error('GM access changed.');
+    if(entry.documentName!=='Actor'||entry.pack||!entry.getFlag?.(ATRE_ID,'migrationV1'))continue;
+    sources++;sourceUuids.push(entry.uuid);
+    // Reuse the existing bilingual relationship extractor. Only biography is
+    // source text: no private Vault, foreign GM Notes or archived module flags.
+    const result=atReExtract(entry,{uuid:entry.uuid,text:{content:`${entry.system?.biography||''}\n${entry.system?.notes||''}`}},'migration');
+    for(const row of result.evidence)suggestions.push({...row,certainty:row.certainty==='rumoured'?'rumoured':'possible',status:'possible',confidence:Math.min(row.confidence||0.55,0.65)});
+    const aliases=atReEntityIndex(entry.uuid),seen=new Set();
+    for(let folder=typeof entry.folder==='object'?entry.folder:game.folders?.get(entry.folder);folder&&!seen.has(folder.id);folder=typeof folder.folder==='object'?folder.folder:game.folders?.get(folder.folder)){
+      seen.add(folder.id);const owner=String(folder.name||'').match(/^(.+?)\s+(?:relationships?|relationer)$/i)?.[1];if(!owner)continue;
+      const matches=aliases.get(atReNorm(owner));if(matches?.size!==1)continue;
+      const uuid=[...matches][0],doc=atReDocument(uuid),self=atReApi().campaignIdentityReconciliation?.identityFor?.({canonicalUuid:entry.uuid})?.authorityUuid||entry.uuid;if(uuid===self||!doc||!(doc.documentName==='Actor'||['character','npc','contact'].includes(doc.getFlag?.(ATRE_ID,'worldProfile')?.category)))continue;
+      suggestions.push({subjectUuid:uuid,objectUuid:entry.uuid,relationType:'KNOWS',sourceUuid:entry.uuid,sourceKind:'migration',sourceName:entry.name,sourceExcerpt:`Source folder: ${folder.name}. Contains: ${entry.name}. Exact relationship is unconfirmed.`,certainty:'possible',status:'possible',temporalScope:'unknown',confidence:0.5,provenance:[{provider:'migration-folder-context',folderName:folder.name}]});
+    }
+    if(sources%10===0)await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  const result=await atReIngest('migration-story-review',suggestions,{replaceSources:sourceUuids});
+  return {sources,suggestions:result.length};
+}
+const ATRE_API=Object.freeze({version:2,sync:atReSync,snapshot:atReSnapshot,relationshipsFor:atReRelationshipsFor,graph:atReGraph,sourceKind:atReSourceKind,review:atReReview,decide:atReDecide,ingest:atReIngest,suggestMigration:atReSuggestMigration,normalize:atReNormalize,registry:ATRE_REGISTRY});
 Hooks.once("init",()=>game.settings.register(ATRE_ID,ATRE_SETTING,{scope:"user",config:false,type:String,default:JSON.stringify({version:1,evidence:[],decisions:[]})}));
 Hooks.once("ready",()=>{const module=game.modules.get(ATRE_ID);module.api ||= {};module.api.campaignRelationshipEvidence=ATRE_API;atReSchedule();});
 Hooks.on("adventurersTomeCampaignMentionEvidenceUpdated",atReSchedule);

@@ -118,7 +118,8 @@ function atFmUpdateToolbar(state, tools = null) {
   const protectedRoot = selected ? atFmIsSectionRoot(selected, state.section) : false;
 
   const label = tools.querySelector("[data-at-fm-folder-label]");
-  if (label) label.textContent = selected ? atFmPath(selected) : (roots.length === 1 ? `${roots[0].name} (root)` : "Select a folder");
+  const text = selected ? atFmPath(selected) : (roots.length === 1 ? `${roots[0].name} (root)` : "Select a folder");
+  if (label && label.textContent !== text) label.textContent = text;
 
   const newButton = tools.querySelector("[data-at-fm-new]");
   const renameButton = tools.querySelector("[data-at-fm-rename]");
@@ -305,3 +306,8 @@ Hooks.once("ready", () => {
 for (const hookName of ["renderApplication", "renderApplicationV2", "createFolder", "updateFolder", "deleteFolder", "updateJournalEntry"]) {
   Hooks.on(hookName, () => atFmSchedule(180));
 }
+
+// Called synchronously by Tome before the newly rendered view can paint.
+Hooks.on("adventurersTomePrepareView", () => {
+  atFmEnsureToolbar();
+});

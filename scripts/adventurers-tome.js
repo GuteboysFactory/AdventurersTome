@@ -2,6 +2,20 @@ const MODULE_ID = "adventurers-tome";
 const DEFAULT_BACKGROUND = `modules/${MODULE_ID}/assets/default-hero.webp`;
 const FALLBACK_ACTOR_IMAGE = "icons/svg/mystery-man.svg";
 const FALLBACK_GENERIC_IMAGE = "icons/svg/book.svg";
+// Session-local only: never replace an Actor's stored portrait after a failed request.
+const failedTomeImages = new Set();
+function tomeImageKey(path) {
+  try { return new URL(resolveFoundryAssetUrl(path), document.baseURI).href; }
+  catch { return String(path || ''); }
+}
+function tomeImageSource(path) {
+  return failedTomeImages.has(tomeImageKey(path)) ? resolveFoundryAssetUrl(FALLBACK_ACTOR_IMAGE) : resolveFoundryAssetUrl(path || FALLBACK_GENERIC_IMAGE);
+}
+function rememberTomeImageFailure(image) {
+  if (!image?.hasAttribute?.('data-at-tome-image')) return;
+  const source = image.getAttribute('src');
+  if (source) failedTomeImages.add(tomeImageKey(source));
+}
 const MAX_IMPORT_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_IMPORT_CHARS = 2_000_000;
 const EXPORT_SCHEMA = "adventurers-tome.export";
@@ -4304,6 +4318,10 @@ async function addImportHistory(record) {
 }
 
 async function ensureImportFolders() {
+  const canonical = await game.modules?.get?.(MODULE_ID)?.api?.folderQuickCreate?.bootstrap?.();
+  if (canonical?.root && canonical.sessions && canonical.quests && canonical.world && canonical.folders) {
+    return { root: canonical.root, sessions: canonical.sessions, quests: canonical.quests, world: canonical.world, worldCategories: canonical.folders };
+  }
   const root = await createJournalFolder("Adventurer's Tome");
   const sessions = await createJournalFolder("Sessions", root);
   const quests = await createJournalFolder("Quests", root);
@@ -4452,9 +4470,10 @@ async function mergeExplicitLink(document, key, targetId) {
   return true;
 }
 
-async function applyImportPreview(preview, selections = {}, linkSelections = {}) {
+async function applyImportPreview(preview, selections = {}, linkSelections = {}, {signal,progress} = {}) {
   if (!game.user.isGM) throw new Error("Only a GM can import into Adventurer's Tome.");
   if (!preview?.entries?.length) throw new Error("There is no import preview to apply.");
+  if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
   const folders = await ensureImportFolders();
   const transactionId = foundry.utils.randomID?.() || `${Date.now()}`;
   const transaction = {
@@ -4482,10 +4501,12 @@ async function applyImportPreview(preview, selections = {}, linkSelections = {})
   const actionsByEntryKey = new Map();
 
   for (const entry of preview.entries) {
+    if (signal?.aborted || !game.user.isGM) { result.cancelled = true; break; }
     const action = selections[entry.key] || entry.defaultAction || "skip";
     actionsByEntryKey.set(entry.key, action);
     if (action === "skip") {
       result.skipped += 1;
+      progress?.({phase:"content",documents:result.created+result.updated+result.skipped+result.failed,total:preview.entries.length,message:`Skipped ${entry.name}`});
       if (entry.existingId) documentsByEntryKey.set(entry.key, game.journal.get(entry.existingId) || null);
       continue;
     }
@@ -4516,9 +4537,11 @@ async function applyImportPreview(preview, selections = {}, linkSelections = {})
       result.failures.push(`${entry.name}: ${error.message}`);
       console.error(`Adventurer's Tome | Import failed for ${entry.name}`, error);
     }
+    progress?.({phase:"content",documents:result.created+result.updated+result.skipped+result.failed,total:preview.entries.length,message:`Processed ${entry.name}`});
   }
 
   for (const link of preview.links || []) {
+    if (signal?.aborted || !game.user.isGM) { result.cancelled = true; break; }
     const linkAction = linkSelections[link.key] || (link.defaultApply ? "apply" : "skip");
     if (linkAction !== "apply" || !link.resolved) {
       result.linksSkipped += 1;
@@ -4560,7 +4583,7 @@ async function applyImportPreview(preview, selections = {}, linkSelections = {})
     }
   }
 
-  if (result.created || result.updated || result.linksApplied) await game.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, JSON.stringify(transaction));
+  if (transaction.createdJournalIds.length || transaction.snapshots.length || transaction.createdPageIds.length) await game.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, JSON.stringify(transaction));
   else await game.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, "");
 
   const historyRecord = {
@@ -5117,6 +5140,15 @@ function buildPostSessionAssistant(sessions = [], quests = []) {
 }
 
 class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
+  render(options={},...args) {
+    if(this._atWindowDocked){
+      if(options===true||options?.force===true||globalThis.AdventurersTomeWindowDock.navigationChanged(this))return globalThis.AdventurersTomeWindowDock.restore(this);
+      this._atDockRefreshPending=true;
+      return Promise.resolve(this);
+    }
+    this._atDockRefreshPending=false;
+    return super.render(options,...args);
+  }
   static DEFAULT_OPTIONS = {
     id: "adventurers-tome-app",
     classes: ["adventurers-tome-app"],
@@ -5174,6 +5206,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       openImporter: this._onOpenImporter,
       openQuickNpc: this._onOpenQuickNpc,
       openExporter: this._onOpenExporter,
+      openMigration: function (_event, target) { const menu=target?.closest?.("details.at-tools-menu"); if(menu)menu.open=false; return game.modules.get(MODULE_ID)?.api?.transfer?.open({tab:target?.dataset?.transferTab||"import",kind:target?.dataset?.transferKind}) || game.modules.get(MODULE_ID)?.api?.migration?.open(); },
       downloadExport: this._onDownloadExport,
       copyExport: this._onCopyExport,
       openNotebook: this._onOpenNotebook,
@@ -5338,6 +5371,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   _scheduleWindowStateSave() {
+    if(this._atWindowDocked)return;
     clearTimeout(this._windowStateTimer);
     this._windowStateTimer = setTimeout(() => {
       if (!this.rendered) return;
@@ -5349,6 +5383,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         left: Math.round(Number(left)),
         top: Math.round(Number(top))
       });
+      if (game.settings.get(MODULE_ID, "windowState") === payload) return;
       game.settings.set(MODULE_ID, "windowState", payload).catch((error) => {
         console.warn("Adventurer's Tome | Could not save client window state", error);
       });
@@ -5356,6 +5391,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   _syncResponsiveState() {
+    if(this._atWindowDocked)return;
     const shell = this.element?.querySelector?.(".at-shell");
     if (!shell) return;
     const width = shell.clientWidth || this.position?.width || 1280;
@@ -5446,6 +5482,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     this._applyTomeTransparency();
+    installLauncher();
+    globalThis.AdventurersTomeWindowDock?.attach(this);
   }
 
   _attachResponsiveObserver() {
@@ -5469,6 +5507,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   _tearDown(options) {
+    globalThis.AdventurersTomeWindowDock?.dispose(this);
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
     if (this._viewportResizeHandler) window.removeEventListener("resize", this._viewportResizeHandler);
@@ -6148,6 +6187,11 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _onRender(context, options) {
     await super._onRender(context, options);
 
+    // Finish the library layout in this render task, before the browser paints.
+    // Deferred enhancers still handle later edits, but must not progressively
+    // move the heading, explorer and toolbars after each background refresh.
+    Hooks.callAll("adventurersTomePrepareView", this, this.element);
+    Hooks.callAll("adventurersTomeViewPrepared", this, this.element);
     this._applyThemeBackground(context?.settings);
     this._installWindowChromeControls();
     this._attachResponsiveObserver();
@@ -6735,6 +6779,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if (img.dataset.atImageGuard === "1") continue;
       img.dataset.atImageGuard = "1";
       img.addEventListener("error", () => {
+        rememberTomeImageFailure(img);
         if (img.dataset.atFallbackApplied === "1") {
           img.hidden = true;
           img.closest?.(".at-world-card-art, .at-search-shelf-icon, .at-search-result-icon, .at-profile-art, .at-world-profile-art")?.classList.add("at-image-missing");
@@ -6756,6 +6801,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         img.src = fallbackUrl;
         img.classList.add("at-image-fallback");
       }, { once: false });
+      // A detached template can fail before _onRender installs its listeners.
+      if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) img.dispatchEvent(new Event('error'));
     }
   }
 
@@ -7052,6 +7099,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onOpenExporter() {
     if (!game.user.isGM) return;
+    if (game.modules.get(MODULE_ID)?.api?.transfer?.open) return game.modules.get(MODULE_ID).api.transfer.open({tab:"export"});
     this._pushNavigationState();
     this.activeTab = "export";
     await this.render({ parts: ["main"] });
@@ -7541,6 +7589,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onOpenSettings(_event, target) {
     if (!game.user.isGM) return;
+    const menu = target?.closest?.("details.at-tools-menu");
+    if (menu) menu.open = false;
     const requestedSection = String(target?.dataset?.settingsSection || "").trim();
     if (requestedSection) this.settingsSection = requestedSection;
     this.activeTab = "settings";
@@ -8528,6 +8578,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onOpenImporter(_event, target) {
     if (!game.user.isGM) return;
+    if (game.modules.get(MODULE_ID)?.api?.transfer?.open) return game.modules.get(MODULE_ID).api.transfer.open({tab:"import",mode:target?.dataset?.importMode||"auto"});
     const mode = String(target?.dataset?.importMode || "auto");
     this.importMode = IMPORT_MODES[mode] ? mode : "auto";
     this.importError = "";
@@ -8866,8 +8917,10 @@ function installLauncher() {
     button.style.top = "0px";
     button.style.bottom = "auto";
     button.style.transform = `translate3d(${Math.round(currentPos.left)}px, ${Math.round(currentPos.top)}px, 0)`;
+    globalThis.AdventurersTomeWindowDock?.launcherMoved(button);
     return { ...currentPos };
   };
+  button._atRefreshPosition = () => applyPos(currentPos);
 
   const saved = safeJSONParse(game.settings.get(MODULE_ID, "launcherPosition"), null);
   applyPos(saved && typeof saved === "object" ? saved : defaultPos());
@@ -8934,6 +8987,8 @@ function installLauncher() {
 }
 
 Hooks.once("init", () => {
+  Handlebars.registerHelper('atImageSrc', tomeImageSource);
+  document.addEventListener('error', event => rememberTomeImageFailure(event.target), true);
   registerSettings();
 });
 
@@ -9147,9 +9202,12 @@ Hooks.once("ready", async () => {
       return getWorldProfile(entry);
     },
     previewImport: ({ text = "", mode = "auto", sourceName = "" } = {}) => { if (!game.user.isGM) throw new Error("Only a GM can preview Tome imports."); return buildImportPreview({ text, mode, sourceName }); },
-    applyImport: async (preview, selections = {}, linkSelections = {}) => applyImportPreview(preview, selections, linkSelections),
+    applyImport: async (preview, selections = {}, linkSelections = {}, options = {}) => applyImportPreview(preview, selections, linkSelections, options),
     undoLastImport: async () => undoLastImport(),
     getImportHistory: () => { if (!game.user.isGM) return []; return getImportHistory(); },
+    getImportHistoryView: () => { if (!game.user.isGM) return []; return getImportHistoryView(); },
+    hasImportUndo: () => Boolean(game.user.isGM && getLastImportUndo()?.transactionId),
+    clearImportHistory: async () => { if (!game.user.isGM) throw new Error("Only a GM can clear import history."); await game.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, "[]"); },
     exportPortable: ({ playerSafe = false } = {}) => { if (!game.user.isGM) throw new Error("Only a GM can export Tome campaign data."); return buildPortableTomeExport({ playerSafe }); },
     exportBackup: () => { if (!game.user.isGM) throw new Error("Only a GM can export a private Tome backup."); return buildFullTomeBackup(); },
     getGmNotebook: () => { if (!game.user.isGM) return { rows: [], nextSession: 0, stats: {} }; return buildGmNotebookRows(); },

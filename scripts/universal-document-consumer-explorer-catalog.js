@@ -216,3 +216,5 @@ Hooks.on("renderApplicationV2", () => {
     atecSchedule();
   }
 });
+
+Hooks.on("adventurersTomeViewPrepared", () => atecReconcile());

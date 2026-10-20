@@ -73,9 +73,10 @@ function atLupUpdateLibraryCounts(page, scope, bar) {
   const query = String(page.querySelector(`[data-at-lup-search-proxy="${scope}"]`)?.value || "").trim();
   const count = bar?.querySelector(".at-cw-filter-count, .at-lup-count");
   if (count) {
-    count.textContent = query
+    const text = query
       ? `${visible.length} of ${allRows.length} ${allRows.length === 1 ? "entry" : "entries"}`
       : `${allRows.length} ${allRows.length === 1 ? "entry" : "entries"}`;
+    if (count.textContent !== text) count.textContent = text;
   }
 
   if (scope === "quests") {
@@ -84,7 +85,7 @@ function atLupUpdateLibraryCounts(page, scope, bar) {
         .filter((row) => !row.hidden && !row.classList.contains("at-cw-filtered-out"));
       group.classList.toggle("at-lup-empty-group", rows.length === 0);
       const badge = group.querySelector(":scope > header > span");
-      if (badge) badge.textContent = String(rows.length);
+      if (badge && badge.textContent !== String(rows.length)) badge.textContent = String(rows.length);
     }
   }
 
@@ -115,7 +116,7 @@ function atLupSearchControl(scope, originalInput, page, bar) {
   const apply = () => {
     atLupDispatchLocalSearch(originalInput, input.value);
     clear.hidden = !String(input.value || "").trim();
-    window.setTimeout(() => atLupUpdateLibraryCounts(page, scope, bar), 0);
+    atLupUpdateLibraryCounts(page, scope, bar);
   };
 
   input.addEventListener("input", apply);
@@ -166,7 +167,7 @@ function atLupPolishExplorerLibrary(page, scope) {
     tools.append(button);
   }
 
-  window.setTimeout(() => atLupUpdateLibraryCounts(page, scope, bar), 0);
+  atLupUpdateLibraryCounts(page, scope, bar);
 }
 
 function atLupRuleOriginals(page) {
@@ -204,9 +205,10 @@ function atLupRuleCount(page, toolbar) {
   const visible = rows.filter((row) => !row.hidden);
   const query = String(toolbar?.querySelector('[data-at-lup-rule-search]')?.value || "").trim();
   const count = toolbar?.querySelector(".at-lup-count");
-  if (count) count.textContent = query
+  const text = query
     ? `${visible.length} of ${rows.length} rules`
     : `${rows.length} ${rows.length === 1 ? "rule" : "rules"}`;
+  if (count && count.textContent !== text) count.textContent = text;
 }
 
 function atLupCloseRulePanels(toolbar, except = null) {
@@ -237,7 +239,7 @@ function atLupPolishRules(page) {
     const apply = () => {
       atLupDispatchLocalSearch(original.searchInput, input.value);
       clear.hidden = !String(input.value || "").trim();
-      window.setTimeout(() => atLupRuleCount(page, toolbar), 0);
+      atLupRuleCount(page, toolbar);
     };
     input.addEventListener("input", apply);
     input.addEventListener("keydown", (event) => {
@@ -323,7 +325,7 @@ function atLupPolishRules(page) {
     count.className = "at-lup-count";
     toolbar.append(count);
   }
-  window.setTimeout(() => atLupRuleCount(page, toolbar), 0);
+  atLupRuleCount(page, toolbar);
 }
 
 function atLupPolishGlobalSearch(page) {
@@ -388,3 +390,8 @@ for (const hookName of ["renderApplication", "renderApplicationV2"]) {
     window.setTimeout(() => atLupInstallObserver(), 100);
   });
 }
+
+// Called synchronously by Tome before the newly rendered view can paint.
+Hooks.on("adventurersTomePrepareView", () => {
+  atLupPolish();
+});

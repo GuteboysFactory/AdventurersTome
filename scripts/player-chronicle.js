@@ -37,7 +37,11 @@ function createPlayerChronicle(env) {
   async function unseal(record,phrase) {
     const e=record.envelope;
     if(e?.format!==1)throw Error('Unsupported encrypted note format.');
-    try {return JSON.parse(new TextDecoder().decode(await env.crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(e.iv),additionalData:aad(record.id)},await key(phrase,e.salt),bytes(e.data))));}
+    try {
+      const context=e.migrationContext,additionalData=context?encoded(`${context.worldId}:${context.ownerId}:${context.noteId}:chronicle-v1`):aad(record.id);
+      const note=JSON.parse(new TextDecoder().decode(await env.crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(e.iv),additionalData},await key(phrase,e.salt),bytes(e.data))));
+      return record.migrationLinks?globalThis.AdventurersTomePrivateMigration.remap(note,Object.fromEntries(record.migrationLinks.map(row=>[row.sourceUuid,row.targetUuid]))):note;
+    }
     catch {throw Error('Could not unlock this note. Check the passphrase; the stored note has not been changed.');}
   }
   async function target(uuid) {

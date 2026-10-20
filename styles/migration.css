@@ -1,0 +1,41 @@
+.at-migration {--migration-gold:#e4bf75;background:#17120c;color:#eddbb4;}
+.at-migration .at-migration-content {overflow:auto;padding:24px;line-height:1.55;}
+.at-migration h1,.at-migration h2 {color:#e4bf75;}
+.at-migration fieldset,.at-migration section section {border:1px solid #66502d;padding:18px;margin:14px 0;}
+.at-migration .at-migration-options {display:flex;flex-wrap:wrap;gap:14px;}
+.at-migration label {display:block;margin:10px 0;}
+.at-migration input[type=checkbox] {vertical-align:middle;}
+.at-migration input:not([type=checkbox]),.at-migration select {width:100%;color:inherit;background:#302832;}
+.at-migration .at-migration-packs {max-height:220px;overflow:auto;}
+.at-migration .at-migration-actions,.at-migration .at-migration-counts {display:flex;flex-wrap:wrap;gap:12px;margin:14px 0;}
+.at-migration button {width:auto;color:inherit;border:1px solid #94703b;background:#292014;padding:7px 12px;}
+.at-migration button:disabled {opacity:.5;}
+.at-migration .at-migration-counts span {padding:10px;border:1px solid #66502d;}
+.at-migration .at-migration-notice {padding:12px;border-left:3px solid #bd9143;background:#282111;}
+.at-migration .at-migration-error {padding:12px;border-left:3px solid #d67e4a;color:#ffd3b8;}
+.at-migration table {width:100%;text-align:left;}
+.at-migration td {padding:6px;overflow-wrap:anywhere;}
+.at-migration td small {display:block;}
+.at-migration details {margin:14px 0;}
+.at-migration summary {cursor:pointer;color:#e4bf75;}
+.at-migration code {overflow-wrap:anywhere;}
+.at-migration pre {max-height:340px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#100d09;}
+.at-migration .at-import-progress {padding:12px;margin:14px 0;border:1px solid #94703b;background:#282111;}
+.at-migration .at-import-progress p {margin:0 0 8px;}
+.at-migration .at-import-progress progress {display:block;width:100%;height:18px;accent-color:#e4bf75;}
+.at-migration .at-import-progress progress::-webkit-progress-bar {background:#100d09;border-radius:3px;}
+.at-migration .at-import-progress progress::-webkit-progress-value {background:#bd9143;border-radius:3px;}
+.at-migration .at-migration-tabs {display:flex;gap:12px;margin:22px 0;}
+.at-migration .at-migration-tabs button {min-width:150px;font-size:18px;padding:12px 24px;}
+.at-migration .at-migration-tabs .is-active {background:#49361a;border-color:#e4bf75;box-shadow:inset 0 -3px #e4bf75;}
+.at-migration .at-migration-primary {font-size:17px;font-weight:bold;padding:12px 22px;background:#49361a;border:1px solid #e4bf75;}
+.at-migration .at-migration-summary {font-size:17px;padding:14px;background:#282111;}
+.at-migration details[data-import-row] {border:1px solid #66502d;padding:14px;}
+.at-migration .at-taf-batch {max-height:420px;overflow:auto;}
+.at-migration [data-migration-panel][hidden],.at-migration [data-import-progress][hidden] {display:none;}
+
+.at-migration .at-story-preview { white-space: pre-wrap; overflow-wrap: anywhere; }
+.at-migration [data-contact-repair-summary] table {color:#eddbb4;border-collapse:collapse;background:transparent;}
+.at-migration [data-contact-repair-summary] th {color:#e4bf75;padding:8px;text-align:left;border-bottom:1px solid #94703b;}
+.at-migration [data-contact-repair-summary] td {color:#eddbb4;padding:10px 8px;vertical-align:top;border-bottom:1px solid #66502d;}
+.at-migration [data-contact-repair-summary] button {margin-left:8px;white-space:nowrap;}

@@ -838,3 +838,7 @@ for (const hookName of ["renderApplication", "renderApplicationV2", "createFolde
     else if (document?.documentName === "JournalEntry" || document?.constructor?.metadata?.name === "JournalEntry") window.setTimeout(() => void atA7ReconcileJournal(document), 100);
   });
 }
+
+Hooks.on("adventurersTomePrepareView", () => {
+  atA7Enhance();
+});

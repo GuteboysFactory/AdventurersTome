@@ -1,0 +1,179 @@
+/* Campaign Tools share Overview's visual language. No render-time DOM changes. */
+#adventurers-tome-app .at-campaign-workspace {
+  container: tome-workspace / inline-size;
+  --at-workspace-line: rgba(214,178,108,.25);
+  --at-workspace-muted: #bdb097;
+  gap: 24px;
+  padding-block: 30px 40px;
+  color: #e0cda7;
+  font-size: 13px;
+  line-height: 1.6;
+}
+#adventurers-tome-app .at-campaign-workspace > * { width: 100%; max-width: 1480px; margin-inline: auto; box-sizing: border-box; flex-shrink: 0; }
+#adventurers-tome-app .at-campaign-workspace * { box-sizing: border-box; }
+#adventurers-tome-app .at-campaign-workspace :is(article,section,header,footer,div,label) { min-width: 0; }
+#adventurers-tome-app .at-campaign-workspace :is(p,h2,h3,h4,h5,strong,small,button) { overflow-wrap: anywhere; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-tools-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-block: 0; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-tools-heading h1 { font-size: 38px; margin: 8px 0 10px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-tools-heading p { max-width: 700px; font-size: 14px; line-height: 1.6; color: #c0b39b; }
+#adventurers-tome-app .at-workspace-private { flex: 0 0 auto; color: #b5a88f; font-size: 11px; border-left: 1px solid var(--at-workspace-line); padding-left: 24px; }
+#adventurers-tome-app .at-workspace-private i { margin-right: 6px; }
+#adventurers-tome-app .at-campaign-workspace .at-kicker { color: #c7a766; font-size: 10px; letter-spacing: .12em; line-height: 1.5; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-tools-tabs { display: flex; padding: 5px; gap: 4px; border-radius: 7px; flex-wrap: wrap; background: rgba(16,13,10,.72); }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-tools-tabs button { min-height: 40px; padding: 9px 18px !important; color: #bca989 !important; font-size: 11px; border-radius: 4px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-tools-tabs button.active { color: #f6dca1 !important; }
+#adventurers-tome-app .at-campaign-workspace button { min-height: 38px; max-width: 100%; margin: 0; font-size: 12px; line-height: 1.4; white-space: normal; border-radius: 5px; }
+#adventurers-tome-app .at-campaign-workspace :is(button,input,select,textarea,summary):focus-visible { outline: 2px solid #f2d08a; outline-offset: 3px; }
+#adventurers-tome-app .at-campaign-workspace :is(input:not([type=hidden]):not([type=checkbox]),select,textarea) { min-width: 0; max-width: 100%; color: #e1cfaa; border: 1px solid rgba(214,178,108,.28); border-radius: 5px; background: rgba(9,8,6,.55); font: inherit; }
+#adventurers-tome-app .at-campaign-workspace :is(input:not([type=hidden]):not([type=checkbox]),select) { min-height: 40px; padding-block: 7px; }
+#adventurers-tome-app .at-campaign-workspace textarea { padding: 14px; line-height: 1.7; }
+#adventurers-tome-app .at-campaign-workspace :is(h2,h3,h4,h5) { color: #f0dcad; font-family: inherit; font-weight: normal; line-height: 1.3; }
+#adventurers-tome-app .at-campaign-workspace h2 { font-size: 23px; margin: 4px 0 10px; }
+#adventurers-tome-app .at-campaign-workspace h3 { font-size: 21px; margin: 4px 0 10px; }
+#adventurers-tome-app .at-campaign-workspace h4 { font-size: 19px; }
+#adventurers-tome-app .at-campaign-workspace h5 { font-size: 18px; }
+#adventurers-tome-app .at-campaign-workspace p { color: var(--at-workspace-muted); font-size: 13px; line-height: 1.65; }
+#adventurers-tome-app .at-campaign-workspace :is(.at-memory-search,.at-analysis-panel,.at-campaign-index,.at-campaign-assistant-card,.at-campaign-assistant-workspace,[data-player-chronicle=signals],.at-workspace-rumours) {
+  margin-block: 0; padding: 24px; border: 1px solid var(--at-workspace-line); border-radius: 10px;
+  background: linear-gradient(135deg,rgba(93,70,30,.13),transparent 55%),rgba(20,16,11,var(--at-panel-alpha,.94));
+  box-shadow: 0 8px 24px rgba(0,0,0,.13);
+}
+#adventurers-tome-app .at-campaign-workspace .at-empty { padding: 26px 20px; color: #bdb097; font-size: 13px; line-height: 1.65; border-radius: 7px; background: rgba(0,0,0,.12); }
+#adventurers-tome-app .at-campaign-workspace summary { cursor: pointer; color: #ddc38c; font-size: 13px; padding: 10px 0; }
+#adventurers-tome-app .at-workspace-rumours > summary { padding: 0; }
+#adventurers-tome-app .at-workspace-rumours > summary small { margin-left: 14px; color: #a99a80; font-size: 11px; }
+#adventurers-tome-app .at-workspace-rumours .at-chronicle { max-width: none; padding: 24px 0 0; }
+
+/* Memory: generous filters and clearly separated source/evidence cards. */
+#adventurers-tome-app .at-campaign-workspace .at-memory-search { border-top-color: rgba(137,185,165,.5); }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-heading { gap: 24px; padding-bottom: 22px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-heading > div:first-child { max-width: 650px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-stats { gap: 8px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-stats span { border-radius: 6px; padding: 12px; font-size: 10px; color: #abb9a9; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-stats strong { color: #cfddc6; font-size: 25px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-controls { grid-template-columns: repeat(5,minmax(0,1fr)); gap: 14px; padding-block: 22px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-text { grid-column: 1 / -1; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-controls label > span { color: #baa98a; font-size: 10px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-search-controls input { height: 44px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-heading { padding-block: 14px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-heading strong { font-size: 12px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-heading span { color: #b3a489; font-size: 11px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-results { gap: 12px; padding-top: 16px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result { grid-template-columns: minmax(180px,.75fr) minmax(0,1.75fr); gap: 24px; padding: 18px; border-radius: 7px; background: rgba(0,0,0,.13); }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result.is-historical { opacity: .85; border-style: dashed; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-target > button { font-size: 17px; text-align: left; }
+#adventurers-tome-app .at-campaign-workspace :is(.at-memory-result-target > button,.at-memory-unresolved-target) strong { font-size: 15px; }
+#adventurers-tome-app .at-campaign-workspace :is(.at-memory-result-target > button,.at-memory-unresolved-target) small { color: #baa98a; font-size: 10px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-unresolved-target { font-size: 16px; color: #e0c794; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-badges { gap: 6px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-badges span { font-size: 10px; padding: 4px 8px; border-radius: 16px; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-evidence > p { font-size: 14px; color: #d0c1a4; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-source { gap: 10px; flex-wrap: wrap; }
+#adventurers-tome-app .at-campaign-workspace .at-memory-result-source button { font-size: 11px; }
+
+/* Analysis: decisions are the focus; ordinary mentions stay visually quiet. */
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis { gap: 24px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-heading { gap: 16px; flex-wrap: wrap; padding: 24px; border-radius: 10px; background: rgba(20,16,11,var(--at-panel-alpha,.94)); }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-heading > div { flex: 1 1 500px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-heading p { max-width: 700px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-stats { gap: 12px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-stats article { border-radius: 7px; padding: 17px; background: rgba(20,16,11,.9); }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-stats small { font-size: 10px; color: #baa98b; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-stats strong { font-size: 26px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-panel-heading { gap: 20px; align-items: start; padding-bottom: 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-panel-heading p { max-width: 760px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-count { padding: 6px 10px; border-radius: 20px; font-size: 11px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-decision-list { gap: 16px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-decision-card { border-radius: 7px; padding: 18px; background: rgba(0,0,0,.14); }
+#adventurers-tome-app .at-campaign-workspace .at-guided-review-summary { padding: 0; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-decision-header { gap: 14px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-decision-header h4 { margin-block: 6px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-decision-context { flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
+#adventurers-tome-app .at-campaign-workspace :is(.at-guided-decision-context,.at-guided-candidate-reason,.at-guided-candidate-badge,.at-analysis-state,.at-guided-candidate-tools button) { font-size: 11px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-review-body { padding-top: 20px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-candidate-card { padding: 18px; border-radius: 7px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-candidate-main { gap: 16px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-candidate-tools { padding-top: 12px; }
+#adventurers-tome-app .at-campaign-workspace :is(.at-guided-recommendation,.at-guided-brief-empty,.at-guided-no-candidates) { font-size: 12px; line-height: 1.6; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-identity-brief small { font-size: 10px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-identity-brief strong { font-size: 12px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-decision-footer { flex-wrap: wrap; gap: 10px; padding-top: 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-guided-decision-footer small { color: #b4a487; font-size: 11px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-clean { padding: 24px; border-radius: 7px; background: rgba(91,127,72,.09); }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-clean strong { color: #d8ddbf; font-size: 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-noticed-grid { gap: 14px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-noticed-card { padding: 18px; border-radius: 7px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-noticed-card strong { font-size: 16px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-noticed-card :is(small,footer) { font-size: 11px; }
+#adventurers-tome-app .at-campaign-workspace .at-analysis-safety { padding: 16px 20px; border-radius: 7px; color: #bdb097; font-size: 12px; line-height: 1.6; }
+
+/* Index: visible state, simple controls and readable source history. */
+#adventurers-tome-app .at-campaign-workspace .at-campaign-index > p { max-width: 85ch; }
+#adventurers-tome-app .at-campaign-workspace .at-index-status { gap: 10px 24px; align-items: center; margin: 22px 0; padding: 20px; border: 1px solid rgba(146,185,140,.28); border-radius: 7px; background: rgba(99,136,83,.1); }
+#adventurers-tome-app .at-campaign-workspace .at-index-status strong { font-size: 20px; color: #cfdbb9; }
+#adventurers-tome-app .at-campaign-workspace .at-index-status span { color: #b9c0a4; font-size: 12px; }
+#adventurers-tome-app .at-campaign-workspace .at-index-status:is(.is-paused,.is-running) { border-color: rgba(214,178,108,.3); background: rgba(146,114,49,.08); }
+#adventurers-tome-app .at-campaign-workspace .at-index-status:is(.is-paused,.is-running) :is(strong,span) { color: #dbc391; }
+#adventurers-tome-app .at-campaign-workspace .at-index-status.has-error { border-color: rgba(219,159,82,.5); background: rgba(165,102,37,.13); }
+#adventurers-tome-app .at-campaign-workspace .at-index-controls { gap: 10px; margin-bottom: 22px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-index > details { padding: 10px 16px; margin-block: 20px; border: 1px solid rgba(214,178,108,.18); border-radius: 7px; background: rgba(0,0,0,.13); }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-index > label { display: grid; gap: 4px; font-size: 11px; color: #baa98a; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-index input { width: 100%; max-width: none; margin-block: 0 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-index-records { display: grid; gap: 10px; }
+#adventurers-tome-app .at-campaign-workspace .at-index-records article { padding: 16px 18px; border: 1px solid rgba(214,178,108,.16); border-radius: 7px; background: rgba(0,0,0,.13); }
+#adventurers-tome-app .at-campaign-workspace .at-index-records article > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+#adventurers-tome-app .at-campaign-workspace .at-index-records strong { font-size: 15px; color: #e2cda4; }
+#adventurers-tome-app .at-campaign-workspace .at-index-records small { font-size: 11px; color: #b5a88f; opacity: 1; }
+#adventurers-tome-app .at-campaign-workspace .at-index-records button { flex: 0 0 auto; }
+
+/* Assistant: same tool cards as Overview, then the private writing workspace. */
+#adventurers-tome-app .at-campaign-workspace .at-campaign-assistant-grid { gap: 20px; align-items: stretch; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-assistant-card { grid-template-columns: 44px minmax(0,1fr); min-height: 205px; gap: 16px; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-assistant-card > i { width: 44px; height: 44px; border-radius: 9px; font-size: 20px; color: #dfbf78; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-assistant-card > button { align-self: end; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-assistant-workspace { gap: 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-section-title { align-items: start; gap: 16px; flex-wrap: wrap; }
+#adventurers-tome-app .at-campaign-workspace .at-campaign-custom-pads .at-custom-pad-grid { gap: 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-custom-pad { padding: 18px; border-radius: 7px; }
+#adventurers-tome-app .at-campaign-workspace .at-custom-pad-head { flex-wrap: wrap; gap: 8px; }
+#adventurers-tome-app .at-campaign-workspace .at-custom-pad-head small { font-size: 11px; color: #b4a78b; }
+#adventurers-tome-app .at-campaign-workspace .at-inline-actions { gap: 10px; flex-wrap: wrap; }
+
+/* Signals: only the GM's explicitly shared feed receives these styles. */
+#adventurers-tome-app .at-campaign-workspace [data-player-chronicle=signals] { max-width: 1480px; border-top-color: rgba(172,153,202,.5); }
+#adventurers-tome-app .at-campaign-workspace [data-player-chronicle=signals] > header { max-width: 760px; }
+#adventurers-tome-app .at-campaign-workspace .at-chronicle-actions { gap: 10px; margin-block: 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-chronicle > label { display: grid; gap: 6px; color: #baa98a; font-size: 11px; }
+#adventurers-tome-app .at-campaign-workspace .at-chronicle input[type=search] { max-width: none; }
+#adventurers-tome-app .at-campaign-workspace [data-pc-results] { margin-top: 24px; }
+#adventurers-tome-app .at-campaign-workspace .at-chronicle-card { border-radius: 7px; padding: 22px; margin-block: 14px; background: rgba(0,0,0,.13); border-color: rgba(172,153,202,.22); }
+#adventurers-tome-app .at-campaign-workspace .at-chronicle-card small { display: inline-block; margin-right: 12px; font-size: 11px; color: #b6acc8; }
+#adventurers-tome-app .at-campaign-workspace .at-chronicle-text { font-size: 14px; line-height: 1.75; color: #d1c4ad; }
+#adventurers-tome-app .at-campaign-workspace [data-pc-results] > p { padding: 24px; border: 1px dashed rgba(172,153,202,.25); border-radius: 7px; }
+
+@container tome-workspace (max-width: 1000px) {
+  #adventurers-tome-app .at-campaign-workspace .at-memory-search-heading { flex-direction: column; }
+  #adventurers-tome-app .at-campaign-workspace .at-memory-search-stats { width: 100%; grid-template-columns: repeat(4,minmax(0,1fr)); }
+  #adventurers-tome-app .at-campaign-workspace .at-memory-search-controls { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  #adventurers-tome-app .at-campaign-workspace .at-campaign-assistant-grid { grid-template-columns: 1fr; }
+}
+@container tome-workspace (max-width: 620px) {
+  #adventurers-tome-app .at-campaign-workspace .at-campaign-tools-heading { flex-direction: column; align-items: start; gap: 12px; }
+  #adventurers-tome-app .at-campaign-workspace .at-campaign-tools-heading h1 { font-size: 30px; }
+  #adventurers-tome-app .at-workspace-private { padding-left: 0; border: 0; }
+  #adventurers-tome-app .at-campaign-workspace .at-campaign-tools-tabs button { padding-inline: 12px !important; }
+  #adventurers-tome-app .at-campaign-workspace :is(.at-memory-search,.at-analysis-panel,.at-campaign-index,.at-campaign-assistant-card,.at-campaign-assistant-workspace,[data-player-chronicle=signals],.at-workspace-rumours) { padding: 18px; }
+  #adventurers-tome-app .at-campaign-workspace .at-memory-search-controls { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #adventurers-tome-app .at-campaign-workspace .at-memory-search-stats span { min-width: 0; padding: 8px 4px; font-size: 9px; }
+  #adventurers-tome-app .at-campaign-workspace .at-memory-result { grid-template-columns: 1fr; gap: 12px; }
+  #adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #adventurers-tome-app .at-campaign-workspace .at-campaign-analysis-heading > div { flex: 0 1 auto; width: 100%; }
+  #adventurers-tome-app .at-campaign-workspace .at-analysis-panel-heading { flex-wrap: wrap; }
+  #adventurers-tome-app .at-campaign-workspace .at-guided-decision-header { grid-template-columns: 36px minmax(0,1fr); }
+  #adventurers-tome-app .at-campaign-workspace .at-guided-source { grid-column: 2; justify-self: start; }
+  #adventurers-tome-app .at-campaign-workspace .at-guided-candidate-main { grid-template-columns: 1fr; }
+  #adventurers-tome-app .at-campaign-workspace .at-guided-select { justify-self: start; }
+  #adventurers-tome-app .at-campaign-workspace .at-campaign-custom-pads .at-custom-pad-grid { grid-template-columns: 1fr; }
+  #adventurers-tome-app .at-campaign-workspace .at-index-records article { flex-wrap: wrap; }
+  #adventurers-tome-app .at-campaign-workspace .at-workspace-rumours > summary small { display: block; margin-left: 0; }
+}

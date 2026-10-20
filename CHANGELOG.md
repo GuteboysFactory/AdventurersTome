@@ -1,3 +1,201 @@
+## 1.9.0 — Migration Toolkit and a clearer Tome
+
+- Promote the campaign-tested TAF → Realm Guard migration and shared Import & Export workspace, including media, account mapping, privacy-preserving transfers, contact review and safe retry.
+- Include the completed Campaign Tools style pass, grouped Player Signals, stable library/profile controls and minimization into the existing movable launcher.
+- Put Session Chronicle text before linked content while retaining compact counters above it and preserving editing/source actions.
+- Other system mechanics still require verified adapters; production Genesys conversion remains future work. Foundry 13.351 remains the verified runtime baseline.
+- See docs/V1.9_STABLE_RELEASE.md for scope and installation. The standalone My Chronicle visual refresh is deferred.
+
+## 1.9.0-qa.4.16 — Minimize into the original Tome launcher
+
+- Reuse the existing draggable Tome button as the single minimized-window control. Remove the separate bottom bar.
+- Read the launcher's actual rectangle for each minimize/restore animation. Moving it while Tome is parked changes the restore animation's origin; the complete-close control follows the same movement and viewport clamping.
+- Keep the original launcher's drag, saved position and right-click reset behavior. Add a small complete-close control only while Tome is parked, with keyboard access and no nested buttons.
+- Preserve the previous draft, scroll, navigation, deferred refresh, reduced-motion and real-close protections. Player Signals, migration and system data unchanged. Local QA only; stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.15 — Player groups and a resting Tome window
+
+- Group GM Player Signals by player with counts, last-shared dates and expandable sections. Add All · latest first. Search notes and player names across all groups and reveal matching groups without changing their manual open state.
+- Make the main title-bar X park the live Tome in a bottom dock with a short animation. Restore through the dock or launcher; keep the existing DOM, input drafts, focus, scroll and normal window rectangle. A separate dock control closes the application completely.
+- Defer background renders while parked; resume clean surfaces when restored and retain unsaved inputs. Keep adaptive sizing/window-state observers from saving hidden geometry. Respect reduced motion and clean up on real close.
+- No campaign writes from docking, no migration or Realm Guard changes. Local QA only; stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.14 — Consistent Campaign Tools workspace
+
+- Extend Overview's typography, reading width, warm panels, focus treatment and responsive navigation to Memory, Analysis, Index, Player Signals and Assistant.
+- Separate Memory filters from evidence cards, make Analysis review controls readable, clarify Index state, and give Assistant tools and private notepads consistent spacing.
+- Add the full six-tab navigation to Player Signals. Scope styles to GM Campaign Tools; personal Chronicles and the accepted Overview layout retain their presentation.
+- Preserve existing actions, source/target payloads, filtering, index scroll/focus, explicit player sharing and private note ownership. No new timers or observers; no migration or Realm Guard changes.
+- Local QA only; stable 1.8.0 unchanged. No export or reimport required.
+
+## 1.9.0-qa.4.13 — Clearer Campaign Overview
+
+- Replace the repeated full-width metric/card stack with two primary areas: decisions needing attention and the private GM Notebook. Add a readable overview heading and next-session context.
+- Give Memory, Session Assistant and Player Signals distinct cards, clearer descriptions and direct shortcuts. Move evidence counters into Memory and remove implementation/roadmap copy from the overview.
+- Add explanations to decision counters, calm all-clear/empty-note states, due-only emphasis, a bounded scrollable preview of existing private notes, and readable responsive typography.
+- Preserve recommendation/source payloads, Undo, existing navigation and private-note actions. Styles are scoped to Overview; no new render timers, document writes, migration changes or Realm Guard changes.
+- Local QA only; stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.12 — Keep profile link management stable
+
+- Mount the GM profile link manager before paint and continuity restoration instead of waiting for a delayed render hook. The following Relations cards no longer jump when Manage links arrives.
+- Reuse an existing profile editor across duplicate/deferred hooks. Preserve its open state, selected target and focus; refresh changed target options in place.
+- Reconcile stale unlink actions without deleting canonical source navigation. Remove GM controls after permission loss and avoid duplicate fallback panels when Entity Context owns the controls.
+- No campaign, migration adapter or Realm Guard data changes. Local QA only; stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.11 — Stable layout and bounded background refresh
+
+- Do not save unchanged base/adaptive window positions. Exclude client presentation and private user settings from campaign-index jobs; document edits and world rules still invalidate analysis.
+- Prepare library headers, explorer, folder/entry tools and import/search controls synchronously in Tome's render lifecycle. Permission reconciliation runs after the workspace is mounted and before paint.
+- Update catalog filter nodes in place. Background mounts preserve plugin controls and the focused search input.
+- Stop observer feedback from unchanged library counts, empty player header wrappers, duplicate World creators and competing legacy/task-specific Session/Quest creators.
+- No migration adapter or Realm Guard system changes. Existing imported data needs no reimport. Local QA only; stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.10 — Keep reviewed contact roles visible
+
+- Keep a Character / Role / Selected person review table above Import after a corrected Actor becomes ready. Change reopens only that Actor's controls.
+- Present repair controls in a stable Friend, Senior Artisan, Mentor, Enemy order. Show advisory hints when a selected name explicitly suggests the opposite Mentor/Enemy role; never silently rewrite a deliberate choice.
+- Keep the current Actor controls open while selecting replacements; the ready summary remains available when they are complete.
+- No adapter mechanics changed. Local QA only, stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.9 — Readable Item descriptions and role-specific contact repair
+
+- Convert every TAF → Realm Guard Item description to plain text, including embedded gear, Talents, Traits, Wises, skills and standalone reference Items. Preserve headings/paragraphs and retain original rich text in the source archive. Generated inventory/reference descriptions use labelled text rather than HTML.
+- Add Repair missing contact links for true TAF exceptions. Choose an existing package Actor for each explicit role; Friend and Senior Artisan may be corrected differently even if the source used the same missing ID. Do not infer target identities from similar names.
+- Recheck dependencies after explicit contact choices, rewrite only the matching role links, and retain unrelated missing references. Store approved choices on imported copies for retry; reject outside-package, self and compendium targets.
+- Local QA only, stable 1.8.0 unchanged. Reuse the current source ZIP in a fresh target world.
+
+## 1.9.0-qa.4.8 — Readable imported biography and source notes
+
+- Convert TAF biography HTML into plain sheet text with separate headings, paragraphs, lists and table rows. Preserve Foundry link identities and inline media paths; keep the original source HTML in the migration archive.
+- Write TAF source references, counters, annotations and additional fields as labelled text rather than HTML tables in PC/NPC Notes. Zero values remain explicit.
+- Retain the complete converted TAF text with paragraph boundaries when creating its Tome projection, rather than using only a flattened 320-character summary. Ordinary projections/private notes fallbacks are unchanged.
+- Split inline Contacts role/UUID lists before target legacy migration. Resolve exact source identities, keep distinct roles for a shared person, and retain missing identities as separate unresolved contacts. Support multiline named Talent descriptions, annotated Wises and explicit lv1 Trait notation.
+- Local QA only; stable 1.8.0 unchanged. Reuse the current campaign ZIP for a fresh target import; retry does not overwrite existing copies.
+
+## 1.9.0-qa.4.7 — TAF trained skills and biography sheet fields
+
+- Restore narrative Nature into `natureDescriptors` and Creed into the matching sheet field, separately from numeric Nature. Accept explicit headings, labelled text, bold labels and two-column field tables for biography/header information.
+- Convert Will/Health Skills attributes into Realm Guard role Items with original ratings and identities. Positive ratings are trained, zero ratings remain untrained, including custom skills. Invalid/conflicting ratings stay readable in Notes; source Macro triggers and effects stay inactive.
+- Recover station and homeland from an unambiguous actor-matching self-description. Use canonical station keys; never borrow another person's information or invent missing age/concept. Show missing header values in document preview.
+- Existing media-bearing QA.4.6 campaign ZIPs can be reused. Test in a fresh target world: retry intentionally reuses already imported copies instead of overwriting their fields. Local QA only; stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.6 — Portrait transfer and readable biography conversion
+
+- Include accessible media in campaign ZIP exports by default, with a visible choice for reference-only export. Restore checksum-verified files into a package-specific world directory before creating documents; remap portrait, token, inline media and private presentation references. Retry reuses matching files and refuses to overwrite different content.
+- Cache failed Tome template images for the browser session and use a fallback before later template rendering. Original document paths remain intact.
+- Parse explicit TAF biography headings and unambiguous relationship table roles into matching Realm Guard sheet fields. Import explicit rated Traits, named Wises as unrated, and named Talents with their written effect in manual mode and zero automatic bonus. Preserve the complete original Biography and show an escaped readable preview. Conflicting text remains reference material.
+- Restore contacts into Character → Relationships through the target Social Network API and link unique imported NPCs. Restore Fate/Persona/Checks to header counters, preserve lifetime spends and use target-system progression to calculate Level. Conditions and counter definitions do not become gear. Missing portraits may borrow packaged target art without creating template Actors.
+- Local QA only. Stable 1.8.0 is unchanged. Export a new ZIP from the source world with media enabled to carry actual image files; old reference-only ZIPs cannot recreate missing files.
+
+## 1.9.0-qa.4.5 — Merge old GM accounts safely
+
+- Allow explicitly mapped old GM accounts to share the importing GM. Keep the exporting GM bound to the current GM and reject shared Player destinations.
+- Merge old GM ownership levels using the highest explicit level, independently of source object order. Existing default-visibility and unmapped-account safeguards remain.
+- Reserve Player destinations during automatic proposals so repeated source names cannot claim the same existing account twice. Keep deliberate saved choices editable.
+- Identify conflicting source/target names and open account mapping on a mapping conflict. Reject conflicts before creating Player accounts or importing documents; retry continues to reuse migration-created accounts.
+- Local QA only; stable 1.8.0 and the existing migration ZIP format are unchanged.
+
+## 1.9.0-qa.4.4 — Prepare TAF proposals immediately; approve once
+
+- Prepare a read-only TAF conversion proposal during ZIP preview instead of first presenting hundreds of unconverted exceptions. Remove the separate Apply Group Conversion activation step.
+- Use the actual dependency-eligible copy set for the initial summary. Proposed group/fallback and base-Actor Scene policies are stated before the single Approve proposal & Import action; changes update automatically.
+- Propose saved mappings, uniquely named existing Players, or new Player accounts without creating anything during preview. Other GMs remain private by default. New account counts are visible and all choices remain editable.
+- Keep deliberate per-document roles, exclusions and attribute choices. Preserve proposal metadata through untouched exception forms. Collapse exceptions and show only relevant core mapping fields initially.
+- Retain private GM Notes restoration, separate NPC compendiums, original source information, retry and relationship suggestions. Local-only QA delivery; stable 1.8.0 unchanged.
+
+## 1.9.0-qa.4.3 — TAF group migration, Player accounts and story review
+
+- Support the supplied TAF 3.1.0 schema alongside 3.2.0. Confirm Character/NPC per source folder/compendium group and reuse compatible core-field conversion across the package.
+- Preserve non-equivalent attributes/skills/traits and Freeform Sheet text as readable Actor references; keep inventory details, token appearance, original identities and separate NPC compendiums. Use an explicit shared policy for cross-system Scene token overrides.
+- Retain true missing-link exceptions while ignoring references in inactive module automation. Validate converted copies before import.
+- Add an explicit Create new Player account choice, resolved only at Do Import, with role-safe creation and retry reuse. Existing source GM ownership remains mapped to the importing GM.
+- Restore GM Notes module text into the importing GM's private contextual Vault and redact it from document source archives before restoring player visibility.
+- Reuse existing bilingual relationship extraction and canonical identities to propose imported biography/sheet/folder relationships for GM review. Repeated analysis replaces stale proposals without duplicate NPC creation or fact confirmation; Session/Quest analysis continues through Campaign Index.
+- Local package simulation: 1,023 of 1,031 documents copied after shared choices, 8 genuine dependency exceptions, 186 compendium Actors preserved, no unresolved copied references or duplicate retry copies. Live Foundry confirmation remains pending. Stable 1.8.0 unchanged; not published.
+
+## 1.9.0-qa.4.2 — Gear menu and GM Notes & Vault backup
+
+- Put Import & Export under the top-right gear for GM and players. GM also has Campaign Settings and Export GM Notes & Vault; players have Export my Chronicle.
+- Add a dedicated, restorable private JSON backup of the current GM’s notebook, scratchpad, Vault/contextual notes and reveal queue. No Chronicle books, shared inbox or campaign settings are read/exported.
+- Merge restores preserve local notes. Cross-world restore requires an existing completed campaign mapping; the same backup can recover deleted data again without duplicating notes.
+- Keep explicit startup dependencies and role checks. Do not publish; stable channel stays 1.8.0.
+
+## 1.9.0-qa.4 — Shared Import & Export and hardening
+
+- Replace the three GM settings cards with one role-aware Import & Export workspace. Existing Session/Quest import shortcuts route into the same window.
+- Recognize campaign ZIPs, legacy Tome packages, Markdown and text. Reuse the native content import review, Create/Update/Skip, cross-links, history and confirmed latest-transaction Undo.
+- Retain campaign ZIP, portable content, player-safe content, private GM archive and clipboard export. Reference archives are clearly distinguished from restorable campaign ZIPs.
+- Put each player's own Chronicle transfer in the same shared workspace, with no GM inventory/history access. Support own-account backups in the same world without GM mapping; cross-world migration remains account-mapped.
+- Reject stale/modified/consumed previews and invalid choices. Stop content import between documents while preserving saved partial work and snapshots for Undo.
+- Existing migration retry, folder continuity, private data, encryption and permission handling retained. Actual TAF campaign testing remains pending; stable channel stays 1.8.0. Local QA delivery only.
+
+## 1.9.0-qa.3 — Owner-aware campaign and Chronicle migration
+
+- Include the exporting GM’s Campaign Memory, private vaults, workspace, reveal queue, campaign/group settings, their Chronicle books and already-shared inbox in the private GM package.
+- Map source accounts once before importing. Restore ownership, including Journal page overrides, after private staging. Unmapped accounts keep affected copies GM-only; migrated compendiums remain private.
+- Remap UUIDs, legacy private-vault keys and document IDs. Merge local private notes and preserve original settings/Undo snapshots in an inactive user-scoped archive. Checkpoint private restoration for retries.
+- Add My Chronicle → Move my Chronicle for each player’s own export/import. Keep encrypted notes encrypted with their original authentication context and permission-checked remapped links; repeat imports do not duplicate notes or auto-share saved versions.
+- Older ZIPs remain supported as GM-only document imports. A new qa.3 export is needed for private data/account mapping. Live TAF testing remains pending; optional cross-system contract fixtures do not imply a production Genesys mechanical converter.
+- Local QA build only; stable channel remains 1.8.0.
+
+## 1.9.0-qa.2.6 — Expected review/index retry
+
+- Propagate stale-input signals from deterministic auto-link back to Campaign Index instead of logging them as failures.
+- GM identity decisions remain saved; changed inputs are requeued through the existing index handler. Real errors still warn and affect audit health.
+- Migration/UI behavior from qa.2.5 retained.
+
+## 1.9.0-qa.2.5 — Standard folder continuity
+
+- Reuse the destination's canonical Tome root, sections and World categories; persist source-folder aliases without replacing existing folder metadata.
+- Pause automatic backend projections and source parity during writes, then resume after imported Actors and Journals are present.
+- Remap managed projection Actor/Folder IDs as well as UUIDs. Serialize concurrent standard-folder bootstrap calls.
+- Preserve custom folders and content. Existing duplicate filled trees are not automatically merged or deleted. Stable channel remains 1.8.0.
+
+## 1.9.0-qa.2.4 — Campaign data versus system libraries
+
+- Exclude system-owned packs and Realm Guard's eight starter libraries from export, including Quick NPC templates. Active world Actors are retained even if originally based on a starter template.
+- Older migration ZIPs also exclude these libraries during import; earlier migrated library copies are not re-exported as campaign Actors.
+- GM-created compendium content stays in private migrated packs, preserving types, folders and remapped links; it is never instantiated as world Actors. Existing packs are not overwritten.
+- Import/Export tabs and progress UI retained. Stable channel remains 1.8.0.
+
+## 1.9.0-qa.2.3 — Import progress
+
+- Updated same-version local build: separate Import/Export tabs, numbered workflows, Preview Import / Do Import and Preview Export / Download Export ZIP. One main import action; advanced and technical details are collapsed.
+- Show a progress bar directly beneath the import action, with percentage, saved copies / total copies and the current document.
+- Advance only after creation succeeds; interrupted runs retain their actual saved count and stopped status.
+- No change to migration selection or mapping. Stable channel remains 1.8.0.
+
+## 1.9.0-qa.2.2 — Native persistence and interrupted import
+
+- Store UUID identity mappings as list entries: Foundry dotted-key expansion no longer crashes at the first Actor with embedded Items.
+- Read earlier Folder identity records in both flat and Foundry-expanded forms so interrupted imports can resume without duplicate folders.
+- Report the failed document and remaining copies prominently; failed runs show stopped status and a persistent notification.
+- A missing saved-document response is a failure, never a completed copy.
+- Stable channel remains 1.8.0; this is a local qa.2 fix.
+
+## 1.9.0-qa.2.1 — Same-system copy fix
+
+- Same-system Actor/Item copies no longer require individual approval just because source and target QA versions differ. Native target data validation still isolates incompatible records.
+- Historical source/compendium provenance does not become a live missing-link dependency, including archives from earlier migrations.
+- Preserve same-system flags and token overrides; remap Realm Guard bag/container Item IDs.
+- Unique build version is visible in the toolkit. Taf conversion controls appear only for taf → Realm Guard.
+- Counts/exception-only review and one-action ready-copy import remain the default. Stable channel stays 1.8.0.
+
+## 1.9.0-qa.2 — Reviewed target copies
+
+- Target package validation, copy-only imports and explicit GM review.
+- Optional taf 3.2.0 → Realm Guard adapter: biography, generic inventory and confirmed attribute mappings.
+- Preserve explicit semantic categories independently of backend document types and field mapping. Remap Contact Actor IDs and stored UUID relations; missing parties remain exceptions.
+- Move ready copies in one action with counts/exception-only review. Reuse confirmed field mappings for matching fields without changing Character/NPC roles; batch classification is explicit only for genuinely unknown Actors.
+- Resolve exceptions in a later pass without duplicating earlier copies from the same package.
+- Original source data archived on private target copies; unknown systems remain unsupported rather than guessed.
+- Selected compendium documents import as world copies. Included media remains in the ZIP; automatic upload and complete private storage migration are not in this QA.
+
+## 1.9.0-qa.1 — Migration Core + Generic Foundry Content
+
+GM-only Migration Toolkit in Campaign Settings → Developer Tools. Read-only world/selected-compendium analysis, portable ZIP export, embedded identity mapping, reference/dependency reports, optional media files and SHA-256 integrity checks. Source data remains intact; Actors/Items are preserved as unmapped. Target import, rules conversion and owner-aware campaign-state migration follow in later QA. See [qa.1 documentation](docs/V1.9_QA1_MIGRATION_TOOLKIT.md).
+
 ## 1.8.0 — 2026-10-11
 
 Stable promotion of the verified Player Chronicle QA build. Players can keep private campaign notes, choose explicit GM or party sharing, record remembered moments, and browse knowledge derived only from notes visible to them. GMs can review player-shared signals without turning them into campaign facts. Chronicle references are available on Tome entity surfaces while private player notes remain outside Campaign Index and campaign analysis. See [release notes](docs/V1.8_STABLE_RELEASE.md).

@@ -404,3 +404,7 @@ Hooks.once("ready", () => {
 for (const hookName of ["renderApplication", "renderApplicationV2", "createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createFolder", "updateFolder", "deleteFolder"]) {
   Hooks.on(hookName, () => atEmSchedule(220));
 }
+
+Hooks.on("adventurersTomePrepareView", () => {
+  atEmEnhance();
+});

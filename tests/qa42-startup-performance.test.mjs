@@ -108,8 +108,8 @@ test('Profiler records synchronous/asynchronous failures without swallowing them
 test('Finished startup metrics remain frozen while runtime changes are counted separately',()=>{
  const w=profileWorld();w.profiler.count('startup','writes',0);w.finish();const before=JSON.stringify(w.profiler.snapshot().stages);w.profiler.measure('runtime-test',()=>w.profiler.count('runtime-test','writes'));assert.equal(JSON.stringify(w.profiler.snapshot().stages),before);assert.equal(w.profiler.snapshot().runtime[0].counters.writes,1);
 });
-test('Manifest loads telemetry before consumers on the 1.8.0 release line',()=>{
- const manifest=JSON.parse(fs.readFileSync(path.join(root,'module.json'),'utf8'));assert.match(manifest.version,/^1\.8\.0(?:-qa\.\d+)?$/);assert.equal(manifest.esmodules[0],'scripts/startup-performance.js');assert.equal(new Set(manifest.esmodules).size,manifest.esmodules.length);
+test('Manifest loads telemetry before consumers on the 1.8/1.9 release lines',()=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(root,'module.json'),'utf8'));assert.match(manifest.version,/^1\.(?:8|9)\.0(?:-qa\.\d+(?:\.\d+)?)?$/);assert.equal(manifest.esmodules[0],'scripts/startup-performance.js');assert.equal(new Set(manifest.esmodules).size,manifest.esmodules.length);
 });
 test('Summary normalization no longer treats DOM serialization alone as repair',()=>{
  const source=fs.readFileSync(path.join(root,'scripts/authoring-summary-sync.js'),'utf8');assert.ok(source.includes('html: changed ? host.innerHTML : source, changed'));assert.ok(!source.includes('changed || host.innerHTML !== source'));

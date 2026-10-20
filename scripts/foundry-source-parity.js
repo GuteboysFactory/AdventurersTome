@@ -61,6 +61,7 @@ async function atpNormalizeLink(j,a,{initial=false}={}) {
 }
 function atpLinked(a) { return [...(game.journal?.contents??[])].filter(j=>atpWorld(j) && (atpSourceUuid(j)===a.uuid || String(atpProfile(j).actorId||"")===String(a.id))); }
 async function atpActorToTome(a) {
+  if(game.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
   if (!a || !atpLeaderGM() || ATP_ACTOR_GUARD.has(a.id)) return;
   for (const j of atpLinked(a)) await atpNormalizeLink(j,a);
   atpScheduleVaultSync(); atpScheduleRender();
@@ -73,6 +74,7 @@ async function atpMarkMissing(j,a=null) {
   await atpJournalUpdate(j,{[`flags.${ATP_ID}.${ATP_PROFILE}`]:p});
 }
 async function atpTomeToActor(j,changes={}) {
+  if(game.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
   if (!atpLeaderGM() || !atpWorld(j) || ATP_JOURNAL_GUARD.has(j.id)) return;
   const resolved=atpResolveActor(j,{allowName:!atpPermanent(j)}), a=resolved.actor;
   if (!a) { if (resolved.permanent) await atpMarkMissing(j); return; }
@@ -86,6 +88,7 @@ async function atpTomeToActor(j,changes={}) {
   await atpNormalizeLink(j,a); atpScheduleVaultSync(); atpScheduleRender();
 }
 async function atpMigrateLinks() {
+  if(game.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
   if (!atpLeaderGM()) return;
   let linked=0,missing=0;
   for (const j of game.journal?.contents??[]) {
@@ -197,6 +200,7 @@ function atpStyle(){if(document.getElementById("atp-style"))return;const s=docum
 Hooks.once("ready",async()=>{atpStyle();if(!game.user?.isGM)return;try{await atpMigrateLinks();await atpReconcileVault();}catch(e){console.error("Adventurer's Tome | Source Parity initialization failed safely",e);}});
 Hooks.on("updateActor",a=>atpActorToTome(a).catch(e=>console.error("Adventurer's Tome | Actor -> Tome parity failed safely",e)));
 Hooks.on("createActor",()=>{if(atpLeaderGM())setTimeout(()=>atpMigrateLinks().catch(e=>console.warn("Adventurer's Tome | New Actor link normalization failed safely",e)),120);});
+Hooks.on('adventurersTomeMigrationFinished',()=>{if(atpLeaderGM())void atpMigrateLinks().catch(e=>console.warn("Adventurer's Tome | Post-migration link normalization failed safely",e));});
 Hooks.on("deleteActor",a=>{if(atpLeaderGM())Promise.all(atpLinked(a).map(j=>atpMarkMissing(j,a))).finally(atpScheduleRender);});
 Hooks.on("updateJournalEntry",(j,c)=>atpTomeToActor(j,c).catch(e=>console.error("Adventurer's Tome | Tome -> Actor parity failed safely",e)));
 Hooks.on("createJournalEntry",j=>{if(atpLeaderGM()&&atpWorld(j))setTimeout(()=>atpTomeToActor(j,{}).catch(()=>{}),120);});

@@ -203,7 +203,7 @@ function atCwAllowedIds(selectedFolder, allEntryIds) {
 
 function atCwUpdateCount(container, selector, count) {
   const counter = container.querySelector(selector);
-  if (counter) counter.textContent = String(count);
+  if (counter && counter.textContent !== String(count)) counter.textContent = String(count);
 }
 
 function atCwPlainText(value) {
@@ -368,7 +368,27 @@ function atCwApplyFilter(section, catalog, selectedFolder, roots, allEntryIds) {
     ? `${allowed.size} of ${worldSearch.base.size} ${worldSearch.base.size === 1 ? "entry" : "entries"}`
     : `${allowed.size} ${allowed.size === 1 ? "entry" : "entries"}`;
 
-  bar.innerHTML = `<div class="at-cw-filter-context">${atCwBreadcrumb(selectedFolder, roots)}</div>${section === "world" ? atCwWorldSearchMarkup() : ""}<span class="at-cw-filter-count">${countText}</span>`;
+  // Other UI components own controls inside this bar too. Update our nodes
+  // in place so remounts cannot remove Import, steal focus or move the count.
+  let context = bar.querySelector(".at-cw-filter-context");
+  if (!context) {
+    context = document.createElement("div");
+    context.className = "at-cw-filter-context";
+    bar.prepend(context);
+  }
+  const breadcrumb = atCwBreadcrumb(selectedFolder, roots);
+  if (context.dataset.atCwBreadcrumb !== breadcrumb) {
+    context.dataset.atCwBreadcrumb = breadcrumb;
+    context.innerHTML = breadcrumb;
+  }
+  if (section === "world" && !bar.querySelector(".at-cw-world-search")) context.insertAdjacentHTML("afterend", atCwWorldSearchMarkup());
+  let counter = bar.querySelector(".at-cw-filter-count");
+  if (!counter) {
+    counter = document.createElement("span");
+    counter.className = "at-cw-filter-count";
+    bar.append(counter);
+  }
+  if (counter.textContent !== countText) counter.textContent = countText;
   return allowed;
 }
 
@@ -1025,3 +1045,10 @@ for (const hookName of ["renderApplication", "renderApplicationV2"]) {
 for (const hookName of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createFolder", "updateFolder", "deleteFolder"]) {
   Hooks.on(hookName, () => atCwRequestStructuralRefresh(120));
 }
+
+// Called synchronously by Tome before the newly rendered view can paint.
+Hooks.on("adventurersTomePrepareView", () => {
+  window.clearTimeout(atCwMountTimer);
+  atCwMountTimer = null;
+  atCwMountActive();
+});

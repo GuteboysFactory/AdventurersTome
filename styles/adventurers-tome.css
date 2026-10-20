@@ -7548,3 +7548,13 @@
 .at-shell .at-guided-review-summary .at-guided-decision-header p { display: block; overflow: visible; }
 .at-shell .at-guided-identity-brief small { font-size: 11px; }
 .at-shell .at-guided-identity-brief strong { font-size: 14px; line-height: 1.5; }
+
+/* Shared settings menu: private campaign actions remain GM-only. */
+.at-tools-menu {position:relative;}
+.at-tools-menu > summary {list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;width:40px;height:40px;}
+.at-tools-menu > summary::-webkit-details-marker {display:none;}
+.at-tools-menu-items {position:absolute;right:0;top:calc(100% + 6px);z-index:100;min-width:255px;padding:6px;background:#17120c;border:1px solid #94703b;box-shadow:0 8px 24px #0009;}
+.at-gm-top-actions .at-tools-menu-items button {display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;padding:10px;text-align:left;white-space:nowrap;color:#e4bf75;background:#1e170f;border:0;border-radius:2px;font:inherit;box-shadow:none;}
+.at-topbar:has(.at-tools-menu[open]) {z-index:100;overflow:visible;}
+
+.at-gm-top-actions .at-tools-menu-items button:hover {background:#3a2b16;}

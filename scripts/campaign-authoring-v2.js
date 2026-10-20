@@ -622,3 +622,7 @@ for (const hookName of [
 ]) {
   Hooks.on(hookName, () => scheduleEnhance(90));
 }
+
+Hooks.on("adventurersTomePrepareView", () => {
+  enhance();
+});

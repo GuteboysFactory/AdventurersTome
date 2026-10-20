@@ -13,7 +13,8 @@ function atWhpText(node) {
 }
 
 function atWhpSchedule(delay = 30) {
-  if (atWhpTimer) window.clearTimeout(atWhpTimer);
+  // Coalesce without postponing forever while other enhancers are mutating.
+  if (atWhpTimer !== null) return;
   atWhpTimer = window.setTimeout(() => {
     atWhpTimer = null;
     atWhpPolish();
@@ -63,23 +64,18 @@ function atWhpCleanHeading(page) {
   const importer = atWhpParkImporter(page, heading);
 
   let actions = heading.querySelector(":scope > .at-whp-header-actions");
-  if (!actions) {
+  const create = heading.querySelector('[data-at-af-create="world"], [data-at-a3-create="world"]');
+  const editors = heading.querySelector('[data-at-a3-section-editors="world"]');
+  // Read-only players have no actions. Creating/removing an empty wrapper on
+  // every observer callback used to keep this observer alive indefinitely.
+  if (!actions && (create || editors)) {
     actions = document.createElement("div");
     actions.className = "at-whp-header-actions";
     heading.append(actions);
   }
-
-  const create = heading.querySelector(
-    ':scope > [data-at-af-create="world"], :scope > [data-at-a3-create="world"], [data-at-af-create="world"], [data-at-a3-create="world"]'
-  );
-  const editors = heading.querySelector(
-    ':scope > [data-at-a3-section-editors="world"], [data-at-a3-section-editors="world"]'
-  );
-
   if (create && create.parentElement !== actions) actions.append(create);
   if (editors && editors.parentElement !== actions) actions.append(editors);
-
-  if (!actions.children.length) actions.remove();
+  if (actions && !actions.children.length) actions.remove();
 
   // Remove legacy helper copy if the importer callout survived without its button.
   for (const child of [...heading.children]) {
@@ -157,3 +153,10 @@ for (const hookName of ["renderApplication", "renderApplicationV2"]) {
     window.setTimeout(() => atWhpInstallObserver(), 80);
   });
 }
+
+// Called synchronously by Tome before the newly rendered view can paint.
+Hooks.on("adventurersTomePrepareView", () => {
+  window.clearTimeout(atWhpTimer);
+  atWhpTimer = null;
+  atWhpPolish();
+});

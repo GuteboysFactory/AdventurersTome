@@ -1,0 +1,21 @@
+#adventurers-tome-app.at-window-docked { display: none !important; }
+#adventurers-tome-launcher.at-launcher-parked { z-index: 10000; width: auto; min-width: 76px; padding-right: 42px; border-color: #c9a467; box-shadow: 0 5px 20px #0008,0 0 0 1px #d6b26c22; }
+#adventurers-tome-launcher-close { position: fixed; z-index: 10001; width: 28px; height: 28px; min-height: 28px; padding: 0; margin: 0; border: 0; border-left: 1px solid #d6b26c40; border-radius: 0 4px 4px 0; background: transparent; color: #e6c88b; box-shadow: none; font-size: 12px; transition: none !important; }
+#adventurers-tome-launcher-close[hidden] { display: none !important; }
+#adventurers-tome-launcher-close:hover { color: #fff0c5; background: #d6b26c18; }
+#adventurers-tome-launcher:focus-visible,#adventurers-tome-launcher-close:focus-visible { outline: 2px solid #f2d08a; outline-offset: 3px; }
+.at-signal-layout { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 18px; }
+#adventurers-tome-app .at-campaign-workspace .at-signal-layout button[aria-pressed=true] { background: #d6b26c1a; border-color: #c9a467; color: #ffe2a2; }
+.at-signal-players { display: grid; gap: 14px; }
+#adventurers-tome-app .at-campaign-workspace .at-signal-player { border: 1px solid #ac99ca40; border-radius: 8px; background: #0002; }
+#adventurers-tome-app .at-campaign-workspace .at-signal-player > summary { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; gap: 5px 12px; align-items: center; padding: 18px; list-style: none; }
+.at-signal-player > summary::-webkit-details-marker { display: none; }
+.at-signal-player > summary::after { content: '\203a'; grid-column: 3; grid-row: 1; font-size: 23px; transition: transform .15s; }
+.at-signal-player[open] > summary::after { transform: rotate(90deg); }
+#adventurers-tome-app .at-campaign-workspace .at-signal-player > summary strong { font-size: 17px; }
+.at-signal-player > summary > i { color: #bcb5d4; grid-row: 1 / 3; }
+.at-signal-player > summary > span { grid-column: 2; color: #bcb5d4; font-size: 11px; }
+.at-signal-player > summary > small { grid-column: 2; color: #b5a88e; font-size: 11px; }
+.at-signal-player-notes { padding: 0 18px 6px; }
+#adventurers-tome-app .at-campaign-workspace .at-signal-player-notes .at-chronicle-card { margin-top: 0; }
+@media (prefers-reduced-motion:reduce) { .at-signal-player > summary::after { transition: none; } }

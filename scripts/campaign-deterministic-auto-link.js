@@ -461,6 +461,7 @@ async function atDalScan(options = {}) {
       try {
         results.push(await atDalAutoLinkRow(row));
       } catch (error) {
+        if(error?.code==='TOME_INDEX_STALE')throw error;
         ATDAL_STATS.failures += 1;
         ATDAL_STATS.lastError = String(error?.message || error);
         results.push({
@@ -487,6 +488,7 @@ async function atDalScan(options = {}) {
 
     return { ...atDalAudit(), results:atDalClone(results) };
   } catch (error) {
+    if(error?.code==='TOME_INDEX_STALE')throw error;
     ATDAL_STATS.failures += 1;
     ATDAL_STATS.lastError = String(error?.message || error);
     console.warn("Adventurer's Tome | Deterministic Auto-Link failed safely", error);

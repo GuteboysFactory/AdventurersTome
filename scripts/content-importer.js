@@ -359,3 +359,8 @@ Hooks.once("ready", () => {
   observer.observe(document.body, { childList: true, subtree: true });
   atCiEnhance();
 });
+
+// Called synchronously by Tome before the newly rendered view can paint.
+Hooks.on("adventurersTomePrepareView", () => {
+  atCiEnhance();
+});

@@ -32,6 +32,19 @@ async function pcEdit(note={}) {
   await c.save({title:form.title,text:form.text,momentDate:form.momentDate,targetUuids:form.targets||[],signalType:form.signalType,bookmark:form.bookmark==='on'},
     {id:note.id,expectedRevision:note.revision,encrypt:note.encrypted||form.encrypt==='on',phrase:form.phrase});
 }
+async function pcMoveChronicle(){
+  const storage=globalThis.AdventurersTomeChronicleStorage;
+  const receipts=await storage.receipts();
+  const form=await pcDialog('Move my Chronicle',`<p>Export your own notes from the old world, then import this file on your mapped account in the new world. Encrypted notes stay encrypted and use the same passphrase. Saved shared versions are not sent again.</p><label>Action<select name="operation"><option value="export">Export my Chronicle</option><option value="import">Import my Chronicle</option></select></label><label>Chronicle file (import only)<input type="file" name="transfer" accept=".json"></label><label>Campaign migration (import only)<select name="packageId">${receipts.map(row=>`<option value="${pcEscape(row.packageId)}">${pcEscape(row.sourceWorldName||row.sourceWorldId)} · ${pcEscape(row.packageId.slice(0,8))}</option>`).join('')}</select></label>${receipts.length?'':'<p>No account mapping yet. Ask the GM to map your old account during campaign import.</p>'}`,'Continue');
+  if(!form)return;
+  if(form.operation==='export'){
+    const blob=new Blob([JSON.stringify(storage.exportOwn(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`tome-chronicle-${game.user.id}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);return;
+  }
+  if(!form.transfer?.size)throw Error('Choose your Chronicle export file.');
+  if(form.transfer.size>64*1024*1024)throw Error('Chronicle file exceeds 64 MiB.');
+  const result=await storage.importOwn(JSON.parse(await form.transfer.text()),form.packageId);
+  ui.notifications.info(result.alreadyImported?'This Chronicle file has already been imported.':'Your Chronicle has been imported. Shared versions have not been sent again.');
+}
 function pcCard(row,own) {
   return `<article class="at-chronicle-card" data-pc-id="${pcEscape(row.id)}"><h3>${row.bookmark?'★ ':''}${pcEscape(row.title||'Untitled note')}</h3>
     ${row.shared?`<small>${pcEscape(game.users.get(row.ownerId)?.name||'Player')} · ${row.visibility==='gm'?'Shared with GM':'Party'} · ${pcEscape(row.signalType)}</small>`:`<small>${row.encrypted?'Encrypted private note':'Private in Tome'}</small>`}
@@ -55,6 +68,24 @@ function pcNoteMatches(row,term) {
   if(!term)return true;
   const haystack=[row.title,row.text,row.signalType,row.momentDate,...(row.linked||[]).map(link=>link.name)].join(' ').toLocaleLowerCase();
   return haystack.includes(term);
+}
+function pcSignalGroups(rows) {
+  const groups=new Map();
+  for(const row of rows) {
+    const owner=String(row.ownerId||''),name=game.users.get(row.ownerId)?.name||'Former player';
+    if(!groups.has(owner))groups.set(owner,{owner,name,rows:[],latest:0});
+    const group=groups.get(owner);group.rows.push(row);group.latest=Math.max(group.latest,Number(row.updatedAt)||0);
+  }
+  for(const group of groups.values())group.rows.sort((a,b)=>(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0)||String(a.id).localeCompare(String(b.id)));
+  return [...groups.values()].sort((a,b)=>b.latest-a.latest||a.name.localeCompare(b.name));
+}
+function pcSignalBody(rows,state) {
+  const term=state.search.trim().toLocaleLowerCase();
+  const matches=rows.filter(row=>!term||pcNoteMatches(row,term)||(game.users.get(row.ownerId)?.name||'Former player').toLocaleLowerCase().includes(term));
+  const heading=term?`${matches.length} matching signal${matches.length===1?'':'s'}`:'Shared notes';
+  if(!matches.length)return `<h3>${heading}</h3><p>${term?'No shared signals match this search.':'No player signals have been shared with you yet. Players choose which notes to share from their Chronicle.'}</p>`;
+  if(state.signalLayout==='latest')return `<h3>${heading} · latest first</h3>${[...matches].sort((a,b)=>(Number(b.updatedAt)||0)-(Number(a.updatedAt)||0)||String(a.id).localeCompare(String(b.id))).map(row=>pcCard(row,false)).join('')}`;
+  return `<h3>${heading} · by player</h3><div class="at-signal-players">${pcSignalGroups(matches).map(group=>`<details class="at-signal-player" data-pc-player="${pcEscape(group.owner)}" ${term||state.openSignalPlayers.has(group.owner)?'open':''}><summary><i class="fa-solid fa-user"></i><strong>${pcEscape(group.name)}</strong><span>${group.rows.length} signal${group.rows.length===1?'':'s'}</span><small>${group.latest?`Last shared ${pcEscape(new Date(group.latest).toLocaleString())}`:'Shared notes'}</small></summary><div class="at-signal-player-notes">${group.rows.map(row=>pcCard(row,false)).join('')}</div></details>`).join('')}</div>`;
 }
 async function pcRenderNextSessionSignals(host) {
   if(!game.user?.isGM)return;
@@ -85,16 +116,19 @@ async function pcRender(root=document) {
     const sharedRows=filter?shared.filter(row=>row.targetUuids.includes(filter)):shared;
     const scroll=[];for(let node=host;node;node=node.parentElement)scroll.push([node,node.scrollTop]);
     const state=pcViewState.get(host)||{view:'notes',search:''};pcViewState.set(host,state);
+    if(signals){state.signalLayout||='players';state.openSignalPlayers||=new Set();}
     host.innerHTML=`<header><span class="at-kicker">${signals?'Explicitly shared by players':rumours?'Unconfirmed claims — never canonical facts':'Your personal campaign book'}</span><h2>${signals?'Player Signals':rumours?'Saved Rumours':'My Chronicle'}</h2>
       <p>${signals?'Player thoughts and questions — not confirmed campaign facts.':'Your notes stay separate from campaign facts. Share only when you choose.'}</p></header>
-      <div class="at-chronicle-actions">${signals||rumours?'':`<button type="button" data-pc-view="notes" aria-pressed="${state.view==='notes'}">${pcT('AT.Chronicle.MyNotes','My notes')}</button><button type="button" data-pc-view="moments" aria-pressed="${state.view==='moments'}">${pcT('AT.Chronicle.Moments','Remembered moments')}</button><button type="button" data-pc-view="known" aria-pressed="${state.view==='known'}">${pcT('AT.Chronicle.Known','Known to me')}</button><button type="button" data-pc="new" ${c.ready()?'':'disabled'}>New note</button><button type="button" data-pc="lock">Lock encrypted notes</button>`}<button type="button" data-pc="refresh">Refresh</button></div>
+      <div class="at-chronicle-actions">${signals||rumours?'':`<button type="button" data-pc-view="notes" aria-pressed="${state.view==='notes'}">${pcT('AT.Chronicle.MyNotes','My notes')}</button><button type="button" data-pc-view="moments" aria-pressed="${state.view==='moments'}">${pcT('AT.Chronicle.Moments','Remembered moments')}</button><button type="button" data-pc-view="known" aria-pressed="${state.view==='known'}">${pcT('AT.Chronicle.Known','Known to me')}</button><button type="button" data-pc="new" ${c.ready()?'':'disabled'}>New note</button><button type="button" data-pc="lock">Lock encrypted notes</button>${mode==='personal'?'<button type="button" data-pc="move">Import &amp; Export</button>':''}`}<button type="button" data-pc="refresh">Refresh</button></div>
       ${!signals&&!c.ready()?'<p>Chronicle storage is not ready. Reopen Tome and try again.</p>':''}
-      <label>${pcT('AT.Chronicle.Search','Search your Chronicle')}<input type="search" data-pc-search placeholder="${pcEscape(pcT('AT.Chronicle.SearchPlaceholder','Notes, people, places or signal'))}"></label>
+      ${signals?`<div class="at-signal-layout" aria-label="Player signals view"><button type="button" data-pc-signal-layout="players" aria-pressed="${state.signalLayout==='players'}"><i class="fa-solid fa-users"></i> By player</button><button type="button" data-pc-signal-layout="latest" aria-pressed="${state.signalLayout==='latest'}"><i class="fa-solid fa-clock"></i> All · latest first</button></div>`:''}
+      <label>${signals?'Search shared player signals':pcT('AT.Chronicle.Search','Search your Chronicle')}<input type="search" data-pc-search placeholder="${pcEscape(pcT('AT.Chronicle.SearchPlaceholder','Notes, people, places or signal'))}"></label>
       <div data-pc-results></div>`;
     for(const [node,top] of scroll)node.scrollTop=top;
     const merged=pcUniqueNotes(ownRows,sharedRows),known=signals||rumours?[]:await c.knownEntities(),results=host.querySelector('[data-pc-results]');
     const renderBody=()=>{
       const term=state.search.trim().toLocaleLowerCase();
+      if(signals){results.innerHTML=pcSignalBody(sharedRows,state);return;}
       if(term) {
         const matches=merged.filter(row=>pcNoteMatches(row,term));
         results.innerHTML=`<h3>${pcT('AT.Chronicle.SearchResults','Search results across your Chronicle')}</h3>${matches.map(row=>pcCard(row,!row.shared&&ownRows.some(own=>own.id===row.id))).join('')||`<p>${pcT('AT.Chronicle.NoMatches','No matching notes, people or places.')}</p>`}`;
@@ -109,6 +143,10 @@ async function pcRender(root=document) {
     };
     renderBody();host.querySelector('[data-pc-search]').value=state.search;
     host.querySelector('[data-pc-search]').oninput=event=>{state.search=event.target.value;renderBody();};
+    if(signals){
+      host.querySelectorAll('[data-pc-signal-layout]').forEach(button=>button.onclick=event=>{event.stopPropagation();state.signalLayout=button.dataset.pcSignalLayout;renderBody();host.querySelectorAll('[data-pc-signal-layout]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===button)));});
+      results.addEventListener('toggle',event=>{const owner=event.target.dataset?.pcPlayer;if(owner===undefined||state.search.trim())return;if(event.target.open)state.openSignalPlayers.add(owner);else state.openSignalPlayers.delete(owner);},true);
+    }
     host.querySelectorAll('[data-pc-view]').forEach(button=>button.onclick=event=>{event.stopPropagation();state.view=button.dataset.pcView;renderBody();host.querySelectorAll('[data-pc-view]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===button)));});
     host.onclick=async event=>{
       const button=event.target.closest('button');if(!button||button.disabled)return;
@@ -117,6 +155,7 @@ async function pcRender(root=document) {
         if(button.dataset.pcOpen){await pcApi().entityIntelligence.open(button.dataset.pcOpen,pcApi().app());return;}
         const action=button.dataset.pc,id=button.closest('[data-pc-id]')?.dataset.pcId,row=own.find(value=>value.id===id);
         if(action==='refresh')await globalThis.AdventurersTomeChronicleStorage.importDeliveries();
+        if(action==='move'){if(pcApi().transfer?.open)await pcApi().transfer.open();else await pcMoveChronicle();}
         if(action==='new')await pcEdit({targetUuids:filter?[filter]:[]});
         if(action==='edit')await pcEdit(row);
         if(action==='lock')c.lock();

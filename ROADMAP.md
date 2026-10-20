@@ -1,4 +1,4 @@
-# Adventurer's Tome — Roadmap to v2.0
+# Adventurer's Tome — Roadmap to v2.1
 
 ## Product vision
 
@@ -228,9 +228,11 @@ v1.7  SCC 2.0 / Campaign Graph & Memory Expansion
   ↓
 v1.8  Player Chronicle
   ↓
-v1.9  Integration API / External Adapters
+v1.9  Migration Toolkit / Cross-System Migration
   ↓
-v2.0  Campaign Brain
+v2.0  Integration API / External Adapters
+  ↓
+v2.1  Campaign Brain
 ```
 
 ---
@@ -1916,7 +1918,74 @@ Planned direction:
 
 ---
 
-# v1.9 — Integration API / External Adapters
+# v1.9 — Migration Toolkit / Cross-System Migration
+
+## Goal
+
+Help a GM migrate an existing Foundry campaign from one game system or world to another while preserving campaign identities, structure, history, relationships, sessions, quests, NPCs, locations, factions, lore, Campaign Memory, Player Chronicle and portable Foundry content.
+
+The campaign should not be locked to the system in which it was created. Tome helps carry it forward.
+
+### Locked architecture
+
+Migration uses a system-neutral intermediate package:
+
+```text
+SOURCE WORLD
+  ↓
+Source Migration Adapter
+  ↓
+Tome Migration Package
+  ↓
+Target Migration Adapter
+  ↓
+TARGET WORLD
+```
+
+Tome Core understands only the neutral migration model. System-specific interpretation and mapping belong in optional source/target adapters. Realm Guard / Torchbearer and Genesys are reference implementations and test cases, never Core dependencies.
+
+The portable ZIP / `.tome-migration` package is planned to describe campaign metadata, source and target system/version information, Foundry/Tome versions, entities and counts, mappings, unresolved and unsupported data, and migration status. It can carry supported campaign documents and relationships, Campaign Memory, Player Chronicle data, folders, scenes, roll tables, playlists, assets/references, and permissions where safe and supported.
+
+System-neutral campaign content—such as names, images, descriptions, journals, lore, quests, sessions, locations, factions, relationships and history—should transfer directly or with minimal transformation. System-specific Actor, Item and rules data goes through adapters and reviewable mappings. Tome must preserve unmapped source data; it must never silently discard it or destructively guess a conversion.
+
+Migration identity is tracked independently of Foundry UUIDs using a source UUID → canonical migration identity → target UUID map, so campaign links can be rebound to target documents.
+
+Migration is copy/transform. The source world is read-only and remains intact. A Dry Run / Analyze pass reports direct transfers, mappings, GM decisions, unsupported data, required adapters and references at risk before any target import. The GM can review Ready, Mapped, Needs Review and Unsupported entries and accept, change or ignore mappings.
+
+Campaign Memory and Chronicle transfer must preserve visibility and privacy or safely reduce visibility. GM-only information must never become player-visible. Shared Player Signals are transferable only where their privacy rules permit.
+
+The project does not promise perfect automatic conversion between every RPG system. Its goal is to preserve campaign structure, identity and information, while adapters and GM review handle rules conversion.
+
+### Approved additional source adapter — Text-Based Actors
+
+Per has approved **Text-Based Actors (`taf`) 3.2.0** as an additional planned migration source, among multiple supported source systems. Source project: https://git.varify.ca/Foundry/taf ; Foundry listing: https://foundryvtt.com/packages/taf .
+
+- **qa.2:** implement a version-aware `taf` source adapter through the shared source-adapter framework. Preserve original Actor text, embedded Items, custom attributes, unknown fields and source provenance in the neutral migration package. Structured fields can offer mappings; values found only in free text require explicit GM review before becoming target rules data.
+- **qa.3:** verify `taf` 3.2.0 → Realm Guard using representative exported Actors/NPCs from Per's campaign, alongside the existing Realm Guard ↔ Genesys reference tests. Check text preservation, attribute/item mappings, unresolved data and identity/reference continuity.
+- `taf` is not a Core dependency and must not be hardcoded into the generic migration engine. Future `taf` versions require compatibility verification; approval of 3.2.0 does not imply untested version support. Its source adapter can serve multiple target adapters through the same neutral package.
+- This is planned adapter/test scope, not an assertion that qa.1 already converts `taf` Actors to Realm Guard. Until the adapter is implemented and verified, qa.1 preserves their raw source data as Unmapped.
+
+### Approved combined QA delivery sequence
+
+The original seven work stages are combined into four delivery packages without reducing scope. The GM launcher is a **Tome Migration Toolkit** card in **Campaign Settings → Developer Tools**, beside Importer and Exporter; it opens a dedicated migration workspace.
+
+- **v1.9.0-qa.1 — Migration Core + Generic Foundry Content:** system-neutral model, package, manifest, identity map, Dry Run / Analyze and export. Journals and pages, folders, Scenes, playlists, RollTables, selected Compendium packs and their contents, generic references and preserved source permissions. Export offers an explicit choice between media references and included image/audio files; system/module dependencies are recorded. Actor/Item source data is preserved as unmapped. No target import in this first package.
+- **qa.2 — Actor & Item Migration + Review:** source/target adapters, Actor/Item mapping, target import and the Ready / Mapped / Needs Review / Unsupported workspace with GM decisions.
+- **qa.3 — Cross-System Reference + Campaign Memory & Chronicle:** adapter-based Realm Guard ↔ Genesys reference test, relationships, identity maps, Campaign Memory, Chronicle and privacy/visibility.
+- **qa.4 — Hardening:** large campaigns, reloads, duplicate protection, interrupted imports, retry, reporting and safe rollback where realistic.
+
+**1.9.0 release scope:** the shared Import & Export workspace, copy-only migration, account/ownership restoration, private GM transfers and player-owned Chronicle transfers are implemented. Per completed iterative live TAF → Realm Guard campaign checks through qa.4.16, including biographies, trained skills, progression, images and reviewed contacts. Campaign Tools style, Player Signals grouping, library/profile stability and launcher minimization are included. Session reading now puts Chronicle before linked content.
+
+**Deferred migration work:** production Genesys mechanical conversion and further source/target adapters remain future work. Existing Realm Guard/Genesys fixtures are adapter-contract tests, not a claim of production mechanical conversion. TAF conversion is complete for the current tested scope, not a universal all-systems guarantee. The standalone My Chronicle visual refresh is deferred by Per's request.
+
+**Next major milestone:** v2.0 Integration API / External Adapters, after this release's final validation/publication.
+
+
+The number of QA patches may change as testing requires; the locked scope and architecture do not change without Per's approval. Any proposed addition, removal or architectural change must be presented to Per first.
+
+---
+
+# v2.0 — Integration API / External Adapters
 
 ## Goal
 
@@ -1932,7 +2001,7 @@ Planned direction:
 
 ---
 
-# v2.0 — Campaign Brain
+# v2.1 — Campaign Brain
 
 ## Goal
 
@@ -1985,15 +2054,14 @@ System-independence rule: **Reference-system versions must never become Tome run
 
 # Current handoff snapshot
 
-**Stable completed architecture milestone:** `v1.5 — Formal Adapter API`  
-**Stable baseline:** `v1.5.0`  
-**Verified QA source:** `v1.5.0-qa.3`  
+**Release line:** `v1.9.0 — Migration Toolkit and UI consolidation`  
+**Promoted QA baseline:** `v1.9.0-qa.4.16`, plus the approved Session Chronicle-before-links layout  
+**Prior stable baseline:** `v1.8.0 — Player Chronicle`  
 **Verified Foundry baseline:** `V13.351`  
-**Stable completed architecture milestone:** `v1.6 — Universal Semantic Layer Foundation & System-aware Creation`  
-**Verified v1.6 read-foundation baseline:** `v1.6.0-qa.17 — FULL PASS`  
-**Stable baseline:** `v1.6.0`  
-**Current development build:** `v1.7.0-qa.20` — Canonical Convergence & Campaign Links
-**v1.5 feature state:** STABLE
+**Completed foundations:** v1.5 Adapter API, v1.6 Universal Semantic Layer, v1.7 Campaign Memory/analysis, v1.8 Player Chronicle  
+**Current migration scope:** TAF → Realm Guard campaign-tested; further adapters/Genesys mechanics deferred  
+**Next major milestone:** `v2.0 — Integration API / External Adapters`  
+**Later:** `v2.1 — Campaign Brain`
 
 ## v1.3 final status
 

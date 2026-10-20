@@ -5,6 +5,8 @@ import path from 'node:path';
 import vm from 'node:vm';
 import Handlebars from './helpers/vendor/handlebars-4.7.10.cjs';
 import {world} from './helpers/tome-world.mjs';
+// Standalone template fixtures do not run Foundry init. Cache behavior has native browser coverage.
+Handlebars.registerHelper('atImageSrc', value=>value);
 const root=path.resolve(import.meta.dirname,'..');
 const template=fs.readFileSync(path.join(root,'templates/tome.hbs'),'utf8');
 const partials=template.slice(0,template.indexOf('<div class="at-shell'));

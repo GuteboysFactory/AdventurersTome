@@ -1,0 +1,81 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {createRequire} from 'node:module';
+import {webcrypto} from 'node:crypto';
+const require=createRequire(import.meta.url),Handlebars=require('./helpers/vendor/handlebars-4.7.10.cjs').create();
+const read=name=>fs.readFileSync(new URL(`../${name}`,import.meta.url),'utf8');
+const ctx=vm.createContext({crypto:webcrypto,TextEncoder,TextDecoder,Uint8Array,DataView,Blob,DOMException,setTimeout});
+for(const name of ['migration-core','migration-adapters','migration-taf-realm-guard','migration-import'])vm.runInContext(read(`scripts/${name}.js`),ctx);
+const parse=html=>ctx.AdventurersTomeTafBiography.parse(html);
+test('TAF rich biography maps explicit headings and table roles without converting narrative rules',()=>{
+  const html='<h2>Nature</h2><p>Tradition, Family, Grief</p><h2>Belief:</h2><p>A Ranger’s duty &amp; promise.</p><h3>Goal:</h3><p>Find <strong>the road</strong>.</p><h2>Instinct:</h2><p>Always look.</p><h2>Traits</h2><p>Tough (1)</p><h2>Wises</h2><p>Road-wise</p><table><tr><td>Baran</td><td>Ada’s Friend; innkeeper.</td></tr><tr><td>Daeron</td><td>Ada’s Mentor; ranger.</td></tr></table>';
+  const entry={documentType:'Actor',sourceData:{name:'Ada',type:'player',system:{content:html},items:[]}},before=JSON.stringify(entry);
+  const result=ctx.AdventurersTomeMigrationAdapters.map(entry,{systemId:'taf',systemVersion:'3.1.0'},{id:'realm-guard'},{type:'character',tafTransfer:true});
+  assert.equal(result.data.system.belief,'A Ranger’s duty & promise.');assert.equal(result.data.system.goal,'Find the road.');assert.equal(result.data.system.instinct,'Always look.');
+  assert.equal(result.data.system.friend,'Baran');assert.equal(result.data.system.mentor,'Daeron');
+  assert.equal(result.data.system.biography,ctx.AdventurersTomeTafBiography.toText(html));assert.equal(result.data.system.attributes,undefined);assert.equal(result.data.items.length,0);assert.equal(JSON.stringify(entry),before);
+  assert.match(result.storyPreview.text,/Tradition, Family, Grief/);assert.doesNotMatch(result.storyPreview.text,/<h2>|<td>/);
+});
+test('portrait ZIP round trip restores bytes, relinks portrait/token/HTML and retains original archived paths',async()=>{
+  const image='tokenizer/pc-avatars/portrait.webp?v=2',bytes=new Uint8Array([82,73,70,70]);
+  const raw={_id:'a',name:'Ada',type:'character',img:image,prototypeToken:{texture:{src:image}},system:{biography:`<p>Portrait</p><img src="${image}">`},items:[]};
+  const before=JSON.stringify(raw),writes=[];
+  const source=ctx.AdventurersTomeMigrationCore.createMigrationToolkit({user:()=>({isGM:true}),world:()=>({id:'old'}),system:()=>({id:'realm-guard',version:'1'}),module:()=>({version:'test'}),foundryVersion:()=> '13.351',collection:key=>key==='actors'?[{uuid:'Actor.a',toObject:()=>structuredClone(raw)}]:[],packs:()=>[],yield:async()=>{},readAsset:async()=>bytes});
+  const exported=await source.exportPackage(await source.analyze({types:['Actor'],mediaMode:'include'}));
+  const pkg=await ctx.AdventurersTomeMigrationImport.readPackage(new Uint8Array(await exported.blob.arrayBuffer()));
+  assert.equal(pkg.assets.length,1);assert.equal(pkg.assets[0].status,'included');
+  let uploads=0;const stored=new Map(),folders=new Set();
+  const Picker={browse:async(_source,path)=>{if(!folders.has(path))throw Error('missing');return {files:[...stored.keys()]};},createDirectory:async(_source,path)=>{folders.add(path);return {};},upload:async(_source,path,file)=>{uploads++;const destination=path+'/'+file.name;stored.set(destination,new Uint8Array(await file.arrayBuffer()));return {path:destination};}};
+  const mediaCtx=vm.createContext({File,DOMException,game:{world:{id:'target'}},gm:()=>{},foundry:{applications:{apps:{FilePicker:Picker}}},AdventurersTomeMigrationCore:ctx.AdventurersTomeMigrationCore,readAsset:async path=>stored.get(path)});
+  const ui=read('scripts/migration-ui.js');vm.runInContext(ui.slice(ui.indexOf('  async function restoreMedia('),ui.indexOf("  Hooks.once('init'")),mediaCtx);
+  const restore=options=>mediaCtx.restoreMedia(options);
+  const importer=ctx.AdventurersTomeMigrationImport.createImporter({user:()=>({isGM:true}),world:()=>({id:'target'}),system:()=>({id:'realm-guard',version:'1',types:{Actor:['character']}}),restoreMedia:restore,randomId:()=> 'new',create:async(type,data)=>{writes.push(data);return {uuid:`${type}.new`};}});
+  await importer.execute(importer.approveReady(pkg));
+  const target=writes[0].img;assert.match(target,/^worlds\/target\/tome-migration\/[a-f0-9]{64}\/[a-f0-9]{64}\.webp$/);
+  assert.equal(writes[0].prototypeToken.texture.src,target);assert.match(writes[0].system.biography,/src="worlds\/target\/tome-migration/);
+  assert.equal(writes[0].flags['adventurers-tome'].migrationV1.sourceData.img,image);assert.equal(JSON.stringify(raw),before);assert.equal(uploads,1);
+  await restore({assets:pkg.assets,files:pkg.files,packageId:pkg.packageId});assert.equal(uploads,1);
+  stored.set(target,new Uint8Array([0]));await assert.rejects(restore({assets:pkg.assets,files:pkg.files,packageId:pkg.packageId}),/no file was overwritten/);assert.equal(uploads,1);
+  const failing=ctx.AdventurersTomeMigrationImport.createImporter({user:()=>({isGM:true}),world:()=>({id:'target'}),system:()=>({id:'realm-guard',version:'1',types:{Actor:['character']}}),restoreMedia:async()=>{throw Error('Upload denied');},create:async()=>{throw Error('must not create');}});
+  await assert.rejects(failing.execute(failing.approveReady(pkg)),/Upload denied/);
+});
+test('conflicting biography fields retain every source section without choosing a winner',()=>{
+  const result=parse('<h2>Belief</h2><p>One</p><h3>Belief:</h3><p>Two</p><h2>Mål:</h2><p>Hemåt</p>');
+  assert.equal(result.fields.belief,undefined);assert.equal(result.fields.goal,'Hemåt');assert.equal(result.warnings.length,1);assert.match(result.readable,/One[\s\S]*Two/);
+  assert.equal(parse('<h2>Belief</h2><p>One</p><h2>Belief</h2><p>One</p>').fields.belief,'One');
+});
+test('explicit Traits, wise-xxx and xxx-wise, written Talents and family roles reach target sheet fields',()=>{
+  const html='<h2>Traits</h2><p>Natural Bearings (1), Tough (1); (+1D per session)</p><h2>Wises</h2><p>Orc-wise, wise-Road, Elf-wise; (+1D help)</p><h2>Talents</h2><p><strong>Essence of the Earth</strong>: Rest anywhere. +1D to recover from exhaustion.</p><h2>Relationships</h2><table><tr><td>Arador</td><td>Ada’s father; cartographer.</td></tr><tr><td>Nethril</td><td>Adas mor; archivist.</td></tr><tr><td>Maerion</td><td>Adas Senior Artisan; guide.</td></tr></table>';
+  const result=ctx.AdventurersTomeMigrationAdapters.map({documentType:'Actor',sourceData:{name:'Ada',type:'player',system:{content:html},items:[]}},{systemId:'taf',systemVersion:'3.1.0'},{id:'realm-guard',types:{Item:['gear','wise','trait','talent']}},{type:'character',tafTransfer:true});
+  assert.equal(result.data.items.filter(item=>item.type==='trait').length,2);assert.ok(result.data.items.filter(item=>item.type==='trait').every(item=>item.system.rating===1));
+  assert.deepEqual(Array.from(result.data.items.filter(item=>item.type==='wise'),item=>item.name),['Orc-wise','wise-Road','Elf-wise']);
+  assert.ok(result.data.items.filter(item=>item.type==='wise').every(item=>item.system.rating===0));
+  const talent=result.data.items.find(item=>item.type==='talent');assert.equal(talent.name,'Essence of the Earth');assert.equal(talent.system.effectMode,'manual');assert.equal(talent.system.diceBonus,0);assert.match(talent.system.description,/recover from exhaustion/);
+  assert.equal(result.data.system.parents,'Arador; Nethril');assert.equal(result.data.system.seniorArtisan,'Maerion');assert.equal(result.data.system.biography,ctx.AdventurersTomeTafBiography.toText(html));
+});
+test('biography parser ignores scripts and rejects ambiguous relationship roles',()=>{
+  const result=parse('<script><h2>Belief</h2>evil()</script><h2>Instinkt:</h2><p>Se &#x26; lyssna.</p><table><tr><td>A</td><td>Ada’s Friend; one.</td></tr><tr><td>B</td><td>Ada’s Friend; two.</td></tr></table>');
+  assert.equal(result.fields.belief,undefined);assert.equal(result.fields.instinct,'Se & lyssna.');assert.equal(result.fields.friend,undefined);assert.doesNotMatch(result.readable,/evil/);
+});
+test('readable import preview escapes source markup instead of executing it',()=>{
+  const html=Handlebars.compile(read('templates/migration.hbs'))({isGM:true,isImportTab:true,hasPackage:true,importPackage:{},importRows:[{name:'Ada',data:{},storyPreview:{fields:[{field:'belief',value:'<img src=x onerror=evil()>'}],text:'<script>evil()</script>'}}]});
+  assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>evil|<img src=x/);
+});
+test('failed portrait cache blocks repeated renders, respects route prefixes and never mutates source data',()=>{
+  const source=read('scripts/adventurers-tome.js');
+  const imageCode=source.slice(source.indexOf('const FALLBACK_ACTOR_IMAGE'),source.indexOf('const MAX_IMPORT_FILE_BYTES'));
+  const urlCode=source.slice(source.indexOf('function resolveFoundryAssetUrl('),source.indexOf('\nfunction cssUrl('));
+  const imageCtx=vm.createContext({URL,document:{baseURI:'https://example.test/game/'},foundry:{utils:{getRoute:path=>'/game/'+path}}});
+  vm.runInContext(imageCode+'\n'+urlCode,imageCtx);
+  const actor={img:'tokenizer/pc-avatars/missing.webp?v=1'};
+  imageCtx.path=actor.img;assert.equal(vm.runInContext('tomeImageSource(path)',imageCtx),'/game/'+actor.img);
+  imageCtx.image={hasAttribute:()=>true,getAttribute:()=>'/game/'+actor.img};vm.runInContext('rememberTomeImageFailure(image)',imageCtx);
+  for(let n=0;n<20;n++)assert.equal(vm.runInContext('tomeImageSource(path)',imageCtx),'/game/icons/svg/mystery-man.svg');
+  assert.equal(actor.img,'tokenizer/pc-avatars/missing.webp?v=1');
+  imageCtx.path='tokenizer/pc-avatars/repaired.webp';assert.equal(vm.runInContext('tomeImageSource(path)',imageCtx),'/game/'+imageCtx.path);
+  imageCtx.image={hasAttribute:()=>false,getAttribute:()=>'/game/unrelated.webp'};vm.runInContext('rememberTomeImageFailure(image)',imageCtx);
+  imageCtx.path='unrelated.webp';assert.equal(vm.runInContext('tomeImageSource(path)',imageCtx),'/game/unrelated.webp');
+  for(const tag of read('templates/tome.hbs').matchAll(/<img\b[^>]*>/g))assert.match(tag[0],/data-at-tome-image src="{{atImageSrc /);
+});

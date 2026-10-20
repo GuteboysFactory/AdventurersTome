@@ -260,7 +260,7 @@ function atA3AddCreateAndEditors(sectionPage) {
   const { section, page } = sectionPage;
   const host = section === "world" ? page.querySelector(".at-world-heading") : page.querySelector(".at-page-tools");
   if (!host) return;
-  if (atA3CanCreate(section) && !host.querySelector(`[data-at-af-create="${section}"], [data-at-a3-create="${section}"]`)) {
+  if (atA3CanCreate(section) && !host.querySelector(`[data-at-af-create="${section}"], [data-at-a3-create="${section}"], [data-at-ca2-new="${section}"]`)) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "at-primary";
@@ -657,3 +657,12 @@ Hooks.on("createJournalEntry", (journal) => {
 for (const hookName of ["updateJournalEntry", "deleteJournalEntry", "createFolder", "updateFolder", "deleteFolder"]) {
   Hooks.on(hookName, () => window.setTimeout(atA3Queue, 60));
 }
+
+// Called synchronously by Tome before the newly rendered view can paint.
+Hooks.on("adventurersTomePrepareView", () => {
+  const root = document.querySelector(ATA3_ROOT);
+  const section = atA3SectionPage(root);
+  // The current workspace owns the tree; never mount the retired tree first.
+  if (section) section.page.dataset.atA3TreeReady = "true";
+  atA3Enhance();
+});

@@ -1,0 +1,145 @@
+/* Overview only. Keep the other Campaign Tools surfaces and render lifecycle intact. */
+#adventurers-tome-app .at-campaign-overview-page {
+  container: tome-overview / inline-size;
+  gap: 24px;
+  padding-block: 30px 40px;
+}
+#adventurers-tome-app .at-campaign-overview-page > * {
+  width: 100%;
+  max-width: 1480px;
+  margin-inline: auto;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+#adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-block: 0;
+}
+#adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-heading h1 { font-size: 38px; margin: 8px 0 10px; }
+#adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-heading p { max-width: 700px; font-size: 14px; line-height: 1.6; color: #c0b39b; }
+#adventurers-tome-app .at-campaign-overview-page .at-kicker { color: #c7a766; font-size: 10px; letter-spacing: .12em; line-height: 1.5; }
+#adventurers-tome-app .at-ov-session { display: grid; grid-template-columns: 1fr auto; gap: 5px 18px; flex: 0 0 auto; border-left: 1px solid var(--at-line); padding-left: 24px; }
+#adventurers-tome-app .at-ov-session > span { color: #dac38f; font-size: 13px; align-self: center; }
+#adventurers-tome-app .at-ov-session strong { grid-column: 2; grid-row: 1 / 3; align-self: center; color: #f0d28e; font-size: 34px; font-weight: normal; font-variant-numeric: tabular-nums; }
+#adventurers-tome-app .at-ov-session small { color: #b5a88f; font-size: 11px; }
+#adventurers-tome-app .at-ov-session i { margin-right: 5px; }
+#adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-tabs { padding: 5px; gap: 4px; border-radius: 7px; flex-wrap: wrap; background: rgba(16, 13, 10, .72); }
+#adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-tabs button { min-height: 40px; padding: 9px 18px !important; color: #bca989 !important; font-size: 11px; border-radius: 4px; }
+#adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-tabs button.active { color: #f6dca1 !important; }
+
+#adventurers-tome-app .at-overview-v2 { gap: 28px; }
+#adventurers-tome-app .at-overview-v2 * { box-sizing: border-box; }
+#adventurers-tome-app .at-ov-focus-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+#adventurers-tome-app .at-ov-panel {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid rgba(214, 178, 108, .25);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(93, 70, 30, .13), transparent 55%), rgba(20, 16, 11, var(--at-panel-alpha, .94));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .13);
+}
+#adventurers-tome-app .at-overview-v2 .at-overview-intelligence-monitor.has-attention { border-color: rgba(219, 159, 82, .55); }
+#adventurers-tome-app .at-ov-panel-heading { display: flex; align-items: center; gap: 13px; min-width: 0; }
+#adventurers-tome-app .at-ov-panel-heading > div { min-width: 0; }
+#adventurers-tome-app .at-ov-panel-heading h2 { margin: 4px 0 0; color: #f0dcad; font-size: 23px; line-height: 1.2; font-weight: normal; }
+#adventurers-tome-app .at-ov-icon { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; border: 1px solid rgba(214, 178, 108, .24); border-radius: 9px; font-size: 20px; color: #dfbf78; background: rgba(214, 178, 108, .07); }
+#adventurers-tome-app .at-ov-icon-memory { color: #a6c7b9; background: rgba(103, 155, 134, .1); border-color: rgba(137, 185, 165, .28); }
+#adventurers-tome-app .at-ov-icon-signals { color: #bcb5d4; background: rgba(150, 129, 189, .1); border-color: rgba(172, 153, 202, .26); }
+#adventurers-tome-app .at-ov-badge { margin-left: auto; flex: 0 0 auto; padding: 6px 10px; border-radius: 20px; font-size: 11px; letter-spacing: .03em; white-space: nowrap; }
+#adventurers-tome-app .at-ov-badge.is-clear { color: #b5cfb4; border: 1px solid rgba(146, 185, 140, .3); background: rgba(99, 136, 83, .12); }
+#adventurers-tome-app .at-ov-badge.is-pending { color: #edc98a; border: 1px solid rgba(219, 159, 82, .4); background: rgba(165, 102, 37, .13); }
+#adventurers-tome-app .at-ov-status { display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 7px; border: 1px solid rgba(142, 181, 135, .2); background: rgba(91, 127, 72, .09); }
+#adventurers-tome-app .at-ov-status > i { flex: 0 0 auto; color: #a6c49b; font-size: 25px; }
+#adventurers-tome-app .at-ov-status strong { color: #e3e2c9; font-size: 17px; font-weight: normal; line-height: 1.4; }
+#adventurers-tome-app .at-ov-status p { margin: 5px 0 0; color: #b7b69e; font-size: 13px; line-height: 1.55; }
+#adventurers-tome-app .at-ov-status.is-pending { background: rgba(155, 92, 33, .09); border-color: rgba(205, 151, 80, .24); }
+#adventurers-tome-app .at-ov-status.is-pending > i { color: #e2b777; }
+#adventurers-tome-app .at-ov-decision-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+#adventurers-tome-app .at-ov-decision-stats > div { display: flex; align-items: center; gap: 13px; padding: 13px 15px; background: rgba(0, 0, 0, .12); border: 1px solid rgba(214, 178, 108, .13); border-radius: 6px; }
+#adventurers-tome-app .at-ov-decision-stats strong { color: #dbc184; min-width: 24px; font-size: 25px; font-weight: normal; font-variant-numeric: tabular-nums; }
+#adventurers-tome-app .at-ov-decision-stats span { color: #d3c5a7; font-size: 13px; line-height: 1.4; }
+#adventurers-tome-app .at-ov-decision-stats small { display: block; margin-top: 2px; color: #a79c85; font-size: 11px; }
+#adventurers-tome-app .at-ov-decision-stats .has-attention { border-color: rgba(220, 155, 75, .4); background: rgba(142, 80, 28, .1); }
+#adventurers-tome-app .at-ov-panel-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: auto; padding-top: 17px; border-top: 1px solid rgba(214, 178, 108, .17); }
+#adventurers-tome-app .at-ov-panel-footer > span { font-size: 11px; color: #b5a78c; line-height: 1.5; flex: 1 1 150px; }
+#adventurers-tome-app .at-overview-v2 button { min-height: 38px; margin: 0; font-size: 12px; line-height: 1.4; white-space: normal; border-radius: 5px; }
+#adventurers-tome-app .at-overview-v2 button:focus-visible { outline: 2px solid #f2d08a; outline-offset: 3px; }
+#adventurers-tome-app .at-overview-v2 .at-ov-text-button { border: 0; background: transparent; padding: 6px 0; color: #d9bd7d; text-transform: none; letter-spacing: 0; text-align: left; box-shadow: none; }
+#adventurers-tome-app .at-overview-v2 .at-ov-text-button:hover { color: #fff0c5; text-decoration: underline; }
+#adventurers-tome-app .at-ov-panel-heading > .at-ov-text-button { margin-left: auto; flex: 0 0 auto; font-size: 11px; }
+#adventurers-tome-app .at-overview-v2 .at-ov-next-decision { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 15px; border-left: 3px solid #b88c4f; border-radius: 0 6px 6px 0; }
+#adventurers-tome-app .at-ov-next-copy small { font-size: 10px; color: #c9a86f; }
+#adventurers-tome-app .at-ov-next-copy strong { font-size: 15px; color: #efdab0; line-height: 1.45; margin-block: 5px; overflow-wrap: anywhere; }
+#adventurers-tome-app .at-ov-next-copy span { font-size: 11px; color: #b8a88c; overflow-wrap: anywhere; }
+#adventurers-tome-app .at-overview-v2 .at-overview-decision-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
+#adventurers-tome-app .at-overview-v2 .at-overview-decision-actions button { max-width: 100%; overflow-wrap: anywhere; }
+
+#adventurers-tome-app .at-ov-notebook-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; border: 1px solid rgba(214, 178, 108, .16); border-radius: 7px; overflow: hidden; background: rgba(214, 178, 108, .12); }
+#adventurers-tome-app .at-ov-notebook-stats > div { display: grid; gap: 4px; padding: 13px 10px; text-align: center; background: #1a1510; }
+#adventurers-tome-app .at-ov-notebook-stats strong { font-size: 22px; color: #dfc48a; font-weight: normal; font-variant-numeric: tabular-nums; }
+#adventurers-tome-app .at-ov-notebook-stats span { color: #b9ab90; font-size: 11px; }
+#adventurers-tome-app .at-ov-notebook-stats .has-attention { background: #382619; }
+#adventurers-tome-app .at-ov-notebook-stats .has-attention span { color: #edc48c; }
+#adventurers-tome-app .at-ov-notes-empty { display: flex; gap: 16px; align-items: center; padding: 14px 4px; margin-block: auto; }
+#adventurers-tome-app .at-ov-notes-empty > i { color: #92784b; font-size: 29px; }
+#adventurers-tome-app .at-ov-notes-empty strong { font-weight: normal; color: #d5c3a0; font-size: 16px; }
+#adventurers-tome-app .at-ov-notes-empty p { margin: 5px 0 0; color: #b1a28a; font-size: 13px; line-height: 1.6; }
+#adventurers-tome-app .at-overview-v2 .at-ov-note-list { max-height: 245px; overflow: auto; padding: 2px 5px 2px 0; scrollbar-gutter: stable; }
+#adventurers-tome-app .at-overview-v2 .at-campaign-note-preview-row { border-radius: 5px; padding: 10px; grid-template-columns: 20px minmax(0, 1fr) auto; }
+#adventurers-tome-app .at-overview-v2 .at-campaign-note-preview-row.is-due { border-left: 2px solid #ce9959; }
+#adventurers-tome-app .at-overview-v2 .at-campaign-note-preview-row strong { color: #e0cda7; font-size: 13px; line-height: 1.4; }
+#adventurers-tome-app .at-overview-v2 .at-campaign-note-preview-row small { color: #b6a485; font-size: 10px; }
+#adventurers-tome-app .at-overview-v2 .at-campaign-note-preview-row p { color: #c1b194; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+#adventurers-tome-app .at-overview-v2 .at-campaign-note-preview-row > button { min-width: 34px; min-height: 36px; }
+
+#adventurers-tome-app .at-ov-tools { display: grid; gap: 15px; }
+#adventurers-tome-app .at-ov-tools-heading { display: flex; gap: 16px; align-items: end; justify-content: space-between; }
+#adventurers-tome-app .at-ov-tools-heading h2 { margin: 5px 0 0; font-size: 23px; font-weight: normal; color: #eddbb4; }
+#adventurers-tome-app .at-ov-tools-heading > span { font-size: 12px; color: #b5a68b; }
+#adventurers-tome-app .at-ov-tool-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+#adventurers-tome-app .at-ov-tool { min-width: 0; display: flex; flex-direction: column; align-items: start; gap: 13px; padding: 22px; border: 1px solid rgba(214, 178, 108, .2); border-radius: 9px; background: rgba(19, 15, 11, var(--at-panel-alpha, .94)); }
+#adventurers-tome-app .at-ov-tool h3 { margin: 0; color: #ebd5a5; font-size: 21px; line-height: 1.2; font-weight: normal; }
+#adventurers-tome-app .at-ov-tool > p { margin: 0; color: #bdb097; font-size: 13px; line-height: 1.6; }
+#adventurers-tome-app .at-ov-tool > footer { width: 100%; display: flex; align-items: start; flex-wrap: wrap; gap: 5px 15px; margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(214, 178, 108, .14); }
+#adventurers-tome-app .at-ov-memory-stats { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 2px 0 0; gap: 10px 18px; }
+#adventurers-tome-app .at-ov-memory-stats > div { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+#adventurers-tome-app .at-ov-memory-stats dt { font-size: 11px; color: #acb7a6; }
+#adventurers-tome-app .at-ov-memory-stats dd { margin: 0; color: #d3dcc7; font-size: 17px; font-variant-numeric: tabular-nums; }
+#adventurers-tome-app .at-ov-tool-steps { display: grid; gap: 10px; margin: 2px 0; padding: 0; list-style: none; color: #c0ae8d; font-size: 12px; }
+#adventurers-tome-app .at-ov-tool-steps i { display: inline-block; width: 20px; color: #c0a165; }
+#adventurers-tome-app .at-ov-tool-callout { display: flex; align-items: start; gap: 12px; margin-block: auto; padding: 14px 0; color: #bcb4ce; font-size: 14px; line-height: 1.65; }
+#adventurers-tome-app .at-ov-tool-callout i { margin-top: 4px; font-size: 20px; color: #a99ac3; }
+#adventurers-tome-app .at-overview-v2 .at-guided-decision-undo { border-radius: 6px; padding: 13px 16px; }
+#adventurers-tome-app .at-overview-v2 .at-guided-decision-undo strong { font-size: 13px; }
+#adventurers-tome-app .at-overview-v2 .at-guided-decision-undo small { font-size: 11px; }
+
+@container tome-overview (max-width: 1000px) {
+  #adventurers-tome-app .at-ov-focus-grid { grid-template-columns: 1fr; }
+  #adventurers-tome-app .at-ov-tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #adventurers-tome-app .at-ov-signals { grid-column: 1 / -1; }
+  #adventurers-tome-app .at-ov-tool-callout { padding-block: 0; }
+  #adventurers-tome-app .at-ov-tools-heading > span { display: none; }
+}
+@container tome-overview (max-width: 620px) {
+  #adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-heading { align-items: start; flex-direction: column; gap: 18px; }
+  #adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-heading h1 { font-size: 30px; }
+  #adventurers-tome-app .at-ov-session { border-left: 0; padding-left: 0; }
+  #adventurers-tome-app .at-ov-tool-grid { grid-template-columns: 1fr; }
+  #adventurers-tome-app .at-ov-panel { padding: 18px; }
+  #adventurers-tome-app .at-ov-panel-heading { flex-wrap: wrap; }
+  #adventurers-tome-app .at-ov-panel-heading h2 { font-size: 21px; }
+  #adventurers-tome-app .at-ov-badge { font-size: 10px; }
+  #adventurers-tome-app .at-ov-panel-heading > .at-ov-text-button { margin-left: 57px; }
+  #adventurers-tome-app .at-ov-decision-stats > div { padding: 11px; gap: 8px; }
+  #adventurers-tome-app .at-campaign-overview-page .at-campaign-tools-tabs button { padding-inline: 12px !important; }
+}
+
+#adventurers-tome-app .at-overview-v2 .at-campaign-note-preview-row div,
+#adventurers-tome-app .at-overview-v2 .at-ov-status div,
+#adventurers-tome-app .at-overview-v2 .at-ov-tool > p { overflow-wrap: anywhere; }

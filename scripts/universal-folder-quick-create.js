@@ -218,7 +218,9 @@ async function atFqAdoptOrCreateStandardFolder(worldFolder, spec) {
   return folder;
 }
 
-async function atFqBootstrap() {
+let atFqBootstrapPending = null;
+function atFqBootstrap() {if(!atFqBootstrapPending)atFqBootstrapPending=atFqBootstrapWork().finally(()=>{atFqBootstrapPending=null;});return atFqBootstrapPending;}
+async function atFqBootstrapWork() {
   if (!game.user?.isGM) return null;
 
   atFqStats.bootstraps += 1;
