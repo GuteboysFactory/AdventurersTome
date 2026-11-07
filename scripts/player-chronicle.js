@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 // Personal records are deliberately outside Campaign Memory and its index.
 // User-scoped storage separates plain notes from other players; optional AES-GCM
 // protects note bodies at rest from technical GM access, not a hostile host.
@@ -5,7 +6,7 @@ const ATPC_ID='adventurers-tome';
 function createPlayerChronicle(env) {
   const clone=value=>structuredClone(value), sessions=new Map();
   const me=()=>env.user(), users=()=>env.users();
-  const header=doc=>doc?.getFlag?.(ATPC_ID,'chronicleV1');
+  const header=doc=>globalThis.ATTestAI.flags(doc)?.getFlag?.(ATPC_ID,'chronicleV1');
   const books=()=>env.journals().filter(doc=>header(doc)?.version===1);
   function book(kind,ownerId=me().id) {
     return books().find(doc=>header(doc).kind===kind&&header(doc).ownerId===ownerId
@@ -16,7 +17,7 @@ function createPlayerChronicle(env) {
     if(!doc || !doc.testUserPermission(me(),'OWNER'))throw Error('Chronicle storage is not ready. Reopen Tome and try again.');
     return doc;
   }
-  function rows(doc) {return Object.values(doc?.getFlag?.(ATPC_ID,'chronicleEntries')||{});}
+  function rows(doc) {return Object.values(globalThis.ATTestAI.flags(doc)?.getFlag?.(ATPC_ID,'chronicleEntries')||{});}
   const b64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes)));
   const bytes=value=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));
   const encoded=value=>new TextEncoder().encode(value);
@@ -115,7 +116,7 @@ function createPlayerChronicle(env) {
   }
   async function save(input,{id,expectedRevision,encrypt=false,phrase}={}) {
     const doc=mine('private');id=id||env.id();
-    const old=(doc.getFlag(ATPC_ID,'chronicleEntries')||{})[id];
+    const old=(globalThis.ATTestAI.flags(doc).getFlag(ATPC_ID,'chronicleEntries')||{})[id];
     if(old && old.revision!==expectedRevision)throw Error('This note changed on another device. Reload it before saving.');
     if(!old&&expectedRevision)throw Error('This note is no longer available.');
     if(old?.envelope&&!encrypt)throw Error('Encrypted notes cannot silently become plain notes.');
@@ -137,12 +138,12 @@ function createPlayerChronicle(env) {
     }
     const revision=env.id(),record={id,revision,createdAt:old?.createdAt||env.now()};
     if(encrypt)record.envelope=await seal(note,phrase,id);else record.note=note;
-    await doc.setFlag(ATPC_ID,`chronicleEntries.${id}`,record);
+    await globalThis.ATTestAI.flags(doc).setFlag(ATPC_ID,`chronicleEntries.${id}`,record);
     if(encrypt)sessions.set(id,{revision,note});
     return {id,revision};
   }
   async function unlock(id,phrase) {
-    const row=(mine('private').getFlag(ATPC_ID,'chronicleEntries')||{})[id];
+    const row=(globalThis.ATTestAI.flags(mine('private')).getFlag(ATPC_ID,'chronicleEntries')||{})[id];
     if(!row?.envelope||row.deleted)throw Error('Encrypted note not found.');
     const note=await unseal(row,phrase);sessions.set(id,{revision:row.revision,note});return project({...note,id,revision:row.revision,encrypted:true});
   }
@@ -158,28 +159,28 @@ function createPlayerChronicle(env) {
     for(const uuid of note.targetUuids){const doc=await env.resolve(uuid);if(doc&&recipients.every(user=>env.canView(doc,user)))links.push(uuid);}
     const snapshot={title:note.title,text:note.text,bookmark:note.bookmark,momentDate:note.momentDate||'',createdAt:note.createdAt||note.updatedAt,signalType:note.signalType,targetUuids:links,updatedAt:env.now(),sourceRevision:note.revision};
     // Repeated sends of the same revision do not duplicate notifications.
-    const existing=(dest.getFlag(ATPC_ID,'chronicleEntries')||{})[id];
+    const existing=(globalThis.ATTestAI.flags(dest).getFlag(ATPC_ID,'chronicleEntries')||{})[id];
     if(existing&&!existing.deleted&&existing.note?.sourceRevision===note.revision&&existing.delivered&&!env.deliveryPending?.(id,visibility))return {shared:true,alreadyShared:true};
     const record=existing&&!existing.deleted&&existing.note?.sourceRevision===note.revision?existing:{id,revision:env.id(),note:snapshot};
-    await dest.setFlag(ATPC_ID,`chronicleEntries.${id}`,record);
+    await globalThis.ATTestAI.flags(dest).setFlag(ATPC_ID,`chronicleEntries.${id}`,record);
     let notificationError='',pendingRecipients=[];
-    try{const delivery=await env.notify({id,ownerId:me().id,visibility,record,recipients:recipients.filter(user=>user.id!==me().id).map(user=>user.id)});pendingRecipients=delivery?.pendingRecipients||[];await dest.setFlag(ATPC_ID,`chronicleEntries.${id}`,{...record,delivered:true});}catch(error){notificationError=String(error.message||error);}
+    try{const delivery=await env.notify({id,ownerId:me().id,visibility,record,recipients:recipients.filter(user=>user.id!==me().id).map(user=>user.id)});pendingRecipients=delivery?.pendingRecipients||[];await globalThis.ATTestAI.flags(dest).setFlag(ATPC_ID,`chronicleEntries.${id}`,{...record,delivered:true});}catch(error){notificationError=String(error.message||error);}
     return {shared:true,notificationError,pendingRecipients};
   }
   async function withdraw(id) {
     // Tombstones also survive reload; private edits never alter sent snapshots.
     for(const kind of ['gm','party']) {
       const doc=mine(kind);
-      if((doc.getFlag(ATPC_ID,'chronicleEntries')||{})[id]) {
-        const record={id,deleted:true,revision:env.id()};await doc.setFlag(ATPC_ID,`chronicleEntries.${id}`,record);
+      if((globalThis.ATTestAI.flags(doc).getFlag(ATPC_ID,'chronicleEntries')||{})[id]) {
+        const record={id,deleted:true,revision:env.id()};await globalThis.ATTestAI.flags(doc).setFlag(ATPC_ID,`chronicleEntries.${id}`,record);
         await env.notify({id,ownerId:me().id,visibility:kind,record,recipients:users().filter(user=>user.id!==me().id&&(kind==='gm'?user.isGM:doc.testUserPermission(user,'OBSERVER'))).map(user=>user.id)});
       }
     }
   }
   async function remove(id,expectedRevision) {
-    const doc=mine('private'),row=(doc.getFlag(ATPC_ID,'chronicleEntries')||{})[id];
+    const doc=mine('private'),row=(globalThis.ATTestAI.flags(doc).getFlag(ATPC_ID,'chronicleEntries')||{})[id];
     if(!row||row.revision!==expectedRevision)throw Error('The note changed. Reload before deleting.');
-    await withdraw(id);await doc.setFlag(ATPC_ID,`chronicleEntries.${id}`,{id,deleted:true,revision:env.id()});sessions.delete(id);
+    await withdraw(id);await globalThis.ATTestAI.flags(doc).setFlag(ATPC_ID,`chronicleEntries.${id}`,{id,deleted:true,revision:env.id()});sessions.delete(id);
   }
   async function provision() {
     if(!me().isGM)throw Error('Only a GM can prepare Chronicle notebooks.');

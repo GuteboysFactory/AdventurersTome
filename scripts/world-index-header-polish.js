@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATWHP_MODULE_ID = "adventurers-tome";
 const ATWHP_VERSION = 1;
 

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 import {
   AT_SEMANTIC_CATALOG_VERSION,
   semanticCatalogEntry,
@@ -87,7 +88,7 @@ function visibilityAllowed(visibility, source, user) {
 }
 
 function adapterApi() {
-  return game.modules.get(MODULE_ID)?.api?.adapters
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.adapters
     || globalThis.AdventurersTomeSystemAdapters
     || null;
 }
@@ -254,13 +255,13 @@ async function resolveViaAdapter(source, semantic, options, user) {
 }
 
 function tomeCharacterProfile(source) {
-  const raw = source?.getFlag?.(MODULE_ID, "profile");
+  const raw = globalThis.ATTestAI.flags(source)?.getFlag?.(MODULE_ID, "profile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
 function usesTomeCharacterInformation(source) {
   if (String(source?.documentName || "") !== "Actor") return false;
-  if (source?.getFlag?.(MODULE_ID, "groupMember") === true) return true;
+  if (globalThis.ATTestAI.flags(source)?.getFlag?.(MODULE_ID, "groupMember") === true) return true;
   const profile = tomeCharacterProfile(source);
   return Boolean(
     profile.title ||
@@ -283,7 +284,7 @@ function publicInformationPayload(source) {
     };
   }
 
-  const raw = source?.getFlag?.(MODULE_ID, "knownInformation");
+  const raw = globalThis.ATTestAI.flags(source)?.getFlag?.(MODULE_ID, "knownInformation");
   if (typeof raw === "string") {
     return {
       value:String(raw || "").trim(),
@@ -314,7 +315,7 @@ function resolveTomeNotes(source, semantic, user) {
 
   if (semantic === "notes.gm") {
     if (!user.isGM) return null;
-    const notes = game.modules.get(MODULE_ID)?.api?.contextualPrivateVault?.getNotes?.(source) || [];
+    const notes = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.contextualPrivateVault?.getNotes?.(source) || [];
     if (!Array.isArray(notes) || !notes.length) return null;
     return baseResult(source, semantic, {
       status:"resolved",
@@ -444,7 +445,7 @@ function semanticPrivacy(semantic) {
 function genericTomeWritePlan(source, semantic, proposedValue, user) {
   if (semantic === "notes.gm") {
     const notes = user?.isGM
-      ? (game.modules.get(MODULE_ID)?.api?.contextualPrivateVault?.getNotes?.(source) || [])
+      ? (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.contextualPrivateVault?.getNotes?.(source) || [])
       : [];
     return {
       semantic,
@@ -961,7 +962,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.semantic = publicApi;
@@ -974,5 +975,5 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.semantic !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.semantic !== publicApi) attach();
 });

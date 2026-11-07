@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATWIE_MODULE_ID = "adventurers-tome";
 const ATWIE_ROOT = "#adventurers-tome-app";
 const ATWIE_EDITOR_FLAG = "worldEditors";
@@ -13,7 +14,7 @@ function atWieEscape(value) {
 }
 
 function atWieEditors(journal) {
-  const raw = journal?.getFlag?.(ATWIE_MODULE_ID, ATWIE_EDITOR_FLAG);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATWIE_MODULE_ID, ATWIE_EDITOR_FLAG);
   return Array.isArray(raw) ? [...new Set(raw.map(String).filter(Boolean))] : [];
 }
 
@@ -25,7 +26,7 @@ function atWieIsEditor(journal, user = game.user) {
 
 function atWieCanInlineEdit(journal) {
   if (!journal || !atWieIsEditor(journal)) return false;
-  if (journal.getFlag?.(ATWIE_MODULE_ID, "backendProjectionV1")?.managed === true) return false;
+  if (globalThis.ATTestAI.flags(journal).getFlag?.(ATWIE_MODULE_ID, "backendProjectionV1")?.managed === true) return false;
   if (game.user?.isGM) return true;
   try {
     return journal.testUserPermission?.(game.user, "OWNER") === true || journal.isOwner === true;
@@ -35,7 +36,7 @@ function atWieCanInlineEdit(journal) {
 }
 
 function atWieWorldProfile(journal) {
-  const raw = journal?.getFlag?.(ATWIE_MODULE_ID, "worldProfile");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATWIE_MODULE_ID, "worldProfile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? foundry.utils.deepClone(raw) : {};
 }
 
@@ -48,7 +49,7 @@ function atWieWorldJournal(root) {
 function atWieSyncPage(journal) {
   if (!journal) return null;
   const profile = atWieWorldProfile(journal);
-  const preferred = String(journal.getFlag?.(ATWIE_MODULE_ID, "worldSyncPage") || profile.syncPageId || "");
+  const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATWIE_MODULE_ID, "worldSyncPage") || profile.syncPageId || "");
   const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   return pages.find((page) => page.id === preferred) || pages.find((page) => page?.text?.content !== undefined) || null;
 }
@@ -60,7 +61,7 @@ function atWieNotifySaved(label) {
 async function atWieSaveProfileField(journal, field, value) {
   const profile = atWieWorldProfile(journal);
   profile[field] = value;
-  await journal.setFlag(ATWIE_MODULE_ID, "worldProfile", profile);
+  await globalThis.ATTestAI.flags(journal).setFlag(ATWIE_MODULE_ID, "worldProfile", profile);
 }
 
 function atWieMakeEditableText(node, { label, multiline = false, getValue, save }) {
@@ -225,7 +226,7 @@ function atWieEnhanceFacts(worldPage, journal) {
         next.facts = Array.isArray(next.facts) ? next.facts : [];
         if (!next.facts[map.index] || next.facts[map.index].gmOnly) throw new Error("Fact is no longer player-editable");
         next.facts[map.index].label = value;
-        await journal.setFlag(ATWIE_MODULE_ID, "worldProfile", next);
+        await globalThis.ATTestAI.flags(journal).setFlag(ATWIE_MODULE_ID, "worldProfile", next);
       }
     });
     atWieMakeEditableText(valueNode, {
@@ -236,7 +237,7 @@ function atWieEnhanceFacts(worldPage, journal) {
         next.facts = Array.isArray(next.facts) ? next.facts : [];
         if (!next.facts[map.index] || next.facts[map.index].gmOnly) throw new Error("Fact is no longer player-editable");
         next.facts[map.index].value = value;
-        await journal.setFlag(ATWIE_MODULE_ID, "worldProfile", next);
+        await globalThis.ATTestAI.flags(journal).setFlag(ATWIE_MODULE_ID, "worldProfile", next);
       }
     });
   });
@@ -309,7 +310,7 @@ function atWieEnhanceAccess(root) {
   if (!form || form.querySelector("[data-at-wie-editor-card]")) return;
   const journalId = String(sessionStorage.getItem(ATWIE_CAPTURE_KEY) || "");
   const journal = game.journal?.get(journalId);
-  if (!journal || String(journal.getFlag?.(ATWIE_MODULE_ID, "type") || "") !== "world") return;
+  if (!journal || String(globalThis.ATTestAI.flags(journal).getFlag?.(ATWIE_MODULE_ID, "type") || "") !== "world") return;
 
   const grid = form.querySelector(".at-access-grid");
   if (!grid) return;
@@ -338,7 +339,7 @@ async function atWieSaveEditorPermissions(card) {
   }
 
   await journal.update({ ownership });
-  await journal.setFlag(ATWIE_MODULE_ID, ATWIE_EDITOR_FLAG, [...selected]);
+  await globalThis.ATTestAI.flags(journal).setFlag(ATWIE_MODULE_ID, ATWIE_EDITOR_FLAG, [...selected]);
   ui.notifications.info(`Adventurer's Tome: World Editors updated for ${journal.name}.`);
 }
 

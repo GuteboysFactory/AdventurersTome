@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATR_ID = "adventurers-tome";
 let atrTimer = null;
 let atrAttached = false;
@@ -30,7 +31,7 @@ function increment(map, key) {
 
 function attachRelationAudit() {
   if (atrAttached) return true;
-  const module = game.modules.get(ATR_ID);
+  const module = globalThis.ATTestAI.modules.get(ATR_ID);
   const base = module?.api?.universalDocuments;
   if (!base?.embeddedItems) return false;
   if (base.relationAudit) {

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-new-entity-discovery";
 const VERSION = 7;
@@ -104,8 +105,8 @@ function folderNames(folder) {
 
 function journalKind(journal) {
   if (!journal) return "";
-  if (journal.getFlag?.(MODULE_ID,'chronicleV1')) return '';
-  const flagged = clean(journal.getFlag?.(MODULE_ID, "type")).toLowerCase();
+  if (globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID,'chronicleV1')) return '';
+  const flagged = clean(globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "type")).toLowerCase();
   if (flagged === "session" || flagged === "sessions") return "session";
   if (flagged === "quest" || flagged === "quests") return "quest";
   const path = folderNames(journal.folder || game.folders?.get(clean(journal.folder?.id ?? journal.folder)))
@@ -138,30 +139,26 @@ function removeFoundryInlineRefs(value) {
 }
 
 function plainText(html) {
-  const host = document.createElement("div");
-  host.innerHTML = String(html ?? "");
-  return clean(host.textContent || host.innerText || "").replace(/\s+/g, " ");
+  return globalThis.AdventurersTomeLanguage.plainText(html);
 }
 function referenceSource(html) {
-  const host=document.createElement('div');
-  host.innerHTML=String(html??'').replace(/<br\s*\/?\s*>|<\/(?:p|div|li|h[1-6])>/giu,'\n');
-  return clean(host.textContent||host.innerText||'');
+  return globalThis.AdventurersTomeLanguage.plainText(html,{paragraphs:true});
 }
 
 function discoveryApi() {
-  return game.modules.get(MODULE_ID)?.api?.discovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.discovery || null;
 }
 
 function mentionDiscoveryApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
 }
 
 function nlpProviderApi() {
-  return game.modules.get(MODULE_ID)?.api?.nlpProvider || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.nlpProvider || null;
 }
 
 function reviewLearningApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
 }
 
 function properToken(value) {
@@ -187,21 +184,7 @@ function tokenize(text) {
   return rows;
 }
 
-function stripLeadingContext(tokens) {
-  const out = [...tokens];
-
-  while (out.length > 1 && LEADING_CONTEXT_WORDS.has(out[0].normalized)) {
-    out.shift();
-  }
-
-  while (out.length && LEADING_ARTICLES.has(out[0].normalized)) {
-    out.shift();
-  }
-
-  return out;
-}
-
-function candidateRuns(text, knownIndex = {}) {
+function candidateRuns(text, knownIndex = {}, boundaryOffsets = new Set()) {
   const tokens = tokenize(text);
   const rows = [];
 
@@ -213,6 +196,7 @@ function candidateRuns(text, knownIndex = {}) {
 
     for (let j = i + 1; j < tokens.length && run.length < 9; j += 1) {
       const gap = String(text).slice(lastEnd, tokens[j].start);
+      if (boundaryOffsets.has(lastEnd) || boundaryOffsets.has(tokens[j].start)) break;
       if (!/^\s+$/u.test(gap) && !(gap.match(/^\.\s+$/u) && CHARACTER_TITLES.has(run.at(-1).normalized))) break;
 
       const normalized = tokens[j].normalized;
@@ -232,24 +216,27 @@ function candidateRuns(text, knownIndex = {}) {
       lastEnd = tokens[j].end;
     }
 
-    const trimmed = stripLeadingContext(run);
+    const trimmed = [...run];
     while (trimmed.length && CONNECTORS.has(trimmed.at(-1).normalized)) trimmed.pop();
     if (!trimmed.length) continue;
 
     const first = trimmed[0];
     const last = trimmed[trimmed.length - 1];
+    // A labelled GM/author in session metadata is not a narrative identity.
+    if (/(?:^|[|\n])\s*(?:SL|GM|Spelledare|Game Master)\s*:\s*$/iu.test(String(text).slice(Math.max(0,first.start-45),first.start))) continue;
     const display = String(text).slice(first.start, last.end).replace(/[’']s$/iu, "");
 
     const provider = nlpProviderApi();
     const refinement = provider?.refineBoundary?.(display) || null;
-    const refinedText = clean(refinement?.text || display);
-    const relativeStart = refinement?.changed ? display.indexOf(refinedText) : 0;
+    // Compromise is English advisory evidence; it cannot trim Swedish/fantasy names.
+    const refinedText = display;
+    const relativeStart = 0;
     const safeRelativeStart = relativeStart >= 0 ? relativeStart : 0;
     const candidateText = refinedText || display;
     const normalized = normalizeText(candidateText);
     if (!normalized) continue;
 
-    if (refinement?.changed) stats.nlpBoundaryRefined += 1;
+    // Only the shared bilingual occurrence policy may change boundaries.
 
     rows.push({
       text:candidateText,
@@ -260,7 +247,8 @@ function candidateRuns(text, knownIndex = {}) {
       nlp:{
         provider:clean(refinement?.provider),
         providerVersion:clean(refinement?.providerVersion),
-        changed:Boolean(refinement?.changed),
+        changed:false,
+        suggestedText:clean(refinement?.text),
         signals:clone(refinement?.signals || [])
       }
     });
@@ -473,7 +461,7 @@ function mergeAliases(rows, knownIndex) {
     if (established.length > 1) row.ambiguousSourceReference = true;
     const localTarget = established.length === 1 ? established[0] : targets[0];
     const target = rows.find((candidate) => candidate.normalized === localTarget);
-    const authority = (entity) => entity.analysisAuthority || game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid;
+    const authority = (entity) => entity.analysisAuthority || globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid;
     const fullAuthorities = new Set((knownIndex?.entities || []).filter((entity) => normalizeText(entity.name) === target?.normalized).map(authority));
     const independentKnownName = (knownIndex?.entities || []).some((entity) => normalizeText(entity.name) === row.normalized && !fullAuthorities.has(authority(entity)));
     const competingFullName = (knownIndex?.entities || []).some((entity) => {
@@ -501,7 +489,7 @@ function aggregateCandidates(rawRows, knownIndex) {
 
     // Existing names and possible aliases must reach resolution, too.
 
-    if (row.tokenCount === 1 && COMMON_SINGLETONS.has(row.normalized) && !knownIndex.names.has(row.normalized)) {
+    if (row.tokenCount === 1 && COMMON_SINGLETONS.has(row.normalized) && !knownIndex.entities.some(entity=>normalizeText(entity.name)===row.normalized && ['character','pc','npc','contact','person'].includes(entity.kind) && /^(Actor|JournalEntry)\.[^.]+$/u.test(entity.canonicalUuid||''))) {
       stats.commonFiltered += 1;
       return false;
     }
@@ -581,10 +569,39 @@ function identityBriefing(grouped, text, references=[]) {
 }
 
 // The same pure page analysis runs in the worker and in compatibility tests.
-function analyzePage({text,referenceText:referenceTextInput,knownIndex,journal,page,kind}) {
+function analyzePage({text,referenceText:referenceTextInput,knownIndex,journal,page,kind,languageEvidence,structure}) {
   const before={...stats};
   const diagnostics=[],groups=[];
-      const raw = candidateRuns(text,knownIndex).map((row) => ({
+  // Offsets remain in collapsed analysis text, but names cannot cross a block.
+  const boundaries=new Set();let removed=0;
+  const collapsed=String(referenceTextInput??'').replace(/\s+/gu,(span,offset)=>{
+    if(span.includes('\n'))boundaries.add(offset-removed);
+    removed+=span.length-1;return ' ';
+  });
+  if(collapsed!==text)boundaries.clear();
+  for(const span of structure?.spans||[])if(span.kind==='ordinary'){boundaries.add(span.start);boundaries.add(span.end);}
+      const referenceHits=languageEvidence?.worldReferences||[];
+      const namePolicy=globalThis.AdventurersTomeCandidateEvidence;
+      const nameContext=namePolicy?.prepareNameContext?.(text,languageEvidence?.tokens||[],structure);
+      const detected=candidateRuns(text,knownIndex,boundaries).flatMap(row=>{
+       const spans=namePolicy?.refineNameSpans?.({text,start:row.start,end:row.end,tokens:languageEvidence?.tokens||[],structure,context:nameContext});
+       return (spans||[{start:row.start,end:row.end,text:row.text}]).map(span=>({...row,...span,normalized:normalizeText(span.text),tokenCount:wordParts(span.text).length}));
+      });
+      for(const hit of referenceHits)if(!detected.some(r=>r.start===hit.start&&r.end===hit.end))detected.push({text:hit.text,normalized:normalizeText(hit.text),start:hit.start,end:hit.end,tokenCount:wordParts(hit.text).length});
+      const raw = detected.filter(row=>{
+        if((structure?.spans||[]).some(span=>['metadata','heading'].includes(span.kind)&&row.start>=span.start&&row.end<=span.end))return false;
+        if(!languageEvidence)return true;
+        if(languageEvidence.excludedSpans?.some(span=>row.start>=span.start&&row.end<=span.end&&['metadata','heading','ordinary'].includes(span.kind)))return false;
+        if(languageEvidence.rows?.some(hit=>hit.status==='matched'&&hit.occurrences.some(o=>row.start>=o.start&&row.end<=o.end)))return false;
+        // Only explicit Tome policy exclusions suppress a complete candidate;
+        // a model noun/verb guess still cannot erase an unknown fantasy name.
+        if(languageEvidence.filtered?.some(hit=>hit.reason==='ordinary-document-or-game-role'&&row.start>=hit.start&&row.end<=hit.end))return false;
+        const tokens=languageEvidence.tokens?.filter(t=>t.start>=row.start&&t.end<=row.end)||[];
+        // Ordinary function words can be suppressed. A statistical noun/verb
+        // guess cannot by itself erase an unknown fantasy name.
+        const grammatical=tokens.length&&tokens.every(t=>['PRON','DET','ADP','CCONJ','SCONJ','NUM','AUX','PART'].includes(t.upos)&&COMMON_SINGLETONS.has(normalizeText(t.form)));
+        return !grammatical;
+      }).map((row) => ({
         ...row,
         context:sourceContext(text, row.start, row.end),
         contextOffset:row.start - Math.max(0, row.start - 105),
@@ -607,6 +624,16 @@ function analyzePage({text,referenceText:referenceTextInput,knownIndex,journal,p
           .map(row=>({...row,start:toOffset(row.start),end:toOffset(row.end),antecedentStart:toOffset(row.antecedentStart)})) : [];
 
       stats.rawCandidates += raw.length;
+      // A parser-attested possessive can share an already present name in this
+      // page. Never invent a base by trimming arbitrary final letters.
+      for(const row of raw){
+        const token=languageEvidence?.tokens?.find(t=>t.start===row.start&&t.end===row.end&&t.upos==='PROPN');
+        if(!token?.lemma||row.tokenCount!==1||!/s$/iu.test(row.text))continue;
+        if(knownIndex.entities.some(entity=>normalizeText(entity.name)===row.normalized))continue;
+        const base=normalizeText(token.lemma);if(base===row.normalized)continue;
+        const anchor=raw.find(other=>other!==row&&other.normalized===base);
+        if(anchor){row.aliasOf=base;row.consolidationReason='PARSER_ATTESTED_SOURCE_POSSESSIVE';}
+      }
       const aggregate = aggregateCandidates(raw, knownIndex);
       diagnostics.push(...raw.map((hit) => ({
         sourceJournalUuid:journal.uuid, sourcePageUuid:page.uuid,
@@ -621,8 +648,11 @@ function analyzePage({text,referenceText:referenceTextInput,knownIndex,journal,p
         if (!occurrences.length) continue;
 
         const typeVotes = occurrences.filter((row) => !row.aliasOf).map((row) => scoreClassification(row.text, row.context, row));
-        const classification = typeVotes
+        let classification = typeVotes
           .sort((a, b) => b.confidence - a.confidence)[0] || { kind:"unknown", confidence:0, signals:[], alternatives:[] };
+        const refs=referenceHits.filter(hit=>occurrences.some(o=>o.start===hit.start&&o.end===hit.end)).map(hit=>hit.reference);
+        const worldReference=refs.length&&new Set(refs.map(r=>r.packId+':'+r.id)).size===1?refs[0]:null;
+        if(worldReference&&!classification.signals.includes('person-role-apposition'))classification={kind:worldReference.kind,confidence:0.8,signals:['world-reference-advisory'],alternatives:[]};
 
         const representative = {
           ...occurrences[0],
@@ -640,7 +670,11 @@ function analyzePage({text,referenceText:referenceTextInput,knownIndex,journal,p
             ? BANDS.WEAK
             : BANDS.REVIEW;
 
-        groups.push({grouped,classification,detection,disposition,briefing:identityBriefing(grouped,text,references)});
+        const admission=globalThis.AdventurersTomeCandidateEvidence;
+        const evidence=occurrences.map(o=>admission?.candidateEvidence({text,start:o.start,end:o.end,tokens:languageEvidence?.tokens||[],structure,signals:classification.signals,context:nameContext})||{decision:'observe',reason:'language-admission-unavailable'});
+        const nameEvidence=worldReference?{decision:'review',reason:'world-reference'}:evidence.find(e=>e.decision==='review')||evidence.find(e=>e.decision==='observe')||evidence[0];
+        if(nameEvidence?.decision==='ordinary')continue;
+        groups.push({grouped,classification,detection,disposition,worldReference,nameEvidence,briefing:identityBriefing(grouped,text,references)});
       }
       const counters=Object.fromEntries(Object.entries(stats).filter(([,value])=>typeof value==='number').map(([key,value])=>[key,value-before[key]]));
       Object.assign(stats,before);
@@ -649,6 +683,7 @@ function analyzePage({text,referenceText:referenceTextInput,knownIndex,journal,p
 globalThis.AdventurersTomeAnalyzePage=analyzePage;
 
 async function scan(options = {}) {
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
   const startupToken=globalThis.AdventurersTomeStartup?.begin("new-entity-discovery");
   try {
   globalThis.AdventurersTomeReviewDecision?.count("memory-refresh",options.sourceUuid ? "sourceScans" : "fullScans");
@@ -692,7 +727,7 @@ async function scan(options = {}) {
   }
 
   const knownIndex = knownIdentityIndex(discoverySnapshot, mentionSnapshot);
-  knownIndex.entities=knownIndex.entities.map(entity=>({name:entity.name,kind:entity.kind,canonicalUuid:entity.canonicalUuid,analysisAuthority:game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid}));
+  knownIndex.entities=knownIndex.entities.map(entity=>({name:entity.name,kind:entity.kind,canonicalUuid:entity.canonicalUuid,analysisAuthority:globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.(entity)?.authorityUuid || entity.canonicalUuid}));
   const candidates = [];
   const suppressedCandidates = [];
   const diagnostics = [];
@@ -707,20 +742,28 @@ async function scan(options = {}) {
       .sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
 
     for (const page of pages) {
+      if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.checkpoint();
       if (page?.text?.content === undefined) continue;
       stats.pages += 1;
 
       const safeHtml = stripSecrets(page.text.content, user);
-      const text = plainText(removeFoundryInlineRefs(safeHtml));
+      let text = plainText(removeFoundryInlineRefs(safeHtml));
       if (!text) continue;
 
-      const payload={text,referenceText:referenceSource(removeFoundryInlineRefs(safeHtml)),knownIndex,journal:{uuid:journal.uuid,name:journal.name},page:{uuid:page.uuid,name:page.name},kind};
+      const languageService=user?.isGM ? globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.testAILanguage : null;
+      const interpreter=user?.isGM?globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.integratedInterpretation:null;
+      if(user?.isGM&&!interpreter)throw Error('Integrated interpretation is not ready.');
+      const integrated=interpreter?await interpreter.assistDocument(safeHtml,{sourceUuid:journal.uuid,sourceName:journal.name,sourcePageUuid:page.uuid}):null;
+      const structure=integrated?.structure||languageService?.prepareDocument?.(removeFoundryInlineRefs(safeHtml),{sourceName:journal.name});
+      if(integrated)text=integrated.text;
+      const payload={text,referenceText:referenceSource(removeFoundryInlineRefs(safeHtml)),knownIndex,structure,journal:{uuid:journal.uuid,name:journal.name},page:{uuid:page.uuid,name:page.name},kind};
+      if(user?.isGM)payload.languageEvidence=integrated||await languageService?.assistText?.(text,{sourceUuid:journal.uuid,structure});
       const indexService=globalThis.AdventurersTomeIndex;
-      const analysis=indexService && user?.isGM
+      const analysis=integrated?{groups:interpreter.discoveryGroups(integrated.result),diagnostics:integrated.result.diagnostics,counters:{}}:indexService && user?.isGM
         ? await indexService.analyzePage(payload,()=>analyzePage(payload)) : analyzePage(payload);
       diagnostics.push(...analysis.diagnostics);
       for(const [key,value] of Object.entries(analysis.counters || {}))stats[key]+=value;
-      for (const {grouped,classification,detection,disposition,briefing} of analysis.groups) {
+      for (const {grouped,classification,detection,disposition,briefing,worldReference,nameEvidence,interpretation} of analysis.groups) {
         const occurrences=grouped.occurrences;
         const learning = reviewLearningApi()?.decisionFor?.(grouped.text, { sourceUuid:journal.uuid }) || null;
         if (learning?.action === "suppressed") {
@@ -787,6 +830,9 @@ async function scan(options = {}) {
           detection,
           classification,
           identityBriefing:briefing,
+          worldReference:clone(worldReference||null),
+          nameEvidence:clone(nameEvidence||null),
+          interpretation:clone(interpretation||null),
           identity:{
             status:"no-existing-canonical-match",
             confidence:0,
@@ -946,7 +992,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignNewEntityDiscovery = publicApi;
@@ -990,5 +1036,6 @@ Hooks.on("updateJournalEntryPage", (page) => {
 Hooks.on("adventurersTomeSemanticMentionDiscoveryUpdated", () => scheduleScan("known-mentions-updated"));
 Hooks.on("adventurersTomeCampaignLearningUpdated", () => scheduleScan("campaign-learning-updated"));
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.campaignNewEntityDiscovery !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignNewEntityDiscovery !== publicApi) attach();
 });
+

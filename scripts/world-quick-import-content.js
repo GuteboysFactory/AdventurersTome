@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATQIC_MODULE_ID = "adventurers-tome";
 const ATQIC_SOURCE_UUID = "quickImportSourceUuid";
 const ATQIC_SOURCE_TYPE = "quickImportSourceType";
@@ -213,8 +214,8 @@ function atQicIsBlankPage(page) {
 }
 
 function atQicPrimaryTextPage(journal) {
-  const profile = journal?.getFlag?.(ATQIC_MODULE_ID, "worldProfile") || {};
-  const preferred = String(journal?.getFlag?.(ATQIC_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
+  const profile = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATQIC_MODULE_ID, "worldProfile") || {};
+  const preferred = String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATQIC_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
   const pages = [...(journal?.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   return pages.find((page) => page.id === preferred && String(page.type || "text").toLowerCase() === "text")
     || pages.find((page) => String(page.type || "text").toLowerCase() === "text")
@@ -222,9 +223,9 @@ function atQicPrimaryTextPage(journal) {
 }
 
 function atQicQuickSource(journal) {
-  const profile = journal?.getFlag?.(ATQIC_MODULE_ID, "worldProfile") || {};
-  const uuid = String(journal?.getFlag?.(ATQIC_MODULE_ID, ATQIC_SOURCE_UUID) || profile?.sourceUuid || "").trim();
-  const type = String(journal?.getFlag?.(ATQIC_MODULE_ID, ATQIC_SOURCE_TYPE) || profile?.sourceDocumentType || "").trim();
+  const profile = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATQIC_MODULE_ID, "worldProfile") || {};
+  const uuid = String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATQIC_MODULE_ID, ATQIC_SOURCE_UUID) || profile?.sourceUuid || "").trim();
+  const type = String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATQIC_MODULE_ID, ATQIC_SOURCE_TYPE) || profile?.sourceDocumentType || "").trim();
   if (!uuid || !type || type === "JournalEntry") return null;
   return { uuid, type };
 }
@@ -233,7 +234,7 @@ async function atQicEnrichJournal(journal) {
   if (!game.user?.isGM || !journal || ATQIC_RUNNING.has(journal.id)) return false;
   const quick = atQicQuickSource(journal);
   if (!quick) return false;
-  const version = Number(journal.getFlag?.(ATQIC_MODULE_ID, ATQIC_CONTENT_VERSION) || 0);
+  const version = Number(globalThis.ATTestAI.flags(journal).getFlag?.(ATQIC_MODULE_ID, ATQIC_CONTENT_VERSION) || 0);
   if (version >= ATQIC_VERSION) return false;
 
   ATQIC_RUNNING.add(journal.id);
@@ -241,7 +242,7 @@ async function atQicEnrichJournal(journal) {
     const source = await fromUuid(quick.uuid);
     if (!source) return false;
     const payload = await atQicSourcePayload(source);
-    const current = journal.getFlag?.(ATQIC_MODULE_ID, "worldProfile") || {};
+    const current = globalThis.ATTestAI.flags(journal).getFlag?.(ATQIC_MODULE_ID, "worldProfile") || {};
     const profile = current && typeof current === "object" && !Array.isArray(current) ? foundry.utils.deepClone(current) : {};
     const existingFacts = Array.isArray(profile.facts) ? profile.facts : [];
     const page = atQicPrimaryTextPage(journal);
@@ -261,7 +262,7 @@ async function atQicEnrichJournal(journal) {
       profileChanged = true;
     }
 
-    if (profileChanged) await journal.setFlag(ATQIC_MODULE_ID, "worldProfile", profile);
+    if (profileChanged) await globalThis.ATTestAI.flags(journal).setFlag(ATQIC_MODULE_ID, "worldProfile", profile);
 
     if (page && pageBlank && payload.bodyHtml) {
       const summary = payload.summary ? `<p data-at-tome-summary="true">${atQicEscape(payload.summary)}</p>` : "";
@@ -271,7 +272,7 @@ async function atQicEnrichJournal(journal) {
       });
     }
 
-    await journal.setFlag(ATQIC_MODULE_ID, ATQIC_CONTENT_VERSION, ATQIC_VERSION);
+    await globalThis.ATTestAI.flags(journal).setFlag(ATQIC_MODULE_ID, ATQIC_CONTENT_VERSION, ATQIC_VERSION);
     return profileChanged || (page && pageBlank && Boolean(payload.bodyHtml));
   } catch (error) {
     console.warn(`Adventurer's Tome | Could not populate Quick Import content for ${journal.name}`, error);
@@ -292,7 +293,7 @@ function atQicScheduleAll(delay = 180) {
     }
     if (changed) {
       window.setTimeout(() => {
-        try { game.modules.get(ATQIC_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
+        try { globalThis.ATTestAI.modules.get(ATQIC_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
       }, 100);
     }
   }, delay);

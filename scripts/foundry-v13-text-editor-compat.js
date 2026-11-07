@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const AT_TE_COMPAT_ID = "adventurers-tome";
 
 (() => {

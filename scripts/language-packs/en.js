@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 // Narrative grammar data; no canonical identity or write authority.
 (globalThis.AdventurersTomeLanguagePacks ||= {})["en"] = {
   "id": "en",

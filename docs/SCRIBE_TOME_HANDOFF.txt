@@ -1,0 +1,75 @@
+Uppgift till Scribe-chatten: förbered ett manuellt AI-handoff till Adventurer's Tome
+
+Vi har nu byggt och lokalt testat sessionsimport i Adventurer's Tome 2.1.0-qa.6. Nästa steg i Scribe är en funktion som hjälper GM att förbereda ett bra underlag och tydliga instruktioner till sin valfria AI. Scribe behöver inte kopplas direkt till någon AI eller få en obligatorisk API-kostnad. Användaren ska kunna kopiera/exportera underlaget, bearbeta det i sin befintliga AI och sedan ladda upp den färdiga sessionen i Tome.
+
+Undersök Scribes befintliga transkriptions- och exportflöden innan du ändrar något. Bevara användarens originalmaterial. Funktionen kan heta Förbered för Tome och bör återanvända befintlig export och sessionsinformation.
+
+1. Två tydliga steg
+- AI-underlag: sessionsmetadata, transkription och instruktioner som Scribe förbereder. Märk det tydligt som underlag som behöver bearbetas, inte som en färdig Tome-session.
+- Färdig Tome-session: AI:ns granskbara resultat, med rätt rubriker och läsbar berättelse. Det är denna fil användaren sedan laddar upp i Tome.
+- Kräv ingen ny AI-tjänst, anslutning eller prenumeration. Bygg inte någon bakgrundsöverföring till Foundry i denna uppgift.
+
+2. Metadata som GM bekräftar före export
+Sessionsnummer, titel, speldatum om känt, deltagare och GM. Sessionsnumret ska komma från det bekräftade fältet och användas konsekvent i filnamn och dokumentrubrik. Gissa inte utifrån ordningen i transkriptionen. Om tidigare titel eller metadata säger något annat ska konflikten visas för GM.
+
+3. Instruktionen som ska följa med till AI:n
+- Skriv en sammanhängande sessionsberättelse på det språk GM valt, med tydliga rubriker och stycken.
+- Bevara viktiga händelser, personer, platser, beslut och kvarstående frågor. Hitta inte på utfall, motiv, relationer, datum eller regelvärden.
+- Skilj berättade fakta från rykten, rollpersonernas teorier och osäker transkription. Markera osäkerheten eller ställ en fråga i stället för att fylla i luckor.
+- Sammanför inte personer med liknande namn utan tydligt underlag. Normalisering av misstolkade namn ska vara granskbar.
+- Lägg bara tydligt identifierade aktiva uppdrag under Aktiva uppdrag. Skriv en punkt per uppdrag med en kort titel, följd av tankstreck och beskrivning. Frågor och möjliga framtida krokar ska ligga under Öppna trådar tills GM bedömt dem.
+- GM-material som uttryckligen tillförts eller märkts privat ska hållas helt utanför spelarberättelse, sammanfattning och offentlig Quest Log. Lägg det under GM Notes. Flytta inte en hemlighet till ett offentligt avsnitt genom att omformulera den.
+- Använd Nästa session för uttryckliga GM-påminnelser och förberedelser. Skilj dem från saker rollpersonerna bara pratade om att göra.
+- Skapa inga Foundry-UUID:er eller påhittade länkar. Ändra inga aktörers spelmekanik. Tome och GM sköter kopplingar och granskning efter import.
+- Slutresultatet ska vara dokumenttext, inte rå HTML, körbar kod eller instruktioner till Tome.
+
+4. Gemensam struktur för slutresultatet
+
+# Session [bekräftat nummer] – [titel]
+Datum: [om känt]
+Deltagare: [om kända]
+Spelledare: [om känd]
+
+## Sammanfattning
+En kort och korrekt sammanfattning för spelarna.
+
+## Berättelse
+### [Rubrik för en scen eller ett händelseförlopp]
+Läsbar berättande text. Fler underrubriker får användas.
+
+## Quest Log
+### Aktiva uppdrag
+- [Kort uppdragstitel] — [Det dokumenterade målet och det kända läget.]
+
+### Framsteg
+Dokumenterade framsteg. Använd läsbara punkter eller en riktig tabell i Word.
+
+### Öppna trådar
+- Kvarstående fråga eller möjlig krok; inget bekräftat aktivt uppdrag.
+
+## GM Notes
+### [Rubrik för privat information]
+Endast material som GM uttryckligen angett som privat.
+
+## Nästa session
+### [Rubrik för en påminnelse]
+Vad GM behöver minnas eller förbereda till nästa session.
+
+Detta är ett format, inte en uppmaning att fylla alla avsnitt. Utelämna avsnitt som saknar underlag. Låt inte platshållare följa med i den färdiga filen. GM Notes och Nästa session ska ligga på samma rubriknivå som Berättelse, så att deras privata innehåll och underavsnitt hålls isär. Lägg inte ett offentligt avsnitt som underrubrik till GM Notes.
+
+5. Filformat som Tome faktiskt stöder nu
+- .txt i UTF-8 rekommenderas som enklaste utbyte. Använd #, ## och ### som ovan. Listpunkter skrivs med - och ett mellanslag.
+- .docx får riktiga Word-rubriker: Title för dokumenttiteln, Heading 1/Rubrik 1 för ## och Heading 2/Rubrik 2 för ###. Använd vanliga stycken, riktiga listor och riktiga tabeller. Byt inte bara filändelse på en textfil för att skapa Word.
+- Ge filen samma sessionsnummer som dokumentrubriken, exempelvis Session 10 - Gravkamrarna under Fornost.docx.
+- Tome bevarar textstruktur i sin egen stil, inte Words exakta sidlayout. Bilder och inbäddade objekt ingår inte i denna första import. Äldre .doc stöds inte; använd .docx.
+
+6. Vad Tome gör efter uppladdning
+Tome visar en förhandsgranskning. GM väljer destination per avsnitt: Chronicle, privat GM-not, påminnelse eller lämna utanför. Påminnelsens mål-session föreslås som importerad session + 1 och kan ändras. Explicita punkter under Aktiva uppdrag kan väljas för att skapa privata Dormant-Quests eller länka befintliga Quests. Inget quest-förslag sparas utan GM:s val. Sessionen börjar som GM-only och delas efter granskning.
+
+7. Godkännandekriterier för Scribe-arbetet
+- GM kan bekräfta metadata och välja om egna GM-anteckningar alls ska ingå i AI-underlaget.
+- Underlag och färdig session är tydligt åtskilda i gränssnitt och instruktioner.
+- Exporten kräver ingen betald AI-anslutning.
+- Testa en vanlig berättelse, en session med uttryckliga aktiva uppdrag och en session med GM Notes och påminnelser.
+- Kontrollera framför allt att sessionsnumret inte ändras och att privata uppgifter inte blandas in i spelartexten.
+- Leverera först en konkret, granskbar lokal ändring. Publicera inte en Scribe-release enbart utifrån denna instruktion.

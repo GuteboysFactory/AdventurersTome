@@ -1,0 +1,13 @@
+LOCAL SWEDISH AND ENGLISH WORD-CLASS EVIDENCE
+Derived from Universal Dependencies r2.17 Swedish-Talbanken and English-EWT training/development annotations.
+https://github.com/UniversalDependencies/UD_Swedish-Talbanken/tree/r2.17
+https://github.com/UniversalDependencies/UD_English-EWT/tree/r2.17
+Licence: Creative Commons Attribution-ShareAlike 4.0 International.
+https://creativecommons.org/licenses/by-sa/4.0/
+Swedish-Talbanken: Joakim Nivre, Aaron Smith and contributors; based on Talbanken, Lund University. See sv-README.md.
+English-EWT annotations: Copyright 2013-2021 The Board of Trustees of The Leland Stanford Junior University and contributors. See en-README.md.
+Changes: only individual token forms/lemmas and their attested universal POS classes are retained; Unicode/case normalization and bitmask aggregation. No source sentences are distributed.
+Swedish lemmas additionally use SALDO (2017-07-04 snapshot), Språkbanken Text, University of Gothenburg, by Lars Borin, Markus Forsberg, Lennart Lönngren and contributors. SALDO licence: CC BY 4.0; https://sprakbanken.se/resurser/saldo and https://creativecommons.org/licenses/by/4.0/ . Changes: writtenForm and partOfSpeech only; normalized and aggregated with the UD masks. No senses or definitions are copied.
+The combined derived common-word-roles.js data is CC BY-SA 4.0. No campaign/user data is part of this resource.
+The masks corroborate grammar only. Dictionary membership does not identify a campaign entity or override an explicit name/GM decision.
+Original notices accompany the data. Full input hashes and reproducible extraction URLs: SOURCES.json.

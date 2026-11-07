@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATWSA_ID = "adventurers-tome";
 const ATWSA_WORLD = "#adventurers-tome-app .at-world-profile-page";
 const ATWSA_PROFILE = "worldProfile";
@@ -27,10 +28,10 @@ function atWsaJournal(world) {
 }
 
 function atWsaSourceMeta(journal) {
-  const profile = journal?.getFlag?.(ATWSA_ID, ATWSA_PROFILE) || {};
+  const profile = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATWSA_ID, ATWSA_PROFILE) || {};
   return {
-    uuid: String(journal?.getFlag?.(ATWSA_ID, ATWSA_SOURCE_UUID) || profile?.sourceUuid || "").trim(),
-    type: String(journal?.getFlag?.(ATWSA_ID, ATWSA_SOURCE_TYPE) || profile?.sourceDocumentType || "").trim()
+    uuid: String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATWSA_ID, ATWSA_SOURCE_UUID) || profile?.sourceUuid || "").trim(),
+    type: String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATWSA_ID, ATWSA_SOURCE_TYPE) || profile?.sourceDocumentType || "").trim()
   };
 }
 
@@ -80,7 +81,7 @@ async function atWsaOpenJournal(button) {
 
 async function atWsaOpenSource(button) {
   const uuid = String(button.dataset.sourceUuid || "").trim();
-  const resolver = game.modules.get(ATWSA_ID)?.api?.universalDocuments?.resolveCanonical;
+  const resolver = globalThis.ATTestAI.modules.get(ATWSA_ID)?.api?.universalDocuments?.resolveCanonical;
   if (!uuid || typeof resolver !== "function") {
     ui.notifications.warn("Adventurer's Tome: Source resolver is not available.");
     throw new Error("source-resolver-not-available");
@@ -136,7 +137,7 @@ function atWsaButton({ action, label, icon, journalId = "", sourceUuid = "", sou
 
 function atWsaDesired(world, journal) {
   const source = atWsaSourceMeta(journal);
-  const backendManaged = journal?.getFlag?.(ATWSA_ID, "backendProjectionV1")?.managed === true;
+  const backendManaged = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATWSA_ID, "backendProjectionV1")?.managed === true;
   const desired = backendManaged ? [] : [{
     action: "journal",
     label: "Open Journal",
@@ -229,7 +230,7 @@ function atWsaQueue(delay = 0) {
 }
 
 function atWsaAttachAudit() {
-  const module = game.modules.get(ATWSA_ID);
+  const module = globalThis.ATTestAI.modules.get(ATWSA_ID);
   if (!module?.api) return;
   module.api.worldSourceActionsAudit = () => ({ ...atWsaAudit });
 }

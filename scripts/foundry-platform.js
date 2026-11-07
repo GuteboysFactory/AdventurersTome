@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATPF_MODULE_ID = "adventurers-tome";
 
 /**

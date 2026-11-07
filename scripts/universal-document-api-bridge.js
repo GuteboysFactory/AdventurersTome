@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 import { universalDocumentRegistryApi } from "./universal-document-registry.js";
 
 const ID = "adventurers-tome";
@@ -8,7 +9,7 @@ function attach() {
   const atStartupToken = globalThis.AdventurersTomeStartup?.begin("universal-bridge");
   try {
   if (attached) return true;
-  const module = game.modules.get(ID);
+  const module = globalThis.ATTestAI.modules.get(ID);
   if (!module?.api || typeof module.api !== "object") return false;
   try {
     module.api.universalDocuments = universalDocumentRegistryApi();

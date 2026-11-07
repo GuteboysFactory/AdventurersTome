@@ -1,0 +1,28 @@
+Adventurer's Tome 2.1.0-qa.7 – rättad textutläsning och namnanalys
+
+Lokal QA-version. Inga publicerade kanaler har ändrats och paketet är inte installerat automatiskt.
+Denna version innehåller också QA6:s sessionsimport och Scribe-instruktion.
+
+VAD SOM RÄTTATS
+Rubriker, stycken, listpunkter och tabellceller behåller sina gränser när Tome läser text för analys. Namn kan inte längre klistras ihop med föregående rubrik eller bilda ett namnförslag över en styckegräns. Inline-formatering inuti ett namn bevaras.
+Detta rättar bland annat fallet där en befintlig rollperson i början av ett stycke inte hittades, medan en NPC senare i samma stycke hittades. Rättningen är generell och har inga särskilda regler för Citronimus eller någon spelvärld.
+Svenska funktionsord, frågeord och vissa vanliga rubrikord filtreras bort från nya identitetsförslag. Kända personnamn kan fortfarande matchas. En vanlig svensk konjunktion ska inte bli en identitet bara för att ett icke-persondokument råkar ha samma namn.
+Ett föreslaget inbäddat dokument eller ett otillgängligt dokument blir inte längre ett automatiskt kanoniskt länkmål. Det lämnas till Review utan det sparfel som syntes i konsolen. Inget sådant dokument importeras eller kopplas till en gissad förälder.
+Analyscachen har en ny revision, så gamla sidresultat inte återanvänds. GM:s val och historik behålls.
+
+TESTA I BÅDA VÄRLDARNA VAR FÖR SIG
+1. Lägg QA7:s filer i testmiljöns modulmapp och ladda om Foundry. Kontrollera att versionen är 2.1.0-qa.7.
+2. Låt indexet slutföra sin första omanalys. Använd befintliga Build/Refresh/Rebuild-kontrollen om det är pausat eller inte körs. Världarna har separata dokument, UUID:n och resultat; kopiera inga identitetsval mellan dem.
+3. I världen där Citronimus och Gunther finns: analysera Questen med texten om leveranserna. Citronimus ska hittas automatiskt även när hans namn står direkt efter en rubrik. Gunther ska också vara kopplad. Använd ingen manuell Link Character för att maskera felet under detta test.
+4. Kontrollera att befintlig gruppindelning används: länkade gruppmedlemmar visas under Characters och andra länkade NPC:er under World. En rollpersonskoppling ändrar inte Questens spelaråtkomst och tilldelar inte automatiskt en ägare.
+5. I världen med Session 10: kontrollera Analysis igen. FireVisorGravkamrarna, FornostÄventyrarna, HalsainNyar, När Nyar och vanliga ord som Vad/Två/För/Men ska inte finnas kvar som aktiva falska identitetsförslag. Riktiga okända namn kan fortfarande kräva Review.
+6. Gamla felaktiga förslag kan finnas kvar i historiken, men ska vara inaktiva efter omanalys. Tidigare manuella val och kanoniska länkar raderas inte automatiskt.
+7. Kontrollera att konsolen inte åter visar samma fel om ett ogiltigt root campaign document när analysen hanterar dessa förslag.
+8. Kontrollera att privata Quests och privata GM-noter fortfarande har rätt åtkomst. Test med ett spelarkonto ska göras separat från GM-vyn.
+
+Om något fortfarande avviker: ange vilken värld, vilken modulversion och vilken sida det gäller. En bild från Analysis och dess Source hjälper oss skilja på källtext, indexresultat och sparad koppling.
+
+LOKALA KONTROLLER
+Riktade regressioner återskapar Citronimus/Gunther-fallet samt en andra fristående värld med andra namn, ordbruset från videon, privata dokumentgränser, historik, giltiga länkmål och Questvyns rollpersons-/NPC-indelning.
+Riktig Edge-DOM och den riktiga bakgrundsanalysen ger samma resultat. Det tillhandahållna Word-dokumentet Session 10 har också körts genom den riktiga dokumentläsaren och namnanalysen. Originalfil och sessionstext skrivs inte om av rättningen.
+Test i användarens faktiska Foundry-världar återstår.

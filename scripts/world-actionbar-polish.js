@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const AT_WAB_ID = "adventurers-tome";
 const AT_WAB_ROOT = "#adventurers-tome-app .at-world-profile-page";
 let atWabQueued = false;

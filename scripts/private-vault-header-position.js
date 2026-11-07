@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const PVH_MODULE_ID = "adventurers-tome";
 
 function pvhRoot(element) {

@@ -6,7 +6,9 @@ globalThis.Hooks={once:(event,fn)=>{if(event==='ready')callbacks.push(fn);},on()
 globalThis.game={modules:new Map([['adventurers-tome',moduleRecord]])};
 globalThis.foundry={utils:{deepClone:structuredClone}};
 globalThis.window={clearTimeout(){},setTimeout(){return 0;}};
+globalThis.ATTestAI={modules:game.modules,assertEnabled(){}};
 const initialized=(async()=>{
+await import('./candidate-evidence.js');
 await import('../vendor/compromise-14.17.0.js');
 await import('./language-packs/en.js');
 await import('./language-packs/sv.js');

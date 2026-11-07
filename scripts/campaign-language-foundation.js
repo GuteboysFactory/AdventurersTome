@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 // Local narrative rules. No network, translation, world scan, or write authority.
 const ATLF_ID="adventurers-tome";
 const atLfNormalize=value=>String(value??"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
@@ -16,6 +17,7 @@ for(const [id,pack] of Object.entries(atLfPacks)) {
   atLfFreeze(pack);
 }
 atLfFreeze(atLfPacks);
+const atLfCharacterTitles=new Set(Object.values(atLfPacks).flatMap(pack=>pack.lexicon.CHARACTER_TITLES||[]).map(atLfNormalize));
 function atLfPattern(key,language) {
   const pattern=atLfPatterns.get(`${language}:${key}`);
   if(!pattern)throw new Error(`Unknown Tome language rule: ${language}:${key}`);
@@ -55,9 +57,8 @@ function atLfSentences(value) {
 }
 function atLfNameForm(value) {
   const words=String(value??'').trim().split(/\s+/u);
-  const titles=new Set(Object.values(atLfPacks).flatMap(pack=>pack.lexicon.CHARACTER_TITLES||[]).map(atLfNormalize));
   const removed=[];
-  while(words.length>1 && titles.has(atLfNormalize(words[0].replace(/\.$/u,''))))removed.push(words.shift());
+  while(words.length>1 && atLfCharacterTitles.has(atLfNormalize(words[0].replace(/\.$/u,''))))removed.push(words.shift());
   return {text:words.join(' '),titles:removed,normalized:atLfNormalize(words.join(' ')).replace(/[’']/gu,'')};
 }
 function atLfDocumentHead(value) {
@@ -164,8 +165,19 @@ function atLfRoleEvidence(text,names=[],allowedStarts=null,references=[]) {
   }
   return evidence.filter((row,index)=>!evidence.slice(0,index).some(old=>old.subject===row.subject&&old.role===row.role&&old.status===row.status&&old.source===row.source));
 }
+// Keep structural boundaries when readable HTML becomes analysis text. Inline
+// formatting stays inside words; source documents themselves are never rewritten.
+function atLfPlainText(value, {paragraphs=false}={}) {
+  const host=document.createElement('template');
+  host.innerHTML=String(value??'')
+    .replace(/<(script|style|iframe|object)\b[^>]*>[\s\S]*?<\/\1>/giu,' ')
+    .replace(/<br\b[^>]*>|<hr\b[^>]*>|<\/?(?:p|div|section|article|header|footer|aside|h[1-6]|li|ul|ol|blockquote|table|thead|tbody|tfoot|tr|td|th|dl|dt|dd|figure|figcaption)\b[^>]*>/giu,'\n');
+  const text=String((host.content||host).textContent||'').replace(/\r\n?/gu,'\n').replace(/\u00a0/gu,' ');
+  return paragraphs ? text.replace(/[^\S\n]+/gu,' ').replace(/ *\n */gu,'\n').replace(/\n{3,}/gu,'\n\n').trim() : text.replace(/\s+/gu,' ').trim();
+}
 const ATLF_API=Object.freeze({
   contract:"adventurers-tome-narrative-language",version:1,
+  plainText:atLfPlainText,
   words:key=>[...new Set(Object.values(atLfPacks).flatMap(pack=>pack.lexicon[key]||[]).map(atLfNormalize))],
   pattern:atLfPattern,anyPattern:atLfAnyPattern,
   sentences:atLfSentences,nameForm:atLfNameForm,documentHead:atLfDocumentHead,claimContext:atLfClaimContext,
@@ -176,4 +188,4 @@ const ATLF_API=Object.freeze({
   audit:()=>({version:1,languages:Object.keys(atLfPacks),packVersions:Object.fromEntries(Object.values(atLfPacks).map(pack=>[pack.id,pack.version])),localOnly:true,networkRequired:false,identityAuthority:false,writeAuthority:false,translation:false})
 });
 globalThis.AdventurersTomeLanguage=ATLF_API;
-Hooks.once("init",()=>{const module=game.modules.get(ATLF_ID);module.api ||= {};module.api.narrativeLanguage=ATLF_API;});
+Hooks.once("init",()=>{const module=globalThis.ATTestAI.modules.get(ATLF_ID);module.api ||= {};module.api.narrativeLanguage=ATLF_API;});

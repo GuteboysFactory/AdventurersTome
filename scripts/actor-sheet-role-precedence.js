@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATASR_ID = "adventurers-tome";
 const atAsrObservers = new WeakMap();
 
@@ -15,14 +16,14 @@ function atAsrActor(app) {
 }
 
 function atAsrWorldProfile(journal) {
-  const raw = journal?.getFlag?.(ATASR_ID, "worldProfile");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATASR_ID, "worldProfile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
 function atAsrIsWorld(journal) {
   return journal?.documentName === "JournalEntry" && (
-    String(journal.getFlag?.(ATASR_ID, "type") || "") === "world" ||
-    Boolean(journal.getFlag?.(ATASR_ID, "worldProfile"))
+    String(globalThis.ATTestAI.flags(journal).getFlag?.(ATASR_ID, "type") || "") === "world" ||
+    Boolean(globalThis.ATTestAI.flags(journal).getFlag?.(ATASR_ID, "worldProfile"))
   );
 }
 
@@ -31,7 +32,7 @@ function atAsrHasWorldIdentity(actor) {
   return [...(game.journal?.contents ?? [])].some((journal) => {
     if (!atAsrIsWorld(journal)) return false;
     const profile = atAsrWorldProfile(journal);
-    const uuid = String(journal.getFlag?.(ATASR_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+    const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATASR_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
     if (uuid) return uuid === actor.uuid;
     return String(profile.actorId || "") === String(actor.id || "");
   });

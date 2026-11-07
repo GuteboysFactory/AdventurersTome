@@ -1,0 +1,69 @@
+import {sources,analyzeSource,applyMatch,stop,status} from './testai-language.js';
+const ID='adventurers-tome';let overlay=null;
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const reasons={'npc-before-contact':'Existing NPC authority','library-location-authority':'Known world-library identity','library-person-authority':'Known world-library person','library-entity-type-conflict':'Person and collective identities conflict','world-reference-not-in-campaign':'Recognized library entry; not yet in this campaign','exact-name-or-registered-alias':'Campaign name or registered alias','title-qualified-campaign-name':'Campaign name with or without a title','attested-possessive-form':'Possessive form of a campaign name','group-first-name':'Group name; one visible identity','confirmed-source-choice':'Previously confirmed for this source','multiple-visible-identities':'More than one possible identity','no-supported-catalogue-match':'Name suggested by the language model'};
+function close(){stop();overlay?.remove();overlay=null;}
+export function openDialog(){
+ if(!game.user?.isGM)return;if(overlay){overlay.querySelector('select')?.focus();return;}
+ const library=game.modules.get(ID)?.api?.worldKnowledge?.status();const libraryLabel=library?.selected?.length?'World library: '+library.selected.join(', ')+' · '+library.entries+' entries':'World library: not selected';
+ const entries=sources();const app=game.modules.get(ID)?.api?.app?.();const activeId=app?.activeSessionId||app?.activeQuestId;
+ const node=document.createElement('div');overlay=node;node.className='at-testai-overlay';
+ node.innerHTML=`<section class="at-testai-dialog" role="dialog" aria-modal="true" aria-labelledby="at-testai-title"><header><div><small>LOCAL LANGUAGE ASSISTANCE</small><h2 id="at-testai-title">Language Lab</h2></div><button type="button" data-close aria-label="Close Language Lab">×</button></header><p>Tome makes the identity decisions. UDPipe supplies language clues. Language assistance runs automatically in Tome’s analysis and index. This optional view explains the evidence; its Confirm buttons save reviewed links.</p><div class="at-testai-controls"><label>Session or Quest<select data-source>${entries.map(d=>`<option value="${esc(d.uuid)}"${d.id===activeId?' selected':''}>${esc(d.name)}</option>`).join('')}</select></label><label>Text language<select data-language><option value="auto">Auto — per sentence</option><option value="sv">Swedish</option><option value="en">English</option></select></label><button type="button" data-run${entries.length?'':' disabled'}>Inspect this source</button><button type="button" data-stop disabled>Stop</button></div><p class="at-testai-status" data-status role="status" aria-live="polite">${entries.length?'Ready. The first run loads one local model at a time.':'Create or import a Session or Quest first.'}</p><p class="at-testai-note">Swedish model: 8.1 MB · English model: 16.4 MB. Models load automatically when Tome analyzes text. The last model is released after 45 seconds of inactivity.</p><p class="at-testai-note" data-library-status>${esc(libraryLabel)}</p><p class="at-testai-note">Reference lore spans different eras. It does not establish who is alive or what has happened in this campaign.</p><p><button type="button" data-import-references>Import campaign references</button> <button type="button" data-clear-references>Remove campaign references</button><input type="file" data-reference-file accept="application/json,.json" hidden></p><main data-results></main></section>`;
+ document.body.append(node);
+ const run=node.querySelector('[data-run]'),cancel=node.querySelector('[data-stop]'),state=node.querySelector('[data-status]');
+ node.querySelector('[data-close]').onclick=close;cancel.onclick=()=>{stop();state.textContent='Analysis stopped. No language results were applied.';};
+ node.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close();}if(event.key==='Tab'){const nodes=[...node.querySelectorAll('button:not(:disabled),select')];const first=nodes[0],last=nodes.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}});
+ run.onclick=async()=>{
+  run.disabled=true;cancel.disabled=false;node.querySelector('[data-results]').replaceChildren();state.textContent='Loading the local language model…';
+  try{
+   const result=await analyzeSource(node.querySelector('[data-source]').value,{language:node.querySelector('[data-language]').value,onProgress:info=>{state.textContent=`Analyzing ${info.language==='sv'?'Swedish':'English'}: ${info.progress} / ${info.total} text sections…`;}});
+   if(overlay!==node||!game.user?.isGM)return;
+   state.textContent=`Finished in ${(result.elapsedMs/1000).toFixed(1)} seconds${result.cached?' · reused language analysis':''}. Review the proposed links below.`;renderResults(node,result);
+  }catch(error){if(overlay===node)state.textContent=error.message;}
+  finally{run.disabled=false;cancel.disabled=true;}
+ };
+ const knowledge=game.modules.get(ID)?.api?.worldKnowledge,file=node.querySelector('[data-reference-file]');
+ node.querySelector('[data-import-references]').onclick=()=>file.click();
+ file.onchange=async()=>{const selected=file.files?.[0];if(!selected)return;try{
+  if(selected.size>2*1024*1024)throw Error('Choose a reference file smaller than 2 MB.');
+  const data=JSON.parse(await selected.text());if(!game.user?.isGM)return;
+  const yes=await foundry.applications.api.DialogV2.confirm({window:{title:'Import campaign references'},content:`<p>Add ${esc(data.entries?.length||0)} background references to this campaign?</p><p>They remain private to this world. Documents are created only when analysis finds a supported mention. Existing GM decisions take priority.</p>`,rejectClose:false});
+  if(yes!==true)return;const count=await knowledge.importCampaignPack(data);state.textContent=`Imported. This world has ${count} campaign references.`;refreshLibrary();
+ }catch(error){state.textContent=error.message;}finally{file.value='';}};
+ node.querySelector('[data-clear-references]').onclick=async()=>{const yes=await foundry.applications.api.DialogV2.confirm({window:{title:'Remove campaign references'},content:'<p>Remove the local reference supplement from this world? Existing campaign documents and links are preserved.</p>',rejectClose:false});if(yes===true){try{await knowledge.clearCampaignPack();state.textContent='Campaign reference supplement removed. Existing documents are preserved.';refreshLibrary();}catch(error){state.textContent=error.message;}}};
+ function refreshLibrary(){const s=knowledge.status();node.querySelector('[data-library-status]').textContent=s.selected.length?`World library: ${s.selected.join(', ')} · ${s.entries} entries`:'World library: not selected';}
+ node.querySelector('[data-source]').focus();
+}
+function renderResults(node,result){
+ const host=node.querySelector('[data-results]'),matched=result.rows.filter(r=>r.status==='matched'),ambiguous=result.rows.filter(r=>r.status==='ambiguous');
+ const baseline=new Set([...result.baseline.known,...result.baseline.possibleNew].map(s=>s.toLowerCase()));
+ host.innerHTML=`<div class="at-testai-summary"><article><strong>${matched.length}</strong><span>Campaign matches proposed</span></article><article><strong>${ambiguous.length}</strong><span>Identities to choose</span></article><article><strong>${result.rows.filter(r=>r.status==='unknown').length}</strong><span>Possible new names</span></article></div><h3>Review campaign connections</h3><p>Original text and permissions are preserved. Confirming a link also records a source-specific identity choice in Tome.</p><div class="at-testai-rows">${result.rows.map((row,i)=>`<article class="at-testai-row"><div><strong>${esc(row.text)}</strong><small>${esc(reasons[row.reason]||row.reason)} · ${row.occurrences.length} occurrence(s)</small></div><div>${row.status==='matched'?`<strong>${esc(row.target.name)}</strong><small>${row.target.group?'Group character':esc(row.target.kind)}</small>`:row.status==='ambiguous'?`<label>Choose the intended identity<select data-target="${i}"><option value="">Choose…</option>${row.candidates.map(c=>`<option value="${esc(c.uuid)}">${esc(c.name)} · ${esc(c.kind)}</option>`).join('')}</select></label>`:'<span>Not matched to a campaign identity</span>'}</div><div>${row.status!=='unknown'?`<button type="button" data-link="${i}">Confirm link</button>`:'<span>Review in Campaign Analysis</span>'}<small data-linked="${i}"></small></div></article>`).join('')||'<p>No candidate names were found.</p>'}</div><details><summary>Compare with the existing Tome analysis</summary><p>The existing index currently lists ${result.baseline.known.length} known mentions and ${result.baseline.possibleNew.length} possible new names for this source. It may need refreshing. Counts are not an accuracy score.</p><p>Newly surfaced name forms: ${result.rows.filter(r=>!baseline.has(r.text.toLowerCase())).map(r=>esc(r.text)).join(', ')||'None'}</p></details><details><summary>Ordinary text clues (${result.filtered.length})</summary><p>These words received no name proposal from UDPipe and had no protected campaign-name match. A language classification can still be wrong.</p><p>${[...new Set(result.filtered.map(r=>r.text))].map(esc).join(', ')||'None'}</p></details><details><summary>Language evidence and timing</summary><p>Language results never grant access or create documents. Auto chooses a model per sentence using language cues; override it above for short or mixed text.</p>${result.metrics.map(m=>`<p>${m.language.toUpperCase()}: model load ${(m.loadMs/1000).toFixed(1)} s · text analysis ${(m.parseMs/1000).toFixed(1)} s</p>`).join('')}<p>Working memory has not been measured in this build.</p><div class="at-testai-evidence">${result.tokens.slice(0,150).map(t=>`<span title="${esc(t.upos)} · ${esc(t.lemma)}">${esc(t.form)}</span>`).join(' ')}</div></details>`;
+ const roles={actor:'Acts in this sentence',consulted:'Person being asked',affected:'Affected participant',possessor:'Possessive reference',participant:'Session participant'};
+ const ordinary=[...host.querySelectorAll('details')].find(node=>node.querySelector('summary')?.textContent.startsWith('Ordinary text clues'));
+ if(ordinary?.querySelector('p'))ordinary.querySelector('p').textContent='Tome kept these words outside the name proposals using ordinary-language clues or document-role rules. Known campaign names and confirmed choices take priority; language evidence can still be wrong.';
+ for(const [index,node]of [...host.querySelectorAll('.at-testai-row')].entries()){
+  const reference=result.rows[index].worldReference;
+  if(reference){const note=document.createElement('small');note.textContent=`${reference.packName}: ${reference.name} · ${reference.subtype}. Background reference only; not a campaign link.`;node.children[1].append(note);const url=reference.sources?.[0]?.url;if(/^https:\/\/www\.wikidata\.org\/wiki\/Q\d+$/u.test(url||'')){const link=document.createElement('a');link.textContent='Reference source';link.href=url;link.target='_blank';link.rel='noopener noreferrer';node.children[1].append(link);}}
+  const labels=[...new Set(result.rows[index].occurrences.map(o=>roles[o.interpretation?.role]).filter(Boolean))];
+  if(labels.length){const note=document.createElement('small');note.textContent=labels.join(' · ')+' · language clue, not quest ownership';node.firstElementChild.append(note);}
+ }
+ for(const button of host.querySelectorAll('[data-link]'))button.onclick=async()=>{
+  const index=Number(button.dataset.link),row=result.rows[index],target=row.target?.uuid||host.querySelector(`[data-target="${index}"]`)?.value;
+  if(!target){node.querySelector('[data-status]').textContent='Choose which campaign identity this mention means first.';return;}
+  button.disabled=true;try{await applyMatch(result,index,target);host.querySelector(`[data-linked="${index}"]`).textContent='Linked · remembered for this source';button.textContent='Linked';}catch(error){node.querySelector('[data-status]').textContent=error.message;button.disabled=false;}
+ };
+}
+function mount(){
+ const root=document.querySelector('#adventurers-tome-app');if(!root)return;
+ if(!game.user?.isGM){root.querySelectorAll('[data-testai-open]').forEach(n=>n.remove());close();return;}
+ const host=root.querySelector('.at-campaign-analysis-heading')||root.querySelector('.at-sessions-page .at-page-tools');
+ if(host){let label=host.querySelector('[data-world-library]');if(!label){label=document.createElement('small');label.dataset.worldLibrary='';host.append(label);}const library=game.modules.get(ID)?.api?.worldKnowledge?.status();label.textContent=library?.selected?.length?`World library: ${library.selected.join(', ')} · ${library.entries} entries`:'World library: not selected';}
+ if(!host||host.querySelector('[data-testai-open]'))return;
+ const button=document.createElement('button');button.type='button';button.className='at-secondary';button.dataset.testaiOpen='';button.innerHTML='<i class="fa-solid fa-language"></i> Language Lab';button.onclick=event=>{event.preventDefault();event.stopPropagation();openDialog();};host.append(button);
+}
+Hooks.once('ready',()=>{const module=game.modules.get(ID);if(module?.api?.testAILanguage)module.api.testAILanguageUI=Object.freeze({openDialog,close});mount();});
+Hooks.on('adventurersTomeViewPrepared',mount);Hooks.on('adventurersTomePrepareView',mount);Hooks.on('renderApplicationV2',()=>setTimeout(mount,0));
+Hooks.on('updateUser',()=>{if(!game.user?.isGM)close();});
+Hooks.on('adventurersTomeWorldLibraryReady',mount);
+
+

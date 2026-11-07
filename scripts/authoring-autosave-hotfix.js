@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATAH_MODULE_ID = "adventurers-tome";
 const ATAH_ROOT = "#adventurers-tome-app";
 const ATAH_REPAIR_FLAG = "autosaveScaffoldRepair111";
@@ -59,7 +60,7 @@ function atAhCleanEditorScaffold(html) {
 
 async function atAhRepairPersistedScaffold() {
   if (!game.user?.isGM) return;
-  if (game.settings?.get?.(ATAH_MODULE_ID, ATAH_REPAIR_FLAG) === true) return;
+  if (globalThis.ATTestAI.settings?.get?.(ATAH_MODULE_ID, ATAH_REPAIR_FLAG) === true) return;
 
   let repaired = 0;
   for (const journal of game.journal?.contents ?? []) {
@@ -80,7 +81,7 @@ async function atAhRepairPersistedScaffold() {
     }
   }
 
-  await game.settings?.set?.(ATAH_MODULE_ID, ATAH_REPAIR_FLAG, true);
+  await globalThis.ATTestAI.settings?.set?.(ATAH_MODULE_ID, ATAH_REPAIR_FLAG, true);
   if (repaired) {
     console.info(`Adventurer's Tome | Repaired transient autosave editor markup in ${repaired} Journal page(s).`);
     ui.notifications.info(`Adventurer's Tome: repaired ${repaired} page${repaired === 1 ? "" : "s"} affected by the autosave editor bug.`);
@@ -88,7 +89,7 @@ async function atAhRepairPersistedScaffold() {
 }
 
 Hooks.once("init", () => {
-  game.settings.register(ATAH_MODULE_ID, ATAH_REPAIR_FLAG, {
+  globalThis.ATTestAI.settings.register(ATAH_MODULE_ID, ATAH_REPAIR_FLAG, {
     scope: "world",
     config: false,
     type: Boolean,

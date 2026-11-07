@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATLH_ID = "adventurers-tome";
 
 const ATLH_TYPES = Object.freeze([
@@ -37,7 +38,7 @@ const atlhCoverage = Object.fromEntries(ATLH_TYPES.map((type) => [type, {
 }]));
 
 function atlhModule() {
-  return game.modules.get(ATLH_ID);
+  return globalThis.ATTestAI.modules.get(ATLH_ID);
 }
 
 function atlhRegistry() {

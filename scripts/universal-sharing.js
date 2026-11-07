@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATUS_MODULE_ID = "adventurers-tome";
 const ATUS_ROOT = "#adventurers-tome-app";
 const ATUS_MAX_TEXT = 5000;

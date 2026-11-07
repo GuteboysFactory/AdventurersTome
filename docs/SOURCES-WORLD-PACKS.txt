@@ -1,0 +1,34 @@
+Tome TestAI — local world knowledge
+3 November 2026
+
+The opt-in Tolkien pack 1.1.0 contains 44 locations and one people/faction
+reference (Dúnedain). It is a curated starting collection, not a complete
+Tolkien encyclopedia. No maps, artwork, biographies or encyclopedia articles
+are bundled. It does not describe the events or history of this campaign.
+
+Labels, selected aliases and short descriptions come from Wikidata structured
+data, retrieved 2–3 November 2026. Each record carries its Wikidata item URL,
+CC0 license and retrieval date. Descriptions are structured-data descriptions,
+not copied article passages. Local subtype labels classify places and people
+into Tome's location/faction categories; a people is not an individual NPC.
+
+https://www.wikidata.org/wiki/Wikidata:Licensing
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Source snapshots and the reproducible build script are retained in the development
+tests/fixtures directory. Ambiguous labels such as the Chetwood family name were
+not imported as places. The place uses its distinct verified Wikidata identity.
+Unattested spellings are not silently installed as permanent aliases.
+
+Tolkien Gateway remains a saved future reference. No content from that site
+has been imported. This is an independent reference aid, not an official Tolkien
+product. CC0 applies to Wikidata's structured data.
+
+The setting defaults to no pack and follows the Foundry world. Selecting Tolkien
+loads the local file only. Ordinary analysis never calls an external lookup or AI
+service. A unique typed reference can create a missing private World entry under
+Tome's decision policy; a reference never fabricates a Foundry UUID. Campaign
+identities, permissions, paused entries and explicit GM decisions are checked
+before a write. Library information is stored with its provenance and remains
+separate from session-derived campaign facts. Disabling the library stops its
+analysis assistance and does not delete campaign documents already created.

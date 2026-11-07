@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATCEL_ID = "adventurers-tome";
 const ATCEL_FLAG = "campaignEntityLinksV1";
 const ATCEL_LEGACY_FLAG = "links";
@@ -14,7 +15,7 @@ function atCelEscape(value) {
 }
 
 function atCelApp() {
-  try { return game.modules.get(ATCEL_ID)?.api?.app?.() || null; }
+  try { return globalThis.ATTestAI.modules.get(ATCEL_ID)?.api?.app?.() || null; }
   catch (_err) { return null; }
 }
 
@@ -37,7 +38,7 @@ function atCelNormalizeUuids(value) {
 
 function atCelAuthorityUuid(uuid) {
   const value = String(uuid || "").trim();
-  const identity = game.modules.get(ATCEL_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({ canonicalUuid:value });
+  const identity = globalThis.ATTestAI.modules.get(ATCEL_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({ canonicalUuid:value });
   const authority = String(identity?.authorityUuid || value).trim();
   // Keep broken/unavailable references in their original track for inspection.
   if (authority.startsWith("Actor.") && !atCelActorFromUuid(authority)) return value;
@@ -45,7 +46,7 @@ function atCelAuthorityUuid(uuid) {
 }
 
 function atCelCanonical(journal) {
-  const raw = journal?.getFlag?.(ATCEL_ID, ATCEL_FLAG);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATCEL_ID, ATCEL_FLAG);
   const links = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   const uuids = atCelNormalizeUuids([
     ...atCelNormalizeUuids(links.actorUuids), ...atCelNormalizeUuids(links.entityUuids)
@@ -57,7 +58,7 @@ function atCelCanonical(journal) {
 }
 
 function atCelLegacy(journal) {
-  const raw = journal?.getFlag?.(ATCEL_ID, ATCEL_LEGACY_FLAG);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATCEL_ID, ATCEL_LEGACY_FLAG);
   const links = raw && typeof raw === "object" && !Array.isArray(raw)
     ? foundry.utils.deepClone(raw)
     : {};
@@ -148,7 +149,7 @@ async function atCelResolveUuid(uuid) {
   const value = String(uuid || "").trim();
   if (!value) return null;
   try {
-    const resolver = game.modules.get(ATCEL_ID)?.api?.universalDocuments?.resolveCanonical;
+    const resolver = globalThis.ATTestAI.modules.get(ATCEL_ID)?.api?.universalDocuments?.resolveCanonical;
     if (typeof resolver === "function") {
       const resolved = await resolver(value, { consumer:"campaign-entity-links" });
       if (resolved) return resolved;
@@ -193,14 +194,16 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
     const canonical = atCelCanonical(source);
     const entityUuids = new Set(canonical.entityUuids);
     const sourceLegacy = atCelLegacy(source);
-    const worldIds = new Set(sourceLegacy.world.map(String));
+    const targetKind = target.documentName === 'JournalEntry' ? atCelJournalKind(target) : '';
+    const legacyKey = targetKind === 'session' ? 'sessions' : targetKind === 'quest' ? 'quests' : 'world';
+    const targetIds = new Set(sourceLegacy[legacyKey].map(String));
 
     if (linked) entityUuids.add(target.uuid);
     else entityUuids.delete(target.uuid);
 
     if (target.documentName === "JournalEntry") {
-      if (linked) worldIds.add(target.id);
-      else worldIds.delete(target.id);
+      if (linked) targetIds.add(target.id);
+      else targetIds.delete(target.id);
     }
 
     await atCelWriteDocument(source,{
@@ -210,7 +213,10 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
       },
       [`flags.${ATCEL_ID}.${ATCEL_LEGACY_FLAG}`]: {
         ...sourceLegacy,
-        world:[...worldIds]
+        [legacyKey]:[...targetIds],
+        // Older generic linking put every Journal target in world. Move only
+        // this proven Session/Quest target to its proper track on add/remove.
+        ...(legacyKey !== 'world' ? {world:sourceLegacy.world.filter(id => String(id) !== target.id)} : {})
       }
     }, {adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
 
@@ -263,7 +269,7 @@ function atCelFolderNames(folder) {
 
 function atCelJournalKind(journal) {
   if (!journal) return "";
-  const flagged = String(journal.getFlag?.(ATCEL_ID, "type") || "").toLowerCase();
+  const flagged = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATCEL_ID, "type") || "").toLowerCase();
   if (flagged === "sessions" || flagged === "session") return "session";
   if (flagged === "quests" || flagged === "quest") return "quest";
 
@@ -294,8 +300,8 @@ function atCelActors() {
   return [...(game.actors?.contents ?? [])]
     .filter((actor) => atCelCanView(actor))
     .sort((a, b) => {
-      const ag = a.getFlag?.(ATCEL_ID, ATCEL_GROUP_FLAG) === true ? 0 : 1;
-      const bg = b.getFlag?.(ATCEL_ID, ATCEL_GROUP_FLAG) === true ? 0 : 1;
+      const ag = globalThis.ATTestAI.flags(a).getFlag?.(ATCEL_ID, ATCEL_GROUP_FLAG) === true ? 0 : 1;
+      const bg = globalThis.ATTestAI.flags(b).getFlag?.(ATCEL_ID, ATCEL_GROUP_FLAG) === true ? 0 : 1;
       if (ag !== bg) return ag - bg;
       return a.name.localeCompare(b.name, game.i18n?.lang, { numeric: true });
     });
@@ -338,7 +344,7 @@ function atCelActorOptions(linkedIds = new Set()) {
   let otherOpen = false;
   const rows = ['<option value="">Choose character / NPC…</option>'];
   for (const actor of actors) {
-    const isGroup = actor.getFlag?.(ATCEL_ID, ATCEL_GROUP_FLAG) === true;
+    const isGroup = globalThis.ATTestAI.flags(actor).getFlag?.(ATCEL_ID, ATCEL_GROUP_FLAG) === true;
     if (isGroup && !groupOpen) {
       if (otherOpen) rows.push("</optgroup>");
       rows.push('<optgroup label="Group PCs">');
@@ -633,7 +639,7 @@ async function atCelRefresh() {
 async function atCelAddActor(manager) {
   const journal = game.journal?.get(String(manager.dataset.journalId || "")) || null;
   const uuid = String(manager.querySelector("[data-at-cel-actor-picker]")?.value || "");
-  const resolver = game.modules.get(ATCEL_ID)?.api?.universalDocuments?.resolveCanonical;
+  const resolver = globalThis.ATTestAI.modules.get(ATCEL_ID)?.api?.universalDocuments?.resolveCanonical;
   const actor = typeof resolver === "function"
     ? await resolver(uuid, { consumer: "campaign-entity-links" })
     : atCelActorFromUuid(uuid);
@@ -810,7 +816,7 @@ function atCelAudit() {
 
 Hooks.once("ready", () => {
   atCelInstallStyles();
-  const module = game.modules.get(ATCEL_ID);
+  const module = globalThis.ATTestAI.modules.get(ATCEL_ID);
   if (module?.api) {
     module.api.campaignEntityLinksAudit = atCelAudit;
     module.api.campaignEntityLinks = Object.freeze({

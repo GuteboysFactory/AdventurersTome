@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATKI_ID = "adventurers-tome";
 const ATKI_FLAG = "knownInformation";
 const ATKI_DELAY = 650;
@@ -18,21 +19,22 @@ function atKiRoot(element) {
 }
 
 function atKiProfile(journal) {
-  const raw = journal?.getFlag?.(ATKI_ID, "worldProfile");
-  return raw && typeof raw === "object" && !Array.isArray(raw) ? atKiClone(raw) : {};
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATKI_ID, "worldProfile");
+  return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
 function atKiIsWorld(journal) {
   return journal?.documentName === "JournalEntry" && (
-    String(journal.getFlag?.(ATKI_ID, "type") || "") === "world" ||
-    Boolean(journal.getFlag?.(ATKI_ID, "worldProfile"))
+    String(globalThis.ATTestAI.flags(journal).getFlag?.(ATKI_ID, "type") || "") === "world" ||
+    Boolean(globalThis.ATTestAI.flags(journal).getFlag?.(ATKI_ID, "worldProfile"))
   );
 }
 
 function atKiActorForJournal(journal) {
   if (!atKiIsWorld(journal)) return null;
   const profile = atKiProfile(journal);
-  const uuid = String(journal.getFlag?.(ATKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+  if (profile.category && !["npc","contact","character","pc","npc-group"].includes(profile.category)) return null;
+  const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
   const match = uuid.match(/^Actor\.([^\.]+)$/);
   if (match) return game.actors?.get(match[1]) || null;
   const actorId = String(profile.actorId || "").trim();
@@ -44,7 +46,8 @@ function atKiJournalsForActor(actor) {
   return [...(game.journal?.contents ?? [])].filter((journal) => {
     if (!atKiIsWorld(journal)) return false;
     const profile = atKiProfile(journal);
-    const uuid = String(journal.getFlag?.(ATKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+    if (profile.category && !["npc","contact","character","pc","npc-group"].includes(profile.category)) return false;
+    const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
     return uuid === actor.uuid || String(profile.actorId || "") === String(actor.id);
   });
 }
@@ -52,7 +55,7 @@ function atKiJournalsForActor(actor) {
 function atKiPrimaryPage(journal) {
   if (!journal) return null;
   const profile = atKiProfile(journal);
-  const preferred = String(journal.getFlag?.(ATKI_ID, "worldSyncPage") || profile.syncPageId || "").trim();
+  const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATKI_ID, "worldSyncPage") || profile.syncPageId || "").trim();
   const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   return pages.find((page) => page.id === preferred && String(page.type || "text").toLowerCase() === "text")
     || pages.find((page) => String(page.type || "text").toLowerCase() === "text")
@@ -83,7 +86,7 @@ function atKiHtmlFromPlain(value) {
 }
 
 function atKiPayload(actor) {
-  const raw = actor?.getFlag?.(ATKI_ID, ATKI_FLAG);
+  const raw = globalThis.ATTestAI.flags(actor)?.getFlag?.(ATKI_ID, ATKI_FLAG);
   if (typeof raw === "string") return { html: atKiCleanHtml(raw), updatedAt: 0 };
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     return { html: atKiCleanHtml(raw.html || ""), updatedAt: Number(raw.updatedAt || 0), sourceJournalUuid: String(raw.sourceJournalUuid || "") };
@@ -105,12 +108,12 @@ function atKiCanEdit(actor, journal) {
     if (actor?.isOwner || actor?.testUserPermission?.(game.user, "OWNER")) return true;
     if (journal?.isOwner || journal?.testUserPermission?.(game.user, "OWNER")) return true;
   } catch (_err) {}
-  const editors = journal?.getFlag?.(ATKI_ID, "worldEditors");
+  const editors = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATKI_ID, "worldEditors");
   return Array.isArray(editors) && editors.map(String).includes(String(game.user?.id || ""));
 }
 
 function atKiApp() {
-  try { return game.modules.get(ATKI_ID)?.api?.app?.(); }
+  try { return globalThis.ATTestAI.modules.get(ATKI_ID)?.api?.app?.(); }
   catch (_err) { return null; }
 }
 
@@ -150,8 +153,9 @@ async function atKiMirrorJournal(actor, html) {
     }
     const profile = atKiProfile(journal);
     if (String(profile.body || "") !== plain) {
-      profile.body = plain;
-      await journal.update({ [`flags.${ATKI_ID}.worldProfile`]: profile }, {
+      const updated = atKiClone(profile);
+      updated.body = plain;
+      await journal.update({ [`flags.${ATKI_ID}.worldProfile`]: updated }, {
         render: false,
         noHook: true,
         adventurersTomeKnownInformationMirror: true
@@ -391,17 +395,31 @@ function atKiQueueTome() {
   });
 }
 
+async function atKiSeedWorld() {
+  const owner = () => `${game.world?.id || ''}:${game.user?.id || ''}`, scope = owner();
+  let started = globalThis.performance?.now?.() ?? Date.now();
+  for (const journal of [...(game.journal?.contents ?? [])]) {
+    const now = globalThis.performance?.now?.() ?? Date.now();
+    if (now - started >= 4) {
+      if (globalThis.AdventurersTomeBackground?.checkpoint) await globalThis.AdventurersTomeBackground.checkpoint();
+      else await new Promise(resolve => setTimeout(resolve, 0));
+      started = globalThis.performance?.now?.() ?? Date.now();
+    }
+    if (!game.user?.isGM || owner() !== scope) return;
+    const actor = atKiActorForJournal(journal);
+    if (actor) {
+      try { await atKiEnsureSeed(actor, journal); }
+      catch (error) { console.warn(`Adventurer's Tome | Could not seed Actor Known Information for ${actor.name}`, error); }
+    }
+  }
+}
+
 Hooks.once("ready", () => {
   const observer = new MutationObserver(atKiQueueTome);
   observer.observe(document.body, { childList: true, subtree: true });
   atKiQueueTome();
   if (game.user?.isGM) {
-    setTimeout(() => {
-      for (const journal of game.journal?.contents ?? []) {
-        const actor = atKiActorForJournal(journal);
-        if (actor) void atKiEnsureSeed(actor, journal).catch((error) => console.warn(`Adventurer's Tome | Could not seed Actor Known Information for ${actor.name}`, error));
-      }
-    }, 700);
+    setTimeout(() => {void atKiSeedWorld().catch(error => console.warn("Adventurer's Tome | Known Information seed failed safely", error));}, 700);
   }
 });
 

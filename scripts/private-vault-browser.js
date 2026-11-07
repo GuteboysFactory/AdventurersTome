@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const PVB_MODULE_ID = "adventurers-tome";
 const PVB_VAULT_SETTING = "gmContextualPrivateVaultV2";
 const PVB_LINKS_FLAG = "links";
@@ -34,7 +35,7 @@ function pvbIsTomeApp(app) {
 
 function pvbVault() {
   if (!game.user?.isGM) return { records: {} };
-  const raw = pvbParse(game.settings.get(PVB_MODULE_ID, PVB_VAULT_SETTING), {});
+  const raw = pvbParse(globalThis.ATTestAI.settings.get(PVB_MODULE_ID, PVB_VAULT_SETTING), {});
   return {
     schema: String(raw?.schema || "adventurers-tome.private-vault"),
     version: Number(raw?.version || 2),
@@ -56,14 +57,15 @@ function pvbDocumentFromUuid(uuid) {
 }
 
 function pvbWorldProfile(journal) {
-  const raw = journal?.getFlag?.(PVB_MODULE_ID, PVB_PROFILE_FLAG);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(PVB_MODULE_ID, PVB_PROFILE_FLAG);
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
 function pvbLinkedActor(journal) {
   if (journal?.documentName !== "JournalEntry") return null;
   const profile = pvbWorldProfile(journal);
-  const sourceUuid = String(journal.getFlag?.(PVB_MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+  if (profile.category && !["npc","contact","character","pc","npc-group"].includes(profile.category)) return null;
+  const sourceUuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(PVB_MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
   const match = sourceUuid.match(/^Actor\.([^\.]+)$/);
   if (match) return game.actors?.get(match[1]) || null;
   const actorId = String(profile.actorId || "").trim();
@@ -74,7 +76,8 @@ function pvbLinkedJournals(actor) {
   if (actor?.documentName !== "Actor") return [];
   return [...(game.journal?.contents ?? [])].filter((journal) => {
     const profile = pvbWorldProfile(journal);
-    const sourceUuid = String(journal.getFlag?.(PVB_MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+    if (profile.category && !["npc","contact","character","pc","npc-group"].includes(profile.category)) return false;
+    const sourceUuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(PVB_MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
     return sourceUuid === actor.uuid || String(profile.actorId || "") === String(actor.id);
   });
 }
@@ -115,7 +118,7 @@ function pvbDocumentKind(document, record = {}) {
   if (document?.documentName === "Item") return "Item";
   if (document?.documentName === "Scene") return "Scene";
   if (document?.documentName === "JournalEntry") {
-    const raw = String(document.getFlag?.(PVB_MODULE_ID, "type") || "").toLowerCase();
+    const raw = String(globalThis.ATTestAI.flags(document).getFlag?.(PVB_MODULE_ID, "type") || "").toLowerCase();
     if (raw === "session") return "Session";
     if (raw === "quest") return "Quest";
     if (raw === "world") return "World";
@@ -163,7 +166,7 @@ function pvbCanonicalRecords() {
 }
 
 function pvbLinks(document) {
-  const raw = document?.getFlag?.(PVB_MODULE_ID, PVB_LINKS_FLAG);
+  const raw = globalThis.ATTestAI.flags(document)?.getFlag?.(PVB_MODULE_ID, PVB_LINKS_FLAG);
   const source = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   const clean = (value) => [...new Set((Array.isArray(value) ? value : []).map((id) => String(id || "").trim()).filter(Boolean))];
   return {
@@ -175,7 +178,7 @@ function pvbLinks(document) {
 }
 
 function pvbJournalKind(journal) {
-  const type = String(journal?.getFlag?.(PVB_MODULE_ID, "type") || "").toLowerCase();
+  const type = String(globalThis.ATTestAI.flags(journal)?.getFlag?.(PVB_MODULE_ID, "type") || "").toLowerCase();
   if (["session", "quest", "world", "rule"].includes(type)) return type;
   const folder = String(journal?.folder?.name || "").toLowerCase();
   if (folder.includes("session")) return "session";
@@ -398,7 +401,7 @@ function pvbInstallTomeButton(app, element) {
 Hooks.once("ready", () => {
   if (!game.user?.isGM) return;
   pvbInstallStyle();
-  const module = game.modules.get(PVB_MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(PVB_MODULE_ID);
   if (module) {
     const api = module.api && typeof module.api === "object" ? module.api : {};
     module.api = { ...api, privateVaultBrowser: { open: pvbOpenBrowser, list: pvbCanonicalRecords } };

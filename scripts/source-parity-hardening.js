@@ -1,22 +1,23 @@
+globalThis.ATTestAI.assertEnabled();
 const AT_SPH_ID = "adventurers-tome";
 const AT_SPH_PROFILE = "worldProfile";
 let atSphRenderTimer = null;
 
 function atSphProfile(journal) {
-  const raw = journal?.getFlag?.(AT_SPH_ID, AT_SPH_PROFILE);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(AT_SPH_ID, AT_SPH_PROFILE);
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
 function atSphIsWorld(journal) {
   return journal?.documentName === "JournalEntry" && (
-    String(journal.getFlag?.(AT_SPH_ID, "type") || "") === "world" ||
-    Boolean(journal.getFlag?.(AT_SPH_ID, AT_SPH_PROFILE))
+    String(globalThis.ATTestAI.flags(journal).getFlag?.(AT_SPH_ID, "type") || "") === "world" ||
+    Boolean(globalThis.ATTestAI.flags(journal).getFlag?.(AT_SPH_ID, AT_SPH_PROFILE))
   );
 }
 
 function atSphActorUuid(journal) {
   const profile = atSphProfile(journal);
-  const uuid = String(journal.getFlag?.(AT_SPH_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+  const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(AT_SPH_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
   if (uuid.startsWith("Actor.")) return uuid;
   const actorId = String(profile.actorId || "").trim();
   return actorId ? `Actor.${actorId}` : "";
@@ -62,14 +63,14 @@ function atSphRenderOpenTome(delay = 80) {
   clearTimeout(atSphRenderTimer);
   atSphRenderTimer = setTimeout(() => {
     try {
-      const app = game.modules.get(AT_SPH_ID)?.api?.app?.();
+      const app = globalThis.ATTestAI.modules.get(AT_SPH_ID)?.api?.app?.();
       if (app?.rendered) app.render({ parts: ["main"] });
     } catch (_err) {}
   }, delay);
 }
 
 Hooks.once("ready", () => {
-  const module = game.modules.get(AT_SPH_ID);
+  const module = globalThis.ATTestAI.modules.get(AT_SPH_ID);
   if (module) {
     const api = module.api && typeof module.api === "object" ? module.api : {};
     module.api = { ...api, sourceParityAudit: atSphAudit };

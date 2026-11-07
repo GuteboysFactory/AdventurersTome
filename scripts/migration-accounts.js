@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Explicitly requested Player accounts are created only when Do Import runs. */
 (() => {
   function propose(env,data,previous={}){

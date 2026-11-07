@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-confirmed-entity-creation";
 const VERSION = 2;
@@ -43,7 +44,7 @@ function clone(value) {
 }
 
 function moduleApi() {
-  return game.modules.get(MODULE_ID)?.api || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api || null;
 }
 
 function learningApi() {
@@ -87,7 +88,9 @@ function plan({ text, kind = "unknown", sourceUuid = "", semanticType = "" } = {
   if (!name) throw new Error("Candidate name is required.");
 
   const confirmed = confirmedDecision(name, sourceUuid);
-  const exactMatches = visibleExactMatches(name);
+  const reference=semanticType==='location'?moduleApi()?.worldKnowledge?.lookup?.(name):null;
+  const proposedName=reference?.status==='recognized'?reference.references[0].name:name;
+  const exactMatches = [...visibleExactMatches(name),...(proposedName!==name?visibleExactMatches(proposedName):[])];
   const inferredType = clean(semanticType || defaultSemanticType(confirmed?.kind || kind));
   const supportedType = SEMANTIC_TYPES.some((entry) => entry.type === inferredType);
 
@@ -95,6 +98,7 @@ function plan({ text, kind = "unknown", sourceUuid = "", semanticType = "" } = {
     contract:CONTRACT,
     version:VERSION,
     text:name,
+    proposedName,
     kind:clean(confirmed?.kind || kind || "unknown").toLowerCase(),
     sourceUuid:clean(sourceUuid),
     semanticType:supportedType ? inferredType : "lore",
@@ -102,8 +106,8 @@ function plan({ text, kind = "unknown", sourceUuid = "", semanticType = "" } = {
     confirmed:Boolean(confirmed),
     decision:clone(confirmed),
     exactMatches:clone(exactMatches),
-    duplicateBlocked:exactMatches.length > 0,
-    createEligible:Boolean(confirmed) && exactMatches.length === 0,
+    duplicateBlocked:exactMatches.length > 0 && !moduleApi()?.identityConflicts,
+    createEligible:Boolean(confirmed) && (exactMatches.length === 0 || Boolean(moduleApi()?.identityConflicts)),
     requiresExplicitApply:true,
     campaignLinkWrite:false
   });
@@ -155,7 +159,7 @@ async function apply(input = {}, automaticCandidate = null) {
 
   const prepared = plan(input);
   if (!prepared.confirmed && !automaticCandidate) throw new Error("Candidate must be explicitly Confirmed before creation.");
-  if (prepared.duplicateBlocked) {
+  if (prepared.duplicateBlocked || automaticCandidate && prepared.exactMatches.length) {
     duplicateBlocks += 1;
     throw new Error("An existing canonical campaign entity already has this exact name. Use Link Existing instead.");
   }
@@ -178,8 +182,8 @@ async function apply(input = {}, automaticCandidate = null) {
 
     const result = await quickCreate.quickCreate(folder, {
       blank:true,
-      initialName:prepared.text,
-      name:prepared.text,
+      initialName:prepared.proposedName,
+      name:prepared.proposedName,
       initialQuery:"",
       closeAfterCreate:true,
       openAfterCreate:false,
@@ -284,7 +288,7 @@ function identityFamily(kind) {
 }
 
 function identityAliases(target, document) {
-  const profile = document?.getFlag?.(MODULE_ID, document.documentName === "Actor" ? "actorProfile" : "worldProfile") || {};
+  const profile = globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, document.documentName === "Actor" ? "actorProfile" : "worldProfile") || {};
   const values = [target?.aliases, target?.attributes?.aliases, profile.aliases].flatMap((value) => Array.isArray(value) ? value : typeof value === "string" ? [value] : []);
   for (const fact of profile.facts || []) {
     if (/^(alias|aliases|nickname|known as|called|smeknamn|känd som)$/iu.test(clean(fact.label))) values.push(...clean(fact.value).split(/[,;|]/u));
@@ -315,8 +319,8 @@ function assessExistingMatch({ text, kind="unknown", sourceUuid="", target={}, e
   // another entity's UUID. Assess the current document, not that stale label.
   const name = normalize(currentIdentityName || document?.name || target.name).replace(/^the /u,"");
   const wanted = normalize(text).replace(/^the /u,"");
-  const profile = document?.getFlag?.(MODULE_ID,"worldProfile");
-  const documentKind = normalize(document?.getFlag?.(MODULE_ID,"type"));
+  const profile = globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID,"worldProfile");
+  const documentKind = normalize(globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID,"type"));
   const folderNames = [];
   const seen = new Set();
   for(let folder=document?.folder;folder && typeof folder === "object" && !seen.has(folder.id);folder=typeof folder.folder === "object" ? folder.folder : game.folders?.get(folder.folder)) {
@@ -330,11 +334,22 @@ function assessExistingMatch({ text, kind="unknown", sourceUuid="", target={}, e
   const targetFamily = identityFamily(authorityDocument?.documentName === "Actor" ? "person" : authorityDocument?.documentName === "Item" ? "item" : profile?.category || target.kind);
   const rejected = {eligible:false,safe:false,reason:"no-safe-name-evidence",authorityUuid};
   const explicit = explicitUuid && (explicitUuid === uuid || explicitUuid === authorityUuid);
+  if (!document || document.parent || typeof document.update !== 'function') {
+    return {...rejected,eligible:Boolean(wanted && wanted===name),reason:'identity-is-not-a-linkable-world-root'};
+  }
   if (!uuid || !wanted || !name || uuid === sourceUuid || authorityUuid === sourceUuid) return {...rejected,reason:"not-a-compatible-campaign-entity"};
   if ((campaignSource || ["session","quest","rule"].includes(targetFamily)) && !(explicit && ["session","quest","rule"].includes(family))) return {...rejected,reason:"not-a-compatible-campaign-entity"};
+  if (globalThis.AdventurersTomeDecisionPolicy?.documentRole(document)==='template'&&!explicit)return {...rejected,reason:'template-is-not-a-campaign-person'};
   if (explicit) return {eligible:true,safe:true,reason:"explicit-canonical-identity",authorityUuid};
+  const referenceDecision=wanted===name?moduleApi()?.testAILanguage?.resolveCatalogue?.(text,sourceUuid):null;
+  if(referenceDecision?.reason==='library-entity-type-conflict')return {...rejected,eligible:true,reason:'library-entity-type-conflict'};
   if (family && targetFamily && family !== targetFamily) return {...rejected,reason:"incompatible-entity-type"};
   if (wanted === name) return {eligible:true,safe:true,rank:100,reason:"exact-normalized-full-name",authorityUuid};
+  // The same attested catalogue policy used by discovery must survive the
+  // final precision gate. It cannot override type, source, permission or GM
+  // unlink guards above, and ambiguous forms never become safe matches.
+  const supported=moduleApi()?.testAILanguage?.resolveCatalogue?.(text,sourceUuid);
+  if(supported?.status==='matched'&&[uuid,authorityUuid].includes(supported.target?.uuid))return {eligible:true,safe:true,rank:96,reason:'tome-catalogue-'+supported.reason,authorityUuid};
   const language=globalThis.AdventurersTomeLanguage;
   const wantedForm=language.nameForm(wanted),targetForm=language.nameForm(name);
   if(targetFamily==='person' && wantedForm.normalized===targetForm.normalized
@@ -372,12 +387,15 @@ function possibleDuplicates(text, kind="unknown", sourceUuid="") {
   const rows = [
     ...(identities || []),
     ...(game.actors?.contents || []), ...(game.items?.contents || []),
-    ...(game.journal?.contents || []).filter((doc) => doc.getFlag?.(MODULE_ID, "worldProfile"))
+    ...(game.journal?.contents || []).filter((doc) => globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID, "worldProfile"))
   ];
   const matches = new Map();
   for (const row of rows) {
     const uuid = clean(row.canonicalUuid || row.uuid);
-    const target={name:row.name,canonicalUuid:uuid,kind:row.kind || row.getFlag?.(MODULE_ID,"worldProfile")?.category || (row.documentName === "Actor" ? "character" : row.documentName === "Item" ? "item" : "entity"),aliases:row.aliases};
+    // Catalogues also contain folders and embedded/document presentations.
+    // Their labels organise data; they cannot be duplicate root identities.
+    if(!/^(Actor|Item|JournalEntry)\.[^.]+$/u.test(uuid))continue;
+    const target={name:row.name,canonicalUuid:uuid,kind:row.kind || globalThis.ATTestAI.flags(row).getFlag?.(MODULE_ID,"worldProfile")?.category || (row.documentName === "Actor" ? "character" : row.documentName === "Item" ? "item" : "entity"),aliases:row.aliases};
     // A freshly read adapter identity can legitimately use a source name that
     // differs from the Foundry document's display name. Persisted Review labels
     // do not receive this authority.
@@ -425,115 +443,11 @@ async function resolveCandidates(rows = [], options = {}) {
       options.assertCurrent?.();
       const result = { ...clone(row), outcome:"REVIEW", outcomeReason:"insufficient-identity-evidence", targetUuid:"", identityCandidates:[] };
       try {
-        const sourceUuid = row.sourceJournalUuid;
-        const learned = learningApi()?.decisionFor?.(row.text, { sourceUuid });
-        if (["suppressed","source-ignored"].includes(learned?.action)) {
-          result.outcomeReason = `gm-${learned.action}`;
-          results.push(result);
-          continue;
-        }
-        if (!moduleApi()?.campaignDeterministicAutoLink?.resolveIdentity) {
-          throw new Error("Identity resolution is unavailable; this candidate requires GM review.");
-        }
-        const exact = moduleApi().campaignDeterministicAutoLink.resolveIdentity({ text:row.text, sourceUuid });
-        const strongType = Number(row.classification?.confidence || 0) >= 0.68
-          && (row.classification?.signals || []).some((signal)=>/-suffix$|-lexeme$|person-role-apposition|character-title|faction-name-prefix|document-title-source-role/u.test(signal));
-        const matchingKind = strongType ? row.classification?.kind : "unknown";
-        result.resolutionKind = matchingKind;
-        let matches = possibleDuplicates(row.text,matchingKind,sourceUuid);
-        // A guessed type must not hide an existing exact-name identity and
-        // lead to a duplicate creation attempt. Lexical suffix guesses yield
-        // to an exact identity; attached contradictory evidence stays in Review.
-        if(strongType) {
-          const attachedType=(row.classification?.signals || []).some(signal=>
-            /person-role-apposition|character-title|faction-name-prefix|document-title-source-role|location-source-role/u.test(signal));
-          for(const candidate of possibleDuplicates(row.text,'unknown',sourceUuid)) {
-            if(normalize(candidate.name)!==normalize(row.text) || matches.some(old=>old.match.authorityUuid===candidate.match.authorityUuid))continue;
-            matches.push({...candidate,match:{...candidate.match,safe:!attachedType && candidate.match.safe,
-              reason:attachedType?'source-type-conflict':candidate.match.reason}});
-          }
-        }
-        const pausedMatches=matches.filter(target=>learningApi()?.isPaused?.(target.match.authorityUuid));
-        matches=matches.filter(target=>!learningApi()?.isPaused?.(target.match.authorityUuid));
-        // A nearby full name can anchor a later first name in this source only.
-        // Never persist a global alias or choose between competing identities.
-        if(matches.length===1 && !row.ambiguousSourceReference && matches[0].match.reason==='personal-name-fragment') {
-          const candidate=matches[0],form=globalThis.AdventurersTomeLanguage.nameForm(candidate.name);
-          const first=normalize(form.text).split(' ')[0];
-          const mentions=row.mentions || [];
-          const full=normalize(form.text);
-          const page=await fromUuid(row.sourcePageUuid);
-          const host=document.createElement('div');host.innerHTML=String(page?.text?.content||'');
-          const sourceText=String(host.textContent||'').trim().replace(/\s+/gu,' ');
-          const anchored=first===normalize(row.text)&&mentions.length>0&&mentions.every(mention=>{
-            if(!Number.isInteger(mention.start)||mention.start<0||normalize(sourceText.slice(mention.start,mention.end))!==normalize(row.text))return false;
-            const context=normalize(sourceText.slice(Math.max(0,mention.start-240),mention.start));
-            const at=context.lastIndexOf(full);
-            const after=at<0?'':context.slice(at+full.length);
-            return at>=0 && (at===0||context[at-1]===' ') && (after===''||after.startsWith(' '))
-              && !/\b(?:which|either|another|different|vilken|endera|annan|annat)\b/u.test(after);
-          });
-          if(anchored)matches=[{...candidate,match:{...candidate.match,safe:true,rank:92,reason:'nearby-source-full-name'}}];
-        }
-        const safeMatches = matches.filter((target)=>target.match.safe);
-        result.identityAmbiguous = safeMatches.length > 1 || row.ambiguousSourceReference === true;
-        const scoped = moduleApi()?.campaignSourceScopedIdentity?.resolveMention?.({ text:row.text, sourceUuid, sourcePageUuid:row.sourcePageUuid });
-        if(scoped?.confirmedChoice && !scoped.authorityUuid && !learned?.campaignDefault) {
-          result.identityAmbiguous=scoped.identityAmbiguous;
-          result.identityCandidates=scoped.candidates || [];
-          result.outcomeReason=scoped.reason;
-          results.push(result);continue;
-        }
-        result.identityChoice=scoped?.identityChoice || null;
-        const chosen = (learned?.sourceChoice || learned?.action === "created") && learned.sourceUuid === sourceUuid
-          ? await fromUuid(learned.targetUuid) : null;
-        const preferred=learned?.campaignDefault ? await fromUuid(learned.targetUuid) : null;
-        if(learned?.campaignDefault && !preferred) {result.outcomeReason='campaign-default-identity-deleted';results.push(result);continue;}
-        if (learned?.sourceChoice && !chosen?.uuid) {
-          result.outcomeReason = "gm-selected-identity-deleted";
-          results.push(result);
-          continue;
-        }
-        const exactSafe = exact?.deterministic && matches.some((target)=>target.match.safe && target.match.authorityUuid === exact.targetUuid);
-        const scopedUuid=!scoped?.identityAmbiguous && (scoped?.confirmedChoice || scoped?.sourceInline || scoped?.sourceCanonical) ? scoped.authorityUuid : '';
-        const selectedUuid = chosen?.uuid || scopedUuid || preferred?.uuid || (row.ambiguousSourceReference ? '' : exactSafe ? exact.targetUuid : safeMatches.length === 1 ? safeMatches[0].match.authorityUuid : '');
-        const targetUuid = selectedUuid ? moduleApi()?.campaignIdentityReconciliation?.identityFor?.({ canonicalUuid:selectedUuid })?.authorityUuid || selectedUuid : "";
-        if (chosen?.uuid) result.identityAmbiguous = false;
-        if (targetUuid) {
-          result.targetUuid = targetUuid;
-          const journal = await fromUuid(sourceUuid);
-          const blocked = journal?.getFlag?.(MODULE_ID,"campaignAutoLinkPolicyV1")?.suppressedTargetUuids?.includes(targetUuid);
-          if (blocked) result.outcomeReason = "gm-unlink-suppression";
-          else {
-            options.assertCurrent?.();
-            if (!campaignLinksApi()?.hasCanonicalLink?.({ sourceUuid, targetUuid })) {
-              await campaignLinksApi().linkCanonical({ sourceUuid, targetUuid });
-            }
-            result.outcome = learned?.action === "created" && learned.targetUuid === targetUuid
-              && learned.sourceUuid === sourceUuid ? "CREATED" : "LINKED";
-            result.outcomeReason = "single-canonical-identity";
-          }
-        } else {
-          result.identityCandidates = matches;
-          if (result.identityAmbiguous || result.identityCandidates.length) result.outcomeReason = "possible-duplicate-or-ambiguous-identity";
-          else if(pausedMatches.length)result.outcomeReason='automatic-matching-paused';
-          else {
-            result.outcomeReason = "no-safe-existing-match";
-            if(globalThis.AdventurersTomeIndex?.historicalForName?.(row.text)?.length) {
-              result.outcomeReason='A previous identity with this name was deleted. Link an existing identity or deliberately create a new one.';
-              results.push(result);continue;
-            }
-            const semanticType = automaticType(row);
-            const activeGM = game.users?.activeGM;
-            if (options.allowCreate !== false && semanticType && (!activeGM || activeGM.id === game.user.id)) {
-              const created = await apply({ text:row.text, kind:row.classification.kind, sourceUuid, semanticType }, row);
-              result.targetUuid = created.targetUuid || "";
-              result.outcome = created.created && created.campaignLinked ? "CREATED" : "REVIEW";
-              result.outcomeReason = created.campaignLinkError || (created.cancelled ? "creation-cancelled" : "clear-new-identity");
-            }
-          }
-        }
+        const integrated=moduleApi()?.integratedInterpretation;
+        if(integrated){results.push(await integrated.resolve(row,options));continue;}
+        throw Error('Integrated interpretation is not ready; automatic writes are paused.');
       } catch (error) {
+        if(error.code==="TOME_INDEX_STALE")throw error;
         result.outcome = "REVIEW";
         result.outcomeReason = String(error?.message || error);
         console.warn("Adventurer's Tome | Candidate requires GM review", row.text, error);
@@ -618,7 +532,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignEntityCreation = publicApi;
@@ -631,5 +545,6 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.campaignEntityCreation !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityCreation !== publicApi) attach();
 });
+

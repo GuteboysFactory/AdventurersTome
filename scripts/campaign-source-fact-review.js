@@ -1,8 +1,9 @@
+globalThis.ATTestAI.assertEnabled();
 // Both fact stores retain their ownership. Full undo snapshots are user-private.
 const ATSFR_ID='adventurers-tome',ATSFR_UNDO='sourceFactCorrectionUndo';
 const atSfrClone=value=>foundry.utils.deepClone(value);
 const atSfrEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-const atSfrApi=()=>game.modules.get(ATSFR_ID)?.api;
+const atSfrApi=()=>globalThis.ATTestAI.modules.get(ATSFR_ID)?.api;
 function atSfrStore() {
   const store=atSfrApi()?.privateFactStore;
   if(!store?.read || !store?.write)throw Error('Private fact storage is unavailable. Reopen the review when Tome is ready.');
@@ -10,17 +11,17 @@ function atSfrStore() {
 }
 function atSfrUndoRecords() {
   if(!game.user?.isGM)return {};
-  try{return JSON.parse(game.settings.get(ATSFR_ID,ATSFR_UNDO)||'{}');}catch{return {};}
+  try{return JSON.parse(globalThis.ATTestAI.settings.get(ATSFR_ID,ATSFR_UNDO)||'{}');}catch{return {};}
 }
 async function atSfrSaveUndo(records) {
   if(!game.user?.isGM)throw Error('GM-only source correction.');
-  await game.settings.set(ATSFR_ID,ATSFR_UNDO,JSON.stringify(records));
+  await globalThis.ATTestAI.settings.set(ATSFR_ID,ATSFR_UNDO,JSON.stringify(records));
 }
 async function atSfrPlan({targetUuid,sourceUuid,text}={}) {
   if(!game.user?.isGM)return null;
   const target=await fromUuid(targetUuid),source=await fromUuid(sourceUuid);
   if(!target || target.documentName!=='JournalEntry' || !source || source.documentName!=='JournalEntry')throw Error('Select an existing World journal and source.');
-  const profile=target.getFlag(ATSFR_ID,'worldProfile');if(!profile)throw Error('This identity has no World profile.');
+  const profile=globalThis.ATTestAI.flags(target).getFlag(ATSFR_ID,'worldProfile');if(!profile)throw Error('This identity has no World profile.');
   const privateFacts=atSfrStore().read(target);
   const html=(source.pages?.contents||[]).filter(page=>page.testUserPermission?.(game.user,'OBSERVER')!==false).map(page=>page.text?.content||'').join('\n');
   const briefing=atSfrApi()?.campaignNewEntityDiscovery?.briefingFor?.({text:html,names:[target.name,text]});
@@ -52,7 +53,7 @@ function atSfrUndoStatus(row) {
   try {
     const payload=atSfrPayload(row),id=/^JournalEntry\.([^.]+)$/.exec(row.targetUuid)?.[1],target=game.journal.get(id);
     if(!target)return 'The corrected identity no longer exists';
-    if(!atSfrEqual(payload.before.profile,payload.after.profile) && !atSfrEqual(target.getFlag(ATSFR_ID,'worldProfile'),payload.after.profile))return 'This profile has changed since the correction';
+    if(!atSfrEqual(payload.before.profile,payload.after.profile) && !atSfrEqual(globalThis.ATTestAI.flags(target).getFlag(ATSFR_ID,'worldProfile'),payload.after.profile))return 'This profile has changed since the correction';
     if(!atSfrEqual(payload.before.privateFacts,payload.after.privateFacts) && !atSfrEqual(atSfrStore().read(target),payload.after.privateFacts))return 'Private facts have changed since the correction';
     return '';
   }catch(error){return error.message;}
@@ -96,5 +97,5 @@ async function atSfrApply(plan,keys=[]) {
   }catch(error){await atSfrSaveUndo(oldRecords);throw error;}
   return {changed:true};
 }
-Hooks.once('init',()=>game.settings.register(ATSFR_ID,ATSFR_UNDO,{scope:'user',config:false,type:String,default:'{}'}));
-Hooks.once('ready',()=>{const module=game.modules.get(ATSFR_ID);module.api||={};module.api.sourceFactReview=Object.freeze({plan:atSfrPlan,apply:atSfrApply,undoStatus:atSfrUndoStatus,undo:atSfrUndo});});
+Hooks.once('init',()=>globalThis.ATTestAI.settings.register(ATSFR_ID,ATSFR_UNDO,{scope:'user',config:false,type:String,default:'{}'}));
+Hooks.once('ready',()=>{const module=globalThis.ATTestAI.modules.get(ATSFR_ID);module.api||={};module.api.sourceFactReview=Object.freeze({plan:atSfrPlan,apply:atSfrApply,undoStatus:atSfrUndoStatus,undo:atSfrUndo});});

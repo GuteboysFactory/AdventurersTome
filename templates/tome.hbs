@@ -578,6 +578,7 @@
       <div><span class="at-kicker">Lore & discovery</span><h1>World</h1><p>People, places, factions, items, and lore discovered during play.</p></div>
       {{#if isGM}}<div class="at-world-heading-tools"><button type="button" class="at-primary" data-action="openQuickNpc"><i class="fa-solid fa-user-plus"></i> Quick NPC</button><small class="at-world-hint"><i class="fa-solid fa-wand-magic-sparkles"></i> Put Journals in the World folders, then give them a Tome profile here.</small></div>{{/if}}
     </section>
+    {{#unless useWorldExplorer}}
     {{#each worldGroups}}
     <section class="at-world-category">
       <div class="at-world-category-heading"><h2><i class="fa-solid {{icon}}"></i> {{label}}</h2><span>{{entries.length}}</span></div>
@@ -592,6 +593,7 @@
       </div>
     </section>
     {{else}}<div class="at-empty at-wide">No world journals yet. Put Journal Entries in Adventurer's Tome → World.</div>{{/each}}
+    {{/unless}}
   </main>
   {{/if}}
 
@@ -837,9 +839,10 @@
           </button>
           <button type="button" class="at-favorite-icon {{#if isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{refKey}}" title="{{#if isFavorite}}Remove from favorites{{else}}Add to favorites{{/if}}"><i class="{{#if isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i></button>
         </article>
-        {{else}}<div class="at-empty at-wide">There is nothing indexed yet.</div>{{/each}}
+        {{else}}<div class="at-empty at-wide">No matching Tome entries. Try another search or category.</div>{{/each}}
         <div class="at-empty at-wide at-search-no-results" data-at-search-empty hidden>No matching Tome entries. Try another search or category.</div>
       </div>
+      {{#if searchState.hasMore}}<button type="button" class="at-secondary" data-at-search-more>Show more results · {{searchState.shown}} of {{searchState.total}}</button>{{/if}}
     </section>
 
   </main>
@@ -1163,6 +1166,7 @@
                 <span class="at-analysis-state">{{attentionLabel}}</span>
                 <h4>{{question}}</h4>
                 <p>{{snippet}}</p>
+                {{#if worldReferenceHint}}<p class="at-guided-candidate-reason">{{worldReferenceHint}}</p>{{/if}}
               </div>
               <button type="button" class="at-secondary at-guided-source" data-action="openMentionSource" data-source-uuid="{{sourceUuid}}" data-page-uuid="{{sourcePageUuid}}"><i class="fa-solid fa-arrow-up-right-from-square"></i> Source</button>
             </header>
@@ -1294,12 +1298,17 @@
 
       <div class="at-analysis-safety">
         <i class="fa-solid fa-shield-halved"></i>
-        <span><strong>GM-authoritative decisions:</strong> Tome may recommend an action, but only your explicit click creates a Campaign Link or dismisses a question for this source. Nothing is auto-created.</span>
+        <span><strong>Your decisions stay authoritative:</strong> Tome links clear identities and adds verified library entries automatically. Uncertain identities and conflicting types wait for your decision here.</span>
       </div>
     </section>
     {{/if}}
 
     {{#if isCampaignToolsAssistant}}
+
+    <section class="at-campaign-assistant-workspace at-session-briefing" data-at-session-briefing>
+      <div class="at-section-title"><div><span class="at-kicker">Campaign Brain · Session sources</span><h2><i class="fa-solid fa-book-open"></i> Prepare from recent sessions</h2><p>Read your recent Chronicles and revisit linked people and places. Works without Quests.</p></div><button type="button" class="at-primary" data-at-briefing-refresh>Build / Refresh briefing</button></div>
+      <div data-at-briefing-output aria-live="polite"><p>Build a briefing when you need it. This reads session text only and changes no campaign records.</p></div>
+    </section>
     <section class="at-campaign-assistant-grid">
       <article class="at-campaign-assistant-card">
         <i class="fa-solid fa-calendar-check"></i>
@@ -1393,6 +1402,11 @@
     <section class="at-page-heading at-page-heading-actions">
       <div><span class="at-kicker">GM command deck</span><h1>Next Session Dashboard</h1><p>A private briefing for Session {{gmDashboard.nextSession}}: what is due, what is live, and what future-you should not have to remember.</p></div>
       <div class="at-inline-actions"><button type="button" class="at-secondary" data-action="openPostSession"><i class="fa-solid fa-flag-checkered"></i> Post-Session Assistant</button><button type="button" class="at-primary" data-action="openQuickCapture"><i class="fa-solid fa-bolt"></i> Quick Capture</button></div>
+    </section>
+
+    <section class="at-campaign-assistant-workspace at-session-briefing" data-at-session-briefing>
+      <div class="at-section-title"><div><span class="at-kicker">Campaign Brain · Session sources</span><h2><i class="fa-solid fa-book-open"></i> Prepare from recent sessions</h2><p>Read your recent Chronicles and revisit linked people and places. Works without Quests.</p></div><button type="button" class="at-primary" data-at-briefing-refresh>Build / Refresh briefing</button></div>
+      <div data-at-briefing-output aria-live="polite"><p>Build a briefing when you need it. This reads session text only and changes no campaign records.</p></div>
     </section>
     <section class="at-command-stats">
       <button type="button" data-action="openNotebook"><strong>{{gmDashboard.stats.due}}</strong><span>Due Notes</span></button>

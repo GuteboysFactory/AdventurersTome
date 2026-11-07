@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 import './transfer-content.js';
 import './gm-private-transfer.js';
 import './migration-accounts.js';
@@ -8,7 +9,7 @@ import './migration-portraits.js';
 (() => {
   const ID='adventurers-tome';
   const gm=()=>{if(!game.user?.isGM)throw Error('Only a GM can use the Migration Toolkit.');};
-  const api=()=>game.modules.get(ID)?.api;
+  const api=()=>globalThis.ATTestAI.modules.get(ID)?.api;
   async function restoreMedia({assets,files,packageId,signal,progress}) {
     gm();
     const Picker=foundry.applications.apps.FilePicker.implementation||foundry.applications.apps.FilePicker;
@@ -41,12 +42,12 @@ import './migration-portraits.js';
     }
     return paths;
   }
-  Hooks.once('init',()=>game.settings.register(ID,'migrationPrivateStateV1',{scope:'user',config:false,type:String,default:'{"version":1,"imports":{}}'}));
-  const privateEnv=()=>({user:()=>game.user,world:()=>game.world,users:()=>game.users.contents,hasSetting:key=>game.settings.settings.has(`${ID}.${key}`),getSetting:key=>game.settings.get(ID,key),setSetting:(key,value)=>game.settings.set(ID,key,value),
-    state:()=>JSON.parse(game.settings.get(ID,'migrationPrivateStateV1')),saveState:state=>game.settings.set(ID,'migrationPrivateStateV1',JSON.stringify(state)),
+  Hooks.once('init',()=>globalThis.ATTestAI.settings.register(ID,'migrationPrivateStateV1',{scope:'user',config:false,type:String,default:'{"version":1,"imports":{}}'}));
+  const privateEnv=()=>({user:()=>game.user,world:()=>game.world,users:()=>game.users.contents,hasSetting:key=>globalThis.ATTestAI.settings.settings.has(`${ID}.${key}`),getSetting:key=>globalThis.ATTestAI.settings.get(ID,key),setSetting:(key,value)=>globalThis.ATTestAI.settings.set(ID,key,value),
+    state:()=>JSON.parse(globalThis.ATTestAI.settings.get(ID,'migrationPrivateStateV1')),saveState:state=>globalThis.ATTestAI.settings.set(ID,'migrationPrivateStateV1',JSON.stringify(state)),
     setOwnership:async(uuid,ownership)=>{const doc=await fromUuid(uuid);if(!doc)throw Error(`Imported document unavailable: ${uuid}`);await doc.update({ownership},{recursive:false});},
     canView:async(uuid,userId)=>{const doc=await fromUuid(uuid),user=game.users.get(userId);return Boolean(doc&&user&&api().canView(doc,user));},
-    receipt:async(userId,row)=>{if(!game.users.get(userId))throw Error('Mapped user no longer exists.');const old=(game.messages?.contents||[]).find(message=>message.author?.id===game.user.id&&message.whisper?.includes(userId)&&message.getFlag(ID,'migrationReceiptV1')?.packageId===row.packageId&&message.getFlag(ID,'migrationReceiptV1')?.sourceOwnerId===row.sourceOwnerId);if(old){await old.update({flags:{[ID]:{migrationReceiptV1:row}}});return;}await ChatMessage.create({content:"Adventurer's Tome — your Chronicle account is ready for migration.",whisper:[userId],flags:{[ID]:{migrationReceiptV1:row}}});}});
+    receipt:async(userId,row)=>{if(!game.users.get(userId))throw Error('Mapped user no longer exists.');const old=(game.messages?.contents||[]).find(message=>message.author?.id===game.user.id&&message.whisper?.includes(userId)&&globalThis.ATTestAI.flags(message).getFlag(ID,'migrationReceiptV1')?.packageId===row.packageId&&globalThis.ATTestAI.flags(message).getFlag(ID,'migrationReceiptV1')?.sourceOwnerId===row.sourceOwnerId);if(old){await old.update({flags:{[ID]:{migrationReceiptV1:row}}});return;}await ChatMessage.create({content:"Adventurer's Tome — your Chronicle account is ready for migration.",whisper:[userId],flags:{[ID]:{migrationReceiptV1:row}}});}});
   const {ApplicationV2,HandlebarsApplicationMixin}=foundry.applications.api;
   async function readAsset(path,{signal,maxBytes}) {
     const routed=/^(?:[a-z]+:|\/)/i.test(path)?path:(foundry.utils.getRoute?.(path)||path);
@@ -222,8 +223,8 @@ import './migration-portraits.js';
   for(const type of ['Actor','Item','JournalEntry','JournalEntryPage','Scene','Token','Tile','Wall','AmbientLight','AmbientSound','Note','Drawing','MeasuredTemplate','Region','RegionBehavior','Playlist','PlaylistSound','RollTable','TableResult','Folder','Adventure','Macro','Cards'])for(const operation of ['create','update','delete'])Hooks.on(`${operation}${type}`,()=>{sourceEpoch++;});
   function attach() {
     const core=api();if(!core||core.migration)return;
-    const toolkit=AdventurersTomeMigrationCore.createMigrationToolkit({user:()=>game.user,world:()=>game.world,system:()=>game.system,module:()=>game.modules.get(ID),foundryVersion:()=>game.version,
-      collection:key=>game[key]?.contents||[],packs:()=>[...game.packs.values()],revision:()=>sourceEpoch,yield:()=>new Promise(resolve=>setTimeout(resolve,0)),readAsset,privateSnapshot:()=>game.settings?.settings?AdventurersTomePrivateMigration.capture(privateEnv()):null});
+    const toolkit=AdventurersTomeMigrationCore.createMigrationToolkit({user:()=>game.user,world:()=>game.world,system:()=>game.system,module:()=>globalThis.ATTestAI.modules.get(ID),foundryVersion:()=>game.version,
+      collection:key=>game[key]?.contents||[],packs:()=>[...game.packs.values()],revision:()=>sourceEpoch,yield:()=>new Promise(resolve=>setTimeout(resolve,0)),readAsset,privateSnapshot:()=>globalThis.ATTestAI.settings?.settings?AdventurersTomePrivateMigration.capture(privateEnv()):null});
     const migratedPacks=id=>[...game.packs.values()].filter(pack=>pack.collection.startsWith(`world.tome-migration-${id.slice(0,12)}-`));
     const refreshImportedPacks=async id=>{gm();for(const pack of migratedPacks(id))await pack.getDocuments();};
     let importing=false;
@@ -231,7 +232,7 @@ import './migration-portraits.js';
     const importer=AdventurersTomeMigrationImport.createImporter({user:()=>game.user,world:()=>game.world,
       users:()=>game.users.contents,restoreMedia,restorePortraits:options=>AdventurersTomeMigrationPortraits.restore({user:()=>game.user,systemId:()=>game.system.id,available:async(path,signal)=>{try{const routed=/^(?:[a-z]+:|\/)/i.test(path)?path:(foundry.utils.getRoute?.(path)||path),url=new URL(routed,document.baseURI);if(!['http:','https:'].includes(url.protocol)||url.origin!==location.origin)return null;const response=await fetch(url.href,{method:'HEAD',signal,credentials:'same-origin'});return response.ok?true:[404,410].includes(response.status)?false:null;}catch(error){if(signal?.aborted)throw error;return null;}}},options),restoreRelationships:options=>AdventurersTomeMigrationRelationships.restore({user:()=>game.user,systemId:()=>game.system.id,api:()=>game.realmGuard?.core?.m8,actor:uuid=>fromUuid(uuid),progression:async(actor,fate,persona)=>{const target=await import(foundry.utils.getRoute('systems/realm-guard/module/progression.mjs'));if(typeof target.setProgressionTotals!=='function')throw Error('Target system has no progression restoration API.');return target.setProgressionTotals(actor,fate,persona);}},options),restorePrivate:options=>AdventurersTomePrivateMigration.restore(privateEnv(),options),
       beginImport:async()=>{importing=true;await core.backendFolderParity?.pauseForMigration?.();},endImport:async()=>{importing=false;core.backendFolderParity?.resumeAfterMigration?.();Hooks.callAll?.('adventurersTomeMigrationFinished');},
-      reuseStandardFolders:async(rows,packageId)=>{const bootstrap=await core.folderQuickCreate?.bootstrap?.();const aliases=AdventurersTomeMigrationCore.standardFolderAliases(rows,bootstrap);for(const [sourceUuid,targetUuid] of Object.entries(aliases)){const folder=game.folders.get(targetUuid.split('.')[1]);const previous=folder.flags?.[ID]?.migrationFolderAliasesV1||[];if(!previous.some(row=>row.packageId===packageId&&row.sourceUuid===sourceUuid))await folder.setFlag(ID,'migrationFolderAliasesV1',[...previous,{packageId,sourceUuid,targetUuid}]);}return aliases;},
+      reuseStandardFolders:async(rows,packageId)=>{const bootstrap=await core.folderQuickCreate?.bootstrap?.();const aliases=AdventurersTomeMigrationCore.standardFolderAliases(rows,bootstrap);for(const [sourceUuid,targetUuid] of Object.entries(aliases)){const folder=game.folders.get(targetUuid.split('.')[1]);const previous=folder.flags?.[ID]?.migrationFolderAliasesV1||[];if(!previous.some(row=>row.packageId===packageId&&row.sourceUuid===sourceUuid))await globalThis.ATTestAI.flags(folder).setFlag(ID,'migrationFolderAliasesV1',[...previous,{packageId,sourceUuid,targetUuid}]);}return aliases;},
       ensurePack:async({packageId,sourceId,label,type})=>{gm();const name=AdventurersTomeMigrationCore.packName(packageId,sourceId),key=`world.${name}`;let pack=game.packs.get(key);if(!pack){const Collection=foundry.documents?.collections?.CompendiumCollection||globalThis.CompendiumCollection;if(!Collection?.createCompendium)throw Error('Foundry compendium creation is unavailable.');pack=await Collection.createCompendium({name,label:`${label} — Migrated`,type,package:'world',system:game.system.id});}if(!pack||pack.documentName!==type)throw Error('Migration compendium has an incompatible document type.');await pack.configure({locked:false,ownership:{PLAYER:'NONE',TRUSTED:'NONE',ASSISTANT:'NONE',GAMEMASTER:'OWNER'}});return pack.collection;},
       system:()=>({id:game.system.id,version:game.system.version,types:{Actor:Object.keys(CONFIG.Actor.dataModels||{}),Item:Object.keys(CONFIG.Item.dataModels||{})}}),
       validateCopy:(type,data)=>{

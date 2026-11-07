@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Text-Based Actors 3.1/3.2 -> Realm Guard. Non-equivalent rules remain reference text. */
 (() => {
   const clone=value=>JSON.parse(JSON.stringify(value));

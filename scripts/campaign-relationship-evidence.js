@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATRE_ID = "adventurers-tome";
 const ATRE_SETTING = "campaignRelationshipEvidenceV1";
 const ATRE_GENERIC_TITLES = new Set(globalThis.AdventurersTomeLanguage.words("CHARACTER_TITLES"));
@@ -37,6 +38,7 @@ function atReNormalize(input) {
 let atReBusy = null;
 let atReTimer = null;
 let atReWrites = Promise.resolve();
+let atReInputRevision=0;
 function atReWrite(work) {
   const write=atReWrites.then(work);
   atReWrites=write.catch(()=>{});
@@ -45,7 +47,7 @@ function atReWrite(work) {
 const atReClean = value => String(value ?? "").trim();
 const atReNorm = value => atReClean(value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
 const atReClone = value => foundry.utils.deepClone(value);
-const atReApi = () => game.modules.get(ATRE_ID)?.api || {};
+const atReApi = () => globalThis.ATTestAI.modules.get(ATRE_ID)?.api || {};
 function atReHash(value) {
   let hash = 2166136261;
   for (const char of String(value)) { hash ^= char.codePointAt(0); hash = Math.imul(hash,16777619); }
@@ -65,7 +67,7 @@ function atReCanRead(document, user = game.user) {
     const page = document.documentName === "JournalEntryPage" || document.uuid?.includes(".JournalEntryPage.");
     if(page && !atReCanRead(document.parent,user))return false;
     if(document.testUserPermission?.(user,"OBSERVER") !== true)return false;
-    const access=document.getFlag?.(ATRE_ID,"access");
+    const access=globalThis.ATTestAI.flags(document).getFlag?.(ATRE_ID,"access");
     if(access?.visibility === "gm" || access?.discovered === false)return false;
     if(!page && atReApi().canView && !atReApi().canView(document))return false;
     return true;
@@ -77,8 +79,8 @@ function atRePlain(html) {
   return String(element.textContent || "").replace(/\r/g, "");
 }
 function atReSourceKind(entry) {
-  if(entry.getFlag?.(ATRE_ID,'chronicleV1'))return '';
-  const type = atReNorm(entry.getFlag?.(ATRE_ID,"type"));
+  if(globalThis.ATTestAI.flags(entry).getFlag?.(ATRE_ID,'chronicleV1'))return '';
+  const type = atReNorm(globalThis.ATTestAI.flags(entry).getFlag?.(ATRE_ID,"type"));
   if (["session","quest"].includes(type)) return type;
   const seen=new Set();
   for(let folder=entry.folder;folder && typeof folder === "object" && !seen.has(folder.id);folder=typeof folder.folder === "object" ? folder.folder : game.folders?.get(folder.folder)) {
@@ -90,7 +92,7 @@ function atReSourceKind(entry) {
   return "";
 }
 function atReChronology(entry, kind) {
-  const flag = entry.getFlag?.(ATRE_ID,"sessionNumber");
+  const flag = globalThis.ATTestAI.flags(entry).getFlag?.(ATRE_ID,"sessionNumber");
   const nameNumber = entry.name?.match(/\bsession\s*0*(\d+)\b/i)?.[1];
   const ordinal = kind === "session" && Number(flag || nameNumber) > 0 ? Number(flag || nameNumber) : null;
   // Sort is presentation order, retained as provenance, never invented narrative time.
@@ -99,15 +101,15 @@ function atReChronology(entry, kind) {
 function atReLedger(normalize=true) {
   if (!game.user?.isGM) return {evidence:[],decisions:[]};
   try {
-    const raw = JSON.parse(game.settings.get(ATRE_ID,ATRE_SETTING) || "{}");
+    const raw = JSON.parse(globalThis.ATTestAI.settings.get(ATRE_ID,ATRE_SETTING) || "{}");
     return {evidence:Array.isArray(raw.evidence) ? (normalize ? raw.evidence.map(atReNormalize) : raw.evidence) : [],decisions:Array.isArray(raw.decisions) ? raw.decisions : []};
   } catch (_) { return {evidence:[],decisions:[]}; }
 }
 function atReEntityIndex(sourceUuid) {
   const aliases = new Map();
   const source=atReDocument(sourceUuid);
-  const canonicalLinks=source?.getFlag?.(ATRE_ID,"campaignEntityLinksV1") || {};
-  const legacyLinks=source?.getFlag?.(ATRE_ID,"links") || {};
+  const canonicalLinks=globalThis.ATTestAI.flags(source)?.getFlag?.(ATRE_ID,"campaignEntityLinksV1") || {};
+  const legacyLinks=globalThis.ATTestAI.flags(source)?.getFlag?.(ATRE_ID,"links") || {};
   const sourceAuthorities=new Set([
     ...(canonicalLinks.actorUuids || []),...(canonicalLinks.entityUuids || []),
     ...(legacyLinks.actors || []).map(id=>`Actor.${id}`),...(legacyLinks.world || []).map(id=>`JournalEntry.${id}`)
@@ -125,9 +127,9 @@ function atReEntityIndex(sourceUuid) {
     aliases.get(key).add(canonical);
   };
   for (const doc of [...(game.actors?.contents || []),...(game.items?.contents || []),...(game.journal?.contents || [])]) {
-    if (!atReCanRead(doc) || atReSourceKind(doc) || (doc.documentName === "JournalEntry" && !doc.getFlag?.(ATRE_ID,"worldProfile") && !doc.getFlag?.(ATRE_ID,"backendProjectionV1"))) continue;
+    if (!atReCanRead(doc) || atReSourceKind(doc) || (doc.documentName === "JournalEntry" && !globalThis.ATTestAI.flags(doc).getFlag?.(ATRE_ID,"worldProfile") && !globalThis.ATTestAI.flags(doc).getFlag?.(ATRE_ID,"backendProjectionV1"))) continue;
     add(doc.name,doc.uuid);
-    const profile = doc.getFlag?.(ATRE_ID,doc.documentName === "Actor" ? "actorProfile" : "worldProfile") || {};
+    const profile = globalThis.ATTestAI.flags(doc).getFlag?.(ATRE_ID,doc.documentName === "Actor" ? "actorProfile" : "worldProfile") || {};
     if (game.user?.isGM) for (const alias of Array.isArray(profile.aliases) ? profile.aliases : []) add(alias,doc.uuid);
   }
   // Source-specific resolved mentions supersede global namesake ambiguity.
@@ -197,9 +199,9 @@ function atReComposedSource(text) {
   }
   return {text:composed,boundaries};
 }
-function atReExtract(entry, page, kind) {
-  const text = atRePlain(page.text?.content);
-  const aliases = atReEntityIndex(entry.uuid);
+function atReExtract(entry, page, kind, prepared=null) {
+  const text = prepared?.text ?? atRePlain(page.text?.content);
+  const aliases = prepared?.aliases ?? atReEntityIndex(entry.uuid);
   const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
   const names = [...aliases.keys()].sort((a,b)=>b.length-a.length);
   if (!names.length) return {evidence:[],diagnostics:[]};
@@ -224,7 +226,7 @@ function atReExtract(entry, page, kind) {
         const first = name.split(" ")[0];
         const person=[...aliases.get(name)].every(uuid=>{
           const doc=atReDocument(uuid);
-          return doc?.documentName === "Actor" || ["contact","npc","character"].includes(doc?.getFlag?.(ATRE_ID,"worldProfile")?.category);
+          return doc?.documentName === "Actor" || ["contact","npc","character"].includes(globalThis.ATTestAI.flags(doc)?.getFlag?.(ATRE_ID,"worldProfile")?.category);
         });
         if (!person || ATRE_GENERIC_TITLES.has(first)) continue;
         if (!localNames.has(first)) localNames.set(first,new Set(aliases.get(name)));
@@ -283,14 +285,14 @@ function atReExtract(entry, page, kind) {
               || !/^\s+(?:är|var)\s+(?:inte\s+)?$/iu.test(sentence.slice(b.index+b[0].length,absolute)))continue;
             explicitFriendPair=true;
           }
-          const pair=[...new Set(hits.filter(hit=>hit.index<absolute).map(hit=>resolve(hit[0])).filter(uuid=>{const doc=atReDocument(uuid);return doc?.documentName==="Actor" || ["contact","npc","character"].includes(doc?.getFlag?.(ATRE_ID,"worldProfile")?.category);}))];
+          const pair=[...new Set(hits.filter(hit=>hit.index<absolute).map(hit=>resolve(hit[0])).filter(uuid=>{const doc=atReDocument(uuid);return doc?.documentName==="Actor" || ["contact","npc","character"].includes(globalThis.ATTestAI.flags(doc)?.getFlag?.(ATRE_ID,"worldProfile")?.category);}))];
           if(pair.length===2 && pair.includes(subjectUuid)){pronounObject=pair.find(uuid=>uuid!==subjectUuid);objectHit=[""];objectHit.index=objectStart;}
         }
         if(!objectHit) {
           const pronoun=atReLanguagePattern("objectPronoun",language).exec(sentence.slice(objectStart));
           const precedingObjects=new Set(hits.filter(hit=>hit.index<objectStart).map(hit=>resolve(hit[0])).filter(uuid=>uuid && uuid!==subjectUuid));
           pronounObject=precedingObjects.size === 1 ? [...precedingObjects][0] : precedingObjects.size ? "" : previousObject;
-          if(pronoun && atReLanguagePattern("organizationPronoun",language).test(pronoun[0]) && atReDocument(pronounObject)?.getFlag?.(ATRE_ID,"worldProfile")?.category!=="faction")pronounObject="";
+          if(pronoun && atReLanguagePattern("organizationPronoun",language).test(pronoun[0]) && globalThis.ATTestAI.flags(atReDocument(pronounObject))?.getFlag?.(ATRE_ID,"worldProfile")?.category!=="faction")pronounObject="";
           if(pronoun && pronounObject) {objectHit=[pronoun[0]];objectHit.index=objectStart;}
         }
         if (!objectHit) {
@@ -319,7 +321,7 @@ function atReExtract(entry, page, kind) {
         if(type === "KNOWS" && atReLanguagePattern("recognition",language).test(match[0])) {
           const target=atReDocument(objectUuid);
           if(!atReLanguagePattern("recognitionSuffix",language).test(sentence.slice(objectStart+objectHit[0].length))
-            || !(target?.documentName === "Actor" || ["contact","npc","character"].includes(target?.getFlag?.(ATRE_ID,"worldProfile")?.category)))continue;
+            || !(target?.documentName === "Actor" || ["contact","npc","character"].includes(globalThis.ATTestAI.flags(target)?.getFlag?.(ATRE_ID,"worldProfile")?.category)))continue;
         }
         if (!actualSubject || !objectUuid || actualSubject === objectUuid) {
           diagnostics.push({reason:"unresolved-canonical-endpoint",sourceUuid:entry.uuid,excerpt:sentence,type}); continue;
@@ -368,7 +370,7 @@ function atReExtract(entry, page, kind) {
       }
       const personUuids=new Set(hits.map(hit=>resolve(hit[0])).filter(uuid=>{
         const doc=atReDocument(uuid);
-        return doc?.documentName === "Actor" || ["contact","npc","character"].includes(doc?.getFlag?.(ATRE_ID,"worldProfile")?.category);
+        return doc?.documentName === "Actor" || ["contact","npc","character"].includes(globalThis.ATTestAI.flags(doc)?.getFlag?.(ATRE_ID,"worldProfile")?.category);
       }));
       // A second person makes a following He/She reference unsafe. Do not
       // infer gender or choose a referent merely because it was mentioned last.
@@ -379,6 +381,45 @@ function atReExtract(entry, page, kind) {
   }
   // Multiple extraction paths for the same excerpt do not create copies.
   return {evidence:[...new Map(evidence.map(row=>[row.id,atReNormalize(row)])).values()],diagnostics};
+}
+globalThis.AdventurersTomeRelationshipExtract=(entry,page,kind,prepared)=>{if(!game.user?.isGM)throw Error('GM-only relationship extraction.');return atReExtract(entry,page,kind,prepared);};
+function atReWorkerInput(entry,page,kind){
+  const aliases=atReEntityIndex(entry.uuid),roles=[...new Set([...aliases.values()].flatMap(set=>[...set]))].sort().map(uuid=>{
+    const doc=atReDocument(uuid);return {uuid,id:doc.id,documentName:doc.documentName,flags:{[ATRE_ID]:{worldProfile:{category:globalThis.ATTestAI.flags(doc).getFlag?.(ATRE_ID,'worldProfile')?.category}}}};
+  });
+  return {entry:{uuid:entry.uuid,name:entry.name,sort:entry.sort,flags:{[ATRE_ID]:{sessionNumber:globalThis.ATTestAI.flags(entry).getFlag?.(ATRE_ID,'sessionNumber')}}},page:{uuid:page.uuid},kind,
+    text:atRePlain(page.text?.content),aliases:[...aliases].sort(([a],[b])=>a.localeCompare(b)).map(([name,set])=>[name,[...set].sort()]),roles};
+}
+function atReWorkerInputKey(entry,page,input){
+  const learning=atReApi().campaignReviewLearning?.all?.() || {};
+  return JSON.stringify({input,sourceContent:String(page.text?.content||''),
+    decisions:learning.decisions,sourceChoice:learning.sourceChoices?.[entry.uuid],sourceIgnore:learning.sourceIgnores?.[entry.uuid],nameDefaults:learning.nameDefaults,paused:learning.pausedIdentities,
+    library:atReApi().worldKnowledge?.status?.()?.revision,selection:globalThis.ATTestAI.settings.get(ATRE_ID,'worldKnowledgePack')});
+}
+async function atReExtractAsync(sourceUuid='') {
+  const worker=globalThis.AdventurersTomeRelationshipWorker;
+  if(!worker?.available?.())return atReExtractVisible(sourceUuid);
+  const evidence=[],diagnostics=[],inputs=[],owner=`${game.world?.id}:${game.user?.id}`;let revision=atReInputRevision;
+  const stale=()=>{const error=Error('Relationship inputs changed during analysis; queued again.');error.code='TOME_INDEX_STALE';throw error;};
+  const check=()=>{
+    if(!game.user?.isGM||owner!==`${game.world?.id}:${game.user?.id}`||(game.users?.activeGM&&game.users.activeGM.id!==game.user.id))stale();
+    if(revision!==atReInputRevision){
+      for(const saved of inputs){const {entry,page,kind,key}=saved;
+        if(atReDocument(entry.uuid)!==entry||atReDocument(page.uuid)!==page||!atReCanRead(entry)||!atReCanRead(page)||atReSourceKind(entry)!==kind||atReWorkerInputKey(entry,page,atReWorkerInput(entry,page,kind))!==key)stale();
+      }
+      revision=atReInputRevision;
+    }
+  };
+  for(const entry of (game.journal?.contents||[]).filter(doc=>!sourceUuid||doc.uuid===sourceUuid)){
+    const kind=atReSourceKind(entry);if(!kind||!atReCanRead(entry))continue;
+    for(const page of entry.pages?.contents||[]){
+      check();if(!atReCanRead(page))continue;
+      const input=atReWorkerInput(entry,page,kind);inputs.push({entry,page,kind,key:atReWorkerInputKey(entry,page,input)});
+      const result=await worker.extract(input);
+      check();evidence.push(...result.evidence);diagnostics.push(...result.diagnostics);
+    }
+  }
+  check();return {evidence,diagnostics,assertCurrent:check};
 }
 function atReExtractVisible(sourceUuid="") {
   const atStartupToken = globalThis.AdventurersTomeStartup?.begin("relationship-extraction");
@@ -399,6 +440,7 @@ function atReExtractVisible(sourceUuid="") {
   } finally { globalThis.AdventurersTomeStartup?.end(atStartupToken); }
 }
 async function atReSync(options={}) {
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
   const atStartupToken = globalThis.AdventurersTomeStartup?.begin("relationship-sync");
   try {
   if (!game.user?.isGM) return {evidence:[],decisions:[],diagnostics:[]};
@@ -410,13 +452,18 @@ async function atReSync(options={}) {
   const activeGM=game.users?.activeGM;
   if (activeGM && activeGM.id !== game.user.id) return atReSnapshot();
   atReBusy=atReWrite(async()=>{
-    const old=atReLedger(false),current=atReExtractVisible(options.sourceUuid);
+    const revision=atReInputRevision,owner=`${game.world?.id}:${game.user?.id}`;
+    const old=atReLedger(false),current=await atReExtractAsync(options.sourceUuid);
+    current.assertCurrent?.();
+    if((!current.assertCurrent&&revision!==atReInputRevision)||!game.user?.isGM||owner!==`${game.world?.id}:${game.user?.id}`||(game.users?.activeGM&&game.users.activeGM.id!==game.user.id)){
+      const error=Error('Relationship inputs changed before commit; queued again.');error.code='TOME_INDEX_STALE';throw error;
+    }
     const map=new Map(old.evidence.map(row=>[row.id,{...row,active:options.sourceUuid && row.sourceUuid !== options.sourceUuid ? row.active : row.origin === "provider" ? row.active !== false && !!atReDocument(row.sourceUuid) : false}]));
     for(const row of current.evidence)map.set(row.id,{...map.get(row.id),...row});
     const ledger={version:2,evidence:[...map.values()],decisions:old.decisions};
     const payload=JSON.stringify(ledger);
-    if (game.settings.get(ATRE_ID,ATRE_SETTING) !== payload) {
-      await game.settings.set(ATRE_ID,ATRE_SETTING,payload);
+    if (globalThis.ATTestAI.settings.get(ATRE_ID,ATRE_SETTING) !== payload) {
+      await globalThis.ATTestAI.settings.set(ATRE_ID,ATRE_SETTING,payload);
       globalThis.AdventurersTomeStartup?.count("relationship-sync","writes");
       Hooks.callAll("adventurersTomeRelationshipEvidenceUpdated",{count:ledger.evidence.length,reviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
     } else globalThis.AdventurersTomeStartup?.count("relationship-sync","unchangedSyncs");
@@ -513,7 +560,7 @@ async function atReIngest(providerId,assertions,options={}) {
       result.push(final);
     }
     ledger.evidence=[...map.values()];
-    await game.settings.set(ATRE_ID,ATRE_SETTING,JSON.stringify({version:2,...ledger}));
+    await globalThis.ATTestAI.settings.set(ATRE_ID,ATRE_SETTING,JSON.stringify({version:2,...ledger}));
     Hooks.callAll("adventurersTomeRelationshipEvidenceUpdated",{count:ledger.evidence.length});
     return atReClone(result);
   });
@@ -579,7 +626,7 @@ async function atReDecide(evidenceId,action) {
     const ledger=atReLedger(false),raw=ledger.evidence.find(item=>item.id === evidenceId),row=raw && atReNormalize(raw);
     if (!row || row.active === false || !["possible","rumoured","disputed","unknown"].includes(row.certainty)) throw new Error("Active uncertain relationship evidence required.");
     ledger.decisions.push({evidenceId,action,userId:game.user.id,decidedAt:Date.now()});
-    await game.settings.set(ATRE_ID,ATRE_SETTING,JSON.stringify({version:2,...ledger}));
+    await globalThis.ATTestAI.settings.set(ATRE_ID,ATRE_SETTING,JSON.stringify({version:2,...ledger}));
     Hooks.callAll("adventurersTomeRelationshipEvidenceUpdated",{evidenceId,action});
     return atReClone(row);
   });
@@ -587,15 +634,22 @@ async function atReDecide(evidenceId,action) {
 function atReSchedule(document,changes,options={}) {
   if (options.adventurersTomeReviewDecision || (globalThis.AdventurersTomeReviewDecision?.isActive?.() && document?.reason === "guided-gm-decision")) return;
   if(!game.user?.isGM)return;
+  const entry=document?.parent || document;
+  if(entry && globalThis.ATTestAI.flags(entry)?.getFlag?.(ATRE_ID,'chronicleV1'))return;
+  const sourceUuid=document?.sourceUuid || (document?.documentName==='JournalEntryPage'||document?.parent ? document.parent?.uuid : document?.uuid);
+  if(globalThis.AdventurersTomeIndex?.requestRelationships?.({sourceUuid,initial:!document}) === true){window.clearTimeout(atReTimer);return;}
   window.clearTimeout(atReTimer);
-  atReTimer=window.setTimeout(()=>void atReSync().catch(error=>console.warn("Adventurer's Tome | Relationship sync",error)),260);
+  atReTimer=window.setTimeout(()=>void atReSync().catch(error=>{
+    if(error.code==='TOME_INDEX_STALE'){atReSchedule(document);return;}
+    console.warn("Adventurer's Tome | Relationship sync",error);
+  }),260);
 }
 async function atReSuggestMigration(documents) {
   if(!game.user?.isGM)throw Error('GM permission required.');
   let sources=0;const suggestions=[],sourceUuids=[];
   for(const entry of documents){
     if(!game.user?.isGM)throw Error('GM access changed.');
-    if(entry.documentName!=='Actor'||entry.pack||!entry.getFlag?.(ATRE_ID,'migrationV1'))continue;
+    if(entry.documentName!=='Actor'||entry.pack||!globalThis.ATTestAI.flags(entry).getFlag?.(ATRE_ID,'migrationV1'))continue;
     sources++;sourceUuids.push(entry.uuid);
     // Reuse the existing bilingual relationship extractor. Only biography is
     // source text: no private Vault, foreign GM Notes or archived module flags.
@@ -605,7 +659,7 @@ async function atReSuggestMigration(documents) {
     for(let folder=typeof entry.folder==='object'?entry.folder:game.folders?.get(entry.folder);folder&&!seen.has(folder.id);folder=typeof folder.folder==='object'?folder.folder:game.folders?.get(folder.folder)){
       seen.add(folder.id);const owner=String(folder.name||'').match(/^(.+?)\s+(?:relationships?|relationer)$/i)?.[1];if(!owner)continue;
       const matches=aliases.get(atReNorm(owner));if(matches?.size!==1)continue;
-      const uuid=[...matches][0],doc=atReDocument(uuid),self=atReApi().campaignIdentityReconciliation?.identityFor?.({canonicalUuid:entry.uuid})?.authorityUuid||entry.uuid;if(uuid===self||!doc||!(doc.documentName==='Actor'||['character','npc','contact'].includes(doc.getFlag?.(ATRE_ID,'worldProfile')?.category)))continue;
+      const uuid=[...matches][0],doc=atReDocument(uuid),self=atReApi().campaignIdentityReconciliation?.identityFor?.({canonicalUuid:entry.uuid})?.authorityUuid||entry.uuid;if(uuid===self||!doc||!(doc.documentName==='Actor'||['character','npc','contact'].includes(globalThis.ATTestAI.flags(doc).getFlag?.(ATRE_ID,'worldProfile')?.category)))continue;
       suggestions.push({subjectUuid:uuid,objectUuid:entry.uuid,relationType:'KNOWS',sourceUuid:entry.uuid,sourceKind:'migration',sourceName:entry.name,sourceExcerpt:`Source folder: ${folder.name}. Contains: ${entry.name}. Exact relationship is unconfirmed.`,certainty:'possible',status:'possible',temporalScope:'unknown',confidence:0.5,provenance:[{provider:'migration-folder-context',folderName:folder.name}]});
     }
     if(sources%10===0)await new Promise(resolve=>setTimeout(resolve,0));
@@ -614,10 +668,13 @@ async function atReSuggestMigration(documents) {
   return {sources,suggestions:result.length};
 }
 const ATRE_API=Object.freeze({version:2,sync:atReSync,snapshot:atReSnapshot,relationshipsFor:atReRelationshipsFor,graph:atReGraph,sourceKind:atReSourceKind,review:atReReview,decide:atReDecide,ingest:atReIngest,suggestMigration:atReSuggestMigration,normalize:atReNormalize,registry:ATRE_REGISTRY});
-Hooks.once("init",()=>game.settings.register(ATRE_ID,ATRE_SETTING,{scope:"user",config:false,type:String,default:JSON.stringify({version:1,evidence:[],decisions:[]})}));
-Hooks.once("ready",()=>{const module=game.modules.get(ATRE_ID);module.api ||= {};module.api.campaignRelationshipEvidence=ATRE_API;atReSchedule();});
+Hooks.once("init",()=>globalThis.ATTestAI.settings.register(ATRE_ID,ATRE_SETTING,{scope:"user",config:false,type:String,default:JSON.stringify({version:1,evidence:[],decisions:[]})}));
+Hooks.once("ready",()=>{const module=globalThis.ATTestAI.modules.get(ATRE_ID);module.api ||= {};module.api.campaignRelationshipEvidence=ATRE_API;atReSchedule();});
 Hooks.on("adventurersTomeCampaignMentionEvidenceUpdated",atReSchedule);
 Hooks.on("updateJournalEntryPage",atReSchedule);
 Hooks.on("deleteJournalEntryPage",atReSchedule);
 Hooks.on("updateJournalEntry",atReSchedule);
 Hooks.on("deleteJournalEntry",atReSchedule);
+for(const kind of ['Actor','Item','JournalEntry','JournalEntryPage','Scene','Folder'])for(const action of ['create','update','delete'])Hooks.on(`${action}${kind}`,()=>{atReInputRevision++;});
+for(const event of ['updateUser','adventurersTomeCampaignLearningUpdated','adventurersTomeCampaignMentionEvidenceUpdated','adventurersTomeWorldLibraryReady'])Hooks.on(event,()=>{atReInputRevision++;});
+Hooks.on('updateSetting',setting=>{if(['adventurers-tome','adventurers-tome'].some(scope=>['campaignIntelligenceLearning','worldKnowledgePack'].some(key=>setting?.key===`${scope}.${key}`)))atReInputRevision++;});

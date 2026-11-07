@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Target preparation and copy-only import. No source-world writes. */
 (() => {
   const ID='adventurers-tome', TYPES=['Folder','Actor','Item','JournalEntry','Scene','Playlist','RollTable'];

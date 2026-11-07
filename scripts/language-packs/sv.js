@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 // Narrative grammar data; no canonical identity or write authority.
 (globalThis.AdventurersTomeLanguagePacks ||= {})["sv"] = {
   "id": "sv",
@@ -70,7 +71,20 @@
       "imorgon",
       "trots",
       "eftersom",
-      "medan"
+      "medan",
+      "men",
+      "för",
+      "när",
+      "om",
+      "två",
+      "tre",
+      "vad",
+      "varför",
+      "hur",
+      "vem",
+      "vilken",
+      "vilket",
+      "vilka"
     ],
     "COMMON_SINGLETONS": [
       "han",
@@ -209,7 +223,27 @@
       "alla",
       "något",
       "någonting",
-      "ingenting"
+      "ingenting",
+      "vad",
+      "vilket",
+      "två",
+      "tre",
+      "fyra",
+      "fem",
+      "för",
+      "session",
+      "sessionen",
+      "äventyrarna",
+      "äventyraren",
+      "försöket",
+      "angreppet",
+      "gravkamrarna",
+      "ruinerna",
+      "berättelse",
+      "sammanfattning",
+      "sessionsslut",
+      "källnotering",
+      "sessionsammanfattning"
     ],
     "CHARACTER_TITLES": [
       "kapten",

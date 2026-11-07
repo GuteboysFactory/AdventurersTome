@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 // Client-only DOM state. Never stored in campaign documents or shared with players.
 const atVcElements = root => [root, ...root.querySelectorAll('*')];
 const atVcSettling = new WeakMap();

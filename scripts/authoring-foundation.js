@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATAF_MODULE_ID = "adventurers-tome";
 const ATAF_ROOT = "#adventurers-tome-app";
 const ATAF_SAVE_DELAY = 800;
@@ -17,7 +18,7 @@ function atAfHtmlFormat() {
 }
 
 function atAfApp() {
-  try { return game.modules.get(ATAF_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
+  try { return globalThis.ATTestAI.modules.get(ATAF_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
 }
 
 function atAfCanCreate() {
@@ -31,7 +32,7 @@ function atAfCanEdit(journal) {
   try {
     if (journal.isOwner || journal.testUserPermission?.(game.user, "OWNER")) return true;
   } catch (_err) {}
-  const editors = journal.getFlag?.(ATAF_MODULE_ID, "worldEditors");
+  const editors = globalThis.ATTestAI.flags(journal).getFlag?.(ATAF_MODULE_ID, "worldEditors");
   return Array.isArray(editors) && editors.map(String).includes(String(game.user.id));
 }
 
@@ -144,8 +145,8 @@ async function atAfFlush(key) {
 function atAfPrimaryPage(journal, section) {
   const pages = [...(journal?.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   if (section === "world") {
-    const profile = journal?.getFlag?.(ATAF_MODULE_ID, "worldProfile") || {};
-    const preferred = String(journal?.getFlag?.(ATAF_MODULE_ID, "worldSyncPage") || profile.syncPageId || "");
+    const profile = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATAF_MODULE_ID, "worldProfile") || {};
+    const preferred = String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATAF_MODULE_ID, "worldSyncPage") || profile.syncPageId || "");
     const byId = pages.find((page) => page.id === preferred && String(page.type || "text") === "text");
     if (byId) return byId;
   }
@@ -158,7 +159,7 @@ async function atAfEnsurePrimaryPage(journal, section) {
   const name = section === "sessions" ? "Chronicle" : "Overview";
   const created = await journal.createEmbeddedDocuments("JournalEntryPage", [{ name, type: "text", text: { content: "<p></p>", format: atAfHtmlFormat() }, sort: 100000 }]);
   page = created?.[0] || null;
-  if (page && section === "world") await journal.setFlag(ATAF_MODULE_ID, "worldSyncPage", page.id);
+  if (page && section === "world") await globalThis.ATTestAI.flags(journal).setFlag(ATAF_MODULE_ID, "worldSyncPage", page.id);
   return page;
 }
 
@@ -180,10 +181,10 @@ async function atAfSaveSummary(journal, section, summary) {
   if (!page) throw new Error("No writable Journal page available");
   await page.update({ "text.content": atAfWriteSummaryHtml(page?.text?.content ?? "", summary), "text.format": atAfHtmlFormat() });
   if (section === "world") {
-    const profile = foundry.utils.deepClone(journal.getFlag?.(ATAF_MODULE_ID, "worldProfile") || {});
+    const profile = foundry.utils.deepClone(globalThis.ATTestAI.flags(journal).getFlag?.(ATAF_MODULE_ID, "worldProfile") || {});
     profile.summary = summary;
     profile.summaryJournalBacked = true;
-    await journal.setFlag(ATAF_MODULE_ID, "worldProfile", profile);
+    await globalThis.ATTestAI.flags(journal).setFlag(ATAF_MODULE_ID, "worldProfile", profile);
   }
 }
 
@@ -436,6 +437,8 @@ function atAfModal(title, body, onSubmit) {
 }
 
 async function atAfOpenCreate(section) {
+  const worldCreator = globalThis.ATTestAI.modules.get(ATAF_MODULE_ID)?.api?.worldSourceExplorer?.createEntry;
+  if (section === "world" && game.user?.isGM && worldCreator) return worldCreator();
   const sectionFolder = await atAfSectionFolder(section);
   const options = [`<option value="">${atAfEscape(sectionFolder.name)} (root)</option>`, ...atAfDescendants(sectionFolder).map(({ folder, depth }) => `<option value="${atAfEscape(folder.id)}">${"— ".repeat(depth + 1)}${atAfEscape(folder.name)}</option>`)].join("");
   const world = section === "world" ? `<label><span>World type</span><select name="category">${Object.entries(ATAF_WORLD_CATEGORIES).map(([id, label]) => `<option value="${id}">${atAfEscape(label.replace(/s$/, ""))}</option>`).join("")}</select></label>` : "";
@@ -471,7 +474,7 @@ async function atAfOpenCreate(section) {
     const journal = await JournalEntry.create({ name, folder: folder.id, ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2 }, flags: { [ATAF_MODULE_ID]: flags } });
     const pageName = section === "sessions" ? "Chronicle" : "Overview";
     const created = await journal.createEmbeddedDocuments("JournalEntryPage", [{ name: pageName, type: "text", text: { content: `<p ${ATAF_SUMMARY_ATTR}="true"></p><p></p>`, format: atAfHtmlFormat() }, sort: 100000 }]);
-    if (section === "world" && created?.[0]) await journal.setFlag(ATAF_MODULE_ID, "worldSyncPage", created[0].id);
+    if (section === "world" && created?.[0]) await globalThis.ATTestAI.flags(journal).setFlag(ATAF_MODULE_ID, "worldSyncPage", created[0].id);
     ui.notifications.info(`Adventurer's Tome: Created ${name}.`);
     await atAfApp()?.render?.({ parts: ["main"] });
     window.setTimeout(() => {
@@ -549,7 +552,7 @@ async function atAfMigrateWorldSummaries() {
   if (!game.user?.isGM) return;
   let migrated = 0;
   for (const journal of game.journal?.contents ?? []) {
-    const raw = journal.getFlag?.(ATAF_MODULE_ID, "worldProfile");
+    const raw = globalThis.ATTestAI.flags(journal).getFlag?.(ATAF_MODULE_ID, "worldProfile");
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
     const profile = foundry.utils.deepClone(raw);
     const summary = String(profile.summary || "").trim();
@@ -558,7 +561,7 @@ async function atAfMigrateWorldSummaries() {
       const page = await atAfEnsurePrimaryPage(journal, "world");
       await page.update({ "text.content": atAfWriteSummaryHtml(page?.text?.content ?? "", summary), "text.format": atAfHtmlFormat() });
       profile.summaryJournalBacked = true;
-      await journal.setFlag(ATAF_MODULE_ID, "worldProfile", profile);
+      await globalThis.ATTestAI.flags(journal).setFlag(ATAF_MODULE_ID, "worldProfile", profile);
       migrated += 1;
     } catch (error) {
       console.warn(`Adventurer's Tome | Could not migrate World summary for ${journal.name}`, error);

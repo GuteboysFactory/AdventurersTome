@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-semantic-mention-discovery";
 const VERSION = 1;
@@ -82,7 +83,7 @@ function folderNames(folder) {
 
 function journalKind(journal) {
   if (!journal) return "";
-  const flagged = clean(journal.getFlag?.(MODULE_ID, "type")).toLowerCase();
+  const flagged = clean(globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "type")).toLowerCase();
   if (flagged === "session" || flagged === "sessions") return "session";
   if (flagged === "quest" || flagged === "quests") return "quest";
   const path = folderNames(journal.folder || game.folders?.get(clean(journal.folder?.id ?? journal.folder)))
@@ -115,17 +116,15 @@ function removeFoundryInlineRefs(value) {
 }
 
 function plainText(html) {
-  const host = document.createElement("div");
-  host.innerHTML = String(html ?? "");
-  return clean(host.textContent || host.innerText || "").replace(/\s+/g, " ");
+  return globalThis.AdventurersTomeLanguage.plainText(html);
 }
 
 function discoveryApi() {
-  return game.modules.get(MODULE_ID)?.api?.discovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.discovery || null;
 }
 
 function resolverApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignMentions || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentions || null;
 }
 
 function entityKindHint(entity) {
@@ -331,11 +330,11 @@ function identityAssessment(resolution, anchoredUuid = "") {
   return { score:baseScore, band:CONFIDENCE_BANDS.WEAK, signals };
 }
 
-function proseAssessment({ displayName, occurrenceCount, resolution, anchors }) {
+function proseAssessment({ displayName, occurrenceText = displayName, independentPerson = false, occurrenceCount, resolution, anchors }) {
   const normalizedName = normalizeText(displayName);
   const multiToken = tokenCount(displayName) > 1;
   const properSingle = !multiToken && properNameShape(displayName);
-  const lowerSingle = lowercaseSingleToken(displayName);
+  const lowerSingle = lowercaseSingleToken(occurrenceText);
   const anchorUuids = anchors?.get(normalizedName) || new Set();
   const resolutionUuids = resolutionTargetUuids(resolution);
   const anchoredUuid = anchorUuids.size === 1
@@ -360,7 +359,9 @@ function proseAssessment({ displayName, occurrenceCount, resolution, anchors }) 
   detectionScore = Math.min(0.98, detectionScore);
   const identity = identityAssessment(resolution, anchorMatchesResolution ? anchoredUuid : "");
 
-  if (lowerSingle && !anchorMatchesResolution) {
+  const grammarWord=globalThis.AdventurersTomeLanguage.words('COMMON_SINGLETONS').includes(normalizedName)
+    && !independentPerson;
+  if ((lowerSingle || grammarWord) && !anchorMatchesResolution) {
     return {
       detection:{
         score:Math.min(0.25, detectionScore),
@@ -370,7 +371,7 @@ function proseAssessment({ displayName, occurrenceCount, resolution, anchors }) 
       identity,
       disposition:CONFIDENCE_BANDS.SUPPRESSED,
       suppressed:true,
-      reason:"weak-lowercase-single-token",
+      reason:grammarWord ? "common-grammar-token" : "weak-lowercase-single-token",
       persistenceEligible:false
     };
   }
@@ -435,6 +436,7 @@ function summarizeResolution(resolution) {
 }
 
 async function scan(options = {}) {
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
   const startupToken=globalThis.AdventurersTomeStartup?.begin("mention-discovery");
   try {
   globalThis.AdventurersTomeReviewDecision?.count("memory-refresh",options.sourceUuid ? "sourceScans" : "fullScans");
@@ -485,12 +487,22 @@ async function scan(options = {}) {
       .sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
 
     for (const page of pages) {
+      if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.checkpoint();
       if (page?.text?.content === undefined) continue;
       stats.pages += 1;
 
       const safeHtml = stripSecrets(page.text.content, user);
       const inlineRefs = foundryInlineRefs(safeHtml);
-      const text = plainText(removeFoundryInlineRefs(safeHtml));
+      let text = plainText(removeFoundryInlineRefs(safeHtml));
+      const languageService=user?.isGM ? globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.testAILanguage : null;
+      const interpreter=user?.isGM?globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.integratedInterpretation:null;
+      if(user?.isGM&&!interpreter)throw Error('Integrated interpretation is not ready.');
+      const testAILanguage=interpreter?await interpreter.assistDocument(safeHtml,{sourceUuid:journal.uuid,sourceName:journal.name,sourcePageUuid:page.uuid}):await languageService?.assistText?.(text,{sourceUuid:journal.uuid});
+      const structure=testAILanguage?.structure||languageService?.prepareDocument?.(removeFoundryInlineRefs(safeHtml),{sourceName:journal.name});
+      if(testAILanguage?.integrated)text=testAILanguage.text;
+      const languageOccurrences=new Map((testAILanguage?.rows||[]).flatMap(row=>row.occurrences).map(o=>[`${o.start}:${o.end}`,o]));
+      const namePolicy=globalThis.AdventurersTomeCandidateEvidence;
+      const nameContext=namePolicy?.prepareNameContext?.(text,testAILanguage?.tokens||[],structure);
       const hasInlineRefs = inlineRefs.length > 0;
       if (!text && !hasInlineRefs) continue;
 
@@ -551,13 +563,35 @@ async function scan(options = {}) {
         stats.deterministicMentions += 1;
       }
 
+      // Tome's protected campaign matches remain valid even when UDPipe tags
+      // an invented name as an ordinary word. No model result supplies a UUID.
+      for (const proposal of testAILanguage?.rows || []) {
+        if(!['matched','ambiguous'].includes(proposal.status))continue;
+        for(const occurrence of proposal.occurrences){
+          const targets=proposal.candidates.filter(t=>t.uuid!==journal.uuid).map(t=>({name:t.name,canonicalUuid:t.uuid,kind:t.kind}));
+          if(!targets.length)continue;
+          if(!testAILanguage?.integrated&&targets.length===1&&index.byName.get(normalizeText(occurrence.text))?.some(entity=>entity.name===occurrence.text&&entity.canonicalUuid===targets[0].canonicalUuid))continue;
+          const chosen=proposal.status==='matched'?targets[0]:null;
+          rows.push({id:`testai:${page.uuid}:${occurrence.start}`,sourceKind:kind,sourceJournalUuid:journal.uuid,sourcePageUuid:page.uuid,sourceName:journal.name,pageName:page.name,mentionType:'prose-name',interpretation:testAILanguage?.integrated?{revision:testAILanguage.policyRevision}:null,text:occurrence.text,kindHint:chosen?.kind||'unknown',source:{...sourceBase,start:occurrence.start,end:occurrence.end},
+           assessment:{detection:{score:0.85,band:CONFIDENCE_BANDS.HIGH,signals:['tome-catalogue',proposal.reason]},identity:{score:chosen?0.9:0,band:chosen?CONFIDENCE_BANDS.HIGH:CONFIDENCE_BANDS.REVIEW},disposition:chosen?CONFIDENCE_BANDS.HIGH:CONFIDENCE_BANDS.REVIEW,suppressed:false,persistenceEligible:false},
+           resolution:{decision:chosen?'resolved-corroborated':'ambiguous',confidence:chosen?0.9:0,reason:proposal.reason,selectedTarget:chosen,candidates:targets.map(target=>({target,score:0.9})),autoLinkEligible:!!chosen},languageEvidence:{provider:'UDPipe',policyRevision:testAILanguage.policyRevision,upos:occurrence.upos,lemma:occurrence.lemma,section:occurrence.section,interpretation:occurrence.interpretation}});
+        }
+      }
       for (const [normalizedName, entities] of index.byName.entries()) {
+        if(testAILanguage?.integrated)break;
+        if(entities.every(e=>{const id=String(e.canonicalUuid||'').match(/^Actor\.([^.]+)$/u)?.[1];return id&&globalThis.AdventurersTomeDecisionPolicy?.documentRole(game.actors?.get(id))==='template';}))continue;
         const displayName = clean(entities[0]?.name);
         if (!displayName || normalizedName.length < 3) continue;
         const positions = exactNameOccurrences(text, displayName);
         if (!positions.length) continue;
 
         for (const start of positions) {
+          const end=start+displayName.length,supportedClue=languageOccurrences.get(`${start}:${end}`);
+          if(globalThis.AdventurersTomeCandidateEvidence?.incompleteName(text,start,end,structure)&&!entities.some(e=>['character','contact','npc','person'].includes(entityKindHint(e))))continue;
+          if(languageService?.excludedOccurrence?.(start,end,structure,{known:true,participant:Boolean(supportedClue)}))continue;
+          if(testAILanguage?.excludedSpans?.some(span=>span.kind==='ordinary'&&start>=span.start&&end<=span.end))continue;
+          const sourceChoice=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.decisionFor?.(displayName,{sourceUuid:journal.uuid});
+          if(namePolicy?.occurrenceAllowed&&!namePolicy.occurrenceAllowed({text,start,end,tokens:testAILanguage?.tokens||[],structure,context:nameContext,trusted:Boolean(sourceChoice?.sourceChoice)}))continue;
           const kinds = [...new Set(entities.map(entityKindHint))];
           const kindHint = kinds.length === 1 ? kinds[0] : "unknown";
           const candidate = resolver.createCandidate({
@@ -582,6 +616,9 @@ async function scan(options = {}) {
           const resolution = resolver.resolve(candidate);
           const assessment = proseAssessment({
             displayName,
+            occurrenceText:text.slice(start,start+displayName.length),
+            independentPerson:entities.every(entity=>['character','npc'].includes(entityKindHint(entity))
+              && /^(Actor|JournalEntry)\.[^.]+$/u.test(entity.canonicalUuid||'')),
             occurrenceCount:positions.length,
             resolution,
             anchors:explicitAnchors
@@ -603,6 +640,8 @@ async function scan(options = {}) {
             resolution:summarizeResolution(resolution)
           };
 
+          const clue=languageOccurrences.get(`${start}:${start+displayName.length}`);
+          if(clue)row.languageEvidence={provider:'UDPipe',policyRevision:testAILanguage.policyRevision,upos:clue.upos,lemma:clue.lemma,section:clue.section,interpretation:clone(clue.interpretation)};
           if (assessment.suppressed) {
             suppressedRows.push(row);
             stats.suppressedMentions += 1;
@@ -730,7 +769,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignMentionDiscovery = publicApi;
@@ -774,5 +813,5 @@ Hooks.on("updateJournalEntryPage", (page) => {
 });
 Hooks.on("adventurersTomeCampaignDiscoveryUpdated", () => scheduleScan("discovery-updated"));
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery !== publicApi) attach();
 });

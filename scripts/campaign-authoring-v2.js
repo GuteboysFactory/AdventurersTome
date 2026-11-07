@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const ROOT = "#adventurers-tome-app";
 const CONTRACT = "adventurers-tome-campaign-authoring-v2";
@@ -6,6 +7,7 @@ const VERSION = 2;
 let enhanceTimer = null;
 let pendingOpen = null;
 let observer = null;
+const questSourcesInFlight = new Set();
 
 const stats = {
   sessionsCreated:0,
@@ -87,7 +89,7 @@ function folderPath(folder) {
 }
 
 function sectionFromJournal(journal) {
-  const flagged = clean(journal?.getFlag?.(MODULE_ID, "type")).toLowerCase();
+  const flagged = clean(globalThis.ATTestAI.flags(journal)?.getFlag?.(MODULE_ID, "type")).toLowerCase();
   if (["session","sessions"].includes(flagged)) return "sessions";
   if (["quest","quests"].includes(flagged)) return "quests";
   const path = folderPath(journal?.folder || null).map((row) => row.toLowerCase());
@@ -97,7 +99,7 @@ function sectionFromJournal(journal) {
 }
 
 function sessionNumberFromJournal(journal) {
-  const structured = Number(journal?.getFlag?.(MODULE_ID, "session")?.number || 0);
+  const structured = Number(globalThis.ATTestAI.flags(journal)?.getFlag?.(MODULE_ID, "session")?.number || 0);
   if (Number.isFinite(structured) && structured > 0) return structured;
   const match = clean(journal?.name).match(/^session\s+0*(\d+)\b/i);
   return match ? Number(match[1]) : null;
@@ -179,7 +181,7 @@ function dialogMarkup(section) {
   }
 
   let defaultStatus = "active";
-  try { defaultStatus = clean(game.settings.get(MODULE_ID, "defaultQuestStatus")) || "active"; } catch (_error) {}
+  try { defaultStatus = clean(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus")) || "active"; } catch (_error) {}
   const statuses = [
     ["active","Active"],
     ["dormant","Dormant"],
@@ -203,8 +205,10 @@ function dialogMarkup(section) {
     </form>`;
 }
 
-function openCreateDialog(section) {
+function openCreateDialog(section, draft = {}) {
   if (!game.user?.isGM) return;
+  const worldCreator = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.worldSourceExplorer?.createEntry;
+  if (section === "world" && worldCreator) return worldCreator();
   const root = rootElement();
   if (!root) return;
   closeDialog();
@@ -212,14 +216,33 @@ function openCreateDialog(section) {
   const overlay = document.createElement("div");
   overlay.className = "at-cw-modal-overlay at-ca2-dialog-overlay";
   overlay.innerHTML = dialogMarkup(section);
+  if (section === 'quests') {
+    for (const key of ['title','body','status']) {
+      if (typeof draft[key] === 'string') overlay.querySelector(`[name="${key}"]`).value = draft[key];
+    }
+    if (draft.visibility === 'gm') {
+      const note = document.createElement('p');
+      note.className = 'at-ca2-dialog-note';
+      note.textContent = 'GM-only Quest. Review this possible follow-up before saving; you can share the Quest later. The source link is retained automatically.';
+      overlay.querySelector('footer').before(note);
+    }
+    if (draft.sourceLabel) {
+      const source = document.createElement('p');
+      source.textContent = 'Source: ' + draft.sourceLabel;
+      overlay.querySelector('[name="body"]').closest('label').before(source);
+    }
+  }
   root.append(overlay);
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay || event.target.closest("[data-at-ca2-close]")) closeDialog();
   });
 
+  let submitting = false;
   overlay.querySelector("form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (submitting) return;
+    submitting = true;
     const submit = event.currentTarget.querySelector('button[type="submit"]');
     if (submit) submit.disabled = true;
     try {
@@ -232,10 +255,14 @@ function openCreateDialog(section) {
           body:String(data.get("body") || "")
         });
       } else {
+        await draft.beforeCreate?.();
         await createQuest({
           title:clean(data.get("title")),
           status:clean(data.get("status")) || "active",
-          body:String(data.get("body") || "")
+          body:String(data.get("body") || ""),
+          visibility:draft.visibility,
+          briefingSource:draft.briefingSource,
+          beforeCreate:draft.beforeCreate
         });
       }
       closeDialog();
@@ -245,6 +272,7 @@ function openCreateDialog(section) {
       console.error("Adventurer's Tome | Campaign Authoring 2.0 creation failed", error);
       ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not create that campaign entry."}`);
       if (submit) submit.disabled = false;
+      submitting = false;
     }
   });
 
@@ -254,20 +282,34 @@ function openCreateDialog(section) {
   }, 0);
 }
 
-function primaryPageTemplate(section, body = "") {
+// Formatting is explicit and allowlisted; ordinary authoring remains plain text.
+function formattedBodyToHtml(value) {
+  const doc = new DOMParser().parseFromString(String(value), "text/html");
+  const allowed = new Set(["p","h1","h2","h3","h4","h5","h6","strong","em","br","ul","ol","li","table","thead","tbody","tr","th","td"]);
+  function serialize(node) {
+    if (node.nodeType === 3) return escapeBodyText(node.textContent).replaceAll("@", "&#64;");
+    if (node.nodeType !== 1 || ["script","style","iframe","object","svg","math"].includes(node.localName)) return "";
+    const children = Array.from(node.childNodes).map(serialize).join("");
+    if (!allowed.has(node.localName)) return children;
+    return node.localName === "br" ? "<br>" : `<${node.localName}>${children}</${node.localName}>`;
+  }
+  return '<p data-at-tome-summary="true"></p>' + Array.from(doc.body.childNodes).map(serialize).join("");
+}
+
+function primaryPageTemplate(section, body = "", bodyFormat = "text") {
   const title = section === "sessions" ? "Chronicle" : "Overview";
   return {
     name:title,
     type:"text",
     text:{
-      content:bodyToHtml(body),
+      content:bodyFormat === "html" ? formattedBodyToHtml(body) : bodyToHtml(body),
       format:htmlFormat()
     },
     sort:100000
   };
 }
 
-async function createSession({ number, title, date, body = "" } = {}) {
+async function createSession({ number, title, date, body = "", bodyFormat = "text", visibility = "shared", uploadReceipt = null, open = true, quiet = false, beforeCreate } = {}) {
   if (!game.user?.isGM) throw new Error("Only a GM can create Sessions.");
   const sessionNumber = Number(number || 0);
   if (!Number.isFinite(sessionNumber) || sessionNumber < 1) throw new Error("Enter a valid Session number.");
@@ -275,6 +317,8 @@ async function createSession({ number, title, date, body = "" } = {}) {
   if (!cleanTitle) throw new Error("Enter a Session title.");
 
   const folder = await ensureCanonicalFolder("sessions");
+  await beforeCreate?.();
+  if (!game.user?.isGM) throw new Error("Only a GM can create Sessions.");
   const name = /^session\s+\d+\b/i.test(cleanTitle)
     ? cleanTitle
     : `Session ${sessionNumber} — ${cleanTitle}`;
@@ -282,10 +326,12 @@ async function createSession({ number, title, date, body = "" } = {}) {
   const journal = await JournalEntry.create({
     name,
     folder:folder.id,
-    ownership:{ default:CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2 },
+    ownership:{ default:visibility === "gm" ? (CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0) : (CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2) },
     flags:{
       [MODULE_ID]:{
         type:"sessions",
+        ...(visibility === "gm" ? {access:{visibility:"gm"}} : {}),
+        ...(uploadReceipt ? {sessionUploadV1:uploadReceipt} : {}),
         session:{
           number:sessionNumber,
           date:clean(date),
@@ -296,19 +342,29 @@ async function createSession({ number, title, date, body = "" } = {}) {
     }
   });
 
-  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("sessions", body)]);
+  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("sessions", body, bodyFormat)]);
   const page = created?.[0] || null;
   if (!page) throw new Error("Session was created, but its Chronicle page could not be created.");
 
   stats.sessionsCreated += 1;
   stats.primaryPagesCreated += 1;
   if (clean(body)) stats.initialBodiesCreated += 1;
-  ui.notifications.info(`Adventurer's Tome: Created ${name}.`);
-  await openCreatedEntry("sessions", journal, page);
+  if (!quiet) ui.notifications.info(`Adventurer's Tome: Created ${name}.`);
+  if (open) await openCreatedEntry("sessions", journal, page);
   return { journal, page };
 }
 
-async function createQuest({ title, status, body = "" } = {}) {
+async function createQuest(options = {}) {
+  if (!game.user?.isGM) throw new Error("Only a GM can create Quests.");
+  const source = options.briefingSource;
+  const key = source ? JSON.stringify([source.sourceUuid,source.pageUuid,source.excerpt]) : null;
+  if (key && questSourcesInFlight.has(key)) throw new Error('This follow-up is already being saved.');
+  if (key) questSourcesInFlight.add(key);
+  try { return await createQuestRecord(options); }
+  finally { if (key) questSourcesInFlight.delete(key); }
+}
+
+async function createQuestRecord({ title, status, body = "", visibility = "shared", briefingSource = null, beforeCreate, open = true, quiet = false } = {}) {
   if (!game.user?.isGM) throw new Error("Only a GM can create Quests.");
   const cleanTitle = clean(title);
   if (!cleanTitle) throw new Error("Enter a Quest title.");
@@ -317,13 +373,17 @@ async function createQuest({ title, status, body = "" } = {}) {
     : "active";
 
   const folder = await ensureCanonicalFolder("quests");
+  await beforeCreate?.();
+  if (!game.user?.isGM) throw new Error("Only a GM can create Quests.");
   const journal = await JournalEntry.create({
     name:cleanTitle,
     folder:folder.id,
-    ownership:{ default:CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2 },
+    ownership:{ default:visibility === 'gm' ? (CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0) : (CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2) },
     flags:{
       [MODULE_ID]:{
         type:"quests",
+        ...(visibility === 'gm' ? {access:{visibility:'gm'}} : {}),
+        ...(briefingSource ? {briefingSourceV1:{sourceUuid:String(briefingSource.sourceUuid),pageUuid:String(briefingSource.pageUuid),excerpt:String(briefingSource.excerpt)}} : {}),
         status:normalizedStatus,
         quest:{
           status:normalizedStatus,
@@ -333,15 +393,27 @@ async function createQuest({ title, status, body = "" } = {}) {
     }
   });
 
+  if (briefingSource?.pageUuid && !body.includes(`@UUID[${briefingSource.pageUuid}]`)) {
+    body += `\n\nSource: @UUID[${briefingSource.pageUuid}]{Session source}`;
+  }
   const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("quests", body)]);
   const page = created?.[0] || null;
   if (!page) throw new Error("Quest was created, but its Overview page could not be created.");
+  if (briefingSource) {
+    try {
+      const linkSource = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.sessionBriefing?.linkQuestSource;
+      if (!linkSource) throw new Error('Session linking is unavailable.');
+      await linkSource(journal);
+    } catch (error) {
+      throw new Error(`Quest was created, but the source-session link could not be saved. Reload Foundry to retry the link. ${error.message}`);
+    }
+  }
 
   stats.questsCreated += 1;
   stats.primaryPagesCreated += 1;
   if (clean(body)) stats.initialBodiesCreated += 1;
-  ui.notifications.info(`Adventurer's Tome: Created ${cleanTitle}.`);
-  await openCreatedEntry("quests", journal, page);
+  if (!quiet) ui.notifications.info(`Adventurer's Tome: Created ${cleanTitle}.`);
+  if (open) await openCreatedEntry("quests", journal, page);
   return { journal, page };
 }
 
@@ -354,7 +426,7 @@ async function openCreatedEntry(section, journal, page) {
     expiresAt:Date.now() + 8000
   };
 
-  const app = game.modules.get(MODULE_ID)?.api?.app?.();
+  const app = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.app?.();
   await app?.render?.({ parts:["main"] });
   scheduleEnhance(80);
   window.setTimeout(tryPendingOpen, 140);
@@ -588,11 +660,12 @@ const api = Object.freeze({
   createSession,
   createQuest,
   openCreateDialog,
+  openCreatedEntry,
   audit
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignAuthoringV2 = api;

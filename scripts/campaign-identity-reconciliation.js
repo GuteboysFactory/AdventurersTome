@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATCIR_ID = "adventurers-tome";
 const ATCIR_CONTRACT = "adventurers-tome-campaign-identity-reconciliation";
 const ATCIR_VERSION = 1;
@@ -34,21 +35,23 @@ function atCirClone(value) {
 
 function atCirBackendSourceUuidFromJournal(journal) {
   if (!journal || journal.documentName !== "JournalEntry") return "";
+  const category = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "worldProfile")?.category || "").toLowerCase();
+  const compatible = uuid => String(uuid).startsWith("Actor.") ? ["npc","contact","character","pc","npc-group"].includes(category) : String(uuid).startsWith("Item.") ? category === "item" : true;
 
-  const backend = journal.getFlag?.(ATCIR_ID, "backendProjectionV1");
+  const backend = globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "backendProjectionV1");
   const backendUuid = atCirClean(backend?.sourceUuid);
-  if (backend?.managed === true && backendUuid && backendUuid !== journal.uuid) return backendUuid;
+  if (backend?.managed === true && backendUuid && backendUuid !== journal.uuid && compatible(backendUuid)) return backendUuid;
 
-  const projection = journal.getFlag?.(ATCIR_ID, "semanticProjection");
+  const projection = globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "semanticProjection");
   const projectionUuid = atCirClean(projection?.linkedUuid);
-  if (projection?.kind === "contact" && projectionUuid.startsWith("Actor.")) return projectionUuid;
+  if (projection?.kind === "contact" && projectionUuid.startsWith("Actor.") && compatible(projectionUuid)) return projectionUuid;
 
-  const profile = journal.getFlag?.(ATCIR_ID, "worldProfile");
+  const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "worldProfile");
   const sourceUuid = atCirClean(profile?.sourceUuid);
-  if (sourceUuid && sourceUuid !== journal.uuid) return sourceUuid;
+  if (sourceUuid && sourceUuid !== journal.uuid && compatible(sourceUuid)) return sourceUuid;
 
   const actorId = atCirClean(profile?.actorId);
-  if (actorId && game.actors?.get(actorId)) return `Actor.${actorId}`;
+  if (actorId && game.actors?.get(actorId) && compatible(`Actor.${actorId}`)) return `Actor.${actorId}`;
 
   const itemId = atCirClean(profile?.itemId);
   if (itemId && game.items?.get(itemId)) return `Item.${itemId}`;
@@ -147,9 +150,9 @@ function atCirIdentityFor(ref = {}) {
           normalizedName:atCirNormalize(authority?.name || document.name),
           projection:true,
           projectionKind:atCirClean(
-            document.getFlag?.(ATCIR_ID, "backendProjectionV1")?.category
-            || document.getFlag?.(ATCIR_ID, "semanticProjection")?.kind
-            || document.getFlag?.(ATCIR_ID, "worldProfile")?.category
+            globalThis.ATTestAI.flags(document).getFlag?.(ATCIR_ID, "backendProjectionV1")?.category
+            || globalThis.ATTestAI.flags(document).getFlag?.(ATCIR_ID, "semanticProjection")?.kind
+            || globalThis.ATTestAI.flags(document).getFlag?.(ATCIR_ID, "worldProfile")?.category
             || "world"
           ),
           sourceDocumentName:"JournalEntry",
@@ -372,7 +375,7 @@ const ATCIR_API = Object.freeze({
 });
 
 function atCirAttach() {
-  const module = game.modules.get(ATCIR_ID);
+  const module = globalThis.ATTestAI.modules.get(ATCIR_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignIdentityReconciliation = ATCIR_API;
@@ -385,5 +388,5 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(ATCIR_ID)?.api?.campaignIdentityReconciliation !== ATCIR_API) atCirAttach();
+  if (globalThis.ATTestAI.modules.get(ATCIR_ID)?.api?.campaignIdentityReconciliation !== ATCIR_API) atCirAttach();
 });

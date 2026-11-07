@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 // External integrations share Foundry's client trust boundary. This facade owns
 // adapter lifetimes; it grants no extra document or private-data permissions.
 const ATI_ID = "adventurers-tome";
@@ -9,7 +10,7 @@ let atiCoreReady = false;
 let atiAnnounced = false;
 
 function atiAdapters() {
-  return game.modules.get(ATI_ID)?.api?.adapters;
+  return globalThis.ATTestAI.modules.get(ATI_ID)?.api?.adapters;
 }
 
 function atiReady() {
@@ -22,7 +23,7 @@ function atiSnapshot(row) {
     moduleId: row.moduleId,
     label: row.label,
     apiVersion: ATI_VERSION,
-    active: game.modules.get(row.moduleId)?.active === true,
+    active: globalThis.ATTestAI.modules.get(row.moduleId)?.active === true,
     adapters: Object.freeze([...row.adapters].filter(([, saved]) => saved.isCurrent()).map(([id]) => id).sort())
   });
 }
@@ -50,7 +51,7 @@ function atiSubmissions(row, assertCurrent) {
   const ttl = 5 * 60 * 1000;
   const escape = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const result = (status, reason = "") => Object.freeze({ status, applied: status === "applied", reason });
-  const api = () => game.modules.get(ATI_ID)?.api;
+  const api = () => globalThis.ATTestAI.modules.get(ATI_ID)?.api;
   function user(id = "") {
     assertCurrent();
     const current = String(game.user?.id || "");
@@ -131,7 +132,7 @@ function atiSubmissions(row, assertCurrent) {
 function atiPrivateNotes(row, assertCurrent) {
   const grants = new Map();
   let requesting = false;
-  const api = () => game.modules.get(ATI_ID)?.api;
+  const api = () => globalThis.ATTestAI.modules.get(ATI_ID)?.api;
   const escape = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function gm(id = "") {
     assertCurrent();
@@ -213,7 +214,7 @@ function atiRegister(request = {}) {
   if (request.apiVersion !== ATI_VERSION) throw new Error("Unsupported Tome Integration API version.");
   const moduleId = typeof request.moduleId === "string" ? request.moduleId.trim() : "";
   if (!/^[a-z0-9][a-z0-9_-]*$/.test(moduleId) || moduleId === ATI_ID) throw new Error("An external Foundry module id is required.");
-  const owner = game.modules.get(moduleId);
+  const owner = globalThis.ATTestAI.modules.get(moduleId);
   if (owner?.active !== true) throw new Error("The integrating Foundry module must be active.");
   if (ATI_OWNERS.has(moduleId)) throw new Error(`Tome integration already registered: ${moduleId}`);
   const row = { moduleId, label: String(owner.title || moduleId), adapters: new Map() };
@@ -221,7 +222,7 @@ function atiRegister(request = {}) {
 
   function assertCurrent() {
     if (ATI_OWNERS.get(moduleId) !== row) throw new Error("This Tome integration handle was disposed.");
-    if (game.modules.get(moduleId)?.active !== true) throw new Error("The integrating Foundry module is inactive.");
+    if (globalThis.ATTestAI.modules.get(moduleId)?.active !== true) throw new Error("The integrating Foundry module is inactive.");
     if (!atiReady()) throw new Error("Tome Integration API is not ready.");
   }
 
@@ -258,7 +259,7 @@ function atiRegister(request = {}) {
       const receipt = registry.registerHandle({
         ...adapter, id, apiVersion: 1,
         matches(context) {
-          if (ATI_OWNERS.get(moduleId) !== row || game.modules.get(moduleId)?.active !== true) return false;
+          if (ATI_OWNERS.get(moduleId) !== row || globalThis.ATTestAI.modules.get(moduleId)?.active !== true) return false;
           return typeof matches === "function" ? matches.call(this, context) : true;
         }
       });
@@ -298,7 +299,7 @@ const ATI_PUBLIC = Object.freeze({
 });
 
 function atiAttach() {
-  const module = game.modules.get(ATI_ID);
+  const module = globalThis.ATTestAI.modules.get(ATI_ID);
   if (!module) return;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.integrations = ATI_PUBLIC;

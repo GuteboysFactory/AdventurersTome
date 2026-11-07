@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATA7_MODULE_ID = "adventurers-tome";
 const ATA7_ROOT = "#adventurers-tome-app";
 const ATA7_SOCKET = `module.${ATA7_MODULE_ID}`;
@@ -56,13 +57,13 @@ function atA7RoleStoreRoot() {
   const candidates = [...(game.folders?.contents ?? [])]
     .filter((folder) => folder.type === "JournalEntry" && /adventurer'?s tome/i.test(String(folder.name || "")));
   return candidates.find((folder) => {
-    const raw = folder.getFlag?.(ATA7_MODULE_ID, ATA7_SECTION_EDITORS);
+    const raw = globalThis.ATTestAI.flags(folder).getFlag?.(ATA7_MODULE_ID, ATA7_SECTION_EDITORS);
     return raw && typeof raw === "object" && !Array.isArray(raw);
   }) || candidates.find((folder) => /^adventurer'?s tome$/i.test(String(folder.name || "")) && !atA7ParentId(folder)) || candidates[0] || null;
 }
 
 function atA7RoleMap() {
-  const raw = atA7RoleStoreRoot()?.getFlag?.(ATA7_MODULE_ID, ATA7_SECTION_EDITORS);
+  const raw = globalThis.ATTestAI.flags(atA7RoleStoreRoot())?.getFlag?.(ATA7_MODULE_ID, ATA7_SECTION_EDITORS);
   const map = { world: [], quests: [], sessions: [] };
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     for (const section of Object.keys(map)) map[section] = Array.isArray(raw[section]) ? [...new Set(raw[section].map(String))] : [];
@@ -71,12 +72,12 @@ function atA7RoleMap() {
 }
 
 function atA7EntryEditors(journal) {
-  const raw = journal?.getFlag?.(ATA7_MODULE_ID, ATA7_ENTRY_EDITORS);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATA7_MODULE_ID, ATA7_ENTRY_EDITORS);
   return Array.isArray(raw) ? [...new Set(raw.map(String))] : [];
 }
 
 function atA7ManagedOwners(journal) {
-  const raw = journal?.getFlag?.(ATA7_MODULE_ID, ATA7_MANAGED_OWNERS);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATA7_MODULE_ID, ATA7_MANAGED_OWNERS);
   return Array.isArray(raw) ? [...new Set(raw.map(String))] : [];
 }
 
@@ -86,7 +87,7 @@ function atA7SectionRoots(section) {
   return [...(game.folders?.contents ?? [])]
     .filter((folder) => {
       if (folder.type !== "JournalEntry" || folder.name !== label) return false;
-      if (String(folder.getFlag?.(ATA7_MODULE_ID, "section") || "") === section) return true;
+      if (String(globalThis.ATTestAI.flags(folder).getFlag?.(ATA7_MODULE_ID, "section") || "") === section) return true;
       return atA7Ancestors(folder).some((ancestor) => ancestor.id !== folder.id && /adventurer'?s tome/i.test(String(ancestor.name || "")));
     })
     .sort((a, b) => atA7Path(a).localeCompare(atA7Path(b)));
@@ -127,7 +128,7 @@ function atA7SectionFromFolder(folder) {
 
 function atA7SectionFromJournal(journal) {
   if (!journal) return "";
-  const type = String(journal.getFlag?.(ATA7_MODULE_ID, "type") || "").toLowerCase();
+  const type = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATA7_MODULE_ID, "type") || "").toLowerCase();
   if (type === "world") return "world";
   if (type === "quests" || type === "quest") return "quests";
   if (type === "sessions" || type === "session") return "sessions";
@@ -192,7 +193,7 @@ async function atA7ReconcileJournal(journal) {
     const nextManaged = [...managed].sort();
     const oldManaged = atA7ManagedOwners(journal).sort();
     if (ownershipChanged) await journal.update({ ownership });
-    if (JSON.stringify(nextManaged) !== JSON.stringify(oldManaged)) await journal.setFlag(ATA7_MODULE_ID, ATA7_MANAGED_OWNERS, nextManaged);
+    if (JSON.stringify(nextManaged) !== JSON.stringify(oldManaged)) await globalThis.ATTestAI.flags(journal).setFlag(ATA7_MODULE_ID, ATA7_MANAGED_OWNERS, nextManaged);
   } catch (error) {
     console.warn(`Adventurer's Tome | Could not reconcile delegated ownership for ${journal.name}`, error);
   } finally {
@@ -228,7 +229,7 @@ function atA7Request(payload) {
       reject(new Error("The GM did not answer the Tome Editor request."));
     }, 12000);
     ATA7_PENDING.set(requestId, { resolve, reject, timer });
-    game.socket.emit(ATA7_SOCKET, {
+    globalThis.ATTestAI.socket.emit(ATA7_SOCKET, {
       channel: "alpha7",
       type: "request",
       requestId,
@@ -302,7 +303,7 @@ async function atA7CreateEntryAsGM(payload, requesterId) {
     text: { content: '<h2 data-at-tome-summary="true"></h2><p></p>', format: atA7HtmlFormat() },
     sort: 100000
   }]);
-  if (section === "world" && created?.[0]) await journal.setFlag(ATA7_MODULE_ID, ATA7_WORLD_SYNC_PAGE, created[0].id);
+  if (section === "world" && created?.[0]) await globalThis.ATTestAI.flags(journal).setFlag(ATA7_MODULE_ID, ATA7_WORLD_SYNC_PAGE, created[0].id);
   return { id: journal.id, name: journal.name, kind: "entry" };
 }
 
@@ -381,10 +382,10 @@ async function atA7HandleSocket(message) {
   if (message.type === "request" && game.user?.isGM && String(message.targetGmId) === String(game.user.id)) {
     try {
       const result = await atA7Execute(message.payload || {}, String(message.requesterId || ""));
-      game.socket.emit(ATA7_SOCKET, { channel: "alpha7", type: "response", requestId: message.requestId, requesterId: message.requesterId, ok: true, result });
+      globalThis.ATTestAI.socket.emit(ATA7_SOCKET, { channel: "alpha7", type: "response", requestId: message.requestId, requesterId: message.requesterId, ok: true, result });
     } catch (error) {
       console.error("Adventurer's Tome | Delegated Editor request failed", error);
-      game.socket.emit(ATA7_SOCKET, { channel: "alpha7", type: "response", requestId: message.requestId, requesterId: message.requesterId, ok: false, error: error?.message || "Editor request failed" });
+      globalThis.ATTestAI.socket.emit(ATA7_SOCKET, { channel: "alpha7", type: "response", requestId: message.requestId, requesterId: message.requesterId, ok: false, error: error?.message || "Editor request failed" });
     }
     return;
   }
@@ -540,7 +541,7 @@ async function atA7CreateEntry(section) {
       sessionNumber: Number(data.get("sessionNumber") || 0)
     });
     ui.notifications.info(`Adventurer's Tome: Created ${result.name}.`);
-    try { await game.modules.get(ATA7_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
+    try { await globalThis.ATTestAI.modules.get(ATA7_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
     window.setTimeout(() => {
       document.querySelector(ATA7_ROOT)?.querySelector(`[data-action="${ATA7_SECTIONS[section].open}"][data-journal-id="${CSS.escape(result.id)}"]`)?.click();
       atA7ScheduleEnhance(80);
@@ -568,7 +569,7 @@ async function atA7DeleteEntry(journal) {
   try {
     const result = await atA7Request({ action: "deleteEntry", section, journalId: journal.id });
     ui.notifications.info(`Adventurer's Tome: Deleted ${result.name}.`);
-    try { await game.modules.get(ATA7_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
+    try { await globalThis.ATTestAI.modules.get(ATA7_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
     atA7ScheduleEnhance(180);
   } catch (error) {
     ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not delete that entry."}`);
@@ -592,7 +593,7 @@ async function atA7ManageEntry(journal) {
   try {
     const result = await atA7Request({ action: "renameEntry", section, journalId: journal.id, name });
     ui.notifications.info(`Adventurer's Tome: Renamed entry to ${result.name}.`);
-    try { await game.modules.get(ATA7_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
+    try { await globalThis.ATTestAI.modules.get(ATA7_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
     atA7ScheduleEnhance(180);
   } catch (error) {
     ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not rename that entry."}`);
@@ -823,7 +824,7 @@ globalThis.AdventurersTomeEditorBroker = Object.freeze({
 });
 
 Hooks.once("ready", () => {
-  game.socket.on(ATA7_SOCKET, atA7HandleSocket);
+  globalThis.ATTestAI.socket.on(ATA7_SOCKET, atA7HandleSocket);
   atA7InstallHandlers();
   if (game.user?.isGM) atA7ScheduleReconcileAll(500);
   atA7ScheduleEnhance(360);

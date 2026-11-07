@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATA2_MODULE_ID = "adventurers-tome";
 const ATA2_ROOT = "#adventurers-tome-app";
 const ATA2_WORLD_PROFILE = "worldProfile";
@@ -19,7 +20,7 @@ function atA2Escape(value) {
 }
 
 function atA2App() {
-  try { return game.modules.get(ATA2_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
+  try { return globalThis.ATTestAI.modules.get(ATA2_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
 }
 
 async function atA2WithoutBackgroundRender(callback) {
@@ -39,7 +40,7 @@ function atA2CanEdit(journal) {
     if (journal.isOwner === true) return true;
     if (journal.testUserPermission?.(game.user, "OWNER")) return true;
   } catch (_err) {}
-  const editors = journal.getFlag?.(ATA2_MODULE_ID, "worldEditors");
+  const editors = globalThis.ATTestAI.flags(journal).getFlag?.(ATA2_MODULE_ID, "worldEditors");
   return Array.isArray(editors) && editors.map(String).includes(String(game.user.id));
 }
 
@@ -66,7 +67,7 @@ function atA2JournalFromDetail(root) {
 }
 
 function atA2WorldProfile(journal) {
-  const raw = journal?.getFlag?.(ATA2_MODULE_ID, ATA2_WORLD_PROFILE);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATA2_MODULE_ID, ATA2_WORLD_PROFILE);
   return raw && typeof raw === "object" && !Array.isArray(raw) ? foundry.utils.deepClone(raw) : {};
 }
 
@@ -190,7 +191,7 @@ async function atA2SaveHero(journal, path) {
   if (!journal || !atA2CanEdit(journal)) return;
   const profile = atA2WorldProfile(journal);
   profile.heroImage = String(path || "").trim();
-  await atA2WithoutBackgroundRender(() => journal.setFlag(ATA2_MODULE_ID, ATA2_WORLD_PROFILE, profile));
+  await atA2WithoutBackgroundRender(() => globalThis.ATTestAI.flags(journal).setFlag(ATA2_MODULE_ID, ATA2_WORLD_PROFILE, profile));
   ui.notifications.info(profile.heroImage ? `Adventurer's Tome: Hero image updated for ${journal.name}.` : `Adventurer's Tome: Hero image removed from ${journal.name}.`);
   await atA2App()?.render?.({ parts: ["main"] });
 }
@@ -234,7 +235,7 @@ function atA2PrimaryPageId(journal, section) {
   if (!pages.length) return "";
   if (section === "world") {
     const profile = atA2WorldProfile(journal);
-    const preferred = String(journal.getFlag?.(ATA2_MODULE_ID, ATA2_WORLD_SYNC_PAGE) || profile.syncPageId || "");
+    const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATA2_MODULE_ID, ATA2_WORLD_SYNC_PAGE) || profile.syncPageId || "");
     if (preferred && pages.some((page) => page.id === preferred)) return preferred;
   }
   return pages.find((page) => String(page.type || "text").toLowerCase() === "text")?.id || pages[0]?.id || "";
@@ -304,7 +305,7 @@ function atA2RenderPageManager(journal) {
   if (!root) return;
   root.querySelector(".at-a2-page-manager-overlay")?.remove();
   atA2ActiveManagerJournalId = journal.id;
-  const typeFlag = String(journal.getFlag?.(ATA2_MODULE_ID, "type") || "");
+  const typeFlag = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATA2_MODULE_ID, "type") || "");
   const section = typeFlag === "world" ? "world" : typeFlag === "quests" ? "quests" : typeFlag === "sessions" ? "sessions" : "journal";
   const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   const primaryId = atA2PrimaryPageId(journal, section);
@@ -499,6 +500,15 @@ function atA2QueueEnhance() {
 }
 
 Hooks.once("ready", () => {
+  const module = globalThis.ATTestAI.modules.get(ATA2_MODULE_ID);
+  if (module) {
+    module.api ||= {};
+    module.api.pageManager = Object.freeze({open(journal) {
+      if (!journal || !atA2CanEdit(journal)) return false;
+      atA2RenderPageManager(journal);
+      return Boolean(document.querySelector(ATA2_ROOT)?.querySelector(".at-a2-page-manager-overlay"));
+    }});
+  }
   document.addEventListener("click", (event) => {
     const legacyPages = event.target.closest?.('[data-at-wj-action="editPages"]');
     if (legacyPages) {

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Read-only migration snapshots and export. Target imports live in migration-import.js. */
 (() => {
   const ID = 'adventurers-tome';

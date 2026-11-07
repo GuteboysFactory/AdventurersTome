@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATCSN_ID = "adventurers-tome";
 let atcsnTimer = null;
 let atcsnAttached = false;
@@ -15,7 +16,7 @@ const atcsnStats = {
 };
 
 function atcsnModule() {
-  return game.modules.get(ATCSN_ID);
+  return globalThis.ATTestAI.modules.get(ATCSN_ID);
 }
 
 function atcsnRefKey(entry = {}) {

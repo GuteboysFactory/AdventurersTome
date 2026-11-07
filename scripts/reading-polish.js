@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATRP_ROOT = "#adventurers-tome-app";
 
 function atRpNormalizeSurface(surface) {

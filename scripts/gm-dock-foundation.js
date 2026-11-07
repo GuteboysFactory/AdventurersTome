@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const DOCK_ID = "adventurers-tome-gm-dock";
 const POSITION_SETTING = "gmDockPosition";
@@ -17,7 +18,7 @@ let adapterDockSignature = "";
 const adapterDockActionIds = new Set();
 const extraActions = new Map();
 
-const api = () => game.modules.get(MODULE_ID)?.api || {};
+const api = () => globalThis.ATTestAI.modules.get(MODULE_ID)?.api || {};
 const esc = (v) => String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const parse = (v, fallback=null) => { try { return JSON.parse(String(v || "")); } catch (_e) { return fallback; } };
 const clamp = (n,min,max) => Math.min(Math.max(Number(n)||0,min),Math.max(min,max));
@@ -44,7 +45,7 @@ function refContext(document, source="foundry") {
 }
 
 function currentContext() {
-  const pinnedUuid = String(game.settings.get(MODULE_ID, PIN_SETTING) || "");
+  const pinnedUuid = String(globalThis.ATTestAI.settings.get(MODULE_ID, PIN_SETTING) || "");
   const pinned = resolveUuid(pinnedUuid);
   if (pinned) return refContext(pinned, "pinned");
 
@@ -223,9 +224,9 @@ function resolveCaptureTarget(value) {
 
 async function healPinnedContext() {
   if (!game.user?.isGM) return false;
-  const pinnedUuid = String(game.settings.get(MODULE_ID, PIN_SETTING) || "").trim();
+  const pinnedUuid = String(globalThis.ATTestAI.settings.get(MODULE_ID, PIN_SETTING) || "").trim();
   if (!pinnedUuid || resolveUuid(pinnedUuid)) return false;
-  await game.settings.set(MODULE_ID, PIN_SETTING, "");
+  await globalThis.ATTestAI.settings.set(MODULE_ID, PIN_SETTING, "");
   return true;
 }
 
@@ -233,8 +234,8 @@ async function handleDeletedContext(document) {
   if (!game.user?.isGM || !document?.uuid) return;
   const uuid = String(document.uuid);
   if (lastFoundryUuid === uuid) lastFoundryUuid = "";
-  if (String(game.settings.get(MODULE_ID, PIN_SETTING) || "") === uuid) {
-    await game.settings.set(MODULE_ID, PIN_SETTING, "");
+  if (String(globalThis.ATTestAI.settings.get(MODULE_ID, PIN_SETTING) || "") === uuid) {
+    await globalThis.ATTestAI.settings.set(MODULE_ID, PIN_SETTING, "");
   }
   if (String(hostedCaptureDraft.target || "") === `uuid:${uuid}`) {
     hostedCaptureDraft = { ...hostedCaptureDraft, target:"inbox" };
@@ -390,7 +391,7 @@ function wireHostedCapture(root) {
 }
 function hostedMenu() {
   const ctx = currentContext();
-  const pinned = Boolean(ctx.uuid && String(game.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
+  const pinned = Boolean(ctx.uuid && String(globalThis.ATTestAI.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
   const recents = recentRows().slice(0,3);
   const richHost = Boolean(richDockHost());
   const items = [
@@ -535,7 +536,7 @@ function action(id, icon, title, count=0, disabled=false) {
 }
 
 function barHtml(ctx) {
-  const pinned = Boolean(ctx.uuid && String(game.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
+  const pinned = Boolean(ctx.uuid && String(globalThis.ATTestAI.settings.get(MODULE_ID,PIN_SETTING)||"") === ctx.uuid);
   const custom = visibleExtraActions(ctx)
     .map((x) => action(x.id, x.icon || "fa-wand-magic-sparkles", x.title || x.id, 0, x.disabled === true))
     .join("");
@@ -589,7 +590,7 @@ function defaultPosition() {
 }
 
 function savedPosition() {
-  const value = parse(game.settings.get(MODULE_ID,POSITION_SETTING),null);
+  const value = parse(globalThis.ATTestAI.settings.get(MODULE_ID,POSITION_SETTING),null);
   return value && Number.isFinite(Number(value.left)) && Number.isFinite(Number(value.top)) ? value : defaultPosition();
 }
 
@@ -662,7 +663,7 @@ async function handleAction(id) {
     if (ctx.refKey) await api().openRef?.(ctx.refKey);
     else ctx.document?.sheet?.render?.(true);
   } else if (id === "pin") {
-    await game.settings.set(MODULE_ID,PIN_SETTING,String(game.settings.get(MODULE_ID,PIN_SETTING)||"")===ctx.uuid ? "" : ctx.uuid);
+    await globalThis.ATTestAI.settings.set(MODULE_ID,PIN_SETTING,String(globalThis.ATTestAI.settings.get(MODULE_ID,PIN_SETTING)||"")===ctx.uuid ? "" : ctx.uuid);
   } else if (id === "vault") {
     if (!ctx.document?.uuid) return ui.notifications.info("Adventurer's Tome: Private Vault needs a canonical Foundry context.");
     await api().contextualPrivateVault?.open?.(ctx.document);
@@ -704,11 +705,11 @@ function bindGrip() {
   const finish=async(event)=>{
     if (!drag || drag.id !== event.pointerId) return;
     const moved=drag.moved; drag=null; dock.classList.remove("is-dragging");
-    if (moved) await game.settings.set(MODULE_ID,POSITION_SETTING,JSON.stringify(positionDock({left:Number(dock.dataset.left),top:Number(dock.dataset.top)})));
+    if (moved) await globalThis.ATTestAI.settings.set(MODULE_ID,POSITION_SETTING,JSON.stringify(positionDock({left:Number(dock.dataset.left),top:Number(dock.dataset.top)})));
   };
   grip.addEventListener("pointerup",finish);
   grip.addEventListener("pointercancel",finish);
-  grip.addEventListener("contextmenu",async(event)=>{event.preventDefault();await game.settings.set(MODULE_ID,POSITION_SETTING,"");positionDock(defaultPosition());});
+  grip.addEventListener("contextmenu",async(event)=>{event.preventDefault();await globalThis.ATTestAI.settings.set(MODULE_ID,POSITION_SETTING,"");positionDock(defaultPosition());});
 }
 
 function refreshDock() {
@@ -758,11 +759,11 @@ function captureFoundryContext(app) {
 }
 
 function releaseGate() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   const moduleApi = module?.api || {};
   const host = activeDockHost();
   const ctx = currentContext();
-  const pinnedUuid = String(game.settings.get(MODULE_ID, PIN_SETTING) || "").trim();
+  const pinnedUuid = String(globalThis.ATTestAI.settings.get(MODULE_ID, PIN_SETTING) || "").trim();
   const captureTarget = String(hostedCaptureDraft.target || "").trim();
   const captureTargetDocument = resolveCaptureTarget(captureTarget);
   const convergenceAudit = moduleApi.universalDocuments?.convergenceAudit;
@@ -864,7 +865,7 @@ function gmDockApi() {
     releaseGate:()=>releaseGate(),
     context:()=>{
       const c=currentContext();
-      return {uuid:c.uuid,refKey:c.refKey,name:c.name,documentName:c.documentName,source:c.source,pinned:String(game.settings.get(MODULE_ID,PIN_SETTING)||"")===c.uuid};
+      return {uuid:c.uuid,refKey:c.refKey,name:c.name,documentName:c.documentName,source:c.source,pinned:String(globalThis.ATTestAI.settings.get(MODULE_ID,PIN_SETTING)||"")===c.uuid};
     },
     registerAction(id,config={}){
       const key=String(id||"").trim();
@@ -880,13 +881,13 @@ function gmDockApi() {
 }
 
 Hooks.once("init",()=>{
-  game.settings.register(MODULE_ID,POSITION_SETTING,{scope:"user",config:false,type:String,default:""});
-  game.settings.register(MODULE_ID,PIN_SETTING,{scope:"user",config:false,type:String,default:""});
+  globalThis.ATTestAI.settings.register(MODULE_ID,POSITION_SETTING,{scope:"user",config:false,type:String,default:""});
+  globalThis.ATTestAI.settings.register(MODULE_ID,PIN_SETTING,{scope:"user",config:false,type:String,default:""});
 });
 
 Hooks.once("ready",()=>{
   if (!game.user?.isGM) return;
-  const module=game.modules.get(MODULE_ID);
+  const module=globalThis.ATTestAI.modules.get(MODULE_ID);
   if (module) {
     if (!module.api || typeof module.api !== "object") module.api = {};
     module.api.gmDock = gmDockApi();

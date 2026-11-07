@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATCW_MODULE_ID = "adventurers-tome";
 const ATCW_ROOT = "#adventurers-tome-app";
 const ATCW_JOURNAL_MIME = "text/x-adventurers-tome-campaign-journal";
@@ -114,7 +115,7 @@ function atCwRootCandidate(folder, section, entryIds) {
   if (!folder || folder.type !== "JournalEntry" || folder.name !== ATCW_SECTIONS[section].label) return false;
   const subtree = atCwDescendantFolderIds(folder);
   if ([...(game.journal?.contents ?? [])].some((journal) => entryIds.has(journal.id) && subtree.has(String(journal.folder?.id ?? journal.folder ?? "")))) return true;
-  if (String(folder.getFlag?.(ATCW_MODULE_ID, "section") || "") === section) return true;
+  if (String(globalThis.ATTestAI.flags(folder).getFlag?.(ATCW_MODULE_ID, "section") || "") === section) return true;
   return atCwFolderAncestors(folder).some((ancestor) => /adventurer'?s tome/i.test(ancestor.name));
 }
 
@@ -214,7 +215,7 @@ function atCwPlainText(value) {
 
 function atCwWorldSearchText(journal) {
   if (!journal) return "";
-  const profile = journal.getFlag?.(ATCW_MODULE_ID, "worldProfile") || {};
+  const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATCW_MODULE_ID, "worldProfile") || {};
   const facts = Array.isArray(profile.facts)
     ? profile.facts.flatMap((fact) => [fact?.label, fact?.value])
     : [];
@@ -560,6 +561,7 @@ function atCwMountActive({ rebuildExplorer = false } = {}) {
   }
   const sectionPage = atCwSectionFromPage();
   if (!sectionPage) return null;
+  if (sectionPage.section === "world" && globalThis.ATTestAI.modules.get(ATCW_MODULE_ID)?.api?.worldSourceExplorer?.mount(sectionPage)) return null;
   return atCwEnsureLayout(sectionPage, { rebuildExplorer });
 }
 
@@ -628,7 +630,7 @@ async function atCwAdoptJournal(section, journal, targetFolder) {
   if (!game.user?.isGM) throw new Error("A GM must adopt a regular Foundry Journal into Tome the first time.");
 
   if (section === "world") {
-    const raw = journal.getFlag?.(ATCW_MODULE_ID, "worldProfile");
+    const raw = globalThis.ATTestAI.flags(journal).getFlag?.(ATCW_MODULE_ID, "worldProfile");
     const profile = raw && typeof raw === "object" && !Array.isArray(raw) ? foundry.utils.deepClone(raw) : {};
     profile.category = profile.category || atCwCanonicalWorldCategory(targetFolder) || "lore";
     profile.subtitle = profile.subtitle || "";
@@ -638,8 +640,8 @@ async function atCwAdoptJournal(section, journal, targetFolder) {
     profile.facts = Array.isArray(profile.facts) ? profile.facts : [];
     profile.summaryJournalBacked = true;
 
-    await journal.setFlag(ATCW_MODULE_ID, "type", "world");
-    await journal.setFlag(ATCW_MODULE_ID, "worldProfile", profile);
+    await globalThis.ATTestAI.flags(journal).setFlag(ATCW_MODULE_ID, "type", "world");
+    await globalThis.ATTestAI.flags(journal).setFlag(ATCW_MODULE_ID, "worldProfile", profile);
 
     const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
     let page = pages.find((item) => String(item.type || "text").toLowerCase() === "text") || null;
@@ -652,18 +654,18 @@ async function atCwAdoptJournal(section, journal, targetFolder) {
       }]);
       page = created?.[0] || null;
     }
-    if (page && !journal.getFlag?.(ATCW_MODULE_ID, "worldSyncPage")) await journal.setFlag(ATCW_MODULE_ID, "worldSyncPage", page.id);
+    if (page && !globalThis.ATTestAI.flags(journal).getFlag?.(ATCW_MODULE_ID, "worldSyncPage")) await globalThis.ATTestAI.flags(journal).setFlag(ATCW_MODULE_ID, "worldSyncPage", page.id);
   } else if (section === "quests") {
-    await journal.setFlag(ATCW_MODULE_ID, "type", "quests");
-    if (!journal.getFlag?.(ATCW_MODULE_ID, "status")) await journal.setFlag(ATCW_MODULE_ID, "status", "active");
+    await globalThis.ATTestAI.flags(journal).setFlag(ATCW_MODULE_ID, "type", "quests");
+    if (!globalThis.ATTestAI.flags(journal).getFlag?.(ATCW_MODULE_ID, "status")) await globalThis.ATTestAI.flags(journal).setFlag(ATCW_MODULE_ID, "status", "active");
   } else if (section === "sessions") {
-    await journal.setFlag(ATCW_MODULE_ID, "type", "sessions");
+    await globalThis.ATTestAI.flags(journal).setFlag(ATCW_MODULE_ID, "type", "sessions");
   }
 }
 
 function atCwJournalBelongs(section, journal, knownIds) {
   if (knownIds.has(journal.id)) return true;
-  const type = String(journal.getFlag?.(ATCW_MODULE_ID, "type") || "").toLowerCase();
+  const type = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATCW_MODULE_ID, "type") || "").toLowerCase();
   return (section === "world" && type === "world")
     || (section === "quests" && (type === "quests" || type === "quest"))
     || (section === "sessions" && (type === "sessions" || type === "session"));
@@ -680,7 +682,7 @@ async function atCwMoveJournal(section, journal, targetFolder) {
   if (!canEdit) return ui.notifications.warn("Adventurer's Tome: You do not have permission to move that Journal.");
 
   try {
-    const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    const backendParity = globalThis.ATTestAI.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
     if (section === "world" && backendParity?.isManagedMirror?.(targetFolder) && !backendParity?.isManagedProjection?.(journal)) {
       throw new Error("This folder mirrors a non-Journal Foundry backend. Move the canonical source document in Foundry instead.");
     }
@@ -699,13 +701,13 @@ async function atCwMoveJournal(section, journal, targetFolder) {
     await journal.update({ folder: targetFolder.id });
 
     if (section === "world") {
-      const raw = journal.getFlag?.(ATCW_MODULE_ID, "worldProfile");
+      const raw = globalThis.ATTestAI.flags(journal).getFlag?.(ATCW_MODULE_ID, "worldProfile");
       const canonicalCategory = atCwCanonicalWorldCategory(targetFolder);
       if (canonicalCategory && raw && typeof raw === "object" && !Array.isArray(raw)) {
         const profile = foundry.utils.deepClone(raw);
         if (profile.category !== canonicalCategory) {
           profile.category = canonicalCategory;
-          await journal.setFlag(ATCW_MODULE_ID, "worldProfile", profile);
+          await globalThis.ATTestAI.flags(journal).setFlag(ATCW_MODULE_ID, "worldProfile", profile);
           categoryChanged = true;
         }
       }
@@ -714,7 +716,7 @@ async function atCwMoveJournal(section, journal, targetFolder) {
     ui.notifications.info(`Adventurer's Tome: ${belongs ? "Moved" : "Added"} ${journal.name} to ${targetFolder.name}.`);
 
     if (categoryChanged) {
-      const app = game.modules.get(ATCW_MODULE_ID)?.api?.app?.();
+      const app = globalThis.ATTestAI.modules.get(ATCW_MODULE_ID)?.api?.app?.();
       await app?.render?.({ parts: ["main"] });
       atCwScheduleMount(80, { rebuildExplorer: true });
     } else {
@@ -739,7 +741,7 @@ async function atCwMoveFolder(section, folder, targetFolder) {
   }
 
   try {
-    const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    const backendParity = globalThis.ATTestAI.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
     if (section === "world" && backendParity?.isManagedMirror?.(targetFolder) && !backendParity?.isManagedMirror?.(folder)) {
       throw new Error("This target mirrors a canonical non-Journal Foundry folder. Move the source folder in Foundry instead.");
     }
@@ -799,7 +801,7 @@ async function atCwCreateFolder(section) {
   if (!name) return;
 
   try {
-    const backendParity = game.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
+    const backendParity = globalThis.ATTestAI.modules.get(ATCW_MODULE_ID)?.api?.backendFolderParity || null;
     if (section === "world" && backendParity?.createFolder) {
       const routed = await backendParity.createFolder(parent, name);
       if (routed) {

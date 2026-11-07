@@ -1,5 +1,6 @@
+globalThis.ATTestAI.assertEnabled();
 const PCID='adventurers-tome';
-const pcApi=()=>game.modules.get(PCID)?.api;
+const pcApi=()=>globalThis.ATTestAI.modules.get(PCID)?.api;
 const pcT=(key,fallback)=>{const value=game.i18n?.localize?.(key);return value&&value!==key?value:fallback;};
 const pcEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pcEpochs=new WeakMap();

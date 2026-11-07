@@ -1,6 +1,7 @@
+globalThis.ATTestAI.assertEnabled();
 // A rebuildable viewer projection, never a second campaign truth store.
 const ATEI_ID="adventurers-tome";
-const atEiApi=()=>game.modules.get(ATEI_ID)?.api || {};
+const atEiApi=()=>globalThis.ATTestAI.modules.get(ATEI_ID)?.api || {};
 let atEiCache=null;
 let atEiRevision=0;
 let atEiBuilds=0;
@@ -18,7 +19,7 @@ function atEiVisible(doc) {
   if(game.user?.isGM)return true;
   try {
     if(doc.parent && !atEiVisible(doc.parent))return false;
-    const access=doc.getFlag?.(ATEI_ID,"access");
+    const access=globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"access");
     return doc.testUserPermission?.(game.user,"OBSERVER") === true && access?.visibility !== "gm" && access?.discovered !== false
       && (!atEiApi().canView || atEiApi().canView(doc));
   } catch (_) {return false;}
@@ -34,11 +35,11 @@ function atEiCanonical(uuid) {
   return atEiVisible(atEiDocument(resolved)) ? resolved : value;
 }
 function atEiCategory(doc) {
-  const meta=doc.getFlag?.(ATEI_ID,"semanticIdentity") || {};
-  const declared=meta.entityCategory || doc.getFlag?.(ATEI_ID,"entityCategory");
+  const meta=globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"semanticIdentity") || {};
+  const declared=meta.entityCategory || globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"entityCategory");
   if(declared)return String(declared);
-  const type=String(doc.getFlag?.(ATEI_ID,"type") || "").toLowerCase();
-  const semantic=['session','sessions','quest','quests'].includes(type) ? type : String(doc.getFlag?.(ATEI_ID,"worldProfile")?.category || type).toLowerCase();
+  const type=String(globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"type") || "").toLowerCase();
+  const semantic=['session','sessions','quest','quests'].includes(type) ? type : String(globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"worldProfile")?.category || type).toLowerCase();
   const categories={character:"person",characters:"person",npc:"person",npcs:"person",contact:"person",contacts:"person",faction:"organization",factions:"organization",organization:"organization",organizations:"organization",location:"location",locations:"location",item:"item",items:"item",session:"session",sessions:"session",quest:"quest",quests:"quest",lore:"narrative",rule:"narrative",rules:"narrative"};
   const sourceKind=doc.documentName === "JournalEntry" ? atEiApi().campaignRelationshipEvidence?.sourceKind?.(doc) : "";
   return categories[semantic] || sourceKind || ({Actor:"person",Item:"item",JournalEntry:"narrative",JournalEntryPage:"narrative",Scene:"scene"})[doc.documentName] || "other";
@@ -97,8 +98,8 @@ function atEiIndex() {
     // their aggregate links public; visible relationship evidence still projects.
     if(!atEiVisibleAggregate(doc))continue;
     const from=atEiEntity(doc.uuid);if(!from)continue;
-    const canonical=doc.getFlag?.(ATEI_ID,"campaignEntityLinksV1") || {};
-    const legacy=doc.getFlag?.(ATEI_ID,"links") || {};
+    const canonical=globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"campaignEntityLinksV1") || {};
+    const legacy=globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"links") || {};
     const array=value=>Array.isArray(value) ? value : [];
     const targets=[...array(canonical.actorUuids),...array(canonical.entityUuids),
       ...array(legacy.actors).map(id=>`Actor.${id}`),...['sessions','quests','world','rules'].flatMap(key=>array(legacy[key]).map(id=>`JournalEntry.${id}`))];
@@ -170,7 +171,7 @@ async function atEiOpen(uuid,app,{pageUuid=""}={}) {
     if(!doc.sheet?.render)return {status:"unavailable"};
     await doc.sheet.render(true,{pageId:page.id});return {status:"opened",uuid:page.uuid};
   }
-  const category=atEiCategory(doc),journalType=['rule','rules'].includes(doc.getFlag?.(ATEI_ID,"type")) ? "rule" : ({session:"session",quest:"quest"})[category] || "world";
+  const category=atEiCategory(doc),journalType=['rule','rules'].includes(globalThis.ATTestAI.flags(doc).getFlag?.(ATEI_ID,"type")) ? "rule" : ({session:"session",quest:"quest"})[category] || "world";
   const ref=doc.documentName === "Actor" ? `actor:${doc.id}` : doc.documentName === "JournalEntry" ? `${journalType}:${doc.id}` : null;
   if(ref && app?._openRefKey) {
     const before=app._captureNavigationState?.();
@@ -193,7 +194,7 @@ async function atEiOpen(uuid,app,{pageUuid=""}={}) {
 }
 const ATEI_API=Object.freeze({version:1,profile:atEiProfile,resolve:atEiResolve,open:atEiOpen,invalidate:atEiInvalidate,
   registerEnricher:fn=>{atEiEnricher=typeof fn === "function" ? fn : null;},diagnostics:()=>({builds:atEiBuilds,revision:atEiRevision})});
-Hooks.once("ready",()=>{const module=game.modules.get(ATEI_ID);module.api ||= {};module.api.entityIntelligence=ATEI_API;});
+Hooks.once("ready",()=>{const module=globalThis.ATTestAI.modules.get(ATEI_ID);module.api ||= {};module.api.entityIntelligence=ATEI_API;});
 for(const event of ['adventurersTomeRelationshipEvidenceUpdated','adventurersTomeCampaignMentionEvidenceUpdated','adventurersTomeCampaignDiscoveryUpdated',
   'adventurersTomeCampaignEntityLinkChanged','adventurersTomeCampaignLearningUpdated',
   'createActor','updateActor','deleteActor','createItem','updateItem','deleteItem','createJournalEntry','updateJournalEntry','deleteJournalEntry',

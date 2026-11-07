@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 export function getActorEmbeddedItems() {
   const token=globalThis.AdventurersTomeStartup?.begin("embedded-items-pass");
   try {

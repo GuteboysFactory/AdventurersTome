@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATSA_MODULE_ID = "adventurers-tome";
 const ATSA_CONTRACT = "adventurers-tome-adapter-api";
 const ATSA_VERSION = 1;
@@ -486,11 +487,11 @@ const ATSA_PUBLIC_API = Object.freeze({
 });
 
 // Backward-compatible global bridge for existing v1.1-v1.4 consumers.
-// New integrations should prefer game.modules.get("adventurers-tome").api.adapters.
+// New integrations should prefer globalThis.ATTestAI.modules.get("adventurers-tome").api.adapters.
 globalThis.AdventurersTomeSystemAdapters = ATSA_PUBLIC_API;
 
 function atSaAttachPublicApi() {
-  const module = game.modules.get(ATSA_MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(ATSA_MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.adapters = ATSA_PUBLIC_API;
@@ -503,5 +504,5 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(ATSA_MODULE_ID)?.api?.adapters !== ATSA_PUBLIC_API) atSaAttachPublicApi();
+  if (globalThis.ATTestAI.modules.get(ATSA_MODULE_ID)?.api?.adapters !== ATSA_PUBLIC_API) atSaAttachPublicApi();
 });

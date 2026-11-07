@@ -1,9 +1,10 @@
+globalThis.ATTestAI.assertEnabled();
 const AT_MODULE_ID = "adventurers-tome";
 const AT_RULE_FLAG = "ruleLink";
 const AT_TOME_ROOT = "#adventurers-tome-app";
 
 function atTomeApp() {
-  try { return game.modules.get(AT_MODULE_ID)?.api?.app?.(); } catch (_error) { return null; }
+  try { return globalThis.ATTestAI.modules.get(AT_MODULE_ID)?.api?.app?.(); } catch (_error) { return null; }
 }
 
 function atAcquireEditorSession(owner = "structured-journal") {
@@ -239,7 +240,7 @@ async function atEnhanceWorldDetail(root) {
   if (!journal) return;
 
   const pages = [...(journal.pages?.contents ?? [])].filter((p) => atCanViewPage(p, journal)).sort((a,b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
-  const preferredId = String(journal.getFlag?.(AT_MODULE_ID, "worldSyncPage") || "");
+  const preferredId = String(globalThis.ATTestAI.flags(journal).getFlag?.(AT_MODULE_ID, "worldSyncPage") || "");
   const textPage = pages.find((p) => p.id === preferredId) || pages.find((p) => p?.text?.content !== undefined);
   if (!textPage) return;
 
@@ -497,10 +498,10 @@ Hooks.once("ready", async () => {
 
   try {
     const key = `${AT_MODULE_ID}.groupHomeLimit`;
-    const worldStore = game.settings.storage?.get("world");
+    const worldStore = globalThis.ATTestAI.settings.storage?.get("world");
     const explicitlyStored = Boolean(worldStore?.has?.(key) || worldStore?.get?.(key));
-    if (!explicitlyStored && Number(game.settings.get(AT_MODULE_ID, "groupHomeLimit") || 3) === 3) {
-      await game.settings.set(AT_MODULE_ID, "groupHomeLimit", 8);
+    if (!explicitlyStored && Number(globalThis.ATTestAI.settings.get(AT_MODULE_ID, "groupHomeLimit") || 3) === 3) {
+      await globalThis.ATTestAI.settings.set(AT_MODULE_ID, "groupHomeLimit", 8);
     }
   } catch (error) {
     console.debug("Adventurer's Tome | Could not promote implicit home roster limit; leaving the configured value unchanged.", error);

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATWLP_ROOT = "#adventurers-tome-app";
 let atWlpRafQueued = false;
 let atWlpSweepTimer = null;

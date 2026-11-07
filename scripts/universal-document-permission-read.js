@@ -1,9 +1,10 @@
+globalThis.ATTestAI.assertEnabled();
 const ATPR_ID = "adventurers-tome";
 let atprTimer = null;
 let atprAttached = false;
 
 function atprModule() {
-  return game.modules.get(ATPR_ID);
+  return globalThis.ATTestAI.modules.get(ATPR_ID);
 }
 
 function atprCanRead(document, module, seen = new Set()) {

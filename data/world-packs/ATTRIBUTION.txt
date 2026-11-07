@@ -1,0 +1,19 @@
+TOLKIEN WORLD REFERENCE DATA — VERSION 2.0.0
+
+This notice applies to data/world-packs/tolkien-places.json only, not to the module source code or other assets.
+
+Contents: 500 place/building references, 120 named individuals, the existing Dunedain people reference, curated aliases and background place associations. The data spans the legendarium; historical names and associations do not establish current campaign conditions or dates.
+
+Wikidata contributors: structured labels, aliases, short descriptions, classifications and relation facts, retrieved 2026-11-05 (earlier retained rows identify their original retrieval date). Wikidata structured data is CC0-1.0:
+https://www.wikidata.org/wiki/Wikidata:Licensing
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Tolkien Gateway contributors: curated name/type facts from category pages, plus selected background associations for The Prancing Pony, Bag End and Tom Bombadil's house. Exact source pages and attribution are recorded on each relevant entry. Retrieved 2026-11-05. Sources are licensed CC BY-SA 4.0:
+https://tolkiengateway.net/wiki/Index:Locations
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Adventurer's Tome adapted the selection, reconciled attested spellings, added brief original context notes and assembled the reference dataset. This adapted dataset is available under CC BY-SA 4.0. CC0 components retain their CC0 status. To redistribute the adapted dataset, retain source attribution, identify changes and comply with the linked license.
+
+No encyclopedia article text, book passages, illustrations, maps or character game statistics are included. Names and facts are used as background references; no affiliation or endorsement is implied.
+
+Foxdale is not part of this Tolkien dataset. A separate optional campaign-reference file contains the GM-supplied village description and its proximity to Fornost. It is imported into the selected world only.

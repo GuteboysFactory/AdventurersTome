@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATFQ_MODULE_ID = "adventurers-tome";
 const ATFQ_CONTRACT = "adventurers-tome-folder-quick-create";
 const ATFQ_VERSION = 1;
@@ -101,11 +102,11 @@ function atFqFolderPath(folder) {
 }
 
 function atFqModuleApi() {
-  return game.modules.get(ATFQ_MODULE_ID)?.api || null;
+  return globalThis.ATTestAI.modules.get(ATFQ_MODULE_ID)?.api || null;
 }
 
 function atFqFolderFlag(folder) {
-  return atFqClean(folder?.getFlag?.(ATFQ_MODULE_ID, ATFQ_FOLDER_FLAG));
+  return atFqClean(globalThis.ATTestAI.flags(folder)?.getFlag?.(ATFQ_MODULE_ID, ATFQ_FOLDER_FLAG));
 }
 
 function atFqCoreSpec(type) {
@@ -188,7 +189,9 @@ async function atFqAdoptOrCreateStandardFolder(worldFolder, spec) {
     folder.type === "JournalEntry" && atFqParentId(folder) === worldFolder.id
   );
 
-  let folder = children.find((entry) => atFqFolderFlag(entry) === spec.type) || null;
+  let folder = [...(game.folders?.contents ?? [])].find(entry => entry.type === 'JournalEntry'
+    && atFqFolderFlag(entry) === spec.type && globalThis.ATTestAI.modules?.get?.('adventurers-tome')?.api?.worldTree?.ownsBackendDocument?.(entry) === true)
+    || children.find((entry) => atFqFolderFlag(entry) === spec.type) || null;
   if (!folder) {
     const aliasNames = new Set(spec.aliases.map(atFqNormalizeName));
     folder = children.find((entry) => aliasNames.has(atFqNormalizeName(entry.name))) || null;
@@ -196,8 +199,8 @@ async function atFqAdoptOrCreateStandardFolder(worldFolder, spec) {
 
   if (folder) {
     if (atFqFolderFlag(folder) !== spec.type) {
-      await folder.setFlag(ATFQ_MODULE_ID, ATFQ_FOLDER_FLAG, spec.type);
-      await folder.setFlag(ATFQ_MODULE_ID, ATFQ_FOLDER_VERSION_FLAG, ATFQ_VERSION);
+      await globalThis.ATTestAI.flags(folder).setFlag(ATFQ_MODULE_ID, ATFQ_FOLDER_FLAG, spec.type);
+      await globalThis.ATTestAI.flags(folder).setFlag(ATFQ_MODULE_ID, ATFQ_FOLDER_VERSION_FLAG, ATFQ_VERSION);
       atFqStats.adopted += 1;
     }
     return folder;
@@ -328,11 +331,12 @@ function atFqTemplateFacts(template) {
 async function atFqEditGenericEntry(type, spec, template, folder, options = {}) {
   const requestedName = atFqClean(options.initialName || options.name);
   const defaultName = requestedName || (template?.id === "blank" ? "" : template?.name || "");
-  const choice = options.campaignIdentity ? {
+  const reference=options.campaignReference;
+  const choice = options.campaignIdentity || reference ? {
     name:requestedName,
-    subtitle:atFqClean(options.campaignIdentity.roles?.join(" / ") || spec.label),
-    summary:"",
-    body:""
+    subtitle:atFqClean(reference?.subtype || options.campaignIdentity?.roles?.join(" / ") || spec.label),
+    summary:atFqClean(reference?.summary?.[game.i18n?.lang] || reference?.summary?.en || ''),
+    body:reference ? `<p>${atFqEscape(reference.summary?.[game.i18n?.lang] || reference.summary?.en || '')}</p><p>Source: ${reference.sources.map(s=>s.url?`<a href="${atFqEscape(s.url)}" target="_blank" rel="noopener noreferrer">${atFqEscape(s.url)}</a>`:atFqEscape(s.label)).join(', ')}</p>` : ''
   } : await foundry.applications.api.DialogV2.wait({
     window:{ title:`Adventurer's Tome · New ${spec.label}`, resizable:true },
     position:{ width:720, height:"auto" },
@@ -380,22 +384,28 @@ async function atFqEditGenericEntry(type, spec, template, folder, options = {}) 
     body:choice.body,
     heroImage:"",
     actorId:"",
-    facts:options.campaignIdentity
+    ...(reference?{aliases:[...(reference.aliases||[])],libraryReference:{packId:reference.packId,id:reference.id,packVersion:reference.packVersion,sources:reference.sources,relations:reference.relations||[],scope:reference.scope||'reference'},facts:[{label:'Type',value:reference.subtype,visibility:'gm',provenance:{origin:'world-library',packId:reference.packId,id:reference.id}},{label:'Source',value:reference.sources.map(s=>s.url||s.label).join(', '),visibility:'gm',provenance:{origin:'world-library',packId:reference.packId,id:reference.id}},...(reference.relations||[]).map(r=>({label:'Background reference · '+r.type,value:r.targetName,visibility:'gm',provenance:{origin:'world-library',packId:reference.packId,id:reference.id,targetId:r.targetId}}))]}:{}),
+    ...(!reference?{facts:options.campaignIdentity
       ? (options.campaignIdentity.briefItems || []).map((row) => ({
           label:['Role / profession','Historical role'].includes(row.label) ? row.label : `${row.label} (source excerpt)`,
           value:row.value, visibility:"gm", provenance:{origin:'tome-analysis',sourceUuid:options.sourceUuid,sourceValue:row.value,
             ...(row.temporalStatus?{temporalStatus:row.temporalStatus,evidence:(options.campaignIdentity.roleEvidence||[]).filter(item=>item.status===row.temporalStatus)}:{})}
         }))
-      : atFqTemplateFacts(template)
+      : atFqTemplateFacts(template)}:{})
   };
 
+  // A library entry is complete before the index can checkpoint it.
+  const referencePageId=reference?foundry.utils.randomID():null;
+  if(referencePageId)worldProfile.syncPageId=referencePageId;
   const entry = await JournalEntry.create({
+    ...(referencePageId?{pages:[{_id:referencePageId,name:"Overview",type:"text",sort:100000,text:{format:CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML??1,content:"<p data-at-tome-summary=\"true\">"+atFqEscape(worldProfile.summary||"")+"</p><p>"+atFqEscape(worldProfile.body||"").replaceAll("\n","<br>")+"</p>"},flags:{[ATFQ_MODULE_ID]:{worldSyncPage:true}}}]}:{}),
     name:choice.name,
     folder:folder.id,
-    ownership:{ default:options.campaignIdentity ? 0 : CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2 },
+    ownership:{ default:options.campaignIdentity || reference ? 0 : CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2 },
     flags:{
       [ATFQ_MODULE_ID]:{
         worldProfile,
+        ...(referencePageId?{worldSyncPage:referencePageId}:{}),
         quickCreate:{
           contract:ATFQ_CONTRACT,
           version:ATFQ_VERSION,
@@ -406,7 +416,7 @@ async function atFqEditGenericEntry(type, spec, template, folder, options = {}) 
         }
       }
     }
-  });
+  }, {adventurersTomeAutomaticIdentity:Boolean(options.campaignIdentity || reference)});
 
   if (!entry) throw new Error("Foundry did not return the created Journal Entry.");
   atFqStats.genericCreates += 1;
@@ -468,7 +478,7 @@ async function atFqQuickCreate(folderOrId, options = {}) {
 
   // Discovery creates system-agnostic Contacts/World entries through the same
   // authoring path, with GM-private source facts and no modal interaction.
-  if (options.campaignIdentity && ["contact","location","faction","item"].includes(type)) {
+  if (options.campaignReference && type === "npc" || (options.campaignIdentity || options.campaignReference) && ["contact","location","faction","item"].includes(type)) {
     return atFqEditGenericEntry(type, spec, atFqTemplateList(type).find((entry) => entry.id === "blank"), folder, options);
   }
 
@@ -492,6 +502,7 @@ async function atFqQuickCreate(folderOrId, options = {}) {
           folderFlag:"tomeQuickCreateNpcFolder",
           destinationFolderId:atFqClean(backendContext?.sourceFolder?.id),
           closeAfterCreate:options.closeAfterCreate === true,
+          openAfterCreate:options.openAfterCreate,
           awaitCreation:options.awaitCreation === true,
           onCreated:typeof options.onCreated === "function" ? options.onCreated : null
         });
@@ -503,6 +514,9 @@ async function atFqQuickCreate(folderOrId, options = {}) {
       || null;
     return quickNpc?.open?.({
       forceGeneric:true,
+      openAfterCreate:options.openAfterCreate,
+      awaitCreation:options.awaitCreation === true,
+      onCreated:options.onCreated,
       name:atFqClean(options.initialName || options.name),
       initialQuery:atFqClean(options.initialQuery || options.initialName || options.name),
       folderId:atFqClean(backendContext?.sourceFolder?.id)
@@ -654,7 +668,7 @@ const atFqPublicApi = Object.freeze({
 });
 
 function atFqAttach() {
-  const module = game.modules.get(ATFQ_MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(ATFQ_MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.folderQuickCreate = atFqPublicApi;

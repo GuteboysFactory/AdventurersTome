@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const VAULT_SETTING = "gmContextualPrivateVaultV2";
 const LEGACY_SETTING = "gmPrivateVault";
@@ -53,14 +54,15 @@ function pv2Record(document, record = {}) {
 }
 
 function pv2WorldProfile(journal) {
-  const raw = journal?.getFlag?.(MODULE_ID, "worldProfile");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(MODULE_ID, "worldProfile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
 function pv2ResolveActor(journal) {
   if (journal?.documentName !== "JournalEntry") return null;
   const profile = pv2WorldProfile(journal);
-  const sourceUuid = String(journal.getFlag?.(MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+  if (profile.category && !["npc","contact","character","pc","npc-group"].includes(profile.category)) return null;
+  const sourceUuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
   const match = sourceUuid.match(/^Actor\.([^\.]+)$/);
   if (match) return game.actors?.get(match[1]) || null;
   const actorId = String(profile.actorId || "").trim();
@@ -76,13 +78,14 @@ function pv2LinkedJournal(actor) {
   if (actor?.documentName !== "Actor") return null;
   return [...(game.journal?.contents ?? [])].find((journal) => {
     const profile = pv2WorldProfile(journal);
-    const sourceUuid = String(journal.getFlag?.(MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+    if (profile.category && !["npc","contact","character","pc","npc-group"].includes(profile.category)) return false;
+    const sourceUuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
     return sourceUuid === actor.uuid || String(profile.actorId || "") === String(actor.id);
   }) || null;
 }
 
 function pv2Vault() {
-  const raw = pv2Parse(game.settings.get(MODULE_ID, VAULT_SETTING), {});
+  const raw = pv2Parse(globalThis.ATTestAI.settings.get(MODULE_ID, VAULT_SETTING), {});
   return {
     schema: "adventurers-tome.private-vault",
     version: 2,
@@ -92,7 +95,7 @@ function pv2Vault() {
 }
 
 function pv2Legacy() {
-  const raw = pv2Parse(game.settings.get(MODULE_ID, LEGACY_SETTING), {});
+  const raw = pv2Parse(globalThis.ATTestAI.settings.get(MODULE_ID, LEGACY_SETTING), {});
   return raw && typeof raw === "object" && !Array.isArray(raw) ? pv2Clone(raw) : {};
 }
 
@@ -140,7 +143,7 @@ async function pv2SaveRecord(document, notes) {
     else vault.records[alias.uuid] = pv2Record(alias, next);
   }
 
-  await game.settings.set(MODULE_ID, VAULT_SETTING, JSON.stringify(vault));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, VAULT_SETTING, JSON.stringify(vault));
 
   const legacy = pv2Legacy();
   const payload = {
@@ -153,7 +156,7 @@ async function pv2SaveRecord(document, notes) {
     if (empty) delete legacy[key];
     else legacy[key] = pv2Clone(payload);
   }
-  await game.settings.set(MODULE_ID, LEGACY_SETTING, JSON.stringify(legacy));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, LEGACY_SETTING, JSON.stringify(legacy));
   return next;
 }
 
@@ -347,7 +350,7 @@ function pv2InstallStyle() {
 Hooks.once("ready", () => {
   if (!game.user?.isGM) return;
   pv2InstallStyle();
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (module) {
     if (!module.api || typeof module.api !== "object") module.api = {};
     const api = module.api;

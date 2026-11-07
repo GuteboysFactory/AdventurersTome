@@ -1,0 +1,2 @@
+TestAI has graduated to Adventurer's Tome 2.1.0.
+Use docs/V2.1_STABLE_RELEASE.md for current upgrade instructions.

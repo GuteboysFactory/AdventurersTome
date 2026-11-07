@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATQF_MODULE_ID = "adventurers-tome";
 const ATQF_ROOT = "#adventurers-tome-app";
 const ATQF_SOCKET = `module.${ATQF_MODULE_ID}`;
@@ -35,7 +36,7 @@ function atQfWorldRoots() {
   return [...(game.folders?.contents ?? [])]
     .filter((folder) => {
       if (folder.type !== "JournalEntry" || folder.name !== "World") return false;
-      if (String(folder.getFlag?.(ATQF_MODULE_ID, "section") || "") === "world") return true;
+      if (String(globalThis.ATTestAI.flags(folder).getFlag?.(ATQF_MODULE_ID, "section") || "") === "world") return true;
       return atQfAncestors(folder).some((ancestor) => ancestor.id !== folder.id && /adventurer'?s tome/i.test(String(ancestor.name || "")));
     });
 }
@@ -126,7 +127,7 @@ async function atQfResolveSourceFolder(payload) {
   const uuid = String(payload?.sourceFolderUuid || "").trim();
   const id = String(payload?.sourceFolderId || "").trim();
   const canonicalUuid = uuid || (id ? `Folder.${id}` : "");
-  const resolver = game.modules.get(ATQF_MODULE_ID)?.api?.universalDocuments?.resolveCanonical;
+  const resolver = globalThis.ATTestAI.modules.get(ATQF_MODULE_ID)?.api?.universalDocuments?.resolveCanonical;
   if (typeof resolver !== "function") throw new Error("Universal Registry resolver is not ready.");
   const folder = canonicalUuid ? await resolver(canonicalUuid, { consumer: "folder-quick-import" }) : null;
   if (!folder || folder.documentName !== "Folder") throw new Error("The dragged Foundry folder could not be resolved.");
@@ -159,7 +160,7 @@ function atQfRequest(payload) {
       reject(new Error("The GM did not answer the Folder Quick Import request."));
     }, 30000);
     ATQF_PENDING.set(requestId, { resolve, reject, timer });
-    game.socket.emit(ATQF_SOCKET, {
+    globalThis.ATTestAI.socket.emit(ATQF_SOCKET, {
       channel: ATQF_CHANNEL,
       type: "request",
       requestId,
@@ -228,15 +229,15 @@ async function atQfEnsureOverview(journal) {
     text: { content: '<h2 data-at-tome-summary="true"></h2><p></p>', format: CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML ?? 1 },
     sort: 100000
   }]);
-  if (created?.[0]) await journal.setFlag(ATQF_MODULE_ID, "worldSyncPage", created[0].id);
+  if (created?.[0]) await globalThis.ATTestAI.flags(journal).setFlag(ATQF_MODULE_ID, "worldSyncPage", created[0].id);
 }
 
 function atQfExistingEntry(sourceUuid) {
   return [...(game.journal?.contents ?? [])].find((journal) => {
     const folder = journal.folder || game.folders?.get(String(journal.folder?.id ?? journal.folder ?? ""));
     if (!atQfWorldRootFor(folder)) return false;
-    const profile = journal.getFlag?.(ATQF_MODULE_ID, "worldProfile") || {};
-    return String(journal.getFlag?.(ATQF_MODULE_ID, ATQF_SOURCE_UUID) || "") === sourceUuid
+    const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATQF_MODULE_ID, "worldProfile") || {};
+    return String(globalThis.ATTestAI.flags(journal).getFlag?.(ATQF_MODULE_ID, ATQF_SOURCE_UUID) || "") === sourceUuid
       || String(profile?.sourceUuid || "") === sourceUuid;
   }) || null;
 }
@@ -244,7 +245,7 @@ function atQfExistingEntry(sourceUuid) {
 async function atQfEnsureMirrorFolder(sourceFolder, targetParent) {
   const sourceUuid = String(sourceFolder.uuid || `Folder.${sourceFolder.id}`);
   const direct = [...(game.folders?.contents ?? [])].filter((folder) => folder.type === "JournalEntry" && atQfParentId(folder) === String(targetParent.id));
-  const flagged = direct.find((folder) => String(folder.getFlag?.(ATQF_MODULE_ID, ATQF_SOURCE_FOLDER_UUID) || "") === sourceUuid);
+  const flagged = direct.find((folder) => String(globalThis.ATTestAI.flags(folder).getFlag?.(ATQF_MODULE_ID, ATQF_SOURCE_FOLDER_UUID) || "") === sourceUuid);
   if (flagged) return flagged;
   const named = direct.find((folder) => String(folder.name || "") === String(sourceFolder.name || ""));
   if (named) return named;
@@ -259,7 +260,7 @@ async function atQfEnsureMirrorFolder(sourceFolder, targetParent) {
 async function atQfCreateLinkedEntry(source, targetFolder, category, requesterId) {
   const existing = atQfExistingEntry(String(source.uuid || ""));
   if (existing) {
-    const profile = atQfProfile(source, category, existing.getFlag?.(ATQF_MODULE_ID, "worldProfile") || {});
+    const profile = atQfProfile(source, category, globalThis.ATTestAI.flags(existing).getFlag?.(ATQF_MODULE_ID, "worldProfile") || {});
     await existing.update({
       folder: targetFolder.id,
       [`flags.${ATQF_MODULE_ID}.type`]: "world",
@@ -300,7 +301,7 @@ async function atQfCopyJournal(source, targetFolder, category, requesterId) {
   flags[ATQF_MODULE_ID] = {
     ...(flags[ATQF_MODULE_ID] || {}),
     type: "world",
-    worldProfile: atQfProfile(source, category, source.getFlag?.(ATQF_MODULE_ID, "worldProfile") || {}),
+    worldProfile: atQfProfile(source, category, globalThis.ATTestAI.flags(source).getFlag?.(ATQF_MODULE_ID, "worldProfile") || {}),
     [ATQF_SOURCE_UUID]: source.uuid,
     [ATQF_SOURCE_TYPE]: source.documentName
   };
@@ -316,7 +317,7 @@ async function atQfCopyJournal(source, targetFolder, category, requesterId) {
 }
 
 async function atQfImportJournal(source, targetFolder, category, requesterId) {
-  const tomeType = String(source.getFlag?.(ATQF_MODULE_ID, "type") || "").toLowerCase();
+  const tomeType = String(globalThis.ATTestAI.flags(source).getFlag?.(ATQF_MODULE_ID, "type") || "").toLowerCase();
   if (tomeType && tomeType !== "world") {
     const existing = atQfExistingEntry(String(source.uuid || ""));
     if (existing) {
@@ -326,7 +327,7 @@ async function atQfImportJournal(source, targetFolder, category, requesterId) {
     return { journal: await atQfCopyJournal(source, targetFolder, category, requesterId), mode: "copied" };
   }
 
-  const profile = atQfProfile(source, category, source.getFlag?.(ATQF_MODULE_ID, "worldProfile") || {});
+  const profile = atQfProfile(source, category, globalThis.ATTestAI.flags(source).getFlag?.(ATQF_MODULE_ID, "worldProfile") || {});
   await source.update({
     folder: targetFolder.id,
     [`flags.${ATQF_MODULE_ID}.type`]: "world",
@@ -406,15 +407,15 @@ async function atQfHandleSocket(message) {
   const requesterId = String(message.requesterId || "");
   try {
     const result = await atQfExecute(message.payload || {}, requesterId);
-    game.socket.emit(ATQF_SOCKET, { channel: ATQF_CHANNEL, type: "response", requestId, targetUserId: requesterId, ok: true, result });
+    globalThis.ATTestAI.socket.emit(ATQF_SOCKET, { channel: ATQF_CHANNEL, type: "response", requestId, targetUserId: requesterId, ok: true, result });
   } catch (error) {
     console.error("Adventurer's Tome | Folder Quick Import broker failed", error);
-    game.socket.emit(ATQF_SOCKET, { channel: ATQF_CHANNEL, type: "response", requestId, targetUserId: requesterId, ok: false, error: error?.message || "Folder Quick Import failed." });
+    globalThis.ATTestAI.socket.emit(ATQF_SOCKET, { channel: ATQF_CHANNEL, type: "response", requestId, targetUserId: requesterId, ok: false, error: error?.message || "Folder Quick Import failed." });
   }
 }
 
 Hooks.once("ready", () => {
-  game.socket.on(ATQF_SOCKET, (message) => void atQfHandleSocket(message));
+  globalThis.ATTestAI.socket.on(ATQF_SOCKET, (message) => void atQfHandleSocket(message));
 
   document.addEventListener("dragover", (event) => {
     if (!atQfCanImport()) return;
@@ -460,7 +461,7 @@ Hooks.once("ready", () => {
       const suffix = failed ? ` · ${failed} skipped` : "";
       ui.notifications.info(`Adventurer's Tome: Imported ${result?.folders || 0} folder(s) and ${result?.entries || 0} entr${Number(result?.entries || 0) === 1 ? "y" : "ies"}${suffix}.`);
       window.setTimeout(() => {
-        try { game.modules.get(ATQF_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
+        try { globalThis.ATTestAI.modules.get(ATQF_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
       }, 120);
     }).catch((error) => {
       console.error("Adventurer's Tome | Folder Quick Import failed", error);

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATME_ID = "adventurers-tome";
 const ATME_CONTRACT = "adventurers-tome-campaign-mention-evidence";
 const ATME_VERSION = 1;
@@ -104,6 +105,7 @@ function atMeNormalizeRecord(row = {}) {
     outcome:atMeClean(row.outcome),
     outcomeReason:atMeClean(row.outcomeReason),
     identityBriefing:atMeClone(row.identityBriefing || null),
+    worldReference:atMeClone(row.worldReference || null),
     identityCandidates:atMeClone(atMeArray(row.identityCandidates)),
     identityChoice:atMeClone(row.identityChoice || null)
   };
@@ -112,7 +114,7 @@ function atMeNormalizeRecord(row = {}) {
 function atMeGetLedger() {
   if (!game.user?.isGM) return atMeLedger();
   try {
-    const raw = game.settings.get(ATME_ID, ATME_SETTING);
+    const raw = globalThis.ATTestAI.settings.get(ATME_ID, ATME_SETTING);
     const parsed = raw ? JSON.parse(String(raw)) : {};
     return atMeLedger(parsed);
   } catch (_error) {
@@ -125,30 +127,30 @@ async function atMeSetLedger(ledger) {
   const normalized = atMeLedger(ledger);
   normalized.updatedAt = Date.now();
   const review=globalThis.AdventurersTomeReviewDecision;
-  const write=()=>game.settings.set(ATME_ID, ATME_SETTING, JSON.stringify(normalized));
+  const write=()=>globalThis.ATTestAI.settings.set(ATME_ID, ATME_SETTING, JSON.stringify(normalized));
   if(review?.measure) await review.measure("evidence-write",write);else await write();
   review?.count("evidence-write","writes");
   return normalized;
 }
 
 function atMeDiscoveryApi() {
-  return game.modules.get(ATME_ID)?.api?.campaignMentionDiscovery || null;
+  return globalThis.ATTestAI.modules.get(ATME_ID)?.api?.campaignMentionDiscovery || null;
 }
 
 function atMeSourceScopedApi() {
-  return game.modules.get(ATME_ID)?.api?.campaignSourceScopedIdentity || null;
+  return globalThis.ATTestAI.modules.get(ATME_ID)?.api?.campaignSourceScopedIdentity || null;
 }
 
 function atMeDeterministicApi() {
-  return game.modules.get(ATME_ID)?.api?.campaignDeterministicAutoLink || null;
+  return globalThis.ATTestAI.modules.get(ATME_ID)?.api?.campaignDeterministicAutoLink || null;
 }
 
 function atMeCampaignLinksApi() {
-  return game.modules.get(ATME_ID)?.api?.campaignEntityLinks || null;
+  return globalThis.ATTestAI.modules.get(ATME_ID)?.api?.campaignEntityLinks || null;
 }
 
 function atMeIdentityApi() {
-  return game.modules.get(ATME_ID)?.api?.campaignIdentityReconciliation || null;
+  return globalThis.ATTestAI.modules.get(ATME_ID)?.api?.campaignIdentityReconciliation || null;
 }
 
 function atMeSourceJournal(uuid) {
@@ -165,11 +167,7 @@ function atMeSourcePage(uuid) {
 }
 
 function atMePlainText(html) {
-  const host = document.createElement("div");
-  host.innerHTML = String(html ?? "");
-  // qa.31 ledger is GM-private, so a GM's source snippet may retain secret text.
-  // Player-safe/viewer-scoped persistence is intentionally deferred to a later layer.
-  return atMeClean(host.textContent || host.innerText || "").replace(/\s+/g, " ");
+  return globalThis.AdventurersTomeLanguage.plainText(html);
 }
 
 function atMeSnippet(row) {
@@ -208,7 +206,7 @@ function atMeSnippet(row) {
 
 function atMeSourceOrdinal(journal, sourceKind) {
   if (sourceKind !== "session") return null;
-  const flagged = Number(journal?.getFlag?.(ATME_ID, "sessionNumber"));
+  const flagged = Number(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATME_ID, "sessionNumber"));
   if (Number.isFinite(flagged) && flagged > 0) return Math.floor(flagged);
   const name = atMeClean(journal?.name);
   const match = name.match(/\bsession\s*0*(\d+)\b/i) || name.match(/^\s*0*(\d+)\b/);
@@ -258,7 +256,6 @@ function atMeScopedResolution(row) {
   }
 
   if (result?.confirmedChoice === true || result?.sourceCanonical === true || result?.sourceInline === true) return result;
-  if (result?.identityAmbiguous === true || result?.decision === "ambiguous") return result;
 
   const exact = deterministic?.resolveIdentity?.({
     row,
@@ -440,6 +437,7 @@ async function atMeSync(options = {}) {
   try{return await work;}finally{if(atMeFullSync===work)atMeFullSync=null;}
 }
 async function atMeSyncWork(options = {}) {
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
   const startupToken=globalThis.AdventurersTomeStartup?.begin("mention-sync");
   try {
   if (!game.user?.isGM) return atMeSnapshot();
@@ -467,7 +465,7 @@ async function atMeSyncWork(options = {}) {
     let ambiguous = 0;
 
     const occurrenceCounts = new Map();
-    const moduleApi = game.modules.get(ATME_ID)?.api;
+    const moduleApi = globalThis.ATTestAI.modules.get(ATME_ID)?.api;
     const newDiscovery = moduleApi?.campaignNewEntityDiscovery;
     const discovered = options.reuseDiscovery ? newDiscovery?.snapshot?.() : newDiscovery?.scan ? await newDiscovery.scan({sourceUuid:options.sourceUuid,silent:options.silent}) : null;
     for (const rawRow of atMeArray(snapshot.mentions).filter(row=>!options.sourceUuid || row.sourceJournalUuid === options.sourceUuid)) {
@@ -509,6 +507,9 @@ async function atMeSyncWork(options = {}) {
       options.assertCurrent?.();
       const outcomes = await (globalThis.AdventurersTomeStartup?.measure ? globalThis.AdventurersTomeStartup.measure("candidate-resolution",resolve) : resolve());
       for (const candidate of outcomes) {
+        // An unsupported name-shaped span is diagnostic evidence, not an
+        // identity record, a GM question or an ordinary campaign mention.
+        if(candidate.outcome==='UNVERIFIED')continue;
         const id = `identity:${candidate.id}`;
         const previous = previousById.get(id);
         const matches = next.filter((record) => record.sourceUuid === candidate.sourceJournalUuid
@@ -519,17 +520,18 @@ async function atMeSyncWork(options = {}) {
           outcome:candidate.outcome,
           outcomeReason:candidate.outcomeReason,
           identityBriefing:candidate.identityBriefing,
+          worldReference:candidate.worldReference || null,
           identityCandidates:candidate.identityCandidates,
           identityChoice:candidate.identityChoice || null,
           discoveryKind:candidate.classification?.kind,
           targetUuid:candidate.targetUuid,
           targetName:document?.name || candidate.text,
           targetKind:document?.documentName === "Actor" ? "character" : document?.documentName === "Item" ? "item"
-            : document?.getFlag?.(ATME_ID,"worldProfile")?.category || candidate.resolutionKind || candidate.classification?.kind,
+            : globalThis.ATTestAI.flags(document)?.getFlag?.(ATME_ID,"worldProfile")?.category || candidate.resolutionKind || candidate.classification?.kind,
           resolutionState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "review" : "resolved",
           resolutionReason:candidate.outcomeReason,
           relationState:candidate.outcome === "REVIEW" ? candidate.identityAmbiguous ? "ambiguous" : "mentioned-review" : "linked-and-mentioned",
-          linkedAtSync:candidate.outcome !== "REVIEW"
+          linkedAtSync:['LINKED','CREATED'].includes(candidate.outcome)
         };
         if (matches.length) {
           for (const record of matches) Object.assign(record, fields);
@@ -596,6 +598,7 @@ async function atMeSyncWork(options = {}) {
 
     Hooks.callAll("adventurersTomeCampaignMentionEvidenceUpdated", {
       reason:atMeClean(options.reason || "sync"),
+      sourceUuid:atMeClean(options.sourceUuid),
       created,
       updated,
       historical,
@@ -606,7 +609,7 @@ async function atMeSyncWork(options = {}) {
       outcomes
     });
 
-    const app = game.modules.get(ATME_ID)?.api?.app?.();
+    const app = globalThis.ATTestAI.modules.get(ATME_ID)?.api?.app?.();
     if (app?.rendered && !options.silent) void app.render({ parts:["main"] });
     return atMeClone(ledger);
   } catch (error) {
@@ -776,7 +779,7 @@ const ATME_API = Object.freeze({
 });
 
 function atMeAttach() {
-  const module = game.modules.get(ATME_ID);
+  const module = globalThis.ATTestAI.modules.get(ATME_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignMentionEvidence = ATME_API;
@@ -799,7 +802,7 @@ function atMeSchedule(reason = "lifecycle") {
 }
 
 Hooks.once("init", () => {
-  game.settings.register(ATME_ID, ATME_SETTING, {
+  globalThis.ATTestAI.settings.register(ATME_ID, ATME_SETTING, {
     scope:"user",
     config:false,
     type:String,
@@ -820,5 +823,5 @@ Hooks.on("adventurersTomeNewEntityDiscoveryUpdated", () => {
 Hooks.on("adventurersTomeCampaignEntityLinkChanged", () => atMeSchedule("campaign-link-changed"));
 Hooks.on("adventurersTomeDeterministicAutoLinkCompleted", () => atMeSchedule("deterministic-auto-link-completed"));
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(ATME_ID)?.api?.campaignMentionEvidence !== ATME_API) atMeAttach();
+  if (globalThis.ATTestAI.modules.get(ATME_ID)?.api?.campaignMentionEvidence !== ATME_API) atMeAttach();
 });

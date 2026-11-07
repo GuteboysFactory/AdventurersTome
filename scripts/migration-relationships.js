@@ -29,7 +29,7 @@
       const contacts=row.storyPreview.contacts.filter(contact=>key(contact.name)!==key(row.name));
       for(const [role,flag] of [['mother','recruitmentMother'],['father','recruitmentFather']]){
         const names=[...new Set(contacts.filter(contact=>contact.parentRole===role).map(contact=>contact.name))];
-        if(names.length===1&&!actor.getFlag('realm-guard',flag))await actor.setFlag('realm-guard',flag,names[0]);
+        if(names.length===1&&!globalThis.ATTestAI.flags(actor).getFlag('realm-guard',flag))await globalThis.ATTestAI.flags(actor).setFlag('realm-guard',flag,names[0]);
       }
       await api.migrateActor(actor);
       for(const contact of contacts){

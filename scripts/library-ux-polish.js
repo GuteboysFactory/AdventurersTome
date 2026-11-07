@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATLUP_MODULE_ID = "adventurers-tome";
 let atLupObserver = null;
 let atLupTimer = null;

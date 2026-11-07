@@ -1,0 +1,59 @@
+Tome TestAI qa.19 — ordered decision policy
+
+1. Identify source structure and role. Session headings, dates and GM/DM/SL
+   metadata do not become world characters. Templates are reference records,
+   not people. Explicit system/Tome template flags are recognized. Realm Guard
+   template metadata is distinguished from its createdFromNpcTemplate marker.
+2. Admit potential names using the existing shared SV/EN NLP evidence policy.
+   Capitalization alone cannot force a question. The same source spans and
+   name boundaries are used by discovery, worker analysis and final validation.
+3. Preserve explicit GM choices, exclusions, deliberate unlinks and pauses.
+4. Resolve campaign identities and registered aliases. One NPC Actor takes
+   priority over Contact representations; different Actors remain distinct.
+5. Consult the selected typed world library. Match literal names, verified
+   aliases and supported genitives. Location and people/faction are different
+   types. A template with the same label cannot become the person authority.
+6. Reuse a real canonical root using stable library ID or compatible exact
+   name/alias. One World location takes priority over Scene presentations.
+   Multiple different World roots or real person/collective conflicts require
+   a decision; they are not silently merged or deleted.
+7. A unique missing library identity is created automatically by the active GM
+   through the existing generic World authoring path. Name, aliases, subtype,
+   brief description, source URLs and pack version are retained. Entries start
+   GM-only. Immediately before creation, selection, identity and GM authority
+   are checked again. Unknown locations without verified support can require
+   review. Absence alone does not cause review for a supported library entry.
+8. Link through the canonical source/reciprocal API and retain evidence. Repeated
+   imports, alias mentions and subsequent sessions reuse the root. Relevant
+   policy/catalogue changes trigger re-evaluation while raw NLP evidence remains
+   cached. Old machine questions retire when their evidence no longer applies.
+
+Correction of older links:
+Only a link carrying deterministic-auto-link-v1 provenance to an identified
+Actor template is automatically removed. No template or other document is
+removed. Source choices, campaign defaults, explicit inline UUID links and
+links without machine provenance are retained. Real instantiated NPCs retain
+their person identity. Removal uses the canonical unlink API for reciprocal
+consistency. A unique library match can then supply the correct World entry.
+
+Limits:
+The library contains 45 references, not all Tolkien names or people. Template
+identification requires recognizable document metadata; unknown system formats
+are not guessed from NPC type alone. Two actual same-name NPCs remain a genuine
+conflict. A model error or unrepresented spelling can still require review.
+Tests simulate Foundry document transport; the delivered ZIP needs a live-world
+check. No claim of perfect natural-language understanding is made.
+
+qa.20 final-check clarification:
+A unique typed library identity retains its location/faction type at the final
+duplicate check. A person's name merely containing a place label is not a
+conflicting place identity. Folder, embedded and other non-linkable catalogue
+rows cannot block root creation or become identity choices.
+
+Genuine conflicts remain review: a world NPC and a people/faction with the same
+name, conflicting attached source evidence, several actual root identities, or
+an explicit GM decision are never silently overridden by a bibliographic label.
+
+Language Lab groups repeated references by real canonical UUID or stable library
+ID and retains every source occurrence/offset. Candidate names crossing a heading
+or metadata boundary are excluded as structural spans, not by a name blacklist.

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const LEGACY_VAULT_SETTING = "gmPrivateVault";
 const CONTEXT_VAULT_SETTING = "gmContextualPrivateVaultV2";
@@ -89,7 +90,7 @@ function normalizeVault(raw) {
 function getContextVault() {
   if (!game.user?.isGM) return emptyVault();
   try {
-    return normalizeVault(safeJSONParse(game.settings.get(MODULE_ID, CONTEXT_VAULT_SETTING), emptyVault()));
+    return normalizeVault(safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, CONTEXT_VAULT_SETTING), emptyVault()));
   } catch (_err) {
     return emptyVault();
   }
@@ -98,14 +99,14 @@ function getContextVault() {
 async function setContextVault(vault) {
   if (!game.user?.isGM) throw new Error("Only a GM can change private Adventurer's Tome data.");
   const normalized = normalizeVault(vault);
-  await game.settings.set(MODULE_ID, CONTEXT_VAULT_SETTING, JSON.stringify(normalized));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, CONTEXT_VAULT_SETTING, JSON.stringify(normalized));
   return normalized;
 }
 
 function getLegacyVault() {
   if (!game.user?.isGM) return {};
   try {
-    const parsed = safeJSONParse(game.settings.get(MODULE_ID, LEGACY_VAULT_SETTING), {});
+    const parsed = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, LEGACY_VAULT_SETTING), {});
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch (_err) {
     return {};
@@ -169,7 +170,7 @@ async function mirrorLegacyRecord(document, record) {
   };
   if (!payload.notes.length && !payload.facts.length && !payload.relations.length) delete vault[key];
   else vault[key] = payload;
-  await game.settings.set(MODULE_ID, LEGACY_VAULT_SETTING, JSON.stringify(vault));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, LEGACY_VAULT_SETTING, JSON.stringify(vault));
 }
 
 async function saveRecord(document, patch = {}) {
@@ -459,6 +460,14 @@ function gmApi() {
       await saveRecord(document, { notes: [normalized, ...record.notes] });
       return { note: normalized, summary: this.getSummary(document) };
     },
+    async syncNotebook(document) {
+      if (!game.user?.isGM) throw new Error("Only a GM can sync private Adventurer's Tome context.");
+      if (!canonicalUuid(document)) throw new Error("A stable Foundry UUID is required for contextual GM notes.");
+      // Retry the existing user-private Notebook bridge after a partial settings write.
+      // The authoritative v2 notes, including subsequent GM edits, stay untouched.
+      await mirrorLegacyRecord(document, getRecord(document));
+      return this.getSummary(document);
+    },
     async migrateLegacy() {
       return migrateLegacyVault();
     }
@@ -466,7 +475,7 @@ function gmApi() {
 }
 
 Hooks.once("init", () => {
-  game.settings.register(MODULE_ID, CONTEXT_VAULT_SETTING, {
+  globalThis.ATTestAI.settings.register(MODULE_ID, CONTEXT_VAULT_SETTING, {
     scope: "user",
     config: false,
     type: String,
@@ -482,7 +491,7 @@ Hooks.once("ready", async () => {
     console.error("Adventurer's Tome | Private Vault v2 migration failed safely; legacy vault remains untouched.", error);
   }
 
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (module) {
     if (!module.api || typeof module.api !== "object") module.api = {};
     const contextual = module.api.contextualPrivateVault && typeof module.api.contextualPrivateVault === "object"

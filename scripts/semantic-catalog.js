@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 export const AT_SEMANTIC_CATALOG_VERSION = 4;
 
 export const AT_SEMANTIC_CATALOG = Object.freeze({

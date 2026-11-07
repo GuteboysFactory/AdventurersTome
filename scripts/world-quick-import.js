@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATQI_MODULE_ID = "adventurers-tome";
 const ATQI_ROOT = "#adventurers-tome-app";
 const ATQI_SOCKET = `module.${ATQI_MODULE_ID}`;
@@ -43,7 +44,7 @@ function atQiWorldRoots() {
   return [...(game.folders?.contents ?? [])]
     .filter((folder) => {
       if (folder.type !== "JournalEntry" || folder.name !== "World") return false;
-      if (String(folder.getFlag?.(ATQI_MODULE_ID, "section") || "") === "world") return true;
+      if (String(globalThis.ATTestAI.flags(folder).getFlag?.(ATQI_MODULE_ID, "section") || "") === "world") return true;
       return atQiAncestors(folder).some((ancestor) => ancestor.id !== folder.id && /adventurer'?s tome/i.test(String(ancestor.name || "")));
     })
     .sort((a, b) => atQiAncestors(a).map((f) => f.name).join("/").localeCompare(atQiAncestors(b).map((f) => f.name).join("/")));
@@ -207,7 +208,7 @@ function atQiTypeLabel(type) {
 }
 
 async function atQiResolveCanonical(uuid, consumer) {
-  const resolver = game.modules.get(ATQI_MODULE_ID)?.api?.universalDocuments?.resolveCanonical;
+  const resolver = globalThis.ATTestAI.modules.get(ATQI_MODULE_ID)?.api?.universalDocuments?.resolveCanonical;
   if (typeof resolver !== "function") throw new Error("Universal Registry resolver is not ready.");
   return resolver(uuid, { consumer });
 }
@@ -223,7 +224,7 @@ function atQiRequest(payload) {
       reject(new Error("The GM did not answer the Quick Import request."));
     }, 12000);
     ATQI_PENDING.set(requestId, { resolve, reject, timer });
-    game.socket.emit(ATQI_SOCKET, {
+    globalThis.ATTestAI.socket.emit(ATQI_SOCKET, {
       channel: "quickImport",
       type: "request",
       requestId,
@@ -252,8 +253,8 @@ function atQiSourceImage(source) {
 function atQiExistingBySource(uuid) {
   return [...(game.journal?.contents ?? [])].find((journal) => {
     if (!atQiWorldRootFor(journal.folder || game.folders?.get(String(journal.folder?.id ?? journal.folder ?? "")))) return false;
-    const flagged = String(journal.getFlag?.(ATQI_MODULE_ID, ATQI_SOURCE_UUID) || "");
-    const profile = journal.getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
+    const flagged = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATQI_MODULE_ID, ATQI_SOURCE_UUID) || "");
+    const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
     return flagged === uuid || String(profile?.sourceUuid || "") === uuid;
   }) || null;
 }
@@ -281,7 +282,7 @@ async function atQiEnsureOverview(journal) {
     text: { content: '<h2 data-at-tome-summary="true"></h2><p></p>', format: CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML ?? 1 },
     sort: 100000
   }]);
-  if (created?.[0]) await journal.setFlag(ATQI_MODULE_ID, "worldSyncPage", created[0].id);
+  if (created?.[0]) await globalThis.ATTestAI.flags(journal).setFlag(ATQI_MODULE_ID, "worldSyncPage", created[0].id);
 }
 
 function atQiOwnership(requesterId) {
@@ -298,7 +299,7 @@ async function atQiCopyJournal(source, targetFolder, category, requesterId) {
     delete data._stats;
     return data;
   });
-  const previous = source.getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
+  const previous = globalThis.ATTestAI.flags(source).getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
   const profile = atQiWorldProfile(source, category, previous);
   const flags = foundry.utils.deepClone(source.flags || {});
   flags[ATQI_MODULE_ID] = {
@@ -320,7 +321,7 @@ async function atQiCopyJournal(source, targetFolder, category, requesterId) {
 }
 
 async function atQiAdoptJournal(source, targetFolder, category) {
-  const previous = source.getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
+  const previous = globalThis.ATTestAI.flags(source).getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
   const profile = atQiWorldProfile(source, category, previous);
   await source.update({
     folder: targetFolder.id,
@@ -378,7 +379,7 @@ async function atQiExecute(payload, requesterId = "") {
   if (type !== "JournalEntry") {
     const existing = atQiExistingBySource(source.uuid);
     if (existing) {
-      const profile = atQiWorldProfile(source, category, existing.getFlag?.(ATQI_MODULE_ID, "worldProfile") || {});
+      const profile = atQiWorldProfile(source, category, globalThis.ATTestAI.flags(existing).getFlag?.(ATQI_MODULE_ID, "worldProfile") || {});
       await existing.update({
         folder: targetFolder.id,
         [`flags.${ATQI_MODULE_ID}.worldProfile`]: profile,
@@ -425,10 +426,10 @@ async function atQiHandleSocket(message) {
   const requesterId = String(message.requesterId || "");
   try {
     const result = await atQiExecute(message.payload || {}, requesterId);
-    game.socket.emit(ATQI_SOCKET, { channel: "quickImport", type: "response", requestId, targetUserId: requesterId, ok: true, result });
+    globalThis.ATTestAI.socket.emit(ATQI_SOCKET, { channel: "quickImport", type: "response", requestId, targetUserId: requesterId, ok: true, result });
   } catch (error) {
     console.error("Adventurer's Tome | Quick Import broker failed", error);
-    game.socket.emit(ATQI_SOCKET, { channel: "quickImport", type: "response", requestId, targetUserId: requesterId, ok: false, error: error?.message || "Quick Import failed." });
+    globalThis.ATTestAI.socket.emit(ATQI_SOCKET, { channel: "quickImport", type: "response", requestId, targetUserId: requesterId, ok: false, error: error?.message || "Quick Import failed." });
   }
 }
 
@@ -450,9 +451,9 @@ function atQiEnhance() {
   const sourceButton = detail.querySelector('[data-action="openJournal"][data-journal-id]');
   const journal = game.journal?.get(String(sourceButton?.dataset?.journalId || ""));
   if (!journal) return;
-  const profile = journal.getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
-  const uuid = String(journal.getFlag?.(ATQI_MODULE_ID, ATQI_SOURCE_UUID) || profile?.sourceUuid || "");
-  const type = atQiNormalizeType(journal.getFlag?.(ATQI_MODULE_ID, ATQI_SOURCE_TYPE) || profile?.sourceDocumentType);
+  const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATQI_MODULE_ID, "worldProfile") || {};
+  const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATQI_MODULE_ID, ATQI_SOURCE_UUID) || profile?.sourceUuid || "");
+  const type = atQiNormalizeType(globalThis.ATTestAI.flags(journal).getFlag?.(ATQI_MODULE_ID, ATQI_SOURCE_TYPE) || profile?.sourceDocumentType);
   if (!uuid || !type || type === "JournalEntry") return;
   const toolbar = detail.querySelector(".at-profile-toolbar-actions");
   if (!toolbar || toolbar.querySelector("[data-at-qi-open-source]")) return;
@@ -501,7 +502,7 @@ async function atQiDrop(event, drag, target) {
     const verb = result?.mode === "moved" ? "Moved existing" : result?.mode === "adopted" ? "Added" : "Imported";
     ui.notifications.info(`Adventurer's Tome: ${verb} ${result?.name || atQiTypeLabel(drag.type)} → ${result?.target || target.label}.`);
     window.setTimeout(() => {
-      try { game.modules.get(ATQI_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
+      try { globalThis.ATTestAI.modules.get(ATQI_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
       atQiScheduleEnhance(120);
     }, 120);
   } catch (error) {
@@ -511,7 +512,7 @@ async function atQiDrop(event, drag, target) {
 }
 
 Hooks.once("ready", () => {
-  game.socket.on(ATQI_SOCKET, (message) => void atQiHandleSocket(message));
+  globalThis.ATTestAI.socket.on(ATQI_SOCKET, (message) => void atQiHandleSocket(message));
 
   document.addEventListener("dragover", (event) => {
     if (!atQiCanImport()) return;

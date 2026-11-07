@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATSDKI_ID = "adventurers-tome";
 const ATSDKI_FLAG = "knownInformation";
 const ATSDKI_DELAY = 650;
@@ -18,36 +19,38 @@ function atSdkiRoot(element) {
 }
 
 function atSdkiProfile(journal) {
-  const raw = journal?.getFlag?.(ATSDKI_ID, "worldProfile");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATSDKI_ID, "worldProfile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? atSdkiClone(raw) : {};
 }
 
 function atSdkiIsWorld(journal) {
   return journal?.documentName === "JournalEntry" && (
-    String(journal.getFlag?.(ATSDKI_ID, "type") || "") === "world" ||
-    Boolean(journal.getFlag?.(ATSDKI_ID, "worldProfile"))
+    String(globalThis.ATTestAI.flags(journal).getFlag?.(ATSDKI_ID, "type") || "") === "world" ||
+    Boolean(globalThis.ATTestAI.flags(journal).getFlag?.(ATSDKI_ID, "worldProfile"))
   );
 }
 
 function atSdkiSourceForWorld(journal) {
   if (!atSdkiIsWorld(journal)) return null;
   const profile = atSdkiProfile(journal);
-  const uuid = String(journal.getFlag?.(ATSDKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+  const actorCompatible = !profile.category || ["npc","contact","character","pc","npc-group"].includes(profile.category);
+  const itemCompatible = !profile.category || profile.category === "item";
+  const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATSDKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
   let match = uuid.match(/^Item\.([^\.]+)$/);
-  if (match) return game.items?.get(match[1]) || null;
+  if (match) return itemCompatible ? game.items?.get(match[1]) || null : null;
   match = uuid.match(/^Actor\.([^\.]+)$/);
-  if (match) return game.actors?.get(match[1]) || null;
-  if (String(profile.sourceDocumentType || "") === "Item" && profile.itemId) return game.items?.get(String(profile.itemId)) || null;
-  if (profile.actorId) return game.actors?.get(String(profile.actorId)) || null;
+  if (match) return actorCompatible ? game.actors?.get(match[1]) || null : null;
+  if (itemCompatible && String(profile.sourceDocumentType || "") === "Item" && profile.itemId) return game.items?.get(String(profile.itemId)) || null;
+  if (actorCompatible && profile.actorId) return game.actors?.get(String(profile.actorId)) || null;
   return null;
 }
 
 function atSdkiWorldsForSource(source) {
   if (!source?.uuid) return [];
   return [...(game.journal?.contents ?? [])].filter((journal) => {
-    if (!atSdkiIsWorld(journal)) return false;
+    if (!atSdkiIsWorld(journal) || atSdkiSourceForWorld(journal)?.uuid !== source.uuid) return false;
     const profile = atSdkiProfile(journal);
-    const uuid = String(journal.getFlag?.(ATSDKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+    const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATSDKI_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
     if (uuid === source.uuid) return true;
     if (source.documentName === "Actor" && String(profile.actorId || "") === String(source.id)) return true;
     if (source.documentName === "Item" && String(profile.itemId || "") === String(source.id)) return true;
@@ -58,7 +61,7 @@ function atSdkiWorldsForSource(source) {
 function atSdkiPrimaryPage(journal) {
   if (!journal) return null;
   const profile = atSdkiProfile(journal);
-  const preferred = String(journal.getFlag?.(ATSDKI_ID, "worldSyncPage") || profile.syncPageId || "").trim();
+  const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATSDKI_ID, "worldSyncPage") || profile.syncPageId || "").trim();
   const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   return pages.find((page) => page.id === preferred && String(page.type || "text").toLowerCase() === "text")
     || pages.find((page) => String(page.type || "text").toLowerCase() === "text")
@@ -89,7 +92,7 @@ function atSdkiHtmlFromPlain(value) {
 }
 
 function atSdkiItemPayload(item) {
-  const raw = item?.getFlag?.(ATSDKI_ID, ATSDKI_FLAG);
+  const raw = globalThis.ATTestAI.flags(item)?.getFlag?.(ATSDKI_ID, ATSDKI_FLAG);
   if (typeof raw === "string") return { html: atSdkiCleanHtml(raw), updatedAt: 0 };
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     return { html: atSdkiCleanHtml(raw.html || ""), updatedAt: Number(raw.updatedAt || 0), sourceJournalUuid: String(raw.sourceJournalUuid || "") };
@@ -98,7 +101,7 @@ function atSdkiItemPayload(item) {
 }
 
 function atSdkiPcProfile(actor) {
-  const raw = actor?.getFlag?.(ATSDKI_ID, "profile");
+  const raw = globalThis.ATTestAI.flags(actor)?.getFlag?.(ATSDKI_ID, "profile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? atSdkiClone(raw) : {};
 }
 
@@ -108,7 +111,7 @@ function atSdkiPcHtml(actor) {
 
 function atSdkiIsGroupPc(actor) {
   if (actor?.documentName !== "Actor") return false;
-  if (actor.getFlag?.(ATSDKI_ID, "groupMember") === true) return true;
+  if (globalThis.ATTestAI.flags(actor).getFlag?.(ATSDKI_ID, "groupMember") === true) return true;
   const profile = atSdkiPcProfile(actor);
   return Boolean(profile.title || profile.subtitle || profile.summary || profile.biography || profile.motto || profile.heroImage);
 }
@@ -123,7 +126,7 @@ function atSdkiCanEdit(source, journal = null) {
 }
 
 function atSdkiApp() {
-  try { return game.modules.get(ATSDKI_ID)?.api?.app?.(); }
+  try { return globalThis.ATTestAI.modules.get(ATSDKI_ID)?.api?.app?.(); }
   catch (_err) { return null; }
 }
 

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATCI_MODULE_ID = "adventurers-tome";
 const ATCI_ROOT = "#adventurers-tome-app";
 const ATCI_WORLD_CATEGORIES = Object.freeze({
@@ -38,7 +39,7 @@ function atCiFolderPath(folder) {
 }
 
 function atCiType(journal) {
-  return String(journal?.getFlag?.(ATCI_MODULE_ID, "type") || "").toLowerCase();
+  return String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATCI_MODULE_ID, "type") || "").toLowerCase();
 }
 
 function atCiTypeLabel(type) {
@@ -65,7 +66,7 @@ function atCiSummary(journal) {
 }
 
 function atCiInferWorldCategory(journal) {
-  const flagged = String(journal?.getFlag?.(ATCI_MODULE_ID, "worldProfile")?.category || "").toLowerCase();
+  const flagged = String(globalThis.ATTestAI.flags(journal)?.getFlag?.(ATCI_MODULE_ID, "worldProfile")?.category || "").toLowerCase();
   if (ATCI_WORLD_CATEGORIES[flagged]) return flagged;
   const haystack = `${atCiFolderPath(journal?.folder)} ${journal?.name || ""}`.toLowerCase();
   if (/\b(npc|npcs|people|person|persons|character|characters)\b/.test(haystack)) return "npc";
@@ -208,11 +209,11 @@ async function atCiImportSelected(overlay) {
       if (state.disabled) continue;
 
       if (destination === "rules") {
-        await journal.setFlag(ATCI_MODULE_ID, "type", "rules");
-        await journal.setFlag(ATCI_MODULE_ID, "ruleLink", true);
+        await globalThis.ATTestAI.flags(journal).setFlag(ATCI_MODULE_ID, "type", "rules");
+        await globalThis.ATTestAI.flags(journal).setFlag(ATCI_MODULE_ID, "ruleLink", true);
       } else {
         const category = String(row.querySelector("[data-at-ci-category]")?.value || atCiInferWorldCategory(journal));
-        const raw = journal.getFlag?.(ATCI_MODULE_ID, "worldProfile");
+        const raw = globalThis.ATTestAI.flags(journal).getFlag?.(ATCI_MODULE_ID, "worldProfile");
         const profile = raw && typeof raw === "object" && !Array.isArray(raw) ? foundry.utils.deepClone(raw) : {};
         const firstPage = atCiFirstTextPage(journal);
         const next = {
@@ -221,8 +222,8 @@ async function atCiImportSelected(overlay) {
           summary: String(profile.summary || atCiSummary(journal) || "").trim(),
           syncPageId: String(profile.syncPageId || firstPage?.id || "")
         };
-        await journal.setFlag(ATCI_MODULE_ID, "type", "world");
-        await journal.setFlag(ATCI_MODULE_ID, "worldProfile", next);
+        await globalThis.ATTestAI.flags(journal).setFlag(ATCI_MODULE_ID, "type", "world");
+        await globalThis.ATTestAI.flags(journal).setFlag(ATCI_MODULE_ID, "worldProfile", next);
       }
       imported += 1;
     }

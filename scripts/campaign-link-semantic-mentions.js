@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-link-semantic-mentions";
 const VERSION = 1;
@@ -36,6 +37,7 @@ const HIGH_CONTEXT_SIGNALS = 2;
 const NAME_SIMILARITY_REVIEW = 0.82;
 
 const stats = {
+  snapshotReads:0,snapshotReuses:0,
   resolves:0,
   canonical:0,
   semantic:0,
@@ -169,7 +171,7 @@ function createCandidate(raw = {}) {
 }
 
 function discoveryApi() {
-  return game.modules.get(MODULE_ID)?.api?.discovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.discovery || null;
 }
 
 function entityDocumentName(entity) {
@@ -269,7 +271,7 @@ function projectionRepresentative(entity, entityByUuid) {
   const journal = journalDocumentForEntity(entity);
   if (!journal) return null;
 
-  const projection = journal.getFlag?.(MODULE_ID, "semanticProjection");
+  const projection = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "semanticProjection");
   if (!projection || typeof projection !== "object") return null;
   if (clean(projection.kind).toLowerCase() !== "contact") return null;
   if (projection.active === false) return null;
@@ -426,7 +428,7 @@ function contextualMatches(candidate, entities) {
 
     const exactName = sourceName === targetName;
     const similarity = exactName ? 1 : tokenSimilarity(sourceName, targetName);
-    const precision = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation?.assessExistingMatch?.({
+    const precision = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityCreation?.assessExistingMatch?.({
       text:candidate.text,kind:candidate.kindHint,sourceUuid:candidate.source?.uuid,target:sourceEntity
     });
     if (precision ? !precision.eligible : !exactName && similarity < NAME_SIMILARITY_REVIEW) continue;
@@ -498,12 +500,26 @@ function contextualMatches(candidate, entities) {
   });
 }
 
+let resolverSnapshot=null,resolverProvider=null,resolverScope='';
+function clearResolverSnapshot(){resolverSnapshot=null;resolverProvider=null;resolverScope='';}
+function resolutionSnapshot(discovery){
+  const revision=discovery?.resolutionRevision?.();
+  const scope=JSON.stringify([game.world?.id,game.user?.id,Boolean(game.user?.isGM),revision]);
+  if(Number.isInteger(revision)&&resolverSnapshot&&resolverProvider===discovery&&resolverScope===scope){stats.snapshotReuses++;return resolverSnapshot;}
+  stats.snapshotReads++;
+  const snapshot=discovery?.snapshot?.()||null;
+  if(snapshot?.viewerUserId!==undefined&&(snapshot.viewerUserId!==game.user?.id||snapshot.viewerIsGM!==Boolean(game.user?.isGM)))return null;
+  if(Number.isInteger(revision)&&snapshot){resolverSnapshot=snapshot;resolverProvider=discovery;resolverScope=scope;}
+  return snapshot;
+}
+for(const event of ['createActor','updateActor','deleteActor','createItem','updateItem','deleteItem','createJournalEntry','updateJournalEntry','deleteJournalEntry','updateFolder','updateUser','updateSetting','adventurersTomeCampaignDiscoveryUpdated'])Hooks.on(event,clearResolverSnapshot);
+
 function resolve(rawCandidate = {}) {
   stats.resolves += 1;
   try {
     const candidate = rawCandidate?.contract === CONTRACT ? rawCandidate : createCandidate(rawCandidate);
     const discovery = discoveryApi();
-    const snapshot = discovery?.snapshot?.() || null;
+    const snapshot = resolutionSnapshot(discovery);
 
     if (!snapshot) {
       stats.unavailable += 1;
@@ -638,7 +654,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignMentions = publicApi;
@@ -651,5 +667,5 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.campaignMentions !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentions !== publicApi) attach();
 });

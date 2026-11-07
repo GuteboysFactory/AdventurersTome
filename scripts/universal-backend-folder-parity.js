@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATBFP_ID = "adventurers-tome";
 const ATBFP_CONTRACT = "adventurers-tome-foundry-backend-folder-parity";
 const ATBFP_VERSION = 1;
@@ -35,13 +36,28 @@ const ATBFP_STATS = {
   routedDocumentRenames:0,
   routedDocumentDeletes:0,
   failures:0,
-  lastError:""
+  lastError:"",
+  representationBuilds:0,
+  representationReads:0,
+  yields:0
 };
 
 let atBfpSyncing = false;
 let atBfpMigrationPaused = false;
 let atBfpTimer = null;
 let atBfpLastSnapshot = null;
+let atBfpRepresentationRevision = 0;
+let atBfpPendingReason = "";
+let atBfpSliceStarted = 0;
+
+async function atBfpCheckpoint() {
+  const now = globalThis.performance?.now?.() ?? Date.now();
+  if (now - atBfpSliceStarted < 4) return;
+  ATBFP_STATS.yields += 1;
+  if (globalThis.AdventurersTomeBackground?.checkpoint) await globalThis.AdventurersTomeBackground.checkpoint();
+  else await new Promise(resolve => window.setTimeout(resolve, 0));
+  atBfpSliceStarted = globalThis.performance?.now?.() ?? Date.now();
+}
 
 function atBfpClean(value) {
   return String(value ?? "").trim();
@@ -110,21 +126,21 @@ function atBfpCanView(document, user = game.user) {
 }
 
 function atBfpFolderQuickCreateApi() {
-  return game.modules.get(ATBFP_ID)?.api?.folderQuickCreate || null;
+  return globalThis.ATTestAI.modules.get(ATBFP_ID)?.api?.folderQuickCreate || null;
 }
 
 function atBfpApp() {
-  try { return game.modules.get(ATBFP_ID)?.api?.app?.() || null; }
+  try { return globalThis.ATTestAI.modules.get(ATBFP_ID)?.api?.app?.() || null; }
   catch (_error) { return null; }
 }
 
 function atBfpProjectionOf(journal) {
-  const raw = journal?.getFlag?.(ATBFP_ID, ATBFP_PROJECTION_FLAG);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATBFP_ID, ATBFP_PROJECTION_FLAG);
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
 }
 
 function atBfpMirrorOf(folder) {
-  const raw = folder?.getFlag?.(ATBFP_ID, ATBFP_FOLDER_FLAG);
+  const raw = globalThis.ATTestAI.flags(folder)?.getFlag?.(ATBFP_ID, ATBFP_FOLDER_FLAG);
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
 }
 
@@ -137,8 +153,9 @@ function atBfpIsManagedMirror(folder) {
 }
 
 function atBfpWorldProfile(journal) {
-  const raw = journal?.getFlag?.(ATBFP_ID, "worldProfile");
-  return raw && typeof raw === "object" && !Array.isArray(raw) ? atBfpClone(raw) : {};
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATBFP_ID, "worldProfile");
+  // Read-only view. The profile writer clones exactly once before modifying it.
+  return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
 function atBfpSourceUuidFromWorld(journal) {
@@ -146,7 +163,7 @@ function atBfpSourceUuidFromWorld(journal) {
   const profile = atBfpWorldProfile(journal);
   return atBfpClean(
     projection?.sourceUuid
-    || journal?.getFlag?.(ATBFP_ID, "quickImportSourceUuid")
+    || globalThis.ATTestAI.flags(journal)?.getFlag?.(ATBFP_ID, "quickImportSourceUuid")
     || profile?.sourceUuid
   );
 }
@@ -201,7 +218,7 @@ function atBfpTomeFolderIds(bootstrap) {
 }
 
 function atBfpSourceCategory(folder) {
-  return atBfpClean(folder?.getFlag?.(ATBFP_ID, ATBFP_SOURCE_CATEGORY_FLAG)).toLowerCase();
+  return atBfpClean(globalThis.ATTestAI.flags(folder)?.getFlag?.(ATBFP_ID, ATBFP_SOURCE_CATEGORY_FLAG)).toLowerCase();
 }
 
 function atBfpAliasMatches(folder, binding) {
@@ -229,7 +246,7 @@ async function atBfpAdoptSourceRoots(binding, roots) {
   if (!game.user?.isGM) return;
   for (const folder of roots) {
     const category = atBfpSourceCategory(folder);
-    if (category === binding.category && Number(folder.getFlag?.(ATBFP_ID, ATBFP_SOURCE_VERSION_FLAG) || 0) >= ATBFP_VERSION) continue;
+    if (category === binding.category && Number(globalThis.ATTestAI.flags(folder).getFlag?.(ATBFP_ID, ATBFP_SOURCE_VERSION_FLAG) || 0) >= ATBFP_VERSION) continue;
     await folder.update({
       [`flags.${ATBFP_ID}.${ATBFP_SOURCE_CATEGORY_FLAG}`]:binding.category,
       [`flags.${ATBFP_ID}.${ATBFP_SOURCE_VERSION_FLAG}`]:ATBFP_VERSION
@@ -311,6 +328,11 @@ async function atBfpEnsureMirrorFolder(category, sourceFolder, sourceRoot, paren
     return mirror;
   }
 
+  if(globalThis.ATTestAI.modules?.get?.('adventurers-tome')?.api?.worldTree?.ownsBackendDocument?.(mirror) === true) {
+    if(JSON.stringify(atBfpMirrorOf(mirror)||{}) !== JSON.stringify(flags))
+      await mirror.update({[`flags.${ATBFP_ID}.${ATBFP_FOLDER_FLAG}`]:flags},{render:false,adventurersTomeBackendParity:true});
+    return mirror;
+  }
   const current = atBfpMirrorOf(mirror) || {};
   const parentId = atBfpParentId(mirror);
   const changed = mirror.name !== sourceFolder.name
@@ -405,7 +427,52 @@ function atBfpProjectionProfile(source, category, current = {}) {
   return profile;
 }
 
-function atBfpEquivalentRepresentations(category, sourceUuid) {
+function atBfpRepresentationKeys(journal) {
+  const projection = atBfpProjectionOf(journal);
+  const keys = new Set();
+  if (projection?.managed) keys.add(JSON.stringify([projection.category, atBfpClean(projection.sourceUuid)]));
+  keys.add(JSON.stringify([atBfpCategoryFromWorld(journal), atBfpSourceUuidFromWorld(journal)]));
+  return keys;
+}
+
+function atBfpIndexRepresentation(index, journal) {
+  if (!index) return;
+  for (const key of atBfpRepresentationKeys(journal)) {
+    const rows = index.rows.get(key) || [];
+    if (!rows.includes(journal)) rows.push(journal);
+    index.rows.set(key, rows);
+  }
+}
+
+function atBfpForgetRepresentation(index, journal) {
+  if (!index) return;
+  for (const key of atBfpRepresentationKeys(journal)) {
+    const rows = (index.rows.get(key) || []).filter(row => row !== journal);
+    if (rows.length) index.rows.set(key, rows); else index.rows.delete(key);
+  }
+}
+
+async function atBfpRefreshRepresentations(index) {
+  // The map lives for one sync only. External document events invalidate it;
+  // our own creates/deletes update it directly after the native write succeeds.
+  do {
+    const revision = atBfpRepresentationRevision;
+    index.rows.clear();
+    for (const journal of [...(game.journal?.contents || [])]) {
+      atBfpIndexRepresentation(index, journal);
+      ATBFP_STATS.representationReads += 1;
+      await atBfpCheckpoint();
+    }
+    index.revision = revision;
+    ATBFP_STATS.representationBuilds += 1;
+  } while (index.revision !== atBfpRepresentationRevision);
+}
+
+async function atBfpEquivalentRepresentations(category, sourceUuid, index = null) {
+  if (index) {
+    if (index.revision !== atBfpRepresentationRevision) await atBfpRefreshRepresentations(index);
+    return [...(index.rows.get(JSON.stringify([category, sourceUuid])) || [])];
+  }
   return [...(game.journal?.contents || [])].filter((journal) => {
     const projection = atBfpProjectionOf(journal);
     if (projection?.managed && projection.category === category && atBfpClean(projection.sourceUuid) === sourceUuid) return true;
@@ -467,12 +534,12 @@ function atBfpProjectionNeedsUpdate(journal, data) {
     || profile.sourceDocumentType !== desiredProfile.sourceDocumentType;
 }
 
-async function atBfpEnsureProjection(source, category, targetFolder, sourceRoot, desiredKeys) {
+async function atBfpEnsureProjection(source, category, targetFolder, sourceRoot, desiredKeys, representationIndex = null) {
   const sourceUuid = atBfpClean(source.uuid);
   const key = `${category}|${sourceUuid}`;
   desiredKeys.add(key);
 
-  const representations = atBfpEquivalentRepresentations(category, sourceUuid);
+  const representations = await atBfpEquivalentRepresentations(category, sourceUuid, representationIndex);
   const managed = representations.filter(atBfpIsManagedProjection);
   const manual = representations.filter((journal) => !atBfpIsManagedProjection(journal));
 
@@ -480,6 +547,7 @@ async function atBfpEnsureProjection(source, category, targetFolder, sourceRoot,
     ATBFP_STATS.projectionsReused += 1;
     for (const duplicate of managed) {
       await duplicate.delete({ adventurersTomeBackendParity:true });
+      atBfpForgetRepresentation(representationIndex, duplicate);
       ATBFP_STATS.projectionsDeleted += 1;
     }
     return manual[0];
@@ -488,12 +556,15 @@ async function atBfpEnsureProjection(source, category, targetFolder, sourceRoot,
   let journal = managed[0] || null;
   for (const duplicate of managed.slice(1)) {
     await duplicate.delete({ adventurersTomeBackendParity:true });
+    atBfpForgetRepresentation(representationIndex, duplicate);
     ATBFP_STATS.projectionsDeleted += 1;
   }
 
   const data = atBfpProjectionData(source, category, targetFolder, journal, sourceRoot);
+  if(journal && globalThis.ATTestAI.modules?.get?.('adventurers-tome')?.api?.worldTree?.ownsBackendDocument?.(journal) === true) data.folder = atBfpParentId(journal) || null;
   if (!journal) {
     journal = await JournalEntry.create(data, { adventurersTomeBackendParity:true });
+    atBfpIndexRepresentation(representationIndex, journal);
     ATBFP_STATS.projectionsCreated += 1;
     return journal;
   }
@@ -516,10 +587,14 @@ async function atBfpEnsureProjection(source, category, targetFolder, sourceRoot,
 
 async function atBfpCleanupProjections(desiredKeys) {
   for (const journal of [...(game.journal?.contents || [])]) {
+    await atBfpCheckpoint();
     const projection = atBfpProjectionOf(journal);
     if (!projection?.managed) continue;
     const key = `${atBfpClean(projection.category)}|${atBfpClean(projection.sourceUuid)}`;
     if (desiredKeys.has(key)) continue;
+    const [sourceType,sourceId] = atBfpClean(projection.sourceUuid).split('.');
+    const source = sourceType === 'Actor' ? game.actors?.get(sourceId) : sourceType === 'Item' ? game.items?.get(sourceId) : null;
+    if(source && globalThis.ATTestAI.modules?.get?.('adventurers-tome')?.api?.worldTree?.ownsBackendDocument?.(journal) === true) continue;
     await journal.delete({ adventurersTomeBackendParity:true });
     ATBFP_STATS.projectionsDeleted += 1;
   }
@@ -531,6 +606,8 @@ async function atBfpCleanupMirrorFolders(desiredMirrorIds) {
     .sort((a, b) => atBfpFolderAncestors(b).length - atBfpFolderAncestors(a).length);
 
   for (const folder of mirrors) {
+    await atBfpCheckpoint();
+    if(globalThis.ATTestAI.modules?.get?.('adventurers-tome')?.api?.worldTree?.ownsBackendDocument?.(folder) === true) continue;
     const mirror = atBfpMirrorOf(folder);
     const key = atBfpClean(mirror?.sourceFolderId);
     if (desiredMirrorIds.has(key)) continue;
@@ -644,6 +721,8 @@ async function atBfpSync(options = {}) {
   if (!game.user?.isGM) return atBfpClone(atBfpLastSnapshot);
 
   atBfpSyncing = true;
+  atBfpPendingReason = "";
+  atBfpSliceStarted = globalThis.performance?.now?.() ?? Date.now();
   ATBFP_STATS.syncs += 1;
   try {
     const bootstrap = await atBfpFolderQuickCreateApi()?.bootstrap?.();
@@ -653,8 +732,10 @@ async function atBfpSync(options = {}) {
     const desiredProjectionKeys = new Set();
     const desiredMirrorIds = new Set();
     const bindingsState = [];
+    const representationIndex = {rows:new Map(), revision:-1};
 
     for (const binding of ATBFP_BINDINGS) {
+      await atBfpCheckpoint();
       const targetFolder = targetFolders[binding.category];
       if (!targetFolder) continue;
 
@@ -667,6 +748,7 @@ async function atBfpSync(options = {}) {
 
       for (const sourceRoot of roots) {
         for (const sourceFolder of atBfpSourceDescendantFolders(binding, sourceRoot)) {
+          await atBfpCheckpoint();
           const sourceParent = game.folders?.get(atBfpParentId(sourceFolder));
           const parentTarget = sourceParent && sourceParent.id !== sourceRoot.id
             ? (mirrorMap.get(sourceParent.id) || targetFolder)
@@ -677,12 +759,13 @@ async function atBfpSync(options = {}) {
       }
 
       for (const row of sourceDocs) {
+        await atBfpCheckpoint();
         const lastRelative = row.relativeFolders[row.relativeFolders.length - 1] || null;
         const target = lastRelative ? (mirrorMap.get(lastRelative.id) || targetFolder) : targetFolder;
 
-        const existing = atBfpEquivalentRepresentations(binding.category, row.document.uuid);
+        const existing = await atBfpEquivalentRepresentations(binding.category, row.document.uuid, representationIndex);
         if (existing.some((journal) => !atBfpIsManagedProjection(journal))) manualRepresentations += 1;
-        await atBfpEnsureProjection(row.document, binding.category, target, row.root, desiredProjectionKeys);
+        await atBfpEnsureProjection(row.document, binding.category, target, row.root, desiredProjectionKeys, representationIndex);
       }
 
       bindingsState.push({ binding, category:binding.category, targetFolder, roots, sourceDocs, manualRepresentations });
@@ -701,11 +784,13 @@ async function atBfpSync(options = {}) {
     throw error;
   } finally {
     atBfpSyncing = false;
+    if (atBfpPendingReason && !atBfpMigrationPaused) atBfpSchedule(atBfpPendingReason, 180);
   }
 }
 
 function atBfpSchedule(reason = "lifecycle", delay = 180) {
-  if (!game.user?.isGM || atBfpSyncing || atBfpMigrationPaused) return;
+  if (!game.user?.isGM || atBfpMigrationPaused) return;
+  if (atBfpSyncing) { atBfpPendingReason = reason; return; }
   window.clearTimeout(atBfpTimer);
   atBfpTimer = window.setTimeout(() => {
     atBfpTimer = null;
@@ -735,7 +820,7 @@ function atBfpBackendContextForTomeFolder(folder) {
     }
   }
 
-  const standardType = atBfpClean(folder.getFlag?.(ATBFP_ID, "standardFolder")).toLowerCase();
+  const standardType = atBfpClean(globalThis.ATTestAI.flags(folder).getFlag?.(ATBFP_ID, "standardFolder")).toLowerCase();
   const binding = atBfpBinding(standardType);
   if (!binding || binding.sourceDocumentName === "JournalEntry") return null;
 
@@ -760,7 +845,7 @@ async function atBfpEnsureBackendContextForTomeFolder(tomeFolder) {
   if (context) return context;
   if (!game.user?.isGM || tomeFolder?.type !== "JournalEntry") return null;
 
-  const standardType = atBfpClean(tomeFolder.getFlag?.(ATBFP_ID, "standardFolder")).toLowerCase();
+  const standardType = atBfpClean(globalThis.ATTestAI.flags(tomeFolder).getFlag?.(ATBFP_ID, "standardFolder")).toLowerCase();
   const binding = atBfpBinding(standardType);
   if (!binding || binding.sourceDocumentName === "JournalEntry") return null;
 
@@ -980,7 +1065,7 @@ const ATBFP_API = Object.freeze({
 });
 
 function atBfpAttach() {
-  const module = game.modules.get(ATBFP_ID);
+  const module = globalThis.ATTestAI.modules.get(ATBFP_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.backendFolderParity = ATBFP_API;
@@ -994,7 +1079,7 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(ATBFP_ID)?.api?.backendFolderParity !== ATBFP_API) atBfpAttach();
+  if (globalThis.ATTestAI.modules.get(ATBFP_ID)?.api?.backendFolderParity !== ATBFP_API) atBfpAttach();
 });
 
 for (const hookName of [
@@ -1004,8 +1089,11 @@ for (const hookName of [
   "createJournalEntryPage","updateJournalEntryPage","deleteJournalEntryPage",
   "createFolder","updateFolder","deleteFolder"
 ]) {
-  Hooks.on(hookName, (_document, _changes, options = {}) => {
-    if (atBfpSyncing || options?.adventurersTomeBackendParity === true) return;
+  Hooks.on(hookName, (_document, changesOrOptions, optionsOrUserId = {}) => {
+    const options = hookName.startsWith('update') ? optionsOrUserId : changesOrOptions;
+    if (options?.adventurersTomeBackendParity === true || options?.adventurersTomeWorldTree === true) return;
+    if (_document?.parent?.documentName === "Actor" && _document.documentName === "Item") return;
+    atBfpRepresentationRevision += 1;
     atBfpSchedule(hookName, 180);
   });
 }

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-review-learning";
 const VERSION = 3;
@@ -14,6 +15,7 @@ const ACTIONS = Object.freeze({
 let writes = 0;
 let failures = 0;
 let lastError = "";
+let parsedMemo=null,parsedRaw,parsedOwner='';
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -68,10 +70,15 @@ function parseState(raw) {
   }
 }
 
-function readState() {
+function readState(readOnly=false) {
   if (!game.user?.isGM) return emptyState();
   try {
-    return parseState(game.settings.get(MODULE_ID, SETTING_KEY));
+    const raw=globalThis.ATTestAI.settings.get(MODULE_ID, SETTING_KEY);
+    const owner=`${game.world?.id || ''}:${game.user.id}`;
+    if(!parsedMemo || parsedRaw!==raw || parsedOwner!==owner){parsedMemo=parseState(raw);parsedRaw=raw;parsedOwner=owner;}
+    // Readers never expose the cached object. Mutators receive a private copy,
+    // so an unsuccessful write cannot leak a decision through the read cache.
+    return readOnly ? parsedMemo : clone(parsedMemo);
   } catch (_error) {
     return emptyState();
   }
@@ -89,7 +96,7 @@ async function writeState(state, reason = "update") {
       pausedIdentities:state?.pausedIdentities || {},
       decisionHistory:state?.decisionHistory || []
     };
-    await game.settings.set(MODULE_ID, SETTING_KEY, JSON.stringify(payload));
+    await globalThis.ATTestAI.settings.set(MODULE_ID, SETTING_KEY, JSON.stringify(payload));
     writes += 1;
     globalThis.AdventurersTomeReviewDecision?.count("decision-save","writes");
     Hooks.callAll("adventurersTomeCampaignLearningUpdated", {
@@ -108,7 +115,7 @@ async function writeState(state, reason = "update") {
 function decisionFor(text, { sourceUuid = "" } = {}) {
   const key = normalize(text);
   if (!key) return null;
-  const state = readState();
+  const state = readState(true);
   const sourceKey = clean(sourceUuid);
   const sourceDecision = sourceKey ? state.sourceIgnores?.[sourceKey]?.[key] || null : null;
   if (sourceDecision) return clone({ ...sourceDecision, action:ACTIONS.SOURCE_IGNORED });
@@ -125,9 +132,9 @@ function decisionFor(text, { sourceUuid = "" } = {}) {
 // decision API unchanged; only the resolver opts into this conservative lookup.
 function historicalChoiceFor(text, { sourceUuid="" } = {}) {
   if(!game.user?.isGM)return null;
-  const key=normalize(text),state=readState();
+  const key=normalize(text),state=readState(true);
   if(!key)return null;
-  const identity=game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
+  const identity=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
   const authorities=new Map();
   for(const [source,choices] of Object.entries(state.sourceChoices || {})) {
     const choice=choices?.[key];
@@ -153,8 +160,8 @@ function historicalChoiceFor(text, { sourceUuid="" } = {}) {
   const collisions=[...documents.values()]
     .filter(doc=>{
       if(isPaused(doc.uuid))return false;
-      const profile=doc.getFlag?.(MODULE_ID,doc.documentName==="Actor" ? "actorProfile" : "worldProfile") || {};
-      const aliases=[doc.getFlag?.(MODULE_ID,"aliases"),profile.aliases].flatMap(value=>Array.isArray(value) ? value : typeof value==="string" ? value.split(/[,;\n]/) : []);
+      const profile=globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,doc.documentName==="Actor" ? "actorProfile" : "worldProfile") || {};
+      const aliases=[globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"aliases"),profile.aliases].flatMap(value=>Array.isArray(value) ? value : typeof value==="string" ? value.split(/[,;\n]/) : []);
       return [doc.name,...aliases].some(name=>normalize(name)===key);
     })
     .filter(doc=>(identity?.identityFor?.({canonicalUuid:doc.uuid})?.authorityUuid || doc.uuid)!==selected.targetUuid);
@@ -162,7 +169,7 @@ function historicalChoiceFor(text, { sourceUuid="" } = {}) {
   return clone(selected);
 }
 
-function summary(state = readState()) {
+function summary(state = readState(true)) {
   const decisions = Object.values(state?.decisions || {});
   let sourceIgnoreCount = 0;
   for (const values of Object.values(state?.sourceIgnores || {})) {
@@ -231,7 +238,7 @@ async function ignoreOnce({ text, sourceUuid } = {}) {
 }
 
 function discoveryEntities() {
-  const snapshot = game.modules.get(MODULE_ID)?.api?.discovery?.snapshot?.() || null;
+  const snapshot = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.discovery?.snapshot?.() || null;
   return (snapshot?.entities || [])
     .filter((entity) => clean(entity?.canonicalUuid) && clean(entity?.name))
     .map((entity) => ({
@@ -263,7 +270,7 @@ function searchTargets(rows, { query = "", kind = "all" } = {}) {
 // A transient view of existing world documents, never a second identity registry.
 function linkTargets({ query = "", kind = "all" } = {}) {
   if (!game.user?.isGM) return [];
-  const api = game.modules.get(MODULE_ID)?.api;
+  const api = globalThis.ATTestAI.modules.get(MODULE_ID)?.api;
   const documents = new Map();
   const collections = [game.actors, game.items, game.journal, game.scenes, ...(game.collections?.values?.() || [])];
   for (const collection of collections) for (const doc of collection?.contents || []) {
@@ -276,10 +283,10 @@ function linkTargets({ query = "", kind = "all" } = {}) {
     const uuid = api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:candidate.uuid})?.authorityUuid || candidate.uuid;
     const doc = documents.get(uuid);
     if (!doc) continue;
-    const profile = doc.getFlag?.(MODULE_ID,"worldProfile") || doc.getFlag?.(MODULE_ID,"actorProfile") || {};
+    const profile = globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"worldProfile") || globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"actorProfile") || {};
     const category = doc.documentName === "Actor" ? "person" : doc.documentName === "Item" ? "item"
-      : doc.documentName === "Scene" ? "location" : profile.category || doc.getFlag?.(MODULE_ID,"type") || candidate.kind;
-    const aliases = [doc.getFlag?.(MODULE_ID,"aliases"),profile.aliases].flatMap(value=>Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,;\n]/) : []);
+      : doc.documentName === "Scene" ? "location" : profile.category || globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"type") || candidate.kind;
+    const aliases = [globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"aliases"),profile.aliases].flatMap(value=>Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,;\n]/) : []);
     const metadata = [doc.folder?.name,profile.title,profile.subtitle,profile.summary,...(Array.isArray(profile.facts) ? profile.facts : []).map(fact=>`${fact.label || ""} ${fact.value || ""}`)];
     const row = rows.get(uuid) || {uuid,name:clean(doc.name),kind:clean(category),folder:clean(doc.folder?.name),aliases:[],searchText:""};
     row.aliases = [...new Set([...row.aliases,...aliases.map(clean),candidate.name].filter(Boolean))];
@@ -293,7 +300,7 @@ async function canonicalTarget(targetUuid) {
   if (!game.user?.isGM) throw new Error("Campaign identity selection is GM-only.");
   const selected = await fromUuid(clean(targetUuid));
   if (!selected?.uuid) throw new Error("The selected identity no longer exists. Keep this mention in Review.");
-  const uuid = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:selected.uuid})?.authorityUuid || selected.uuid;
+  const uuid = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:selected.uuid})?.authorityUuid || selected.uuid;
   const target = uuid === selected.uuid ? selected : await fromUuid(uuid);
   if (!target?.uuid) throw new Error("The canonical identity no longer exists. Keep this mention in Review.");
   return target;
@@ -413,11 +420,11 @@ async function clear({ text, sourceUuid = "", scope = "global" } = {}) {
 }
 
 function all() {
-  return clone(readState());
+  return clone(readState(true));
 }
 
 function audit() {
-  const state = readState();
+  const state = readState(true);
   return {
     contract:CONTRACT,
     version:VERSION,
@@ -437,18 +444,18 @@ function audit() {
   };
 }
 
-function decisionSnapshot(text,sourceUuid,state=readState()) {
+function decisionSnapshot(text,sourceUuid,state=readState(true)) {
   const key=normalize(text);
   return clone({global:state.decisions[key] || null,choice:state.sourceChoices[sourceUuid]?.[key] || null,ignore:state.sourceIgnores[sourceUuid]?.[key] || null});
 }
 function matchingAuthority(uuid) {
-  return game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:uuid})?.authorityUuid || uuid;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:uuid})?.authorityUuid || uuid;
 }
-function isPaused(uuid) { return Boolean(readState().pausedIdentities[matchingAuthority(uuid)]); }
-function matchingPreferences() { const state=readState();return clone({nameDefaults:state.nameDefaults,pausedIdentities:state.pausedIdentities}); }
+function isPaused(uuid) { return Boolean(readState(true).pausedIdentities[matchingAuthority(uuid)]); }
+function matchingPreferences() { const state=readState(true);return clone({nameDefaults:state.nameDefaults,pausedIdentities:state.pausedIdentities}); }
 function choiceCount(text,targetUuid) {
   const key=normalize(text),authority=matchingAuthority(targetUuid);
-  return Object.entries(readState().sourceChoices).filter(([source,choices])=>choices[key]?.targetUuid
+  return Object.entries(readState(true).sourceChoices).filter(([source,choices])=>choices[key]?.targetUuid
     && matchingAuthority(choices[key].targetUuid)===authority && !isSourceTargetRemoved(source,authority)).length;
 }
 async function setMatchingPolicy({mode,text='',targetUuid=''}={}) {
@@ -473,12 +480,12 @@ async function setMatchingPolicy({mode,text='',targetUuid=''}={}) {
 }
 function isSourceTargetRemoved(sourceUuid,targetUuid) {
   const source=game.journal?.get(/^JournalEntry\.([^.]+)$/.exec(sourceUuid||'')?.[1]);
-  const authority=game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:targetUuid})?.authorityUuid || targetUuid;
-  return Boolean(source?.getFlag(MODULE_ID,'campaignAutoLinkPolicyV1')?.suppressedTargetUuids?.some(uuid=>uuid===targetUuid||uuid===authority));
+  const authority=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:targetUuid})?.authorityUuid || targetUuid;
+  return Boolean(globalThis.ATTestAI.flags(source)?.getFlag(MODULE_ID,'campaignAutoLinkPolicyV1')?.suppressedTargetUuids?.some(uuid=>uuid===targetUuid||uuid===authority));
 }
 async function removeHistoricalLink({sourceUuid,targetUuid}={}) {
   if(!game.user?.isGM)throw Error('GM-only link correction.');
-  const api=game.modules.get(MODULE_ID)?.api;
+  const api=globalThis.ATTestAI.modules.get(MODULE_ID)?.api;
   targetUuid=api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:targetUuid})?.authorityUuid || targetUuid;
   const source=await fromUuid(sourceUuid),target=await fromUuid(targetUuid);
   if(source?.documentName!=='JournalEntry' || !target)throw Error('The source or identity is no longer available.');
@@ -502,7 +509,7 @@ async function rememberDecision(decision,before) {
     before:clone(before),after:decisionSnapshot(decision.text,decision.sourceUuid,state),undone:false};
   state.decisionHistory=[...state.decisionHistory,row].slice(-10);
   // History alone does not invalidate analysis or trigger another document scan.
-  await game.settings.set(MODULE_ID,SETTING_KEY,JSON.stringify(state));
+  await globalThis.ATTestAI.settings.set(MODULE_ID,SETTING_KEY,JSON.stringify(state));
   return clone(row);
 }
 function historyBlock(row,state) {
@@ -513,13 +520,13 @@ function historyBlock(row,state) {
   if(newer.some(item=>(normalize(item.text)===normalize(row.text) && (item.sourceUuid===row.sourceUuid || item.mode==='create' || row.mode==='create')) ||
     (row.targetUuid && item.sourceUuid===row.sourceUuid && item.targetUuid===row.targetUuid)))return 'Undo the later dependent decision first';
   if(row.mode==='unlink') {
-    const links=game.modules.get(MODULE_ID)?.api?.campaignEntityLinks;
+    const links=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityLinks;
     if(!isSourceTargetRemoved(row.sourceUuid,row.targetUuid) || links?.hasCanonicalLink?.({sourceUuid:row.sourceUuid,targetUuid:row.targetUuid}))return 'This source association has changed since removal';
   }
   if(row.mode==='correction') {
-    if(row.correctionId)return game.modules.get(MODULE_ID)?.api?.sourceFactReview?.undoStatus?.(row) ||
-      (game.modules.get(MODULE_ID)?.api?.sourceFactReview?.undoStatus ? '' : 'Correction review is unavailable');
-    const id=/^JournalEntry\.([^.]+)$/.exec(row.targetUuid)?.[1],profile=game.journal.get(id)?.getFlag(MODULE_ID,'worldProfile');
+    if(row.correctionId)return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.sourceFactReview?.undoStatus?.(row) ||
+      (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.sourceFactReview?.undoStatus ? '' : 'Correction review is unavailable');
+    const id=/^JournalEntry\.([^.]+)$/.exec(row.targetUuid)?.[1],profile=globalThis.ATTestAI.flags(game.journal.get(id))?.getFlag(MODULE_ID,'worldProfile');
     return JSON.stringify(profile)!==JSON.stringify(row.afterProfile)?'This profile has changed since the correction':'';
   }
   const live=decisionSnapshot(row.text,row.sourceUuid,state),fields=row.mode==='create'?['global','choice','ignore']:['choice','ignore'];
@@ -527,7 +534,7 @@ function historyBlock(row,state) {
   return '';
 }
 function decisionHistory() {
-  const state=readState();
+  const state=readState(true);
   return clone([...state.decisionHistory].reverse().map(row=>({...row,blocked:historyBlock(row,state)})));
 }
 async function undoDecision(id) {
@@ -539,9 +546,9 @@ async function undoDecision(id) {
     if(row.beforePolicy)state[row.policyMap][row.policyKey]=clone(row.beforePolicy);else delete state[row.policyMap][row.policyKey];
     row.undone=true;row.undoneAt=new Date().toISOString();await writeState(state,'matching-policy-undo');return clone(row);
   }
-  const key=normalize(row.text),source=row.sourceUuid,links=game.modules.get(MODULE_ID)?.api?.campaignEntityLinks;
+  const key=normalize(row.text),source=row.sourceUuid,links=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityLinks;
   if(row.mode==='unlink') {
-    const policy=game.modules.get(MODULE_ID)?.api?.campaignDeterministicAutoLink;
+    const policy=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignDeterministicAutoLink;
     if(!policy?.unsuppress || !policy?.suppress || !links?.linkCanonical)throw Error('Link correction is unavailable.');
     if(!await fromUuid(source) || !await fromUuid(row.targetUuid))throw Error('The source or identity is no longer available.');
     try {
@@ -553,7 +560,7 @@ async function undoDecision(id) {
   }
   if(row.mode==='correction') {
     if(row.correctionId) {
-      const review=game.modules.get(MODULE_ID)?.api?.sourceFactReview;
+      const review=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.sourceFactReview;
       if(!review?.undo)throw Error('Correction review is unavailable.');
       row.undone=true;row.undoneAt=new Date().toISOString();
       await review.undo(row,()=>writeState(state,'source-correction-undo'));
@@ -615,7 +622,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignReviewLearning = publicApi;
@@ -623,7 +630,7 @@ function attach() {
 }
 
 Hooks.once("init", () => {
-  game.settings.register(MODULE_ID, SETTING_KEY, {
+  globalThis.ATTestAI.settings.register(MODULE_ID, SETTING_KEY, {
     scope:"world",
     config:false,
     type:String,
@@ -637,5 +644,5 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.campaignReviewLearning !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning !== publicApi) attach();
 });

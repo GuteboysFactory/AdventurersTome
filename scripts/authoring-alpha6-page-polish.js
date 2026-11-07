@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATA6_MODULE_ID = "adventurers-tome";
 const ATA6_ROOT = "#adventurers-tome-app";
 let atA6Timer = null;
@@ -35,7 +36,7 @@ function atA6CanEdit(journal) {
   try {
     if (journal.isOwner || journal.testUserPermission?.(game.user, "OWNER")) return true;
   } catch (_err) {}
-  const editors = journal.getFlag?.(ATA6_MODULE_ID, "worldEditors");
+  const editors = globalThis.ATTestAI.flags(journal).getFlag?.(ATA6_MODULE_ID, "worldEditors");
   return Array.isArray(editors) && editors.map(String).includes(String(game.user.id));
 }
 
@@ -72,8 +73,8 @@ function atA6PrimaryPageId(detail) {
   if (!pages.length) return "";
 
   if (detail.section === "world") {
-    const profile = detail.journal.getFlag?.(ATA6_MODULE_ID, "worldProfile") || {};
-    const preferred = String(detail.journal.getFlag?.(ATA6_MODULE_ID, "worldSyncPage") || profile.syncPageId || "");
+    const profile = globalThis.ATTestAI.flags(detail.journal).getFlag?.(ATA6_MODULE_ID, "worldProfile") || {};
+    const preferred = String(globalThis.ATTestAI.flags(detail.journal).getFlag?.(ATA6_MODULE_ID, "worldSyncPage") || profile.syncPageId || "");
     if (preferred && pages.some((page) => page.id === preferred)) return preferred;
   }
 
@@ -121,9 +122,8 @@ function atA6ScrollToPage(detail, pageId) {
 }
 
 function atA6OpenManager(detail) {
-  const button = detail.container.querySelector(`[data-at-a2-page-manager="${CSS.escape(detail.journal.id)}"], [data-at-wj-action="editPages"][data-journal-id="${CSS.escape(detail.journal.id)}"]`);
-  if (button) button.click();
-  else ui.notifications.warn("Adventurer's Tome: Page Manager is not available for this entry.");
+  const manager = globalThis.ATTestAI.modules.get(ATA6_MODULE_ID)?.api?.pageManager;
+  if (!manager?.open?.(detail.journal)) ui.notifications.warn("Adventurer's Tome: Page Manager is not available for this entry.");
 }
 
 function atA6NavigatorMarkup(detail) {
@@ -241,10 +241,10 @@ function atA6InstallHandlers() {
       return;
     }
 
-    const manage = event.target.closest?.(`${ATA6_ROOT} [data-at-a6-manage-pages]`);
+    const manage = event.target.closest?.(`${ATA6_ROOT} [data-at-a6-manage-pages], ${ATA6_ROOT} [data-at-a2-page-manager], ${ATA6_ROOT} [data-at-wj-action="editPages"]`);
     if (manage) {
       event.preventDefault();
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       const detail = atA6Detail();
       if (detail) {
         atA6OpenManager(detail);

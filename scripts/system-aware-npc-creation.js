@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-system-aware-npc-creation";
 const SCHEMA_CONTRACT = "adventurers-tome-npc-schema";
@@ -31,7 +32,7 @@ function freeze(value) {
 }
 
 function moduleApi() {
-  return game.modules.get(MODULE_ID)?.api || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api || null;
 }
 
 function safeSystemPath(path) {
@@ -408,7 +409,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = globalThis.game?.modules?.get?.(MODULE_ID);
+  const module = globalThis.ATTestAI.modules?.get?.(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.npcCreation = publicApi;
@@ -421,10 +422,10 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("adventurersTomeAdapterRegistered", () => {
-  // Adapter registration may happen during Foundry init, before game.modules
+  // Adapter registration may happen during Foundry init, before globalThis.ATTestAI.modules
   // has been constructed. The ready hook remains the authoritative attach
   // point; this hook only refreshes the API when the module registry exists.
-  const module = globalThis.game?.modules?.get?.(MODULE_ID);
+  const module = globalThis.ATTestAI.modules?.get?.(MODULE_ID);
   if (!module) return;
   if (module.api?.npcCreation !== publicApi) attach();
 });

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATSS_MODULE_ID = "adventurers-tome";
 const ATSS_ROOT = "#adventurers-tome-app";
 const ATSS_ATTR = "data-at-tome-summary";
@@ -81,8 +82,8 @@ function atSsPrimaryPage(journal, section) {
   if (!journal) return null;
   const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   if (section === "world") {
-    const profile = journal.getFlag?.(ATSS_MODULE_ID, "worldProfile") || {};
-    const preferred = String(journal.getFlag?.(ATSS_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
+    const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATSS_MODULE_ID, "worldProfile") || {};
+    const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATSS_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
     const found = preferred ? pages.find((page) => page.id === preferred && String(page.type || "text").toLowerCase() === "text") : null;
     if (found) return found;
   }
@@ -156,6 +157,7 @@ function atSsQueuePresentation() {
 }
 
 async function atSsRepairExistingPages() {
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
   const atStartupToken = globalThis.AdventurersTomeStartup?.begin("summary-repair");
   try {
   if (!game.user?.isGM || atSsRepairing) return;
@@ -164,6 +166,7 @@ async function atSsRepairExistingPages() {
   try {
     for (const journal of game.journal?.contents ?? []) {
       for (const page of journal.pages?.contents ?? []) {
+        if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.checkpoint();
         globalThis.AdventurersTomeStartup?.count("summary-repair","pagesScanned");
         if (String(page.type || "text").toLowerCase() !== "text") continue;
         const raw = String(page?.text?.content ?? "");

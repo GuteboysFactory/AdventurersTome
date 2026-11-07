@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATGR_ADAPTER_ID = "genesys-vtt-runtime-registry";
 
 function atGrEscape(value) {
@@ -29,7 +30,7 @@ function atGrRegistry() {
   const earlyBridge = globalThis.AdventurersTomeSystemAdapters;
   if (earlyBridge?.register) return earlyBridge;
 
-  const moduleRegistry = globalThis.game?.modules?.get?.("adventurers-tome")?.api?.adapters;
+  const moduleRegistry = globalThis.ATTestAI.modules?.get?.("adventurers-tome")?.api?.adapters;
   return moduleRegistry?.register ? moduleRegistry : null;
 }
 

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATCG_ID = "adventurers-tome";
 let atcgAttached = false;
 let atcgTimer = null;
@@ -10,7 +11,7 @@ const ATCG_TAKEOVER_CONSUMERS = Object.freeze([
 ]);
 
 function atcgModule() {
-  return game.modules.get(ATCG_ID);
+  return globalThis.ATTestAI.modules.get(ATCG_ID);
 }
 
 function atcgSafe(fn) {

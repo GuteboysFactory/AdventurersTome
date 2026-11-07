@@ -1,5 +1,6 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
-const DEFAULT_BACKGROUND = `modules/${MODULE_ID}/assets/default-hero.webp`;
+const DEFAULT_BACKGROUND = `modules/adventurers-tome/assets/default-hero.webp`;
 const FALLBACK_ACTOR_IMAGE = "icons/svg/mystery-man.svg";
 const FALLBACK_GENERIC_IMAGE = "icons/svg/book.svg";
 // Session-local only: never replace an Actor's stored portrait after a failed request.
@@ -25,6 +26,14 @@ const PRIVATE_REVEAL_SETTING = "gmRevealQueue";
 const PRIVATE_IMPORT_HISTORY_SETTING = "gmImportHistory";
 const PRIVATE_IMPORT_UNDO_SETTING = "gmLastImportUndo";
 const PRIVATE_GM_WORKSPACE_SETTING = "gmWorkspace";
+// Exists only while the synchronous context builder runs, after its initial
+// await. Writers and later renders always read the current values afresh.
+let tomeContextReads = null;
+function tomeContextRead(key, build) {
+  if (!tomeContextReads) return build();
+  if (!tomeContextReads.reads.has(key)) tomeContextReads.reads.set(key, build());
+  return tomeContextReads.reads.get(key);
+}
 
 const GM_NOTE_TYPES = Object.freeze({
   prep: { label: "Prep", icon: "fa-list-check" },
@@ -52,7 +61,7 @@ const GM_NOTE_STATUSES = Object.freeze({
  * absolute/external URLs are left untouched.
  */
 function resolveFoundryAssetUrl(path) {
-  const value = String(path || "").trim() || DEFAULT_BACKGROUND;
+  const value = (String(path || "").trim() || DEFAULT_BACKGROUND).replace(/^modules\/adventurers-tome-testai\/assets\//, "modules/adventurers-tome/assets/");
   if (/^(?:https?:|data:|blob:)/i.test(value)) return value;
   if (value.startsWith("/")) return value;
   try {
@@ -263,7 +272,7 @@ const MANUAL_SECTIONS = Object.freeze([
 ]);
 
 function buildManualView() {
-  const version = String(game.modules.get(MODULE_ID)?.version || "");
+  const version = String(globalThis.ATTestAI.modules.get(MODULE_ID)?.version || "");
   const sections = MANUAL_SECTIONS.filter((section) => game.user?.isGM || !section.gmOnly).map((section) => {
     const items = Array.isArray(section.items) ? section.items.map(([title, text]) => ({ title, text })) : [];
     const steps = Array.isArray(section.steps) ? section.steps.map(([title, text]) => ({ title, text })) : [];
@@ -345,12 +354,12 @@ function normalizeNotebookPad(raw = {}) {
 }
 
 function getNavConfig() {
-  const parsed = safeJSONParse(game.settings.get(MODULE_ID, "navConfig"), {});
+  const parsed = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, "navConfig"), {});
   return { ...defaultNavConfig(), ...(parsed && typeof parsed === "object" ? parsed : {}) };
 }
 
 function getHomeLayout() {
-  const parsed = safeJSONParse(game.settings.get(MODULE_ID, "homeLayout"), []);
+  const parsed = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, "homeLayout"), []);
   const list = Array.isArray(parsed) ? parsed : [];
   const byId = new Map(list.map((item) => [String(item?.id || ""), item]));
   return HOME_BLOCK_DEFS.map(([id, _label, _icon, defaultVisible = true, defaultSize = "normal"]) => {
@@ -365,14 +374,14 @@ function getHomeLayout() {
 }
 
 function getSectionBackgrounds() {
-  const parsed = safeJSONParse(game.settings.get(MODULE_ID, "sectionBackgrounds"), {});
+  const parsed = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, "sectionBackgrounds"), {});
   const result = {};
   for (const key of SECTION_BACKGROUND_KEYS) result[key] = String(parsed?.[key] || "").trim();
   return result;
 }
 
 function configuredDefaultLanding() {
-  const configured = String(game.settings.get(MODULE_ID, "defaultLanding") || "home").trim().toLowerCase();
+  const configured = String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultLanding") || "home").trim().toLowerCase();
   if (configured === "home") return "home";
   const nav = getNavConfig();
   return nav[configured] ? configured : "home";
@@ -391,7 +400,7 @@ const FilePicker = foundry.applications.apps.FilePicker;
 
 function registerSetting(key, data) {
   const { scope = "world", ...settingData } = data;
-  game.settings.register(MODULE_ID, key, {
+  globalThis.ATTestAI.settings.register(MODULE_ID, key, {
     scope,
     config: false,
     ...settingData
@@ -413,7 +422,7 @@ function normalizeRefList(value) {
 
 function getClientRefList(settingKey) {
   try {
-    return normalizeRefList(safeJSONParse(game.settings.get(MODULE_ID, settingKey), []));
+    return normalizeRefList(safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, settingKey), []));
   } catch (_err) {
     return [];
   }
@@ -429,7 +438,7 @@ function getRecentRefs() {
 
 async function setFavoriteRefs(refs = []) {
   const normalized = normalizeRefList(refs).slice(0, 120);
-  await game.settings.set(MODULE_ID, "favorites", JSON.stringify(normalized));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, "favorites", JSON.stringify(normalized));
   return normalized;
 }
 
@@ -437,13 +446,13 @@ async function recordRecentRef(refKey) {
   const key = String(refKey || "").trim();
   if (!key) return getRecentRefs();
   const next = [key, ...getRecentRefs().filter((ref) => ref !== key)].slice(0, 18);
-  await game.settings.set(MODULE_ID, "recentItems", JSON.stringify(next));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, "recentItems", JSON.stringify(next));
   return next;
 }
 
 function inferJournalRefKey(journal) {
   if (!journal?.id) return "";
-  const flagged = String(journal.getFlag?.(MODULE_ID, "type") ?? "").toLowerCase();
+  const flagged = String(globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "type") ?? "").toLowerCase();
   const lineage = folderLineageNames(journal.folder).join(" ");
   if (flagged === "sessions" || /(?:^|\s)sessions?(?:\s|$)/.test(lineage)) return `session:${journal.id}`;
   if (flagged === "quests" || /(?:^|\s)quests?(?:\s|$)/.test(lineage)) return `quest:${journal.id}`;
@@ -499,20 +508,27 @@ function getAdaptiveWindowPosition(savedValue = "") {
 
 function getSavedWindowState() {
   try {
-    return game.settings.get(MODULE_ID, "windowState") || "";
+    return globalThis.ATTestAI.settings.get(MODULE_ID, "windowState") || "";
   } catch (_err) {
     return "";
   }
 }
 
 function stripMarkup(value = "") {
-  return String(value)
+  const input = String(value);
+  if(tomeContextReads?.markup.has(input))return tomeContextReads.markup.get(input);
+  const result = input
+    // Plain previews need the reference's label, before Markdown brackets are
+    // removed. Never resolve UUIDs here: that could expose a hidden target name.
+    .replace(/@UUID\[[^\]\r\n]+\](?:\{([^}\r\n]*)\})?/g, (_match, label) => label?.trim() || "Linked entry")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/[#*_>`~\[\]()]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  if(tomeContextReads && tomeContextReads.markupBytes + 2*(input.length+result.length) <= 4*1024*1024){tomeContextReads.markup.set(input,result);tomeContextReads.markupBytes+=2*(input.length+result.length);}
+  return result;
 }
 
 function truncate(value = "", max = 170) {
@@ -536,7 +552,7 @@ function getWorldSyncPage(entry, profile = null) {
   const pages = entry.pages?.contents || [];
   const configuredId = String(profile?.syncPageId || "").trim();
   return (configuredId ? pages.find((page) => page.id === configuredId) : null)
-    || pages.find((page) => page.getFlag?.(MODULE_ID, FLAGS.WORLD_SYNC_PAGE) === true)
+    || pages.find((page) => globalThis.ATTestAI.flags(page).getFlag?.(MODULE_ID, FLAGS.WORLD_SYNC_PAGE) === true)
     || null;
 }
 
@@ -563,7 +579,7 @@ async function ensureWorldSyncPage(entry, body = "", profile = {}) {
     page = created?.[0] || null;
   } else {
     await page.update({ "text.format": CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML ?? 1, "text.content": content });
-    if (page.getFlag?.(MODULE_ID, FLAGS.WORLD_SYNC_PAGE) !== true) await page.setFlag(MODULE_ID, FLAGS.WORLD_SYNC_PAGE, true);
+    if (globalThis.ATTestAI.flags(page).getFlag?.(MODULE_ID, FLAGS.WORLD_SYNC_PAGE) !== true) await globalThis.ATTestAI.flags(page).setFlag(MODULE_ID, FLAGS.WORLD_SYNC_PAGE, true);
   }
   return { profile: { ...profile, syncPageId: page?.id || String(profile?.syncPageId || "") }, page };
 }
@@ -628,7 +644,7 @@ function sectionEntries(section) {
   return game.journal.contents
     .filter((entry) => canViewInTome(entry))
     .filter((entry) => {
-      const flagged = String(entry.getFlag(MODULE_ID, "type") ?? "").toLowerCase();
+      const flagged = String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "type") ?? "").toLowerCase();
       if (flagged === normalized) return true;
       return folderLineageNames(entry.folder).some((name) => name === normalized || name.includes(normalized));
     })
@@ -658,7 +674,7 @@ const TOME_VISIBILITY = Object.freeze({
 
 function defaultTomeVisibility() {
   try {
-    const value = String(game.settings.get(MODULE_ID, "defaultTomeVisibility") || "inherit").toLowerCase();
+    const value = String(tomeContextRead('default-visibility',()=>globalThis.ATTestAI.settings.get(MODULE_ID, "defaultTomeVisibility")) || "inherit").toLowerCase();
     return TOME_VISIBILITY[value] ? value : "inherit";
   } catch (_err) {
     return "inherit";
@@ -666,7 +682,7 @@ function defaultTomeVisibility() {
 }
 
 function defaultTomeDiscovered() {
-  try { return game.settings.get(MODULE_ID, "defaultTomeDiscovered") !== false; }
+  try { return tomeContextRead('default-discovered',()=>globalThis.ATTestAI.settings.get(MODULE_ID, "defaultTomeDiscovered")) !== false; }
   catch (_err) { return true; }
 }
 
@@ -717,7 +733,7 @@ function resolvePrivateVaultKey(key = "") {
 function getPrivateVault() {
   if (!game.user?.isGM) return {};
   try {
-    const parsed = safeJSONParse(game.settings.get(MODULE_ID, PRIVATE_VAULT_SETTING), {});
+    const parsed = tomeContextRead('private-vault',()=>safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, PRIVATE_VAULT_SETTING), {}));
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch (_err) {
     return {};
@@ -744,7 +760,7 @@ function emptyGmWorkspace() {
 function getGmWorkspace() {
   if (!game.user?.isGM) return emptyGmWorkspace();
   try {
-    return normalizeGmWorkspace(safeJSONParse(game.settings.get(MODULE_ID, PRIVATE_GM_WORKSPACE_SETTING), {}));
+    return normalizeGmWorkspace(safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, PRIVATE_GM_WORKSPACE_SETTING), {}));
   } catch (_err) {
     return emptyGmWorkspace();
   }
@@ -760,7 +776,7 @@ async function setGmWorkspace(patch = {}) {
     layout: Array.isArray(patch.layout) ? patch.layout : current.layout,
     preset: Object.hasOwn(patch, "preset") ? patch.preset : current.preset
   });
-  await game.settings.set(MODULE_ID, PRIVATE_GM_WORKSPACE_SETTING, JSON.stringify(next));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_GM_WORKSPACE_SETTING, JSON.stringify(next));
   return next;
 }
 
@@ -788,12 +804,12 @@ async function setPrivateOverlay(document, patch = {}) {
   };
   if (!next.notes.length && !next.facts.length && !next.relations.length) delete vault[key];
   else vault[key] = next;
-  await game.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
   return next;
 }
 
 function publicAccessData(document) {
-  const raw = document?.getFlag?.(MODULE_ID, FLAGS.ACCESS);
+  const raw = globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, FLAGS.ACCESS);
   const access = raw && typeof raw === "object" ? raw : {};
   const visibilityRaw = String(access.visibility ?? defaultTomeVisibility()).toLowerCase();
   return {
@@ -807,7 +823,7 @@ function getTomeAccess(document) {
   let notes = [];
   if (game.user?.isGM) {
     const overlay = getPrivateOverlay(document);
-    notes = overlay.notes.length ? overlay.notes : normalizeGmNotes(document?.getFlag?.(MODULE_ID, FLAGS.ACCESS) || {});
+    notes = overlay.notes.length ? overlay.notes : normalizeGmNotes(globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, FLAGS.ACCESS) || {});
   }
   return {
     ...publicAccess,
@@ -819,13 +835,13 @@ function getTomeAccess(document) {
 async function saveTomeAccess(document, { visibility = "inherit", discovered = true, notes = null } = {}) {
   if (!game.user?.isGM) throw new Error("Only a GM can change Adventurer's Tome access metadata.");
   const normalizedVisibility = TOME_VISIBILITY[String(visibility || "inherit")] ? String(visibility) : "inherit";
-  await document.setFlag(MODULE_ID, FLAGS.ACCESS, { visibility: normalizedVisibility, discovered: discovered !== false });
+  await globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, FLAGS.ACCESS, { visibility: normalizedVisibility, discovered: discovered !== false });
   if (Array.isArray(notes)) await setPrivateOverlay(document, { notes });
   return getTomeAccess(document);
 }
 
 function semanticProjectionOf(document) {
-  const raw = document?.getFlag?.(MODULE_ID, "semanticProjection");
+  const raw = globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, "semanticProjection");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
 }
 
@@ -876,7 +892,7 @@ function semanticContactEvidenceVisible(document, user = game.user) {
 
 function canViewInTome(document, user = game.user) {
   if (!document) return false;
-  if (document.getFlag?.(MODULE_ID,'chronicleV1') || document.parent?.getFlag?.(MODULE_ID,'chronicleV1')) return false;
+  if (globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID,'chronicleV1') || globalThis.ATTestAI.flags(document.parent)?.getFlag?.(MODULE_ID,'chronicleV1')) return false;
   if (user?.isGM) return true;
   // Tome renders full campaign content, so require Foundry OBSERVER or better.
   // LIMITED visibility is intentionally not enough, which prevents Tome from
@@ -935,14 +951,14 @@ function factVisibility(value) {
 function entryView(entry, extra = {}) {
   const raw = journalText(entry);
   const session = sessionDisplayMeta(entry.name);
-  const flaggedSummary = String(entry.getFlag(MODULE_ID, "summary") ?? "").trim();
+  const flaggedSummary = String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "summary") ?? "").trim();
   const sessionSummary = session.number != null
     ? extractMarkdownSection(raw, ["Summary", "Sammanfattning", "Session summary", "Sessionssammanfattning"])
     : "";
   const summarySource = flaggedSummary || sessionSummary || raw || entry.name;
   const summary = truncate(summarySource, 220);
-  const configuredQuestStatus = (() => { try { return game.settings.get(MODULE_ID, "defaultQuestStatus") || "active"; } catch (_err) { return "active"; } })();
-  const status = normalizeQuestStatus(String(entry.getFlag(MODULE_ID, "status") ?? configuredQuestStatus));
+  const configuredQuestStatus = (() => { try { return globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus") || "active"; } catch (_err) { return "active"; } })();
+  const status = normalizeQuestStatus(String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "status") ?? configuredQuestStatus));
 
   return {
     id: entry.id,
@@ -955,7 +971,7 @@ function entryView(entry, extra = {}) {
     displayTitle: session.title,
     status,
     statusLabel: displayQuestStatus(status),
-    featured: Boolean(entry.getFlag(MODULE_ID, "featured")),
+    featured: Boolean(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "featured")),
     access: accessView(entry),
     ...extra
   };
@@ -1033,13 +1049,13 @@ function campaignWorldProjectionIdForAuthorityUuid(authorityUuid = "") {
   if (!wanted) return "";
 
   for (const journal of game.journal?.contents || []) {
-    const backend = journal.getFlag?.(MODULE_ID, "backendProjectionV1");
+    const backend = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "backendProjectionV1");
     if (backend?.managed === true && String(backend?.sourceUuid || "").trim() === wanted) return journal.id;
 
-    const semantic = journal.getFlag?.(MODULE_ID, "semanticProjection");
+    const semantic = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "semanticProjection");
     if (String(semantic?.linkedUuid || "").trim() === wanted) return journal.id;
 
-    const profile = journal.getFlag?.(MODULE_ID, "worldProfile");
+    const profile = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "worldProfile");
     if (String(profile?.sourceUuid || "").trim() === wanted) return journal.id;
     if (wanted.startsWith("Actor.") && String(profile?.actorId || "").trim() === wanted.slice(6)) return journal.id;
     if (wanted.startsWith("Item.") && String(profile?.itemId || "").trim() === wanted.slice(5)) return journal.id;
@@ -1049,9 +1065,9 @@ function campaignWorldProjectionIdForAuthorityUuid(authorityUuid = "") {
 }
 
 function getTomeLinks(document) {
-  const raw = document?.getFlag?.(MODULE_ID, FLAGS.LINKS);
+  const raw = globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, FLAGS.LINKS);
   const links = raw && typeof raw === "object" ? raw : {};
-  const canonicalRaw = document?.getFlag?.(MODULE_ID, "campaignEntityLinksV1");
+  const canonicalRaw = globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, "campaignEntityLinksV1");
   const canonical = canonicalRaw && typeof canonicalRaw === "object" && !Array.isArray(canonicalRaw) ? canonicalRaw : {};
   const normalize = (value) => Array.isArray(value) ? [...new Set(value.map((id) => String(id || "").trim()).filter(Boolean))] : [];
 
@@ -1081,7 +1097,7 @@ function getTomeLinks(document) {
 
   // Present a proven Actor identity once, regardless of which legacy/category
   // track stored the link. Never collapse independent documents by name.
-  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
+  const identityApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
   for (const id of worldIds) {
     const identity = identityApi?.identityFor?.({ canonicalUuid:`JournalEntry.${id}` });
     const actor = /^Actor\.([^.]+)$/.exec(String(identity?.authorityUuid || ""));
@@ -1162,6 +1178,7 @@ function campaignMemoryRelationMeta(row = {}) {
   const resolutionState = String(row.resolutionState || "").trim().toLowerCase();
   const historical = row.active === false;
 
+
   if (relationState === "ambiguous" || resolutionState === "ambiguous") {
     return { relationGroup:"unresolved", relationLabel:"Ambiguous", relationIcon:"fa-triangle-exclamation" };
   }
@@ -1177,11 +1194,16 @@ function campaignMemoryRelationMeta(row = {}) {
   return { relationGroup:"mentioned", relationLabel:historical ? "Historical mention" : "Mentioned", relationIcon:"fa-comment-dots" };
 }
 
+function campaignQueueDerivedRefresh(reason) {
+  try {return globalThis.AdventurersTomeIndex?.request?.(reason) === true;}
+  catch(error) {console.warn('Tome: derived work could not be queued; using the direct refresh.',error);return false;}
+}
+
 function campaignMemorySearchView() {
   const reviewToken=globalThis.AdventurersTomeReviewDecision?.beginPhase("memory-view");
   try {
   if (!game.user?.isGM) return null;
-  const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+  const evidenceApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
   const snapshot = evidenceApi?.snapshot?.() || null;
   const records = Array.isArray(snapshot?.records) ? snapshot.records : [];
 
@@ -1324,7 +1346,7 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     if (entry?.folder?.name) briefItems.push({ label:"Folder / group", value:String(entry.folder.name), icon:"fa-folder" });
 
     if (profile?.category === "contact") {
-      const identity=game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:entry.uuid});
+      const identity=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:entry.uuid});
       const linkedActor = identity?.authorityUuid?.startsWith("Actor.") ? game.actors?.get(identity.authorityUuid.slice(6)) : null;
       if (linkedActor) {
         const linkedProfile = getActorProfile(linkedActor);
@@ -1378,8 +1400,8 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
   const contextBoost = Math.min(36, matchedTerms.length * 18);
   const baseScore = Number(raw?.score || 0);
 
-  const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
-  const learningApi=game.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
+  const evidenceApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+  const learningApi=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
   const historyRows=uuid && evidenceApi?.recordsForTarget
     ? (evidenceApi.recordsForTarget(uuid,{includeHistorical:true,sort:'newest'})||[]).filter(row=>!learningApi?.isSourceTargetRemoved?.(row.sourceUuid,uuid)):[];
   const historicalSources=game.user.isGM?[...new Map(historyRows.filter(row=>row.sourceUuid).map(row=>[row.sourceUuid,
@@ -1419,13 +1441,13 @@ function campaignDecisionCandidateMeta(raw = {}, contextText = "") {
     briefSummary,
     hasUsefulBriefing,
     briefingEmpty:!hasUsefulBriefing,
-    canReviewSourceFacts:uuid.startsWith('JournalEntry.') && Boolean(game.journal?.get(uuid.slice(13))?.getFlag?.(MODULE_ID,'worldProfile')),
+    canReviewSourceFacts:uuid.startsWith('JournalEntry.') && Boolean(globalThis.ATTestAI.flags(game.journal?.get(uuid.slice(13)))?.getFlag?.(MODULE_ID,'worldProfile')),
     hasMoreInfo:Boolean(extraFacts.length || extraRelations.length || previousMentions.length)
   };
 }
 
 function campaignDecisionRawMention(row = {}) {
-  const api = game.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
+  const api = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
   const snapshot = api?.snapshot?.() || null;
   const rows = Array.isArray(snapshot?.mentions) ? snapshot.mentions : [];
   const sourceUuid = String(row.sourceUuid || "").trim();
@@ -1449,25 +1471,35 @@ function campaignDecisionRawMention(row = {}) {
 function campaignDecisionQuestion(row = {}) {
   const name = String(row.mentionText || row.targetName || "this mention").trim();
   if (row.isAmbiguous) return `Which existing identity does “${name}” mean here?`;
+  if (row.worldReference) return `Add “${row.worldReference.name}” as a ${row.worldReference.kind} in this campaign?`;
   if (row.isUnresolved) return `What is “${name}” referring to?`;
   if (row.isReview) return `Should “${name}” become a canonical Campaign Link?`;
   return `What should Tome do with “${name}”?`;
 }
 
-function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
+function campaignAnalysisView(memorySearch = null, sourceUuid = "", {details=true} = {}) {
   const reviewToken=globalThis.AdventurersTomeReviewDecision?.beginPhase("review-queue");
   globalThis.AdventurersTomeReviewDecision?.count("review-queue","reviewRebuilds");
   try {
   if (!game.user?.isGM) return null;
   const memory = memorySearch || campaignMemorySearchView();
-  const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+  const learning = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
   const sourceFilter = String(sourceUuid || "").trim();
   const activeRows = Array.isArray(memory?.rows)
     ? memory.rows.filter((row) => {
         if (sourceFilter && String(row.sourceUuid || "") !== sourceFilter && String(row.sourcePageUuid || "") !== sourceFilter) return false;
         if (row.lifecycle !== "active") return false;
         const learned = learning?.decisionFor?.(row.mentionText || row.targetName, { sourceUuid:row.sourceUuid }) || null;
-        return !["source-ignored","suppressed"].includes(String(learned?.action || ""));
+        if(["source-ignored","suppressed"].includes(String(learned?.action || "")))return false;
+        // A committed source choice resolves this question immediately. The
+        // derived ledger may still show its previous state while work is queued.
+        if(['unresolved','review'].includes(row.relationGroup) && learned?.sourceUuid===row.sourceUuid
+          && (learned.sourceChoice || learned.action==='created') && learned.targetUuid) {
+          const [kind,id]=String(learned.targetUuid).split('.');
+          const exists=({Actor:game.actors,Item:game.items,JournalEntry:game.journal,Scene:game.scenes})[kind]?.get(id);
+          if(exists && globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityLinks?.hasCanonicalLink?.({sourceUuid:row.sourceUuid,targetUuid:learned.targetUuid}))return false;
+        }
+        return true;
       })
     : [];
 
@@ -1524,22 +1556,23 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
               : "fa-wand-magic-sparkles"
       };
 
+      if(!details)return {...base,question:campaignDecisionQuestion(base),decisionText:String(base.mentionText||base.targetName||"").trim()};
       const rawMention = campaignDecisionRawMention(base);
       const rawCandidates = [
         ...(Array.isArray(rawMention?.resolution?.candidates) ? rawMention.resolution.candidates : []),
         ...(base.identityCandidates || []).map((target) => ({ target }))
       ];
       const candidateMap = new Map();
-      const assessMatch = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation?.assessExistingMatch;
+      const assessMatch = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityCreation?.assessExistingMatch;
       const sourceChoice = learning?.decisionFor?.(base.mentionText,{sourceUuid:base.sourceUuid});
       const explicitUuid = base.mentionType === "explicit-reference" || base.authority === "source-inline"
         ? base.targetUuid : sourceChoice?.sourceChoice && sourceChoice.sourceUuid === base.sourceUuid ? sourceChoice.targetUuid : "";
       for (const raw of rawCandidates) {
         const target = raw.target || raw.entity || raw;
         const precision = assessMatch?.({text:base.mentionText,kind:base.targetKind,sourceUuid:base.sourceUuid,target,explicitUuid});
-        if (precision && !precision.eligible) continue;
+        if (precision && !precision.eligible && !target.reviewOnly) continue;
         const candidate = campaignDecisionCandidateMeta(raw, base.snippet);
-        candidate.safeExistingMatch = precision?.safe === true;
+        candidate.safeExistingMatch = !target.reviewOnly && precision?.safe === true;
         candidate.matchRank = Number(precision?.rank || 0);
         if (precision?.authorityUuid) candidate.uuid = precision.authorityUuid;
         if (!candidate.uuid || candidateMap.has(candidate.uuid)) continue;
@@ -1564,7 +1597,7 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
       for (const candidate of candidates) {
         candidate.recommended = Boolean(recommendationUuid && candidate.uuid === recommendationUuid);
         candidate.canReviewSourceFacts = candidate.canReviewSourceFacts && candidate.uuid.startsWith('JournalEntry.');
-        candidate.previousChoiceCount = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.choiceCount?.(base.decisionText || base.mentionText,candidate.uuid) || 0;
+        candidate.previousChoiceCount = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.choiceCount?.(base.decisionText || base.mentionText,candidate.uuid) || 0;
         candidate.suggestCampaignDefault = candidate.previousChoiceCount >= 3;
       }
       const recommended = candidates.find((candidate) => candidate.recommended) || null;
@@ -1586,6 +1619,7 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
           : "Tome has no safe existing match to suggest",
         decisionText:String(base.mentionText || base.targetName || "").trim(),
         identityBriefItems:base.identityBriefing?.briefItems || [],
+        worldReferenceHint:base.worldReference ? `${base.worldReference.packName}: ${base.worldReference.name} · ${base.worldReference.subtype}. Recognized background ${base.worldReference.kind}; not yet a campaign identity.` : '',
         creationTypeOptions:[
           {value:"contact",label:"Contact / person"},{value:"location",label:"Location"},
           {value:"faction",label:"Faction / organization"},{value:"item",label:"Item"},{value:"lore",label:"Lore"}
@@ -1593,6 +1627,7 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
         outcomeReason:({
           "insufficient-identity-evidence":"Identity or type needs a GM decision.",
           "no-safe-existing-match":"Tome has no safe existing match to suggest",
+          "world-reference-not-in-campaign":"Recognized background place. Create or link it only if it belongs in this campaign.",
           "possible-duplicate-or-ambiguous-identity":"Possible duplicate or several existing identities. Choose the intended identity.",
           "gm-unlink-suppression":"This identity was deliberately unlinked for this source.",
           "clear-new-identity":"New identity identified.",
@@ -1623,7 +1658,7 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "") {
 }
 
 function campaignRelationshipProfile(uuid) {
-  return game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.relationshipsFor?.(uuid) || [];
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.relationshipsFor?.(uuid) || [];
 }
 
 function campaignMentionHistoryForWorld(entry, profile = null) {
@@ -1642,7 +1677,7 @@ function campaignMentionHistoryForWorld(entry, profile = null) {
 
   if (!game.user?.isGM || !entry) return empty;
 
-  const evidenceApi = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+  const evidenceApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
   if (!evidenceApi?.recordsForTarget) return empty;
 
   const category = String(profile?.category || getWorldProfile(entry)?.category || "world");
@@ -1841,8 +1876,8 @@ function suggestedActorsForWorldTarget(targetDocument, targetView, actors = [], 
 }
 
 function collapseSuggestedMentions(rows = [], kind = "entity") {
-  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
-  const sourceScopedApi = game.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
+  const identityApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  const sourceScopedApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
   if (identityApi?.reconcile) {
     const reconciled = identityApi.reconcile(rows.map((row) => {
       const candidate = row?.candidate || {};
@@ -1915,8 +1950,8 @@ function reconcileSuggestedCollections(collections = [], sourceUuid = "") {
   const rows = collections.flat().filter(Boolean);
   if (!rows.length) return [];
 
-  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
-  const sourceScopedApi = game.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
+  const identityApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  const sourceScopedApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
   const iconFor = (row) => {
     if (row?.suggestionKind === "actor") return "fa-user";
     if (row?.suggestionKind === "quest") return "fa-diamond";
@@ -2119,7 +2154,7 @@ function campaignNarrativeLinks(entry, world = [], actors = []) {
   const linkedActors = candidatesFromExplicit(entry, "actors", actors);
   const actorLinks = linkedActors.filter((view) => characters.some((character) => character.id === view.id));
   const worldLinks = candidatesFromExplicit(entry, "world", world);
-  const identityApi = game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
+  const identityApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
   const authorityOf = (view) => identityApi?.identityFor?.({ canonicalUuid:`JournalEntry.${view.id}` })?.authorityUuid || `JournalEntry.${view.id}`;
   for (const view of linkedActors) {
     if (actorLinks.some((character) => character.id === view.id)) continue;
@@ -2257,7 +2292,7 @@ function getActorProfile(actorOrId) {
   const actor = typeof actorOrId === "string" ? game.actors.get(actorOrId) : actorOrId;
   if (!actor) return null;
 
-  const raw = actor.getFlag(MODULE_ID, FLAGS.PROFILE);
+  const raw = globalThis.ATTestAI.flags(actor).getFlag(MODULE_ID, FLAGS.PROFILE);
   const profile = raw && typeof raw === "object" ? raw : {};
   const overlay = getPrivateOverlay(actor);
 
@@ -2339,7 +2374,7 @@ const WORLD_CATEGORIES = Object.freeze({
 });
 
 function inferWorldCategory(entry) {
-  const flagged = String(entry?.getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE)?.category ?? "").toLowerCase();
+  const flagged = String(globalThis.ATTestAI.flags(entry)?.getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE)?.category ?? "").toLowerCase();
   if (WORLD_CATEGORIES[flagged]) return flagged;
   const names = folderLineageNames(entry?.folder);
   const joined = names.join(" ");
@@ -2349,7 +2384,7 @@ function inferWorldCategory(entry) {
   if (/faction|group|organization|organisation/.test(joined)) return "faction";
   if (/item|artifact|artefact|object/.test(joined)) return "item";
   try {
-    const configured = String(game.settings.get(MODULE_ID, "defaultWorldCategory") || "lore").toLowerCase();
+    const configured = String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultWorldCategory") || "lore").toLowerCase();
     return WORLD_CATEGORIES[configured] ? configured : "lore";
   } catch (_err) {
     return "lore";
@@ -2359,7 +2394,7 @@ function inferWorldCategory(entry) {
 function getWorldProfile(entryOrId) {
   const entry = typeof entryOrId === "string" ? game.journal.get(entryOrId) : entryOrId;
   if (!entry) return null;
-  const raw = entry.getFlag(MODULE_ID, FLAGS.WORLD_PROFILE);
+  const raw = globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, FLAGS.WORLD_PROFILE);
   const profile = raw && typeof raw === "object" ? raw : {};
   const overlay = getPrivateOverlay(entry);
   const normalizeFact = (fact, forcedVisibility = null) => ({
@@ -2399,21 +2434,18 @@ function getWorldProfile(entryOrId) {
 
 /**
  * Resolve the Foundry Actor behind a World entry without touching game-system data.
- * Explicit Tome links win. If no Actor has been linked yet, a single exact-name
- * Actor match is used as a safe convenience fallback (useful for imported/demo NPCs).
+ * Explicit, type-compatible Tome links win. A name is never an Actor binding.
  */
 function resolveWorldActor(entryOrId, profile = null) {
   const entry = typeof entryOrId === "string" ? game.journal.get(entryOrId) : entryOrId;
   if (!entry) return null;
   const worldProfile = profile || getWorldProfile(entry);
+  if (!["npc","contact","character","pc","npc-group"].includes(worldProfile?.category)) return null;
   if (worldProfile?.actorId) {
     const explicit = game.actors.get(worldProfile.actorId);
     if (explicit) return explicit;
   }
-  const name = String(entry.name || "").trim().toLocaleLowerCase(game.i18n?.lang || undefined);
-  if (!name) return null;
-  const matches = game.actors.contents.filter((actor) => String(actor.name || "").trim().toLocaleLowerCase(game.i18n?.lang || undefined) === name);
-  return matches.length === 1 ? matches[0] : null;
+  return null;
 }
 
 async function migrateLegacyPrivateData() {
@@ -2431,16 +2463,16 @@ async function migrateLegacyPrivateData() {
   ];
   for (const [legacyKey, privateKey, emptyValue] of settingMigrations) {
     try {
-      const legacy = game.settings.get(MODULE_ID, legacyKey);
-      const current = game.settings.get(MODULE_ID, privateKey);
+      const legacy = globalThis.ATTestAI.settings.get(MODULE_ID, legacyKey);
+      const current = globalThis.ATTestAI.settings.get(MODULE_ID, privateKey);
       const currentEmpty = current == null || current === emptyValue || (emptyValue === "[]" && String(current).trim() === "[]");
       const legacyHasData = legacy != null && legacy !== emptyValue && !(emptyValue === "[]" && String(legacy).trim() === "[]");
       if (currentEmpty && legacyHasData) {
-        await game.settings.set(MODULE_ID, privateKey, legacy);
+        await globalThis.ATTestAI.settings.set(MODULE_ID, privateKey, legacy);
         globalThis.AdventurersTomeStartup?.count("private-vault","writes");
       }
       if (legacyHasData) {
-        await game.settings.set(MODULE_ID, legacyKey, emptyValue);
+        await globalThis.ATTestAI.settings.set(MODULE_ID, legacyKey, emptyValue);
         globalThis.AdventurersTomeStartup?.count("private-vault","writes");
       }
     } catch (error) {
@@ -2465,8 +2497,8 @@ async function migrateLegacyPrivateData() {
 
   for (const document of [...game.actors.contents, ...game.journal.contents]) {
     globalThis.AdventurersTomeStartup?.count("private-vault","documentsScanned");
-    const access = document.getFlag?.(MODULE_ID, FLAGS.ACCESS);
-    const profile = document.getFlag?.(MODULE_ID, document.documentName === "Actor" ? FLAGS.PROFILE : FLAGS.WORLD_PROFILE);
+    const access = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.ACCESS);
+    const profile = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, document.documentName === "Actor" ? FLAGS.PROFILE : FLAGS.WORLD_PROFILE);
     const hasPrivateProfile = [...(Array.isArray(profile?.facts) ? profile.facts : []),...(Array.isArray(profile?.relations) ? profile.relations : [])].some(row=>factVisibility(row?.visibility)==="gm");
     if (!hasPrivateProfile && !Object.hasOwn(access || {},"notes") && !Object.hasOwn(access || {},"gmNotes")) continue;
     const key = privateVaultKey(document);
@@ -2478,7 +2510,7 @@ async function migrateLegacyPrivateData() {
     };
     let documentChanged = false;
 
-    const rawAccess = document.getFlag?.(MODULE_ID, FLAGS.ACCESS);
+    const rawAccess = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.ACCESS);
     if (rawAccess && typeof rawAccess === "object") {
       const stableNotes = (Array.isArray(rawAccess.notes) ? rawAccess.notes : []).map((note,index)=>({ ...note, id:note?.id || `legacy-${document.id}-${index}` }));
       const legacyNotes = normalizeGmNotes({...rawAccess,notes:stableNotes}).map(note=>{
@@ -2507,7 +2539,7 @@ async function migrateLegacyPrivateData() {
         const accessUpdate = Object.fromEntries(Object.entries(cleanAccess).map(([field,value]) => [`flags.${MODULE_ID}.${FLAGS.ACCESS}.${field}`,value]));
         cleanups.push(async () => {
           await document.update(accessUpdate);
-          const remaining = document.getFlag?.(MODULE_ID, FLAGS.ACCESS) || {};
+          const remaining = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.ACCESS) || {};
           if (Object.hasOwn(remaining,"notes") || Object.hasOwn(remaining,"gmNotes")) throw new Error("Legacy private fields were not removed; private copy retained.");
         });
         documentChanged = true;
@@ -2515,7 +2547,7 @@ async function migrateLegacyPrivateData() {
     }
 
     if (document.documentName === "Actor") {
-      const rawProfile = document.getFlag?.(MODULE_ID, FLAGS.PROFILE);
+      const rawProfile = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.PROFILE);
       if (rawProfile && typeof rawProfile === "object") {
         const privateFacts = (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) === "gm");
         const privateRelations = (Array.isArray(rawProfile.relations) ? rawProfile.relations : []).filter((relation) => factVisibility(relation?.visibility) === "gm");
@@ -2531,12 +2563,12 @@ async function migrateLegacyPrivateData() {
             facts: (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) !== "gm"),
             relations: (Array.isArray(rawProfile.relations) ? rawProfile.relations : []).filter((relation) => factVisibility(relation?.visibility) !== "gm")
           };
-          cleanups.push(() => document.setFlag(MODULE_ID, FLAGS.PROFILE, cleanProfile));
+          cleanups.push(() => globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, FLAGS.PROFILE, cleanProfile));
           documentChanged = true;
         }
       }
     } else if (document.documentName === "JournalEntry") {
-      const rawProfile = document.getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE);
+      const rawProfile = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE);
       if (rawProfile && typeof rawProfile === "object") {
         const privateFacts = (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) === "gm");
         if (privateFacts.length) {
@@ -2549,7 +2581,7 @@ async function migrateLegacyPrivateData() {
             ...rawProfile,
             facts: (Array.isArray(rawProfile.facts) ? rawProfile.facts : []).filter((fact) => factVisibility(fact?.visibility) !== "gm")
           };
-          cleanups.push(() => document.setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, cleanProfile));
+          cleanups.push(() => globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, cleanProfile));
           documentChanged = true;
         }
       }
@@ -2565,7 +2597,7 @@ async function migrateLegacyPrivateData() {
   // shared Documents. This ordering prevents a failed migration from losing GM data.
   globalThis.AdventurersTomeStartup?.count("private-vault","recordsRequiringMigration",migrated);
   if (vaultChanged && JSON.stringify(vault) !== vaultBefore) {
-    await game.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
+    await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
     globalThis.AdventurersTomeStartup?.count("private-vault","vaultWrites");
     globalThis.AdventurersTomeStartup?.count("private-vault","writes");
   }
@@ -2624,7 +2656,7 @@ function semanticRelationNote(edge, targetEntity) {
 function contextualSemanticRelationsForActor(actor) {
   if (!actor) return [];
 
-  const moduleApi = game.modules.get(MODULE_ID)?.api;
+  const moduleApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api;
   const discovery = moduleApi?.discovery;
   if (!discovery?.relationshipsFor || !discovery?.get) return [];
 
@@ -2872,7 +2904,7 @@ function convergeContextualRelations(manualRelations = [], semanticRelations = [
 }
 
 function isAutomaticSemanticContactProjection(document) {
-  const projection = document?.getFlag?.(MODULE_ID, "semanticProjection");
+  const projection = globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, "semanticProjection");
   return Boolean(projection && typeof projection === "object" && projection.kind === "contact");
 }
 
@@ -2881,11 +2913,11 @@ function isAutomaticSemanticContactProjection(document) {
  * backwards-compatible fallback while v0.1.1 moves membership onto Actor flags.
  */
 function getLegacyGroupActorIds() {
-  return safeJSONParse(game.settings.get(MODULE_ID, "groupActors"), []);
+  return safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, "groupActors"), []);
 }
 
 function actorIsGroupMember(actor, legacyIds = new Set()) {
-  const flagged = actor.getFlag(MODULE_ID, FLAGS.GROUP_MEMBER);
+  const flagged = globalThis.ATTestAI.flags(actor).getFlag(MODULE_ID, FLAGS.GROUP_MEMBER);
   if (flagged === true) return true;
   if (flagged === false) return false;
   return legacyIds.has(actor.id);
@@ -2893,15 +2925,15 @@ function actorIsGroupMember(actor, legacyIds = new Set()) {
 
 function getGroupActors() {
   const legacyIds = new Set(getLegacyGroupActorIds());
-  const sortMode = String(game.settings.get(MODULE_ID, "groupSort") || "manual");
+  const sortMode = String(globalThis.ATTestAI.settings.get(MODULE_ID, "groupSort") || "manual");
 
   return game.actors.contents
     .filter((actor) => canViewInTome(actor))
     .filter((actor) => actorIsGroupMember(actor, legacyIds))
     .sort((a, b) => {
       if (sortMode === "name") return a.name.localeCompare(b.name, game.i18n.lang, { numeric: true });
-      const aOrder = Number(a.getFlag(MODULE_ID, FLAGS.GROUP_ORDER) ?? 9999);
-      const bOrder = Number(b.getFlag(MODULE_ID, FLAGS.GROUP_ORDER) ?? 9999);
+      const aOrder = Number(globalThis.ATTestAI.flags(a).getFlag(MODULE_ID, FLAGS.GROUP_ORDER) ?? 9999);
+      const bOrder = Number(globalThis.ATTestAI.flags(b).getFlag(MODULE_ID, FLAGS.GROUP_ORDER) ?? 9999);
       if (aOrder !== bOrder) return aOrder - bOrder;
       return a.name.localeCompare(b.name, game.i18n.lang, { numeric: true });
     })
@@ -2969,7 +3001,7 @@ function buildTomeHealthReport() {
   const allDocs = [...journalDocs, ...actorDocs];
   for (const document of allDocs) {
     checked += 1;
-    const rawLinksFlag = document.getFlag?.(MODULE_ID, FLAGS.LINKS);
+    const rawLinksFlag = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.LINKS);
     if (rawLinksFlag != null && (typeof rawLinksFlag !== "object" || Array.isArray(rawLinksFlag))) {
       issues.push(healthIssue("malformed-links", "Malformed explicit cross-links", "Links flag is not an object.", true, document));
     }
@@ -2981,7 +3013,7 @@ function buildTomeHealthReport() {
       }
     }
 
-    const rawAccess = document.getFlag?.(MODULE_ID, FLAGS.ACCESS);
+    const rawAccess = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.ACCESS);
     if (rawAccess != null && (typeof rawAccess !== "object" || Array.isArray(rawAccess))) {
       issues.push(healthIssue("malformed-access", "Malformed Tome access metadata", "Access flag is not an object.", true, document));
     } else if (rawAccess && (Object.hasOwn(rawAccess, "notes") || Object.hasOwn(rawAccess, "gmNotes"))) {
@@ -3008,7 +3040,7 @@ function buildTomeHealthReport() {
 
   for (const actor of actorDocs) {
     checked += 1;
-    const raw = actor.getFlag?.(MODULE_ID, FLAGS.PROFILE);
+    const raw = globalThis.ATTestAI.flags(actor).getFlag?.(MODULE_ID, FLAGS.PROFILE);
     if (raw != null && (typeof raw !== "object" || Array.isArray(raw))) {
       issues.push(healthIssue("malformed-actor-profile", "Malformed character profile", "Profile flag is not an object.", true, actor));
       continue;
@@ -3030,13 +3062,13 @@ function buildTomeHealthReport() {
     const ref = inferJournalRefKey(journal);
     const type = ref ? ref.split(":")[0] : "";
     if (type === "quest") {
-      const rawStatus = journal.getFlag?.(MODULE_ID, "status");
+      const rawStatus = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "status");
       if (rawStatus != null && !["active", "completed", "failed", "dormant"].includes(String(rawStatus).toLowerCase())) {
         issues.push(healthIssue("invalid-quest-status", "Unsupported Quest status", String(rawStatus), true, journal));
       }
     }
     if (type === "world") {
-      const rawProfile = journal.getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE);
+      const rawProfile = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE);
       if (rawProfile != null && (typeof rawProfile !== "object" || Array.isArray(rawProfile))) {
         issues.push(healthIssue("malformed-world-profile", "Malformed World profile", "World profile flag is not an object.", true, journal));
       } else {
@@ -3103,7 +3135,7 @@ async function repairTomeHealthIssues() {
   const validFavorites = getFavoriteRefs().filter((ref) => resolveTomeRefKey(ref));
   if (validFavorites.length !== getFavoriteRefs().length) { await setFavoriteRefs(validFavorites); repaired += 1; }
   const validRecent = getRecentRefs().filter((ref) => resolveTomeRefKey(ref));
-  if (validRecent.length !== getRecentRefs().length) { await game.settings.set(MODULE_ID, "recentItems", JSON.stringify(validRecent)); repaired += 1; }
+  if (validRecent.length !== getRecentRefs().length) { await globalThis.ATTestAI.settings.set(MODULE_ID, "recentItems", JSON.stringify(validRecent)); repaired += 1; }
 
   const vault = getPrivateVault();
   let vaultChanged = false;
@@ -3115,10 +3147,10 @@ async function repairTomeHealthIssues() {
       if (cleaned.length !== vault[key].relations.length) { vault[key].relations = cleaned; vaultChanged = true; repaired += 1; }
     }
   }
-  if (vaultChanged) await game.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
+  if (vaultChanged) await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_VAULT_SETTING, JSON.stringify(vault));
 
   for (const document of [...(game.journal?.contents || []), ...(game.actors?.contents || [])]) {
-    const rawLinksFlag = document.getFlag?.(MODULE_ID, FLAGS.LINKS);
+    const rawLinksFlag = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.LINKS);
     const rawLinks = getTomeLinks(document);
     const cleaned = {
       sessions: rawLinks.sessions.filter((id) => validExplicitLinkTarget("sessions", id)),
@@ -3126,18 +3158,18 @@ async function repairTomeHealthIssues() {
       world: rawLinks.world.filter((id) => validExplicitLinkTarget("world", id)),
       actors: rawLinks.actors.filter((id) => validExplicitLinkTarget("actors", id))
     };
-    if ((rawLinksFlag != null && (typeof rawLinksFlag !== "object" || Array.isArray(rawLinksFlag))) || JSON.stringify(rawLinks) !== JSON.stringify(cleaned)) { await document.setFlag(MODULE_ID, FLAGS.LINKS, cleaned); repaired += 1; }
+    if ((rawLinksFlag != null && (typeof rawLinksFlag !== "object" || Array.isArray(rawLinksFlag))) || JSON.stringify(rawLinks) !== JSON.stringify(cleaned)) { await globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, FLAGS.LINKS, cleaned); repaired += 1; }
 
-    const rawAccess = document.getFlag?.(MODULE_ID, FLAGS.ACCESS);
+    const rawAccess = globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID, FLAGS.ACCESS);
     if (rawAccess != null && (typeof rawAccess !== "object" || Array.isArray(rawAccess))) {
-      await document.setFlag(MODULE_ID, FLAGS.ACCESS, publicAccessData(document)); repaired += 1;
+      await globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, FLAGS.ACCESS, publicAccessData(document)); repaired += 1;
     }
   }
 
   for (const actor of game.actors?.contents || []) {
-    const raw = actor.getFlag?.(MODULE_ID, FLAGS.PROFILE);
+    const raw = globalThis.ATTestAI.flags(actor).getFlag?.(MODULE_ID, FLAGS.PROFILE);
     if (raw != null && (typeof raw !== "object" || Array.isArray(raw))) {
-      await actor.setFlag(MODULE_ID, FLAGS.PROFILE, {}); repaired += 1; continue;
+      await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.PROFILE, {}); repaired += 1; continue;
     }
     if (!raw || typeof raw !== "object") continue;
     const next = foundry.utils.deepClone(raw);
@@ -3147,26 +3179,26 @@ async function repairTomeHealthIssues() {
       if (cleaned.length !== next.relations.length) { next.relations = cleaned; actorChanged = true; repaired += 1; }
     }
     if (next.firstSessionId && !game.journal.get(String(next.firstSessionId))) { next.firstSessionId = ""; actorChanged = true; repaired += 1; }
-    if (actorChanged) await actor.setFlag(MODULE_ID, FLAGS.PROFILE, next);
+    if (actorChanged) await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.PROFILE, next);
   }
 
   for (const journal of game.journal?.contents || []) {
     const ref = inferJournalRefKey(journal);
     const type = ref ? ref.split(":")[0] : "";
     if (type === "quest") {
-      const rawStatus = journal.getFlag?.(MODULE_ID, "status");
+      const rawStatus = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "status");
       if (rawStatus != null && !["active", "completed", "failed", "dormant"].includes(String(rawStatus).toLowerCase())) {
-        await journal.setFlag(MODULE_ID, "status", normalizeQuestStatus(rawStatus)); repaired += 1;
+        await globalThis.ATTestAI.flags(journal).setFlag(MODULE_ID, "status", normalizeQuestStatus(rawStatus)); repaired += 1;
       }
     }
     if (type === "world") {
-      const rawProfile = journal.getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE);
+      const rawProfile = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, FLAGS.WORLD_PROFILE);
       if (rawProfile != null && (typeof rawProfile !== "object" || Array.isArray(rawProfile))) {
-        await journal.setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, {}); repaired += 1;
+        await globalThis.ATTestAI.flags(journal).setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, {}); repaired += 1;
       } else if (rawProfile?.category && !WORLD_CATEGORIES[String(rawProfile.category).toLowerCase()]) {
         const next = foundry.utils.deepClone(rawProfile);
         next.category = inferWorldCategory(journal);
-        await journal.setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, next); repaired += 1;
+        await globalThis.ATTestAI.flags(journal).setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, next); repaired += 1;
       }
     }
   }
@@ -3188,18 +3220,18 @@ async function createJournalFolder(name, parent = null) {
 
 
 const DEMO_ASSETS = Object.freeze({
-  hobbit: `modules/${MODULE_ID}/assets/demo/hobbit.svg`,
-  ranger: `modules/${MODULE_ID}/assets/demo/ranger.svg`,
-  wizard: `modules/${MODULE_ID}/assets/demo/wizard.svg`,
-  elf: `modules/${MODULE_ID}/assets/demo/elf.svg`,
-  dwarf: `modules/${MODULE_ID}/assets/demo/dwarf.svg`,
-  warrior: `modules/${MODULE_ID}/assets/demo/warrior.svg`,
-  noble: `modules/${MODULE_ID}/assets/demo/noble.svg`,
-  shadow: `modules/${MODULE_ID}/assets/demo/shadow.svg`,
-  location: `modules/${MODULE_ID}/assets/demo/location.svg`,
-  item: `modules/${MODULE_ID}/assets/demo/item.svg`,
-  faction: `modules/${MODULE_ID}/assets/demo/faction.svg`,
-  lore: `modules/${MODULE_ID}/assets/demo/lore.svg`
+  hobbit: `modules/adventurers-tome/assets/demo/hobbit.svg`,
+  ranger: `modules/adventurers-tome/assets/demo/ranger.svg`,
+  wizard: `modules/adventurers-tome/assets/demo/wizard.svg`,
+  elf: `modules/adventurers-tome/assets/demo/elf.svg`,
+  dwarf: `modules/adventurers-tome/assets/demo/dwarf.svg`,
+  warrior: `modules/adventurers-tome/assets/demo/warrior.svg`,
+  noble: `modules/adventurers-tome/assets/demo/noble.svg`,
+  shadow: `modules/adventurers-tome/assets/demo/shadow.svg`,
+  location: `modules/adventurers-tome/assets/demo/location.svg`,
+  item: `modules/adventurers-tome/assets/demo/item.svg`,
+  faction: `modules/adventurers-tome/assets/demo/faction.svg`,
+  lore: `modules/adventurers-tome/assets/demo/lore.svg`
 });
 
 const DEMO_PRESENTATION_KEYS = Object.freeze([
@@ -3217,11 +3249,11 @@ function demoFlagData(extra = {}) {
 }
 
 function isDemoDocument(document) {
-  return Boolean(document?.getFlag?.(MODULE_ID, FLAGS.DEMO));
+  return Boolean(globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, FLAGS.DEMO));
 }
 
 function getDemoState() {
-  return safeJSONParse(game.settings.get(MODULE_ID, "demoState"), {});
+  return safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, "demoState"), {});
 }
 
 function getDemoSummary() {
@@ -3407,8 +3439,8 @@ async function generateDemoCampaign(variant = "small") {
   if (!actorType) throw new Error("The active game system does not expose an Actor type that Adventurer's Tome can use for demo documents.");
 
   const definition = getDemoDefinition(variant);
-  const backup = Object.fromEntries(DEMO_PRESENTATION_KEYS.map((key) => [key, game.settings.get(MODULE_ID, key)]));
-  await game.settings.set(MODULE_ID, "demoState", JSON.stringify({ active: true, variant, campaign: "ashen-road", backup, startedAt: Date.now() }));
+  const backup = Object.fromEntries(DEMO_PRESENTATION_KEYS.map((key) => [key, globalThis.ATTestAI.settings.get(MODULE_ID, key)]));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, "demoState", JSON.stringify({ active: true, variant, campaign: "ashen-road", backup, startedAt: Date.now() }));
 
   try {
     const journalRoot = await createDemoFolder("Adventurer's Tome Demo — The Ashen Road", "JournalEntry");
@@ -3487,7 +3519,7 @@ async function generateDemoCampaign(variant = "small") {
         .filter((relation) => relation.target)
         .map((relation) => ({ actorId: relation.target.id, label: relation.label, note: relation.note }));
       const firstSession = sessionMap.get(entry.first);
-      await actor.setFlag(MODULE_ID, FLAGS.PROFILE, {
+      await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.PROFILE, {
         title: entry.title || "",
         subtitle: entry.subtitle || "",
         summary: entry.summary || "",
@@ -3517,9 +3549,9 @@ async function generateDemoCampaign(variant = "small") {
       welcomeTitle: "The lanterns are going dark…",
       welcomeText: "Use this compact demo to test the dashboard, party profiles, quests, sessions, World entries, cross-links, and responsive layouts."
     };
-    for (const [key, value] of Object.entries(presentation)) await game.settings.set(MODULE_ID, key, value);
+    for (const [key, value] of Object.entries(presentation)) await globalThis.ATTestAI.settings.set(MODULE_ID, key, value);
 
-    await game.settings.set(MODULE_ID, "demoState", JSON.stringify({ active: true, variant, campaign: "ashen-road", backup, createdAt: Date.now() }));
+    await globalThis.ATTestAI.settings.set(MODULE_ID, "demoState", JSON.stringify({ active: true, variant, campaign: "ashen-road", backup, createdAt: Date.now() }));
     return getDemoSummary();
   } catch (error) {
     console.error("Adventurer's Tome | Demo generation failed", error);
@@ -3561,10 +3593,10 @@ async function removeDemoCampaign({ restoreSettings = true, skipConfirmation = f
 
   if (restoreSettings && state?.backup && typeof state.backup === "object") {
     for (const key of DEMO_PRESENTATION_KEYS) {
-      if (Object.hasOwn(state.backup, key)) await game.settings.set(MODULE_ID, key, state.backup[key]);
+      if (Object.hasOwn(state.backup, key)) await globalThis.ATTestAI.settings.set(MODULE_ID, key, state.backup[key]);
     }
   }
-  await game.settings.set(MODULE_ID, "demoState", "");
+  await globalThis.ATTestAI.settings.set(MODULE_ID, "demoState", "");
   return getDemoSummary();
 }
 
@@ -3655,6 +3687,16 @@ function extractMarkdownSection(text = "", labels = []) {
   const source = String(text || "").replace(/\r\n?/g, "\n");
   const lines = source.split("\n");
   const wanted = labels.map((label) => normalizeImportName(label));
+  // Imported Word reports use HTML headings; keep their original content and
+  // use the actual Summary section rather than the publisher/date preamble.
+  if (/<h[1-6]\b/iu.test(source)) {
+    const headings = [...source.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h[1-6]\s*>/giu)];
+    const selected = headings.findIndex(hit => wanted.includes(normalizeImportName(stripMarkup(hit[2]))));
+    if (selected >= 0) {
+      const heading = headings[selected], end = headings.slice(selected+1).find(hit => Number(hit[1]) <= Number(heading[1]))?.index ?? source.length;
+      return source.slice(heading.index+heading[0].length,end).trim();
+    }
+  }
   let start = -1;
   let headingLevel = 0;
   for (let i = 0; i < lines.length; i += 1) {
@@ -4286,12 +4328,12 @@ function buildImportPreview({ text, mode = "auto", sourceName = "" } = {}) {
 }
 
 function getImportHistory() {
-  const parsed = safeJSONParse(game.settings.get(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING), []);
+  const parsed = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
 function getLastImportUndo() {
-  const parsed = safeJSONParse(game.settings.get(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING), {});
+  const parsed = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING), {});
   return parsed && typeof parsed === "object" ? parsed : {};
 }
 
@@ -4314,11 +4356,11 @@ function getImportHistoryView() {
 async function addImportHistory(record) {
   const history = getImportHistory();
   history.unshift(record);
-  await game.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, JSON.stringify(history.slice(0, 40)));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, JSON.stringify(history.slice(0, 40)));
 }
 
 async function ensureImportFolders() {
-  const canonical = await game.modules?.get?.(MODULE_ID)?.api?.folderQuickCreate?.bootstrap?.();
+  const canonical = await globalThis.ATTestAI.modules?.get?.(MODULE_ID)?.api?.folderQuickCreate?.bootstrap?.();
   if (canonical?.root && canonical.sessions && canonical.quests && canonical.world && canonical.folders) {
     return { root: canonical.root, sessions: canonical.sessions, quests: canonical.quests, world: canonical.world, worldCategories: canonical.folders };
   }
@@ -4393,8 +4435,8 @@ function snapshotImportDocument(document) {
 
 async function restoreModuleFlags(document, flags = {}) {
   const current = document.flags?.[MODULE_ID] || {};
-  for (const key of Object.keys(current)) await document.unsetFlag(MODULE_ID, key);
-  for (const [key, value] of Object.entries(flags || {})) await document.setFlag(MODULE_ID, key, cloneImportData(value));
+  for (const key of Object.keys(current)) await globalThis.ATTestAI.flags(document).unsetFlag(MODULE_ID, key);
+  for (const [key, value] of Object.entries(flags || {})) await globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, key, cloneImportData(value));
 }
 
 async function createImportedEntry(entry, folder, preview) {
@@ -4420,21 +4462,21 @@ async function createImportedEntry(entry, folder, preview) {
 async function updateImportedEntry(existing, entry, preview) {
   if (!existing) throw new Error(`Existing ${entry.kind} could not be found for update.`);
   if (existing.name !== entry.name) await existing.update({ name: entry.name });
-  await existing.setFlag(MODULE_ID, "type", entry.kind === "quest" ? "quests" : entry.kind === "world" ? "world" : "sessions");
-  await existing.setFlag(MODULE_ID, "summary", String(entry.summary || "").trim());
-  await existing.setFlag(MODULE_ID, FLAGS.IMPORT_META, importMetaFor(preview, entry));
+  await globalThis.ATTestAI.flags(existing).setFlag(MODULE_ID, "type", entry.kind === "quest" ? "quests" : entry.kind === "world" ? "world" : "sessions");
+  await globalThis.ATTestAI.flags(existing).setFlag(MODULE_ID, "summary", String(entry.summary || "").trim());
+  await globalThis.ATTestAI.flags(existing).setFlag(MODULE_ID, FLAGS.IMPORT_META, importMetaFor(preview, entry));
   if (entry.kind === "quest") {
-    await existing.setFlag(MODULE_ID, "status", entry.status || "active");
-    if (typeof entry.featured === "boolean") await existing.setFlag(MODULE_ID, "featured", entry.featured);
+    await globalThis.ATTestAI.flags(existing).setFlag(MODULE_ID, "status", entry.status || "active");
+    if (typeof entry.featured === "boolean") await globalThis.ATTestAI.flags(existing).setFlag(MODULE_ID, "featured", entry.featured);
   }
   if (entry.kind === "world") {
     // Merge against the shared World profile only. getWorldProfile() also
     // overlays the current GM's private vault; writing that merged view back
     // to a Journal flag would accidentally publish GM-only facts.
-    const rawProfile = existing.getFlag(MODULE_ID, FLAGS.WORLD_PROFILE);
+    const rawProfile = globalThis.ATTestAI.flags(existing).getFlag(MODULE_ID, FLAGS.WORLD_PROFILE);
     const oldProfile = rawProfile && typeof rawProfile === "object" && !Array.isArray(rawProfile) ? foundry.utils.deepClone(rawProfile) : {};
     const nextProfile = importedWorldProfile(entry);
-    await existing.setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, {
+    await globalThis.ATTestAI.flags(existing).setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, {
       ...oldProfile,
       ...nextProfile,
       heroImage: nextProfile.heroImage || oldProfile.heroImage || "",
@@ -4466,7 +4508,7 @@ async function mergeExplicitLink(document, key, targetId) {
   const links = getTomeLinks(document);
   if (links[key].includes(targetId)) return false;
   links[key].push(targetId);
-  await document.setFlag(MODULE_ID, FLAGS.LINKS, links);
+  await globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, FLAGS.LINKS, links);
   return true;
 }
 
@@ -4583,8 +4625,8 @@ async function applyImportPreview(preview, selections = {}, linkSelections = {},
     }
   }
 
-  if (transaction.createdJournalIds.length || transaction.snapshots.length || transaction.createdPageIds.length) await game.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, JSON.stringify(transaction));
-  else await game.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, "");
+  if (transaction.createdJournalIds.length || transaction.snapshots.length || transaction.createdPageIds.length) await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, JSON.stringify(transaction));
+  else await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, "");
 
   const historyRecord = {
     id: foundry.utils.randomID?.() || `${Date.now()}`,
@@ -4658,8 +4700,8 @@ async function undoLastImport() {
   const history = getImportHistory();
   const record = history.find((item) => item.transactionId === transaction.transactionId);
   if (record) record.undoneAt = Date.now();
-  await game.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, JSON.stringify(history));
-  await game.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, "");
+  await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, JSON.stringify(history));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_IMPORT_UNDO_SETTING, "");
   // An undo snapshot from a pre-0.15.2 world may contain legacy private fields.
   // Re-run the privacy migration immediately so they never remain shared.
   await migrateLegacyPrivateData();
@@ -4714,7 +4756,7 @@ function buildPortableTomeExport({ playerSafe = false } = {}) {
   const journals = game.journal.contents.filter((entry) => !playerSafe || isPlayerSafeExportDocument(entry));
   const sessions = journals.filter((entry) => inferJournalRefKey(entry).startsWith("session:")).map((entry) => {
     const meta = sessionDisplayMeta(entry.name);
-    const explicitSummary = String(entry.getFlag(MODULE_ID, "summary") || "").trim();
+    const explicitSummary = String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "summary") || "").trim();
     const summary = playerSafe ? explicitSummary : (explicitSummary || importSummary(journalText(entry)));
     return {
       number: meta.number,
@@ -4729,12 +4771,12 @@ function buildPortableTomeExport({ playerSafe = false } = {}) {
     };
   });
   const quests = journals.filter((entry) => inferJournalRefKey(entry).startsWith("quest:")).map((entry) => {
-    const explicitSummary = String(entry.getFlag(MODULE_ID, "summary") || "").trim();
+    const explicitSummary = String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "summary") || "").trim();
     const summary = playerSafe ? explicitSummary : (explicitSummary || importSummary(journalText(entry)));
     return {
       name: entry.name,
-      status: normalizeQuestStatus(entry.getFlag(MODULE_ID, "status") || "active"),
-      featured: entry.getFlag(MODULE_ID, "featured") === true,
+      status: normalizeQuestStatus(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "status") || "active"),
+      featured: globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "featured") === true,
       summary,
       content: playerSafe ? (summary || entry.name) : journalText(entry),
       links: exportTomeLinksByName(entry, playerSafe)
@@ -4757,14 +4799,14 @@ function buildPortableTomeExport({ playerSafe = false } = {}) {
   return {
     schema: IMPORT_SCHEMA,
     version: 2,
-    exportedBy: `Adventurer's Tome ${game.modules.get(MODULE_ID)?.version || ""}`.trim(),
+    exportedBy: `Adventurer's Tome ${globalThis.ATTestAI.modules.get(MODULE_ID)?.version || ""}`.trim(),
     exportedAt: new Date().toISOString(),
     playerSafe: Boolean(playerSafe),
     playerSafeNotice: playerSafe ? "Raw Journal page text is intentionally omitted; only explicit Tome summaries/public metadata are included." : undefined,
     campaign: {
-      title: game.settings.get(MODULE_ID, "campaignTitle"),
-      subtitle: game.settings.get(MODULE_ID, "campaignSubtitle"),
-      currentLocation: game.settings.get(MODULE_ID, "currentLocation")
+      title: globalThis.ATTestAI.settings.get(MODULE_ID, "campaignTitle"),
+      subtitle: globalThis.ATTestAI.settings.get(MODULE_ID, "campaignSubtitle"),
+      currentLocation: globalThis.ATTestAI.settings.get(MODULE_ID, "currentLocation")
     },
     sessions,
     quests,
@@ -4777,7 +4819,7 @@ function exportSettingKeys() {
 }
 
 function buildFullTomeBackup() {
-  const settings = Object.fromEntries(exportSettingKeys().map((key) => [key, game.settings.get(MODULE_ID, key)]));
+  const settings = Object.fromEntries(exportSettingKeys().map((key) => [key, globalThis.ATTestAI.settings.get(MODULE_ID, key)]));
   const actors = game.actors.contents.filter((actor) => actor.flags?.[MODULE_ID]).map((actor) => ({
     id: actor.id,
     name: actor.name,
@@ -4795,7 +4837,7 @@ function buildFullTomeBackup() {
   return {
     schema: BACKUP_SCHEMA,
     version: 1,
-    moduleVersion: game.modules.get(MODULE_ID)?.version || "",
+    moduleVersion: globalThis.ATTestAI.modules.get(MODULE_ID)?.version || "",
     foundryVersion: game.version,
     exportedAt: new Date().toISOString(),
     warning: "Full GM archive. Contains private GM notes and Tome-only metadata. Keep it private.",
@@ -4830,7 +4872,7 @@ function downloadTextFile(filename, text, mime = "application/json") {
 }
 
 function exportFilename(mode = "portable") {
-  const campaign = String(game.settings.get(MODULE_ID, "campaignTitle") || "campaign").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "campaign";
+  const campaign = String(globalThis.ATTestAI.settings.get(MODULE_ID, "campaignTitle") || "campaign").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "campaign";
   const date = new Date().toISOString().slice(0, 10);
   return `adventurers-tome-${campaign}-${mode}-${date}.json`;
 }
@@ -4970,7 +5012,7 @@ function tomeRefMeta(refKey = "") {
 }
 
 function getRevealQueueRaw() {
-  const raw = safeJSONParse(game.settings.get(MODULE_ID, PRIVATE_REVEAL_SETTING), []);
+  const raw = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, PRIVATE_REVEAL_SETTING), []);
   return Array.isArray(raw) ? raw : [];
 }
 
@@ -4980,7 +5022,7 @@ async function setRevealQueueRaw(items = []) {
     addedAt: Number(item?.addedAt || Date.now()) || Date.now(),
     shownAt: item?.shownAt ? Number(item.shownAt) : null
   })).filter((item) => item.refKey);
-  await game.settings.set(MODULE_ID, PRIVATE_REVEAL_SETTING, JSON.stringify(clean));
+  await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_REVEAL_SETTING, JSON.stringify(clean));
   return clean;
 }
 
@@ -5036,7 +5078,7 @@ async function markRevealShown(refKey) {
 }
 
 function getQuickCaptureInbox() {
-  return game.journal.contents.find((entry) => entry.getFlag(MODULE_ID, FLAGS.QUICK_CAPTURE_INBOX) === true) || null;
+  return game.journal.contents.find((entry) => globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, FLAGS.QUICK_CAPTURE_INBOX) === true) || null;
 }
 
 async function ensureQuickCaptureInbox() {
@@ -5066,7 +5108,7 @@ function latestSessionNumber() {
 function buildNextSessionDashboard(sessions = [], quests = [], world = [], group = []) {
   const notebook = buildGmNotebookRows();
   const latest = sessions.length ? sessions[sessions.length - 1] : null;
-  const currentLocationName = String(game.settings.get(MODULE_ID, "currentLocation") || "").trim().toLowerCase();
+  const currentLocationName = String(globalThis.ATTestAI.settings.get(MODULE_ID, "currentLocation") || "").trim().toLowerCase();
   const currentLocation = world.find((item) => item.category === "location" && String(item.name || "").trim().toLowerCase() === currentLocationName) || null;
   const open = notebook.rows.filter((note) => note.status !== "resolved");
   const due = open.filter((note) => note.due);
@@ -5139,6 +5181,51 @@ function buildPostSessionAssistant(sessions = [], quests = []) {
   };
 }
 
+// Plain presentation rows only; never retain Foundry Documents. Permission and
+// document hooks invalidate these rows before the next preparation.
+let tomeViewGeneration = 0;
+function invalidateTomeViewRows() { tomeViewGeneration++; }
+function tomePresentationOnlySetting(setting) {
+  const key = String(setting?.key || '');
+  return /^(?:adventurers-tome|adventurers-tome)\.(?:windowState|windowMode|tomeTransparency|launcherPosition|favorites|recentItems|recentRefs|lastActiveTab)$/.test(key);
+}
+function tomeViewRows(app, key, build) {
+  const scope = `${game.world?.id}|${game.user?.id}|${game.user?.isGM}|${game.user?.role}|${game.i18n?.lang}`;
+  if (app._tomeViewRows?.scope !== scope || app._tomeViewRows?.generation !== tomeViewGeneration)
+    app._tomeViewRows = {scope, generation:tomeViewGeneration, rows:new Map()};
+  const rows = app._tomeViewRows.rows;
+  if (!rows.has(key)) {
+    const value = build();
+    rows.set(key, foundry.utils.deepClone(value));
+    globalThis.AdventurersTomeStartup?.count('view-row-cache','builds');
+    return value;
+  }
+  globalThis.AdventurersTomeStartup?.count('view-row-cache','reuses');
+  return foundry.utils.deepClone(rows.get(key));
+}
+function tomeViewNeeds(tab) {
+  const plans = {
+    home:['sessions','quests','world','rules','group','search'],
+    sessions:['sessions','quests','world','actors','sessionDetail','analysis'],
+    quests:['quests'], questDetail:['sessions','quests','world','actors','analysis'],
+    group:['group'], profile:['sessions','quests','world','actors','group'],
+    world:['world'], worldProfile:['sessions','quests','world','actors'],
+    rules:['rules'], ruleDetail:['rules'],
+    search:['sessions','quests','world','rules','group','search'],
+    campaignToolsOverview:['sessions','quests','world','group','analysis','memory','notebook','reveal'],
+    campaignToolsMemory:['memory'], campaignToolsAnalysis:['memory','analysis','relationships'],
+    campaignToolsIndex:[], campaignToolsAssistant:['notebook','reveal'], campaignToolsSignals:[],
+    gmDashboard:['sessions','quests','world','group','dashboard'],
+    quickCapture:['notebook','capture'], revealQueue:['reveal'],
+    postSession:['sessions','quests','post'], settings:['sessions','quests','world','rules','group','settings','notebook'],
+    access:[], manual:[], import:[], export:['sessions','quests','world','export'],
+    entityContext:[], myChronicle:[]
+  };
+  // Unknown extension routes retain the legacy context until they declare their own needs.
+  const all = [...new Set(Object.values(plans).flat())];
+  return new Set(plans[tab] || all);
+}
+
 class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   render(options={},...args) {
     if(this._atWindowDocked){
@@ -5206,7 +5293,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       openImporter: this._onOpenImporter,
       openQuickNpc: this._onOpenQuickNpc,
       openExporter: this._onOpenExporter,
-      openMigration: function (_event, target) { const menu=target?.closest?.("details.at-tools-menu"); if(menu)menu.open=false; return game.modules.get(MODULE_ID)?.api?.transfer?.open({tab:target?.dataset?.transferTab||"import",kind:target?.dataset?.transferKind}) || game.modules.get(MODULE_ID)?.api?.migration?.open(); },
+      openMigration: function (_event, target) { const menu=target?.closest?.("details.at-tools-menu"); if(menu)menu.open=false; return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.transfer?.open({tab:target?.dataset?.transferTab||"import",kind:target?.dataset?.transferKind}) || globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.migration?.open(); },
       downloadExport: this._onDownloadExport,
       copyExport: this._onCopyExport,
       openNotebook: this._onOpenNotebook,
@@ -5265,7 +5352,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static PARTS = {
     main: {
-      template: `modules/${MODULE_ID}/templates/tome.hbs`
+      template: `modules/adventurers-tome/templates/tome.hbs`
     }
   };
 
@@ -5383,8 +5470,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         left: Math.round(Number(left)),
         top: Math.round(Number(top))
       });
-      if (game.settings.get(MODULE_ID, "windowState") === payload) return;
-      game.settings.set(MODULE_ID, "windowState", payload).catch((error) => {
+      if (globalThis.ATTestAI.settings.get(MODULE_ID, "windowState") === payload) return;
+      globalThis.ATTestAI.settings.set(MODULE_ID, "windowState", payload).catch((error) => {
         console.warn("Adventurer's Tome | Could not save client window state", error);
       });
     }, 300);
@@ -5394,8 +5481,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if(this._atWindowDocked)return;
     const shell = this.element?.querySelector?.(".at-shell");
     if (!shell) return;
-    const width = shell.clientWidth || this.position?.width || 1280;
-    const height = shell.clientHeight || this.position?.height || 800;
+    // ResizeObserver supplies the laid-out size without forcing a second layout
+    // after each enhancer has replaced its DOM. Reuse it across view renders.
+    const width = this._responsiveSize?.width || this.position?.width || 1280;
+    const height = this._responsiveSize?.height || this.position?.height || 800;
     shell.classList.toggle("at-layout-compact", width < 1240);
     shell.classList.toggle("at-layout-narrow", width < 920);
     shell.classList.toggle("at-layout-tiny", width < 720);
@@ -5404,7 +5493,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   _applyTomeTransparency(value = null) {
     const allowed = [0, 25, 50, 75, 90];
-    let transparency = Number(value ?? game.settings.get(MODULE_ID, "tomeTransparency") ?? 0);
+    let transparency = Number(value ?? globalThis.ATTestAI.settings.get(MODULE_ID, "tomeTransparency") ?? 0);
     if (!allowed.includes(transparency)) transparency = 0;
 
     // Never fade the Application itself. "Transparency" means the Foundry
@@ -5469,7 +5558,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       transparency.innerHTML = '<i class="fa-solid fa-circle-half-stroke"></i><select data-at-transparency-select aria-label="Tome transparency"><option value="0">Normal</option><option value="25">25%</option><option value="50">50%</option><option value="75">75%</option><option value="90">90%</option></select>';
       transparency.querySelector("select")?.addEventListener("change", async (event) => {
         const value = Number(event.currentTarget.value || 0);
-        await game.settings.set(MODULE_ID, "tomeTransparency", value);
+        await globalThis.ATTestAI.settings.set(MODULE_ID, "tomeTransparency", value);
         this._applyTomeTransparency(value);
       });
     }
@@ -5489,11 +5578,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _attachResponsiveObserver() {
     this._resizeObserver?.disconnect();
     if (globalThis.ResizeObserver && this.element) {
-      this._resizeObserver = new ResizeObserver(() => {
+      this._resizeObserver = new ResizeObserver((entries) => {
+        const bounds = entries[0]?.contentRect;
+        if (bounds) this._responsiveSize = {width:bounds.width, height:bounds.height};
         this._syncResponsiveState();
         this._scheduleWindowStateSave();
       });
-      this._resizeObserver.observe(this.element);
+      this._resizeObserver.observe(this.element.querySelector('.at-shell') || this.element);
     }
 
     if (this._viewportResizeHandler) window.removeEventListener("resize", this._viewportResizeHandler);
@@ -5517,25 +5608,32 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this._selectionChangeHandler) document.removeEventListener("selectionchange", this._selectionChangeHandler);
     this._selectionChangeHandler = null;
     clearTimeout(this._windowStateTimer);
+    clearTimeout(this._searchRenderTimer);
     return super._tearDown(options);
   }
 
   async _prepareContext(options) {
     const token=globalThis.AdventurersTomeStartup?.begin("tome-render-context");
+    const previousReads = tomeContextReads;
     try {
     const context = await super._prepareContext(options);
+    tomeContextReads = {reads:new Map(),markup:new Map(),markupBytes:0};
+    const needs = tomeViewNeeds(this.activeTab);
+    const useWorldExplorer = this.activeTab === 'world' && typeof globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.worldSourceExplorer?.mount === 'function';
+    if (useWorldExplorer) needs.delete('world');
+    const rows = (key, build) => needs.has(key) ? tomeViewRows(this, key, build) : [];
+    const measured=(phase,work)=>globalThis.AdventurersTomeStartup?.measure ? globalThis.AdventurersTomeStartup.measure(phase,work) : work();
 
-    const sessions = sectionEntries("sessions").map((entry) => entryView(entry));
-    const quests = sectionEntries("quests").map((entry) => entryView(entry));
-    const worldDocs = sectionEntries("world");
-    const world = worldDocs.map((entry) => worldEntryView(entry));
-    const rules = sectionEntries("rules").map((entry) => ({ ...entryView(entry), localSearchText: `${entry.name} ${stripMarkup(journalText(entry))}`.toLowerCase() }));
+    const sessions = measured("view-sessions",()=>rows("sessions",()=>sectionEntries("sessions").map((entry) => entryView(entry))));
+    const quests = rows("quests",()=>sectionEntries("quests").map((entry) => entryView(entry)));
+    const world = measured("view-world",()=>rows("world",()=>sectionEntries("world").map((entry) => worldEntryView(entry))));
+    const rules = rows("rules",()=>sectionEntries("rules").map((entry) => ({ ...entryView(entry), localSearchText: `${entry.name} ${stripMarkup(journalText(entry))}`.toLowerCase() })));
     const ruleIds = new Set(rules.map((rule) => rule.id));
-    const ruleLinkCandidates = game.journal.contents
+    const ruleLinkCandidates = (needs.has("rules") ? game.journal.contents : [])
       .filter((entry) => game.user.isGM && !ruleIds.has(entry.id))
       .sort((a,b) => a.name.localeCompare(b.name, game.i18n.lang, {numeric:true}))
       .map((entry) => ({ id: entry.id, name: entry.name }));
-    let ruleEntry = this.activeRuleId ? game.journal.get(this.activeRuleId) : null;
+    let ruleEntry = this.activeTab === "ruleDetail" && this.activeRuleId ? game.journal.get(this.activeRuleId) : null;
     if (ruleEntry && !canViewInTome(ruleEntry)) ruleEntry = null;
     if (this.activeTab === "ruleDetail" && !ruleEntry) { this.activeTab = "rules"; this.activeRuleId = null; }
     const ruleDetail = ruleEntry ? {
@@ -5569,12 +5667,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const latestSession = numberedSessions.length ? numberedSessions[numberedSessions.length - 1] : (sessions.length ? sessions[sessions.length - 1] : null);
     const selectedSessionBase = sessions.find((session) => session.id === this.activeSessionId) || latestSession || sessions[0] || null;
     if (selectedSessionBase) this.activeSessionId = selectedSessionBase.id;
-    const group = getGroupActors();
-    const visibleActors = game.actors.contents
+    const group = measured("view-group",()=>rows("group",()=>getGroupActors()));
+    const visibleActors = measured("view-actors",()=>rows("actors",()=>game.actors.contents
       .filter((actor) => canViewInTome(actor))
-      .map(actorView);
+      .map(actorView)));
 
-    let questEntry = this.activeQuestId ? game.journal.get(this.activeQuestId) : null;
+    let questEntry = this.activeTab === "questDetail" && this.activeQuestId ? game.journal.get(this.activeQuestId) : null;
     if (questEntry && !canViewInTome(questEntry)) questEntry = null;
     if (this.activeTab === "questDetail" && !questEntry) {
       this.activeTab = "quests";
@@ -5583,17 +5681,17 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const questBaseView = questEntry ? quests.find((quest) => quest.id === questEntry.id) || entryView(questEntry) : null;
     let questDetail = questBaseView ? questDetailView(questBaseView, sessions, world, visibleActors) : null;
 
-    const background = game.settings.get(MODULE_ID, "background") || DEFAULT_BACKGROUND;
-    const themeId = String(game.settings.get(MODULE_ID, "theme") || "tome");
+    const background = globalThis.ATTestAI.settings.get(MODULE_ID, "background") || DEFAULT_BACKGROUND;
+    const themeId = String(globalThis.ATTestAI.settings.get(MODULE_ID, "theme") || "tome");
     const theme = THEME_DEFS[themeId] || THEME_DEFS.tome;
-    const logo = String(game.settings.get(MODULE_ID, "campaignLogo") || "").trim();
+    const logo = String(globalThis.ATTestAI.settings.get(MODULE_ID, "campaignLogo") || "").trim();
     const nav = getNavConfig();
     const homeLayout = getHomeLayout();
     const sectionBackgrounds = getSectionBackgrounds();
     const defaultLanding = configuredDefaultLanding();
     const settings = {
-      campaignTitle: game.settings.get(MODULE_ID, "campaignTitle"),
-      campaignSubtitle: game.settings.get(MODULE_ID, "campaignSubtitle"),
+      campaignTitle: globalThis.ATTestAI.settings.get(MODULE_ID, "campaignTitle"),
+      campaignSubtitle: globalThis.ATTestAI.settings.get(MODULE_ID, "campaignSubtitle"),
       background,
       backgroundUrl: resolveFoundryAssetUrl(background),
       logo,
@@ -5602,34 +5700,34 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       themeId,
       themeClass: theme.className,
       themeOptions: Object.entries(THEME_DEFS).map(([id, meta]) => ({ id, ...meta, selected: id === themeId })),
-      currentLocation: game.settings.get(MODULE_ID, "currentLocation"),
-      sessionLabel: game.settings.get(MODULE_ID, "sessionLabel"),
-      welcomeTitle: game.settings.get(MODULE_ID, "welcomeTitle"),
-      welcomeText: game.settings.get(MODULE_ID, "welcomeText"),
+      currentLocation: globalThis.ATTestAI.settings.get(MODULE_ID, "currentLocation"),
+      sessionLabel: globalThis.ATTestAI.settings.get(MODULE_ID, "sessionLabel"),
+      welcomeTitle: globalThis.ATTestAI.settings.get(MODULE_ID, "welcomeTitle"),
+      welcomeText: globalThis.ATTestAI.settings.get(MODULE_ID, "welcomeText"),
       defaultLanding,
       defaultLandingOptions: [["home", "Home"], ...NAV_SECTION_DEFS.map(([id, label]) => [id, label])].map(([id, label]) => ({ id, label, selected: id === defaultLanding })),
       nav,
       navOptions: NAV_SECTION_DEFS.map(([id, label, icon]) => ({ id, label, icon, visible: nav[id] !== false })),
       homeLayout: homeLayout.map((item) => { const meta = HOME_BLOCK_DEFS.find(([id]) => id === item.id); return { ...item, label: meta?.[1] || item.id, icon: meta?.[2] || "fa-square", sizeOptions: Object.entries(HOME_WIDGET_SIZES).map(([id, label]) => ({ id, label, selected: id === item.size })) }; }),
-      homeMode: HOME_MODES[String(game.settings.get(MODULE_ID, "homeMode") || "dashboard")] ? String(game.settings.get(MODULE_ID, "homeMode")) : "dashboard",
-      homeModeOptions: Object.entries(HOME_MODES).map(([id, meta]) => ({ id, ...meta, selected: id === String(game.settings.get(MODULE_ID, "homeMode") || "dashboard") })),
-      homeHeroLayout: ["classic", "centered", "immersive"].includes(String(game.settings.get(MODULE_ID, "homeHeroLayout") || "classic")) ? String(game.settings.get(MODULE_ID, "homeHeroLayout")) : "classic",
-      homeHeroHeight: ["standard", "tall", "full"].includes(String(game.settings.get(MODULE_ID, "homeHeroHeight") || "standard")) ? String(game.settings.get(MODULE_ID, "homeHeroHeight")) : "standard",
-      homeHeroShade: ["soft", "balanced", "strong"].includes(String(game.settings.get(MODULE_ID, "homeHeroShade") || "balanced")) ? String(game.settings.get(MODULE_ID, "homeHeroShade")) : "balanced",
-      homeHeroFocus: ["left", "center", "right"].includes(String(game.settings.get(MODULE_ID, "homeHeroFocus") || "center")) ? String(game.settings.get(MODULE_ID, "homeHeroFocus")) : "center",
-      homeShowEnterButton: Boolean(game.settings.get(MODULE_ID, "homeShowEnterButton")),
-      homeEnterTarget: String(game.settings.get(MODULE_ID, "homeEnterTarget") || "sessions"),
-      homeAtGlance: Boolean(game.settings.get(MODULE_ID, "homeAtGlance")),
-      homeSidebarCampaign: Boolean(game.settings.get(MODULE_ID, "homeSidebarCampaign")),
-      homeSidebarQuickLinks: Boolean(game.settings.get(MODULE_ID, "homeSidebarQuickLinks")),
-      groupHomeLimit: Number(game.settings.get(MODULE_ID, "groupHomeLimit") || 3),
-      groupSort: String(game.settings.get(MODULE_ID, "groupSort") || "manual"),
-      groupSortManual: String(game.settings.get(MODULE_ID, "groupSort") || "manual") === "manual",
-      groupSortName: String(game.settings.get(MODULE_ID, "groupSort") || "manual") === "name",
-      defaultQuestStatus: String(game.settings.get(MODULE_ID, "defaultQuestStatus") || "active"),
-      questStatusOptions: ["active", "completed", "dormant", "failed"].map((id) => ({ id, label: displayQuestStatus(id), selected: id === String(game.settings.get(MODULE_ID, "defaultQuestStatus") || "active") })),
-      defaultWorldCategory: String(game.settings.get(MODULE_ID, "defaultWorldCategory") || "lore"),
-      worldCategoryOptions: Object.entries(WORLD_CATEGORIES).map(([id, meta]) => ({ id, label: meta.label, selected: id === String(game.settings.get(MODULE_ID, "defaultWorldCategory") || "lore") })),
+      homeMode: HOME_MODES[String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeMode") || "dashboard")] ? String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeMode")) : "dashboard",
+      homeModeOptions: Object.entries(HOME_MODES).map(([id, meta]) => ({ id, ...meta, selected: id === String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeMode") || "dashboard") })),
+      homeHeroLayout: ["classic", "centered", "immersive"].includes(String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroLayout") || "classic")) ? String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroLayout")) : "classic",
+      homeHeroHeight: ["standard", "tall", "full"].includes(String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroHeight") || "standard")) ? String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroHeight")) : "standard",
+      homeHeroShade: ["soft", "balanced", "strong"].includes(String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroShade") || "balanced")) ? String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroShade")) : "balanced",
+      homeHeroFocus: ["left", "center", "right"].includes(String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroFocus") || "center")) ? String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeHeroFocus")) : "center",
+      homeShowEnterButton: Boolean(globalThis.ATTestAI.settings.get(MODULE_ID, "homeShowEnterButton")),
+      homeEnterTarget: String(globalThis.ATTestAI.settings.get(MODULE_ID, "homeEnterTarget") || "sessions"),
+      homeAtGlance: Boolean(globalThis.ATTestAI.settings.get(MODULE_ID, "homeAtGlance")),
+      homeSidebarCampaign: Boolean(globalThis.ATTestAI.settings.get(MODULE_ID, "homeSidebarCampaign")),
+      homeSidebarQuickLinks: Boolean(globalThis.ATTestAI.settings.get(MODULE_ID, "homeSidebarQuickLinks")),
+      groupHomeLimit: Number(globalThis.ATTestAI.settings.get(MODULE_ID, "groupHomeLimit") || 3),
+      groupSort: String(globalThis.ATTestAI.settings.get(MODULE_ID, "groupSort") || "manual"),
+      groupSortManual: String(globalThis.ATTestAI.settings.get(MODULE_ID, "groupSort") || "manual") === "manual",
+      groupSortName: String(globalThis.ATTestAI.settings.get(MODULE_ID, "groupSort") || "manual") === "name",
+      defaultQuestStatus: String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus") || "active"),
+      questStatusOptions: ["active", "completed", "dormant", "failed"].map((id) => ({ id, label: displayQuestStatus(id), selected: id === String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus") || "active") })),
+      defaultWorldCategory: String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultWorldCategory") || "lore"),
+      worldCategoryOptions: Object.entries(WORLD_CATEGORIES).map(([id, meta]) => ({ id, label: meta.label, selected: id === String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultWorldCategory") || "lore") })),
       defaultTomeVisibility: defaultTomeVisibility(),
       defaultTomeVisibilityOptions: Object.entries(TOME_VISIBILITY).map(([id, meta]) => ({ id, ...meta, selected: id === defaultTomeVisibility() })),
       defaultTomeDiscovered: defaultTomeDiscovered(),
@@ -5673,8 +5771,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!settings.nav[settings.homeEnterTarget]) settings.homeEnterTarget = enterTargetMeta.find(([id]) => settings.nav[id])?.[0] || "home";
     settings.homeEnterTargetOptions = enterTargetMeta.map(([id,label]) => ({ id, label, selected: id === settings.homeEnterTarget, disabled: settings.nav[id] === false }));
 
-    const legacyIds = new Set(getLegacyGroupActorIds());
-    const actorOptions = game.actors.contents
+    const legacyIds = new Set(needs.has("settings") ? getLegacyGroupActorIds() : []);
+    const actorOptions = (needs.has("settings") ? game.actors.contents : [])
       .filter((actor) => game.user.isGM || canViewInTome(actor))
       .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang, { numeric: true }))
       .map((actor) => ({
@@ -5682,14 +5780,14 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         selected: actorIsGroupMember(actor, legacyIds)
       }));
 
-    let profileActor = this.activeActorId ? game.actors.get(this.activeActorId) : null;
+    let profileActor = this.activeTab === "profile" && this.activeActorId ? game.actors.get(this.activeActorId) : null;
     if (profileActor && !canViewInTome(profileActor)) profileActor = null;
     if (this.activeTab === "profile" && !profileActor) {
       this.activeTab = "group";
       this.profileEditing = false;
     }
 
-    const relationCandidates = game.actors.contents
+    const relationCandidates = (profileActor ? game.actors.contents : [])
       .filter((actor) => canViewInTome(actor) && actor.id !== profileActor?.id)
       .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang, { numeric: true }));
 
@@ -5751,7 +5849,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         }).filter(Boolean);
       profileView = {
         ...base,
-        intelligence:game.modules.get(MODULE_ID)?.api?.entityIntelligence?.profile?.(profileActor.uuid),
+        intelligence:globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.entityIntelligence?.profile?.(profileActor.uuid),
         biography: profile.biography,
         motto: profile.motto,
         firstSession: canViewInTome(firstSession) ? entryView(firstSession) : (actorCampaignSessions[0] || null),
@@ -5804,7 +5902,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
 
-    let worldEntry = this.activeWorldId ? game.journal.get(this.activeWorldId) : null;
+    let worldEntry = this.activeTab === "worldProfile" && this.activeWorldId ? game.journal.get(this.activeWorldId) : null;
     if (worldEntry && !canViewInTome(worldEntry)) worldEntry = null;
     if (this.activeTab === "worldProfile" && !worldEntry) {
       this.activeTab = "world";
@@ -5840,7 +5938,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const linkedActorInferred = Boolean(linkedActor && !profile.actorId);
       worldProfileView = {
         ...view,
-        intelligence:game.modules.get(MODULE_ID)?.api?.entityIntelligence?.profile?.(worldEntry.uuid),
+        intelligence:globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.entityIntelligence?.profile?.(worldEntry.uuid),
         journalId: worldEntry.id,
         linkedActor: linkedActorVisible ? actorView(linkedActor) : null,
         hasLinkedActor: linkedActorVisible,
@@ -5893,9 +5991,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     })).filter((group) => group.entries.length);
 
     const sessionRows = sessions.map((session) => ({ ...session, selected: session.id === selectedSessionBase?.id, localSearchText: `${session.name} ${session.summary || ""} ${session.bodyPreview || ""}`.toLowerCase() }));
-    let selectedSession = selectedSessionBase ? sessionDetailView(selectedSessionBase, quests, world, visibleActors) : null;
+    let selectedSession = needs.has("sessionDetail") && selectedSessionBase ? sessionDetailView(selectedSessionBase, quests, world, visibleActors) : null;
 
-    const demo = getDemoSummary();
+    const demo = needs.has("settings") || this.activeTab === "import" ? getDemoSummary() : null;
 
     const importState = {
       mode: this.importMode,
@@ -5905,8 +6003,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       preview: this.importPreview,
       lastResult: this.importLastResult,
       modes: Object.entries(IMPORT_MODES).map(([id, label]) => ({ id, label, selected: id === this.importMode })),
-      history: getImportHistoryView(),
-      hasUndo: Boolean(getLastImportUndo()?.transactionId)
+      history: this.activeTab === "import" ? getImportHistoryView() : [],
+      hasUndo: this.activeTab === "import" && Boolean(getLastImportUndo()?.transactionId)
     };
 
     const favoriteRefs = getFavoriteRefs();
@@ -5934,14 +6032,18 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       };
     };
 
-    const searchEntries = [
+    const searchEntries = needs.has("search") ? [
       ...sessions.map((item) => searchEntry(item, { refType: "session", filterKey: "session", category: "Session", icon: "fa-book-open", action: "selectSession", meta: item.sessionNumber != null ? `Session ${item.sessionNumber}` : "Chronicle" })),
       ...quests.map((item) => searchEntry(item, { refType: "quest", filterKey: "quest", category: "Quest", icon: "fa-diamond", action: "openQuestDetail", meta: item.statusLabel || "Quest" })),
       ...world.map((item) => searchEntry(item, { refType: "world", filterKey: item.category || "lore", category: item.categoryLabel || "World", icon: item.icon || "fa-earth-europe", action: "openWorldProfile", meta: item.subtitle || item.categoryLabel || "World" })),
       ...rules.map((item) => searchEntry(item, { refType: "rule", filterKey: "rule", category: "Rule", icon: "fa-scroll", action: "openRuleDetail", meta: "Reference" })),
       ...group.map((item) => searchEntry(item, { refType: "actor", filterKey: "character", category: "Character", icon: "fa-user", action: "openProfile", actor: true, meta: item.displayRole, img: item.img }))
-    ];
+    ] : [];
 
+    const searchNeedle = String(this.searchQuery || '').trim().toLowerCase();
+    const matchingSearchEntries = searchEntries.filter(row => (!searchNeedle || row.searchText.includes(searchNeedle)) && (this.searchFilter === 'all' || row.filterKey === this.searchFilter));
+    const displayedSearchEntries = this.activeTab === 'search' ? matchingSearchEntries.slice(0, this._searchLimit || 60) : searchEntries;
+    this._tomeSearchRows = searchEntries;
     const searchFilterDefs = [
       ["all", "All", "fa-layer-group"],
       ["session", "Sessions", "fa-book-open"],
@@ -5962,13 +6064,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       active: key === this.searchFilter
     })).filter((filter) => filter.key === "all" || filter.count > 0);
 
-    const campaignMemorySearch = game.user.isGM ? campaignMemorySearchView() : null;
-    const campaignAnalysisAll = game.user.isGM ? campaignAnalysisView(campaignMemorySearch) : null;
+    const campaignMemorySearch = game.user.isGM && (needs.has("memory") || needs.has("analysis")) ? measured("view-memory",()=>campaignMemorySearchView()) : null;
+    const campaignAnalysisAll = game.user.isGM && needs.has("analysis") ? measured("view-analysis",()=>campaignAnalysisView(campaignMemorySearch,"",{details:this.activeTab==="campaignToolsAnalysis"&&!this._analysisSourceFilter})) : null;
     const campaignAnalysis = game.user.isGM && this.activeTab === "campaignToolsAnalysis" && this._analysisSourceFilter
       ? campaignAnalysisView(campaignMemorySearch, this._analysisSourceFilter)
       : campaignAnalysisAll;
-    const relationshipApi = game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence;
-    const relationshipReview = game.user.isGM ? relationshipApi?.review?.(this.activeTab === "campaignToolsAnalysis" ? this._analysisSourceFilter || "" : "") || [] : [];
+    const relationshipApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence;
+    const relationshipReview = game.user.isGM && needs.has("relationships") ? relationshipApi?.review?.(this.activeTab === "campaignToolsAnalysis" ? this._analysisSourceFilter || "" : "") || [] : [];
 
     const byRefKey = new Map(searchEntries.map((entry) => [entry.refKey, entry]));
     const favoriteEntries = favoriteRefs.map((ref) => byRefKey.get(ref)).filter(Boolean);
@@ -5988,7 +6090,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if (profileView) profileView = { ...profileView, refKey: `actor:${profileView.id}`, isFavorite: favoriteSet.has(`actor:${profileView.id}`) };
     if (worldProfileView) worldProfileView = { ...worldProfileView, refKey: `world:${worldProfileView.id}`, isFavorite: favoriteSet.has(`world:${worldProfileView.id}`) };
-    const intelligenceApi = game.modules.get(MODULE_ID)?.api?.entityIntelligence;
+    const intelligenceApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.entityIntelligence;
     if (selectedSession && this.activeTab === "sessions") selectedSession.intelligence = intelligenceApi?.profile?.(`JournalEntry.${selectedSession.id}`);
     if (questDetail && this.activeTab === "questDetail") questDetail.intelligence = intelligenceApi?.profile?.(`JournalEntry.${questDetail.id}`);
     const entityContext = this.activeTab === "entityContext" ? intelligenceApi?.profile?.(this.activeContextUuid) : null;
@@ -6012,21 +6114,22 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     settings.homeCardsVisible = homeBlocks.length > 0;
     const homeSidebarVisible = !settings.homeModeMinimal && Boolean(settings.homeSidebarCampaign || settings.homeSidebarQuickLinks || game.user.isGM);
 
-    const revealQueue = game.user.isGM ? buildRevealQueueView() : { queued: [], recent: [], queuedCount: 0, recentCount: 0 };
-    const gmDashboard = game.user.isGM ? buildNextSessionDashboard(sessions, quests, world, group) : null;
-    const postSession = game.user.isGM ? buildPostSessionAssistant(sessions, quests) : null;
+    const revealQueue = game.user.isGM && needs.has("reveal") ? buildRevealQueueView() : { queued: [], recent: [], queuedCount: 0, recentCount: 0 };
+    const gmDashboard = game.user.isGM && needs.has("dashboard") ? measured("view-dashboard",()=>buildNextSessionDashboard(sessions, quests, world, group)) : null;
+    const postSession = game.user.isGM && needs.has("post") ? measured("view-post-session",()=>buildPostSessionAssistant(sessions, quests)) : null;
     const quickCaptureCurrent = (() => {
-      if (!game.user.isGM || !this._quickCaptureSourceRef) return null;
+      if (!game.user.isGM || !needs.has("capture") || !this._quickCaptureSourceRef) return null;
       const meta = tomeRefMeta(this._quickCaptureSourceRef);
       return meta ? { ...meta, targetValue: this._quickCaptureSourceRef } : null;
     })();
-    const quickCapture = game.user.isGM ? {
-      nextSession: buildGmNotebookRows().nextSession,
+    const notebook = game.user.isGM && needs.has("notebook") ? measured("view-notebook",()=>buildGmNotebookRows()) : { rows: [], nextSession: 1, stats: {} };
+    const quickCapture = game.user.isGM && needs.has("capture") ? {
+      nextSession: notebook.nextSession,
       current: quickCaptureCurrent,
       typeOptions: Object.entries(GM_NOTE_TYPES).map(([id, meta]) => ({ id, ...meta, selected: id === "reminder" }))
     } : null;
 
-    const accessRows = game.user.isGM ? [
+    const accessRows = game.user.isGM && needs.has("settings") ? [
       ...sessions.map((item) => ({ documentType: "journal", id: item.id, name: item.name, category: "Session", icon: "fa-book-open", access: accessView(game.journal.get(item.id)) })),
       ...quests.map((item) => ({ documentType: "journal", id: item.id, name: item.name, category: "Quest", icon: "fa-diamond", access: accessView(game.journal.get(item.id)) })),
       ...world.map((item) => ({ documentType: "journal", id: item.id, name: item.name, category: item.categoryLabel || "World", icon: item.icon || "fa-earth-europe", access: accessView(game.journal.get(item.id)) })),
@@ -6035,7 +6138,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     ].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name, game.i18n.lang, { numeric: true })) : [];
     settings.accessRows = accessRows;
     settings.healthReport = this._healthReport;
-    settings.gmNotebook = game.user.isGM ? buildGmNotebookRows() : { rows: [], nextSession: 1, stats: {} };
+    settings.gmNotebook = notebook;
 
     let accessEditor = null;
     if (game.user.isGM && this.activeTab === "access" && this.activeAccessType && this.activeAccessId) {
@@ -6073,6 +6176,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isGroup: this.activeTab === "group",
       isGroupNavActive: this.activeTab === "group" || this.activeTab === "profile",
       isWorld: this.activeTab === "world",
+      useWorldExplorer,
       isWorldNavActive: this.activeTab === "world" || this.activeTab === "worldProfile",
       isWorldProfile: this.activeTab === "worldProfile" && Boolean(worldProfileView),
       isWorldProfileEditing: this.activeTab === "worldProfile" && Boolean(worldProfileView) && this.worldEditing && game.user.isGM,
@@ -6091,7 +6195,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isCampaignToolsAssistant: game.user.isGM && this.activeTab === "campaignToolsAssistant",
       isCampaignToolsAssistantNavActive: game.user.isGM && ["campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
       isManual: this.activeTab === "manual",
-      manual: buildManualView(),
+      manual: this.activeTab === "manual" ? buildManualView() : null,
       isImport: this.activeTab === "import" && game.user.isGM,
       isExport: this.activeTab === "export" && game.user.isGM,
       isGmDashboard: this.activeTab === "gmDashboard" && game.user.isGM,
@@ -6130,13 +6234,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       group,
       homeGroup,
       actorOptions,
-      searchEntries,
+      searchEntries:displayedSearchEntries,
       campaignMemorySearch,
       campaignAnalysis,
       campaignAnalysisAll,
       relationshipReview,
       analysisSourceFilter:this._analysisSourceFilter,
-      lastCampaignDecision:game.user.isGM ? (this._lastCampaignDecision || game.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.decisionHistory?.().find(row=>!row.undone)) : null,
+      lastCampaignDecision:game.user.isGM && this.activeTab === "campaignToolsAnalysis" ? (this._lastCampaignDecision || globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.decisionHistory?.().find(row=>!row.undone)) : null,
       searchState: {
         query: this.searchQuery,
         filter: this.searchFilter,
@@ -6145,7 +6249,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         recent: recentEntries,
         hasFavorites: favoriteEntries.length > 0,
         hasRecent: recentEntries.length > 0,
-        total: searchEntries.length
+        total: this.activeTab === 'search' ? matchingSearchEntries.length : searchEntries.length,
+        shown: displayedSearchEntries.length,
+        hasMore: this.activeTab === 'search' && displayedSearchEntries.length < matchingSearchEntries.length
       },
       canGoBack: this._navigationHistory.length > 0,
       demo,
@@ -6154,7 +6260,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       quickCapture,
       revealQueue,
       postSession,
-      exportState: game.user.isGM ? {
+      exportState: game.user.isGM && needs.has("export") ? {
         portable: { sessions: sessions.length, quests: quests.length, world: world.length },
         playerSafe: {
           sessions: game.journal.contents.filter((entry) => inferJournalRefKey(entry).startsWith("session:") && isPlayerSafeExportDocument(entry)).length,
@@ -6170,10 +6276,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         sessions: sessions.length
       }
     }, { inplace: false });
-    } finally {globalThis.AdventurersTomeStartup?.end(token);}
+    } finally {tomeContextReads=previousReads;globalThis.AdventurersTomeStartup?.end(token);}
   }
 
   async _renderHTML(context, options) {
+    const token=globalThis.AdventurersTomeStartup?.begin("tome-render-html");
+    try {
     const html = await super._renderHTML(context, options);
     const route = JSON.stringify({...this._captureNavigationState(), profileEditing:this.profileEditing, worldEditing:this.worldEditing});
     this._viewContinuity = route === this._renderedContinuityRoute
@@ -6182,6 +6290,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if(route !== this._renderedContinuityRoute)globalThis.AdventurersTomeViewContinuity?.cancel(this.element);
     this._renderedContinuityRoute = route;
     return html;
+    } finally {globalThis.AdventurersTomeStartup?.end(token);}
   }
 
   async _onRender(context, options) {
@@ -6545,22 +6654,31 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
           button.classList.toggle("active", button.dataset.atSearchFilter === filter);
         }
         const counter = this.element.querySelector("[data-at-search-count]");
-        if (counter) counter.textContent = `${visible} result${visible === 1 ? "" : "s"}`;
+        const total = (this._tomeSearchRows || []).filter(row => (!needle || row.searchText.includes(needle)) && (filter === 'all' || row.filterKey === filter)).length;
+        if (counter) counter.textContent = `${total} result${total === 1 ? "" : "s"}`;
         const empty = this.element.querySelector("[data-at-search-empty]");
         if (empty) empty.hidden = visible > 0;
         this.element.querySelector(".at-search-page")?.classList.toggle("is-searching", Boolean(needle));
       };
 
+      const scheduleSearch = () => {
+        this._searchLimit = 60;
+        clearTimeout(this._searchRenderTimer);
+        this._searchRenderTimer = setTimeout(() => { if(this.activeTab === 'search')void this.render({parts:['main']}); },100);
+      };
       searchInput.addEventListener("input", (event) => {
         this.searchQuery = event.currentTarget.value;
         applySearchState();
+        scheduleSearch();
       });
       for (const button of this.element.querySelectorAll("[data-at-search-filter]")) {
         button.addEventListener("click", () => {
           this.searchFilter = button.dataset.atSearchFilter || "all";
           applySearchState();
+          scheduleSearch();
         });
       }
+      this.element.querySelector('[data-at-search-more]')?.addEventListener('click', () => {this._searchLimit = (this._searchLimit || 60) + 60;void this.render({parts:['main']});});
       applySearchState();
     }
 
@@ -6930,7 +7048,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   _applyThemeBackground(settings = {}) {
-    const configuredPath = settings?.background || game.settings.get(MODULE_ID, "background") || DEFAULT_BACKGROUND;
+    const configuredPath = settings?.background || globalThis.ATTestAI.settings.get(MODULE_ID, "background") || DEFAULT_BACKGROUND;
     const configuredUrl = settings?.backgroundUrl || resolveFoundryAssetUrl(configuredPath);
     const fallbackUrl = resolveFoundryAssetUrl(DEFAULT_BACKGROUND);
     const sectionBackgrounds = settings?.sectionBackgrounds || getSectionBackgrounds();
@@ -6945,7 +7063,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const shell = this.element?.querySelector?.(".at-shell");
     if (shell) {
       shell.classList.remove(...Object.values(THEME_DEFS).map((meta) => meta.className));
-      const themeId = settings?.themeId || game.settings.get(MODULE_ID, "theme") || "tome";
+      const themeId = settings?.themeId || globalThis.ATTestAI.settings.get(MODULE_ID, "theme") || "tome";
       shell.classList.add(THEME_DEFS[themeId]?.className || THEME_DEFS.tome.className);
     }
 
@@ -7008,7 +7126,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async _onClearRecent() {
-    await game.settings.set(MODULE_ID, "recentItems", "[]");
+    await globalThis.ATTestAI.settings.set(MODULE_ID, "recentItems", "[]");
     await this.render({ parts: ["main"] });
   }
 
@@ -7099,7 +7217,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onOpenExporter() {
     if (!game.user.isGM) return;
-    if (game.modules.get(MODULE_ID)?.api?.transfer?.open) return game.modules.get(MODULE_ID).api.transfer.open({tab:"export"});
+    if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.transfer?.open) return globalThis.ATTestAI.modules.get(MODULE_ID).api.transfer.open({tab:"export"});
     this._pushNavigationState();
     this.activeTab = "export";
     await this.render({ parts: ["main"] });
@@ -7228,12 +7346,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const access = getTomeAccess(meta.document);
     if (access.visibility === "gm") return ui.notifications.warn("This entry is GM-only in Tome. Change its Permissions before revealing it.");
     if (!access.discovered) {
-      await meta.document.setFlag(MODULE_ID, FLAGS.ACCESS, { visibility: access.visibility, discovered: true });
+      await globalThis.ATTestAI.flags(meta.document).setFlag(MODULE_ID, FLAGS.ACCESS, { visibility: access.visibility, discovered: true });
     }
     const activePlayers = game.users?.contents?.filter((user) => !user.isGM && user.active) || [];
     const eligible = activePlayers.filter((user) => meta.document.testUserPermission?.(user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER));
     if (!eligible.length) return ui.notifications.warn("No active player currently has Foundry access to this entry. Grant Foundry permission first.");
-    game.socket.emit(`module.${MODULE_ID}`, { type: "showTomeRef", refKey, senderId: game.user.id, sentAt: Date.now() });
+    globalThis.ATTestAI.socket.emit(`module.${MODULE_ID}`, { type: "showTomeRef", refKey, senderId: game.user.id, sentAt: Date.now() });
     await markRevealShown(refKey);
     ui.notifications.info(`Revealed ${meta.name} to ${eligible.length} active player(s).`);
     await this.render({ parts: ["main"] });
@@ -7689,7 +7807,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       relations: publicRelations
     };
 
-    await actor.setFlag(MODULE_ID, FLAGS.PROFILE, profile);
+    await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.PROFILE, profile);
     await setPrivateOverlay(actor, { facts: privateFacts, relations: privateRelations });
     ui.notifications.info(`Adventurer's Tome profile saved for ${actor.name}.`);
     this.profileEditing = false;
@@ -7759,12 +7877,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       summary: String(data.get("worldSummary") || "").trim(),
       heroImage: String(data.get("worldHeroImage") || "").trim(),
       actorId: String(data.get("worldActorId") || "").trim(),
-      syncPageId: String(entry.getFlag(MODULE_ID, FLAGS.WORLD_PROFILE)?.syncPageId || "").trim(),
+      syncPageId: String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, FLAGS.WORLD_PROFILE)?.syncPageId || "").trim(),
       facts: publicFacts
     };
     const synced = await ensureWorldSyncPage(entry, String(data.get("worldBody") || "").trim(), profile);
     profile = synced.profile;
-    await entry.setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, profile);
+    await globalThis.ATTestAI.flags(entry).setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, profile);
     await setPrivateOverlay(entry, { facts: privateFacts });
     ui.notifications.info(`Adventurer's Tome entry saved for ${entry.name}.`);
     this.worldEditing = false;
@@ -7825,8 +7943,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const select = this.element?.querySelector('[name="existingRuleJournalId"]');
     const journal = game.journal.get(String(select?.value || ""));
     if (!journal) return ui.notifications.warn("Adventurer's Tome: Choose an existing Journal first.");
-    await journal.setFlag(MODULE_ID, "type", "rules");
-    await journal.setFlag(MODULE_ID, FLAGS.RULE_LINK, true);
+    await globalThis.ATTestAI.flags(journal).setFlag(MODULE_ID, "type", "rules");
+    await globalThis.ATTestAI.flags(journal).setFlag(MODULE_ID, FLAGS.RULE_LINK, true);
     ui.notifications.info(`Adventurer's Tome: ${journal.name} is now linked in Rules.`);
     await this.render({ parts: ["main"] });
   }
@@ -7962,12 +8080,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async _onOpenContextEntity(_event, target) {
-    const result = await game.modules.get(MODULE_ID)?.api?.entityIntelligence?.open?.(target.dataset.targetUuid, this);
+    const result = await globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.entityIntelligence?.open?.(target.dataset.targetUuid, this);
     if (result?.status !== "opened") ui.notifications.warn("Adventurer's Tome: This entity is missing or unavailable to you.");
   }
 
   static async _onOpenContextSource(_event, target) {
-    const result = await game.modules.get(MODULE_ID)?.api?.entityIntelligence?.open?.(target.dataset.sourceUuid, this, {pageUuid:target.dataset.pageUuid || ""});
+    const result = await globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.entityIntelligence?.open?.(target.dataset.sourceUuid, this, {pageUuid:target.dataset.pageUuid || ""});
     if (result?.status !== "opened") ui.notifications.warn("Adventurer's Tome: This source or source page is missing or unavailable to you.");
   }
 
@@ -8033,7 +8151,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!game.user.isGM || target.disabled) return;
     target.disabled=true;
     try {
-      await game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.decide?.(target.dataset.evidenceId,target.dataset.relationshipDecision);
+      await globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.decide?.(target.dataset.evidenceId,target.dataset.relationshipDecision);
       await this.render({parts:["main"]});
     } catch (error) {
       ui.notifications.warn(`Adventurer's Tome: ${error.message}`);
@@ -8042,7 +8160,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onLinkExistingCampaignIdentity(_event, target) {
     if (!game.user?.isGM) return;
-    const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
+    const learning = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
     const DialogV2 = foundry.applications.api.DialogV2;
     const text = String(target.dataset.decisionText || "").trim();
     const sourceUuid = String(target.dataset.sourceUuid || "").trim();
@@ -8112,9 +8230,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     let targetUuid = String(target.dataset.targetUuid || "").trim();
     if (!mode || !text || !sourceUuid) return;
 
-    const links = game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
-    const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
-    const evidence = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+    const links = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
+    const learning = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+    const evidence = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
 
     if (this._campaignDecisionPending || globalThis.AdventurersTomeReviewDecision?.isActive?.()) return;
     this._campaignDecisionPending = true;
@@ -8125,7 +8243,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const beforeDecision = learning?.decisionSnapshot?.(text,sourceUuid);
     try {
       if (mode === "create") {
-        const creation = game.modules.get(MODULE_ID)?.api?.campaignEntityCreation;
+        const creation = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityCreation;
         const semanticType = target.closest(".at-guided-decision-card")?.querySelector(".at-review-create-type")?.value;
         if (!creation?.apply || !learning?.confirm || !semanticType) throw new Error("Select an entity type before creation.");
         await measure("decision-save",()=>learning.confirm({ text, sourceUuid, kind:semanticType }));
@@ -8184,8 +8302,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       try {
         // Re-resolve known mentions against the saved GM choice; the narrative
         // candidates already exist. Source edits retain their own invalidation.
-        await measure("memory-refresh",()=>evidence?.sync?.({ reason:"guided-gm-decision", rescan:mode !== "keep" && mode !== "mention-only", reuseDiscovery:true, sourceUuid, silent:true }));
-        await measure("relationship-refresh",()=>game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid}));
+        if(!campaignQueueDerivedRefresh('gm-decision')) {
+          await measure("memory-refresh",()=>evidence?.sync?.({ reason:"guided-gm-decision", rescan:mode !== "keep" && mode !== "mention-only", reuseDiscovery:true, sourceUuid, silent:true }));
+          await measure("relationship-refresh",()=>globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid}));
+        }
       } catch(error) {
         console.warn("Adventurer's Tome | Decision saved; derived refresh needs retry",error);
         ui.notifications.warn("Decision saved. Derived views need refresh; reanalyse this source to retry.");
@@ -8204,7 +8324,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onMatchingPreferences(event,target) {
     if(!game.user?.isGM || this._campaignDecisionPending)return;
-    const api=game.modules.get(MODULE_ID)?.api,learning=api?.campaignReviewLearning;
+    const api=globalThis.ATTestAI.modules.get(MODULE_ID)?.api,learning=api?.campaignReviewLearning;
     const escape=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const {targetUuid,targetName,decisionText}=target.dataset;
     let selection;
@@ -8227,7 +8347,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._campaignDecisionPending=true;
     try {
       this._lastCampaignDecision=await learning.setMatchingPolicy(selection);
-      try {await api.campaignMentionEvidence?.sync?.({rescan:true,sourceUuid:this._analysisSourceFilter || undefined,silent:true});}
+      try {if(!campaignQueueDerivedRefresh('gm-decision'))await api.campaignMentionEvidence?.sync?.({rescan:true,sourceUuid:this._analysisSourceFilter || undefined,silent:true});}
       catch(error){ui.notifications.warn('Preference saved. Run analysis again to refresh the queue.');}
       await this.render({parts:['main']});ui.notifications.info('Matching preference saved. Undo is available in recent decisions.');
     }catch(error){ui.notifications.error(`Tome: ${error.message}`);}
@@ -8236,7 +8356,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onRemoveHistoricalLink(event,target) {
     if(!game.user?.isGM || this._campaignDecisionPending)return;
-    const {sourceUuid,targetUuid,sourceName,targetName}=target.dataset,api=game.modules.get(MODULE_ID)?.api;
+    const {sourceUuid,targetUuid,sourceName,targetName}=target.dataset,api=globalThis.ATTestAI.modules.get(MODULE_ID)?.api;
     const escape=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const confirmed=await foundry.applications.api.DialogV2.wait({window:{title:'Remove mistaken session link'},rejectClose:false,
       content:`<p>Remove <strong>${escape(targetName)}</strong> from <strong>${escape(sourceName)}</strong>?</p><p>The identity and session text are kept. This association will no longer support historical matching or automatic linking. You can undo this in Recent GM decisions.</p>`,
@@ -8247,7 +8367,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     try {
       this._lastCampaignDecision=await api.campaignReviewLearning.removeHistoricalLink({sourceUuid,targetUuid});
       try {
-        for(const source of new Set([sourceUuid,this._analysisSourceFilter].filter(Boolean))) {
+        if(!campaignQueueDerivedRefresh('gm-decision'))for(const source of new Set([sourceUuid,this._analysisSourceFilter].filter(Boolean))) {
           await api.campaignMentionEvidence?.sync?.({rescan:true,sourceUuid:source,silent:true});
           await api.campaignRelationshipEvidence?.sync?.({sourceUuid:source});
         }
@@ -8260,7 +8380,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onUndoCampaignDecision(event, target) {
     if (!game.user?.isGM) return;
-    const learningApi = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
+    const learningApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
     let historyId = target?.dataset?.undoDecisionId;
     if (event && !historyId && learningApi?.decisionHistory) {
       const rows=learningApi.decisionHistory();
@@ -8281,9 +8401,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const decision=await learningApi.undoDecision(historyId);
         this._lastCampaignDecision=learningApi.decisionHistory().find(row=>!row.undone) || null;
         try {
-          if(decision.mode!=='correction') {
-            await game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence?.sync?.({reason:'guided-gm-decision-undo',rescan:true,sourceUuid:decision.sourceUuid});
-            await game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid:decision.sourceUuid});
+          if(decision.mode!=='correction' && !campaignQueueDerivedRefresh('gm-decision')) {
+            await globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionEvidence?.sync?.({reason:'guided-gm-decision-undo',rescan:true,sourceUuid:decision.sourceUuid});
+            await globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid:decision.sourceUuid});
           }
         }catch(error){ui.notifications.warn('Decision undone. Derived views need a refresh.');}
         if(profile)await review.render();else await this.render({parts:['main']});
@@ -8294,9 +8414,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if (!game.user?.isGM || !this._lastCampaignDecision) return;
     const decision = { ...this._lastCampaignDecision };
-    const links = game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
-    const learning = game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
-    const evidence = game.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
+    const links = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
+    const learning = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+    const evidence = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionEvidence || null;
 
     try {
       if (["choose","create"].includes(decision.mode) && decision.targetUuid && decision.hadLinkBefore !== true) {
@@ -8315,8 +8435,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         await learning?.ignoreOnce?.({text:decision.text,sourceUuid:decision.sourceUuid});
       }
       this._lastCampaignDecision = null;
-      await evidence?.sync?.({ reason:"guided-gm-decision-undo", rescan:true,sourceUuid:decision.sourceUuid });
-      await game.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid:decision.sourceUuid});
+      if(!campaignQueueDerivedRefresh('gm-decision')) {
+        await evidence?.sync?.({ reason:"guided-gm-decision-undo", rescan:true,sourceUuid:decision.sourceUuid });
+        await globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid:decision.sourceUuid});
+      }
       ui.notifications.info("Tome: last GM decision undone.");
       await this.render({ parts:["main"] });
     } catch (error) {
@@ -8327,7 +8449,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onReviewSourceFacts(_event,target) {
     if(!game.user?.isGM)return;
-    const api=game.modules.get(MODULE_ID)?.api,review=api?.sourceFactReview;
+    const api=globalThis.ATTestAI.modules.get(MODULE_ID)?.api,review=api?.sourceFactReview;
     const targetUuid=target.dataset.targetUuid;
     let sourceUuid=target.dataset.sourceUuid;
     const escape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -8548,21 +8670,21 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       defaultTomeDiscovered: values.defaultTomeDiscovered
     };
 
-    for (const [key, value] of Object.entries(updates)) await game.settings.set(MODULE_ID, key, value);
+    for (const [key, value] of Object.entries(updates)) await globalThis.ATTestAI.settings.set(MODULE_ID, key, value);
 
     // Membership is Tome-owned metadata on the Actor document. This is generic
     // Foundry Document data and does not touch the active game's system schema.
     let nextOrder = 10;
     for (const actor of game.actors.contents) {
       const shouldBeMember = selectedSet.has(actor.id);
-      const currentMember = actor.getFlag(MODULE_ID, FLAGS.GROUP_MEMBER);
-      if (currentMember !== shouldBeMember) await actor.setFlag(MODULE_ID, FLAGS.GROUP_MEMBER, shouldBeMember);
-      if (shouldBeMember && actor.getFlag(MODULE_ID, FLAGS.GROUP_ORDER) == null) await actor.setFlag(MODULE_ID, FLAGS.GROUP_ORDER, nextOrder);
+      const currentMember = globalThis.ATTestAI.flags(actor).getFlag(MODULE_ID, FLAGS.GROUP_MEMBER);
+      if (currentMember !== shouldBeMember) await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.GROUP_MEMBER, shouldBeMember);
+      if (shouldBeMember && globalThis.ATTestAI.flags(actor).getFlag(MODULE_ID, FLAGS.GROUP_ORDER) == null) await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.GROUP_ORDER, nextOrder);
       if (shouldBeMember) nextOrder += 10;
     }
 
     // Keep the old setting in sync for backwards compatibility with v0.1.0.
-    await game.settings.set(MODULE_ID, "groupActors", JSON.stringify(values.selectedActorIds));
+    await globalThis.ATTestAI.settings.set(MODULE_ID, "groupActors", JSON.stringify(values.selectedActorIds));
 
     ui.notifications.info("Adventurer's Tome settings saved.");
     this.activeTab = values.defaultLanding === "home" || values.nav[values.defaultLanding] ? values.defaultLanding : "home";
@@ -8571,14 +8693,14 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onOpenQuickNpc() {
     if (!game.user.isGM) return;
-    const quickNpc = game.modules.get(MODULE_ID)?.api?.quickNpc;
+    const quickNpc = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.quickNpc;
     if (!quickNpc?.open) return ui.notifications.warn("Adventurer's Tome: Quick NPC is unavailable.");
     await quickNpc.open();
   }
 
   static async _onOpenImporter(_event, target) {
     if (!game.user.isGM) return;
-    if (game.modules.get(MODULE_ID)?.api?.transfer?.open) return game.modules.get(MODULE_ID).api.transfer.open({tab:"import",mode:target?.dataset?.importMode||"auto"});
+    if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.transfer?.open) return globalThis.ATTestAI.modules.get(MODULE_ID).api.transfer.open({tab:"import",mode:target?.dataset?.importMode||"auto"});
     const mode = String(target?.dataset?.importMode || "auto");
     this.importMode = IMPORT_MODES[mode] ? mode : "auto";
     this.importError = "";
@@ -8678,7 +8800,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       content: "<p>Clear the Adventurer's Tome import audit history?</p><p>This does <strong>not</strong> delete any imported Journals.</p>"
     });
     if (!proceed) return;
-    await game.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, "[]");
+    await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, "[]");
     await this.render({ parts: ["main"] });
   }
 
@@ -8802,7 +8924,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async _onInitializeStructure() {
     if (!game.user.isGM) return;
-    const bootstrap = game.modules.get(MODULE_ID)?.api?.folderQuickCreate?.bootstrap;
+    const bootstrap = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.folderQuickCreate?.bootstrap;
     if (bootstrap) {
       const result = await bootstrap();
       if (!result) return;
@@ -8922,7 +9044,7 @@ function installLauncher() {
   };
   button._atRefreshPosition = () => applyPos(currentPos);
 
-  const saved = safeJSONParse(game.settings.get(MODULE_ID, "launcherPosition"), null);
+  const saved = safeJSONParse(globalThis.ATTestAI.settings.get(MODULE_ID, "launcherPosition"), null);
   applyPos(saved && typeof saved === "object" ? saved : defaultPos());
 
   let drag = null;
@@ -8962,7 +9084,7 @@ function installLauncher() {
     if (moved) {
       suppressNextClick = true;
       const pos = applyPos(currentPos);
-      await game.settings.set(MODULE_ID, "launcherPosition", JSON.stringify(pos));
+      await globalThis.ATTestAI.settings.set(MODULE_ID, "launcherPosition", JSON.stringify(pos));
     }
   };
 
@@ -8979,7 +9101,7 @@ function installLauncher() {
   });
   button.addEventListener("contextmenu", async (event) => {
     event.preventDefault();
-    await game.settings.set(MODULE_ID, "launcherPosition", "");
+    await globalThis.ATTestAI.settings.set(MODULE_ID, "launcherPosition", "");
     applyPos(defaultPos());
     ui.notifications.info("Adventurer's Tome launcher position reset.");
   });
@@ -9004,7 +9126,7 @@ Hooks.once("ready", async () => {
       ui.notifications.error("Adventurer's Tome: GM private-data migration failed. Your legacy data was not intentionally deleted; check the console before editing GM Notes.");
     }
   }
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) throw new Error("Adventurer's Tome module package was not found during ready.");
   if (!module.api || typeof module.api !== "object") module.api = {};
   const coreApi = {
@@ -9032,7 +9154,7 @@ Hooks.once("ready", async () => {
     canView: (document, user = game.user) => canViewInTome(document, user),
     setAccess: async (document, access = {}) => {
       if (!game.user.isGM) throw new Error("Only a GM can change Adventurer's Tome access metadata.");
-      if (!document?.setFlag) throw new Error("A Foundry Document is required.");
+      if (!globalThis.ATTestAI.flags(document)?.setFlag) throw new Error("A Foundry Document is required.");
       const notes = Array.isArray(access.notes) ? access.notes.map(normalizeGmNote) : normalizeGmNotes(access);
       const result = await saveTomeAccess(document, { visibility: access.visibility, discovered: access.discovered !== false, notes });
       if (tomeApp?.rendered) await tomeApp.render({ parts: ["main"] });
@@ -9056,8 +9178,8 @@ Hooks.once("ready", async () => {
     refForDocument: (documentOrUuid) => {
       let document = documentOrUuid;
       if (typeof documentOrUuid === "string") {
-        try { document = game.modules.get(MODULE_ID)?.api?.universalDocuments?.resolve?.(documentOrUuid) || fromUuidSync?.(documentOrUuid) || null; }
-        catch (_err) { document = game.modules.get(MODULE_ID)?.api?.universalDocuments?.resolve?.(documentOrUuid) || null; }
+        try { document = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.universalDocuments?.resolve?.(documentOrUuid) || fromUuidSync?.(documentOrUuid) || null; }
+        catch (_err) { document = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.universalDocuments?.resolve?.(documentOrUuid) || null; }
       }
       return tomeRefForDocument(document);
     },
@@ -9171,8 +9293,8 @@ Hooks.once("ready", async () => {
     getRecentItems: () => getRecentRefs(),
     setLinks: async (document, links = {}) => {
       if (!game.user.isGM) throw new Error("Only a GM can change Adventurer's Tome links.");
-      if (!document?.setFlag) throw new Error("A Foundry Document is required.");
-      await document.setFlag(MODULE_ID, FLAGS.LINKS, links);
+      if (!globalThis.ATTestAI.flags(document)?.setFlag) throw new Error("A Foundry Document is required.");
+      await globalThis.ATTestAI.flags(document).setFlag(MODULE_ID, FLAGS.LINKS, links);
       if (tomeApp?.rendered) await tomeApp.render({ parts: ["main"] });
       return getTomeLinks(document);
     },
@@ -9182,7 +9304,7 @@ Hooks.once("ready", async () => {
       if (!actor) throw new Error("Actor not found.");
       const facts = Array.isArray(profile.facts) ? profile.facts : [];
       const relations = Array.isArray(profile.relations) ? profile.relations : [];
-      await actor.setFlag(MODULE_ID, FLAGS.PROFILE, {
+      await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.PROFILE, {
         ...profile,
         facts: facts.filter((fact) => factVisibility(fact?.visibility) !== "gm"),
         relations: relations.filter((relation) => factVisibility(relation?.visibility) !== "gm")
@@ -9196,7 +9318,7 @@ Hooks.once("ready", async () => {
       const entry = typeof entryOrId === "string" ? game.journal.get(entryOrId) : entryOrId;
       if (!entry) throw new Error("Journal entry not found.");
       const facts = Array.isArray(profile.facts) ? profile.facts : [];
-      await entry.setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, { ...profile, facts: facts.filter((fact) => factVisibility(fact?.visibility) !== "gm") });
+      await globalThis.ATTestAI.flags(entry).setFlag(MODULE_ID, FLAGS.WORLD_PROFILE, { ...profile, facts: facts.filter((fact) => factVisibility(fact?.visibility) !== "gm") });
       await setPrivateOverlay(entry, { facts: facts.filter((fact) => factVisibility(fact?.visibility) === "gm") });
       if (tomeApp?.rendered) await tomeApp.render({ parts: ["main"] });
       return getWorldProfile(entry);
@@ -9207,7 +9329,7 @@ Hooks.once("ready", async () => {
     getImportHistory: () => { if (!game.user.isGM) return []; return getImportHistory(); },
     getImportHistoryView: () => { if (!game.user.isGM) return []; return getImportHistoryView(); },
     hasImportUndo: () => Boolean(game.user.isGM && getLastImportUndo()?.transactionId),
-    clearImportHistory: async () => { if (!game.user.isGM) throw new Error("Only a GM can clear import history."); await game.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, "[]"); },
+    clearImportHistory: async () => { if (!game.user.isGM) throw new Error("Only a GM can clear import history."); await globalThis.ATTestAI.settings.set(MODULE_ID, PRIVATE_IMPORT_HISTORY_SETTING, "[]"); },
     exportPortable: ({ playerSafe = false } = {}) => { if (!game.user.isGM) throw new Error("Only a GM can export Tome campaign data."); return buildPortableTomeExport({ playerSafe }); },
     exportBackup: () => { if (!game.user.isGM) throw new Error("Only a GM can export a private Tome backup."); return buildFullTomeBackup(); },
     getGmNotebook: () => { if (!game.user.isGM) return { rows: [], nextSession: 0, stats: {} }; return buildGmNotebookRows(); },
@@ -9222,9 +9344,9 @@ Hooks.once("ready", async () => {
       if (!game.user.isGM) throw new Error("Only a GM can change Adventurer's Tome group membership.");
       const actor = typeof actorOrId === "string" ? game.actors.get(actorOrId) : actorOrId;
       if (!actor) throw new Error("Actor not found.");
-      await actor.setFlag(MODULE_ID, FLAGS.GROUP_MEMBER, Boolean(enabled));
-      if (enabled && actor.getFlag(MODULE_ID, FLAGS.GROUP_ORDER) == null) {
-        await actor.setFlag(MODULE_ID, FLAGS.GROUP_ORDER, (getGroupActors().length + 1) * 10);
+      await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.GROUP_MEMBER, Boolean(enabled));
+      if (enabled && globalThis.ATTestAI.flags(actor).getFlag(MODULE_ID, FLAGS.GROUP_ORDER) == null) {
+        await globalThis.ATTestAI.flags(actor).setFlag(MODULE_ID, FLAGS.GROUP_ORDER, (getGroupActors().length + 1) * 10);
       }
       if (tomeApp?.rendered) await tomeApp.render({ parts: ["main"] });
       return actor;
@@ -9257,7 +9379,7 @@ Hooks.once("ready", async () => {
     control.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      try { await game.modules.get(MODULE_ID)?.api?.openPrivateVault?.(actor); }
+      try { await globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.openPrivateVault?.(actor); }
       catch (error) {
         console.error("Adventurer's Tome | Could not open token Private Vault", error);
         ui.notifications.warn("Adventurer's Tome: Could not open Private Vault for this token.");
@@ -9266,7 +9388,7 @@ Hooks.once("ready", async () => {
     column.appendChild(control);
   });
 
-  game.socket.on(`module.${MODULE_ID}`, async (payload = {}) => {
+  globalThis.ATTestAI.socket.on(`module.${MODULE_ID}`, async (payload = {}) => {
     if (payload?.type !== "showTomeRef" || game.user.isGM) return;
     const sender = game.users?.get?.(String(payload.senderId || ""));
     if (!sender?.isGM) return;
@@ -9286,7 +9408,7 @@ Hooks.once("ready", async () => {
     await app._openRefKey(refKey, { record: true });
     ui.notifications.info(`${targetDocument.name} was revealed by the GM.`);
   });
-  console.log(`Adventurer's Tome | v${game.modules.get(MODULE_ID)?.version || "?"} ready for Foundry VTT ${game.version}`);
+  console.log(`Adventurer's Tome | v${globalThis.ATTestAI.modules.get(MODULE_ID)?.version || "?"} ready for Foundry VTT ${game.version}`);
   } finally { globalThis.AdventurersTomeStartup?.end(atReadyToken); }
 });
 
@@ -9355,3 +9477,7 @@ Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
   if (!active) window.setTimeout(flushQueuedTomeRefresh, 0);
 });
 Hooks.on("adventurersTomeAuthoringSaveSettled", () => window.setTimeout(flushQueuedTomeRefresh, 0));
+
+
+// Invalidate before the next view prepares, including review writes and hidden-app edits.
+for (const event of ["createActor", "updateActor", "deleteActor", "createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage", "createFolder", "updateFolder", "deleteFolder", "updateUser", "updateSetting", "updateWorld", "adventurersTomeCampaignDiscoveryUpdated", "adventurersTomeContactProjectionUpdated", "adventurersTomeRelationshipEvidenceUpdated"]) Hooks.on(event, (...args) => {if(event === 'updateSetting' && tomePresentationOnlySetting(args[0]))return;invalidateTomeViewRows();});

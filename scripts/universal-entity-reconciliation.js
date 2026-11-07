@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-universal-entity-reconciliation";
 const VERSION = 1;
@@ -19,6 +20,7 @@ const AMBIGUOUS_MARGIN = 8;
 
 let lastSnapshot = null;
 let analyzeTimer = null;
+let analysisGeneration = 0;
 
 const stats = {
   analyses:0,
@@ -61,9 +63,19 @@ function tokens(value) {
   return normalized ? normalized.split(" ").filter(Boolean) : [];
 }
 
-function tokenSimilarity(a, b) {
-  const left = new Set(tokens(a));
-  const right = new Set(tokens(b));
+function nameFeatures(value, cache) {
+  const key = clean(value);
+  if (cache?.has(key)) return cache.get(key);
+  const normalized = normalizeText(key), grams = bigrams(normalized), counts = new Map();
+  for (const gram of grams) counts.set(gram, (counts.get(gram) || 0) + 1);
+  const features = {normalized, tokens:new Set(normalized ? normalized.split(" ") : []), grams, counts};
+  cache?.set(key, features);
+  return features;
+}
+
+function tokenSimilarity(a, b, cache) {
+  const left = nameFeatures(a, cache).tokens;
+  const right = nameFeatures(b, cache).tokens;
   if (!left.size || !right.size) return 0;
   let overlap = 0;
   for (const token of left) if (right.has(token)) overlap += 1;
@@ -79,24 +91,18 @@ function bigrams(value) {
   return out;
 }
 
-function diceSimilarity(a, b) {
-  const left = bigrams(a);
-  const right = bigrams(b);
+function diceSimilarity(a, b, cache) {
+  const leftFeatures = nameFeatures(a, cache), rightFeatures = nameFeatures(b, cache);
+  const left = leftFeatures.grams;
+  const right = rightFeatures.grams;
   if (!left.length || !right.length) return 0;
-  const counts = new Map();
-  for (const gram of left) counts.set(gram, (counts.get(gram) || 0) + 1);
   let overlap = 0;
-  for (const gram of right) {
-    const count = counts.get(gram) || 0;
-    if (count <= 0) continue;
-    overlap += 1;
-    counts.set(gram, count - 1);
-  }
+  for (const [gram, count] of rightFeatures.counts) overlap += Math.min(count, leftFeatures.counts.get(gram) || 0);
   return (2 * overlap) / (left.length + right.length);
 }
 
 function discoveryApi() {
-  return game.modules.get(MODULE_ID)?.api?.discovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.discovery || null;
 }
 
 function entityDocumentName(entity) {
@@ -163,7 +169,7 @@ function semanticEvidence(unresolved, candidate) {
   return { score, evidence };
 }
 
-function candidateScore(unresolved, candidate) {
+function candidateScore(unresolved, candidate, cache) {
   if (!kindCompatible(unresolved, candidate)) return null;
 
   const unresolvedUuid = clean(unresolved?.canonicalUuid);
@@ -173,14 +179,14 @@ function candidateScore(unresolved, candidate) {
       candidate,
       score:100,
       exactUuid:true,
-      exactName:normalizeText(unresolved.name) === normalizeText(candidate.name),
+      exactName:nameFeatures(unresolved.name, cache).normalized === nameFeatures(candidate.name, cache).normalized,
       corroborating:1,
       reasons:[{ type:"canonical-uuid", weight:100, detail:"explicit canonical UUID match" }]
     };
   }
 
-  const sourceName = normalizeText(unresolved?.name);
-  const targetName = normalizeText(candidate?.name);
+  const sourceName = nameFeatures(unresolved?.name, cache).normalized;
+  const targetName = nameFeatures(candidate?.name, cache).normalized;
   if (!sourceName || !targetName) return null;
 
   let score = candidateScope(candidate) === "world" ? WORLD_FIRST_BONUS : 0;
@@ -191,8 +197,8 @@ function candidateScore(unresolved, candidate) {
     score += 60;
     reasons.push({ type:"exact-name", weight:60, detail:"exact normalized name" });
   } else {
-    const tokenScore = tokenSimilarity(sourceName, targetName);
-    const diceScore = diceSimilarity(sourceName, targetName);
+    const tokenScore = tokenSimilarity(sourceName, targetName, cache);
+    const diceScore = diceSimilarity(sourceName, targetName, cache);
     const similarity = Math.max(tokenScore, diceScore);
 
     if (similarity >= 0.8) {
@@ -237,11 +243,14 @@ function publicCandidate(scored) {
   };
 }
 
-function classify(unresolved, candidates) {
-  const scored = candidates
-    .map((candidate) => candidateScore(unresolved, candidate))
-    .filter(Boolean)
-    .sort((a, b) => {
+function* classifySteps(unresolved, candidates, cache) {
+  const scored = [];
+  for (const candidate of candidates) {
+    const score = candidateScore(unresolved, candidate, cache);
+    if (score) scored.push(score);
+    yield;
+  }
+  scored.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       const aWorld = candidateScope(a.candidate) === "world" ? 1 : 0;
       const bWorld = candidateScope(b.candidate) === "world" ? 1 : 0;
@@ -307,6 +316,17 @@ function classify(unresolved, candidates) {
   };
 }
 
+function classify(unresolved, candidates, cache = new Map()) {
+  const steps = classifySteps(unresolved, candidates, cache);let next;
+  do { next = steps.next(); } while (!next.done);
+  return next.value;
+}
+
+async function classifyCooperatively(unresolved, candidates, cache, checkpoint) {
+  const steps = classifySteps(unresolved, candidates, cache);
+  while (true) { const next = steps.next(); if (next.done) return next.value; await checkpoint(); }
+}
+
 function resetCounts() {
   stats.reconcilable = 0;
   stats.semanticOnly = 0;
@@ -319,6 +339,16 @@ function resetCounts() {
 }
 
 async function analyze(options = {}) {
+  const generation = ++analysisGeneration;
+  const owner = () => `${game.world?.id || ''}:${game.user?.id || ''}`, expectedOwner = owner();
+  let sliceStarted = globalThis.performance?.now?.() ?? Date.now();
+  const checkpoint = async () => {
+    const now = globalThis.performance?.now?.() ?? Date.now();
+    if (now - sliceStarted < 4) return;
+    if (globalThis.AdventurersTomeBackground?.checkpoint) await globalThis.AdventurersTomeBackground.checkpoint();
+    else await new Promise(resolve => window.setTimeout(resolve, 0));
+    sliceStarted = globalThis.performance?.now?.() ?? Date.now();
+  };
   stats.analyses += 1;
   resetCounts();
 
@@ -335,9 +365,11 @@ async function analyze(options = {}) {
   const candidates = (Array.isArray(source.entities) ? source.entities : [])
     .filter((entity) => entity?.state === "resolved" || entity?.state === "compendium");
 
-  const results = reconcilable.map((entity) => {
-    const match = classify(entity, candidates);
-    return {
+  const results = [], features = new Map();
+  for (const entity of reconcilable) {
+    const match = await classifyCooperatively(entity, candidates, features, checkpoint);
+    if (owner() !== expectedOwner || generation !== analysisGeneration) return clone(lastSnapshot);
+    results.push({
       entity:{
         key:clean(entity?.key),
         kind:clean(entity?.kind),
@@ -350,8 +382,9 @@ async function analyze(options = {}) {
       ...match,
       autoLinked:false,
       readOnly:true
-    };
-  });
+    });
+  }
+  if (owner() !== expectedOwner || generation !== analysisGeneration) return clone(lastSnapshot);
 
   stats.reconcilable = results.length;
   stats.semanticOnly = semanticOnly.length;
@@ -433,7 +466,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.reconciliation = publicApi;
@@ -461,5 +494,5 @@ Hooks.once("ready", () => {
 Hooks.on("adventurersTomeCampaignDiscoveryUpdated", () => scheduleAnalyze("discovery-updated"));
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.reconciliation !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.reconciliation !== publicApi) attach();
 });

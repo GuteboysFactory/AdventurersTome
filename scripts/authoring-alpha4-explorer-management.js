@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATFM_MODULE_ID = "adventurers-tome";
 const ATFM_ROOT = "#adventurers-tome-app";
 const ATFM_SECTIONS = Object.freeze({
@@ -64,7 +65,7 @@ function atFmIsSectionRoot(folder, section) {
   if (!folder || folder.type !== "JournalEntry") return false;
   const label = ATFM_SECTIONS[section]?.label;
   if (folder.name !== label) return false;
-  if (String(folder.getFlag?.(ATFM_MODULE_ID, "section") || "") === section) return true;
+  if (String(globalThis.ATTestAI.flags(folder).getFlag?.(ATFM_MODULE_ID, "section") || "") === section) return true;
   return atFmAncestors(folder).some((ancestor) => ancestor.id !== folder.id && /adventurer'?s tome/i.test(String(ancestor.name || "")));
 }
 
@@ -93,6 +94,7 @@ function atFmEnsureToolbar() {
   if (!state) return;
   const explorer = state.page.querySelector(".at-cw-explorer");
   if (!explorer) return;
+  if (explorer.classList.contains("at-twt-explorer")) { explorer.querySelector(":scope > .at-fm-folder-tools")?.remove(); return; }
 
   let tools = explorer.querySelector(":scope > .at-fm-folder-tools");
   if (!tools) {
@@ -169,7 +171,7 @@ async function atFmCreateFolder(section) {
   if (!name) return;
 
   try {
-    const backendParity = game.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
+    const backendParity = globalThis.ATTestAI.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
     if (section === "world" && backendParity?.createFolder) {
       const routed = await backendParity.createFolder(parent, name);
       if (routed) {
@@ -204,7 +206,7 @@ async function atFmRenameFolder(section) {
   if (!name || name === folder.name) return;
 
   try {
-    const backendParity = game.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
+    const backendParity = globalThis.ATTestAI.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
     if (section === "world" && backendParity?.isManagedMirror?.(folder)) {
       const routed = await backendParity.renameFolder?.(folder, name);
       if (!routed) throw new Error("Could not route backend folder rename.");
@@ -244,7 +246,7 @@ async function atFmDeleteFolder(section) {
 
   const parentId = atFmParentId(folder);
   try {
-    const backendParity = game.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
+    const backendParity = globalThis.ATTestAI.modules.get(ATFM_MODULE_ID)?.api?.backendFolderParity || null;
     if (section === "world" && backendParity?.isManagedMirror?.(folder)) {
       const routed = await backendParity.deleteFolder?.(folder);
       if (!routed) throw new Error("Could not route backend folder deletion.");

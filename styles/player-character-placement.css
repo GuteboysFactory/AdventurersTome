@@ -1,0 +1,5 @@
+.at-player-character-menu{position:fixed;z-index:10000;min-width:225px;max-width:300px;padding:7px;background:linear-gradient(135deg,#21190f,#100d09);border:1px solid #9d793e;border-radius:6px;box-shadow:0 8px 30px #0009;color:#ead9b5;font-family:var(--font-primary,serif)}
+.at-player-character-menu button{display:block;width:100%;padding:9px 11px;border:0;border-radius:3px;background:transparent;color:#f0cf87;font:inherit;text-align:left;cursor:pointer;box-shadow:none}
+.at-player-character-menu button:hover,.at-player-character-menu button:focus-visible{background:#a47c312b;outline:1px solid #b99551}
+.at-player-character-menu button:disabled{opacity:.55;cursor:default;outline:0;background:transparent}
+.at-player-character-menu small{display:block;padding:5px 11px 3px;color:#bdae91;font-size:11px;line-height:1.45;overflow-wrap:anywhere}

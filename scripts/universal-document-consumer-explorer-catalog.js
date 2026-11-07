@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATEC_ID = "adventurers-tome";
 const ATEC_ROOT = "#adventurers-tome-app";
 
@@ -37,7 +38,7 @@ const atecStats = {
 };
 
 function atecModule() {
-  return game.modules.get(ATEC_ID);
+  return globalThis.ATTestAI.modules.get(ATEC_ID);
 }
 
 function atecResolveJournal(id) {

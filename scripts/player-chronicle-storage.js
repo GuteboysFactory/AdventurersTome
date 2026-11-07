@@ -1,16 +1,17 @@
+globalThis.ATTestAI.assertEnabled();
 // User settings persist all text. Chat contains delivery IDs only. Note text
 // travels through addressed User.query calls, never a module broadcast.
 const PCSTORE_ID='adventurers-tome',PCSTORE_KEY='playerChronicleV1';
 const PC_RECEIVE=PCSTORE_ID+'.chronicleReceive',PC_VERIFY=PCSTORE_ID+'.chronicleVerify',PC_RETRY=PCSTORE_ID+'.chronicleRetry';
 let pcStoreTail=Promise.resolve();
-const pcRead=()=>structuredClone(game.settings.get(PCSTORE_ID,PCSTORE_KEY)||{version:1,books:{},inbox:{}});
+const pcRead=()=>structuredClone(globalThis.ATTestAI.settings.get(PCSTORE_ID,PCSTORE_KEY)||{version:1,books:{},inbox:{}});
 function pcWrite(change) {
-  const job=pcStoreTail.catch(()=>{}).then(async()=>{const state=pcRead();if(state.version!==1)throw Error('Unsupported Chronicle storage version.');state.books||={};state.inbox||={};await change(state);await game.settings.set(PCSTORE_ID,PCSTORE_KEY,state);});
+  const job=pcStoreTail.catch(()=>{}).then(async()=>{const state=pcRead();if(state.version!==1)throw Error('Unsupported Chronicle storage version.');state.books||={};state.inbox||={};await change(state);await globalThis.ATTestAI.settings.set(PCSTORE_ID,PCSTORE_KEY,state);});
   pcStoreTail=job;return job;
 }
 function pcVirtualBook(ownerId,kind,inbox=false) {
   const key=ownerId+':'+kind;
-  return {uuid:'Chronicle.'+ownerId+'.'+kind,ownership:{[ownerId]:3},
+  return {testaiVirtualFlags:true,uuid:'Chronicle.'+ownerId+'.'+kind,ownership:{[ownerId]:3},
     getFlag:(_scope,name)=>name==='chronicleV1'?{version:1,ownerId,kind}:name==='chronicleEntries'?(inbox?pcRead().inbox?.[key]:pcRead().books?.[kind])||{}:undefined,
     testUserPermission:(user,level)=>level==='OWNER'?user.id===ownerId:user.id===ownerId||kind==='party'||kind==='gm'&&user.isGM,
     setFlag:async(_scope,path,value)=>{
@@ -24,7 +25,7 @@ function pcStorageBooks() {
   for(const key of Object.keys(pcRead().inbox||{})){const [ownerId,kind]=key.split(':');if(['gm','party'].includes(kind))own.push(pcVirtualBook(ownerId,kind,true));}
   return own;
 }
-const pcPacket=message=>message?.getFlag?.(PCSTORE_ID,'chronicleDelivery');
+const pcPacket=message=>globalThis.ATTestAI.flags(message)?.getFlag?.(PCSTORE_ID,'chronicleDelivery');
 const pcMessage=id=>game.messages?.get?.(id)||game.messages?.contents?.find(message=>message.id===id);
 function pcPayload(record){return record?.deleted?{id:record.id,revision:record.revision,deleted:true}:{id:record?.id,revision:record?.revision,note:structuredClone(record?.note)};}
 function pcValid(message) {
@@ -109,7 +110,7 @@ async function pcImportDeliveries() {
   }
 }
 Hooks.once('init',()=>{
-  game.settings.register(PCSTORE_ID,PCSTORE_KEY,{scope:'user',config:false,type:Object,default:{version:1,books:{},inbox:{}}});
+  globalThis.ATTestAI.settings.register(PCSTORE_ID,PCSTORE_KEY,{scope:'user',config:false,type:Object,default:{version:1,books:{},inbox:{}}});
   CONFIG.queries[PC_RECEIVE]=pcReceive;
   CONFIG.queries[PC_VERIFY]=pcVerify;
   CONFIG.queries[PC_RETRY]=async({messageId}={})=>{const message=pcMessage(messageId);if(pcCurrent(message))await pcSend(message,{force:true});return true;};
@@ -131,7 +132,7 @@ async function pcImportOwn(bundle,packageId){
   return result;
 }
 async function pcMigrationReceipts(){
-  const rows=(game.messages?.contents||[]).filter(message=>message.author?.isGM&&message.whisper?.includes(game.user.id)).map(message=>message.getFlag(PCSTORE_ID,'migrationReceiptV1')).filter(row=>row?.version===1&&row.targetOwnerId===game.user.id&&Array.isArray(row.links));
+  const rows=(game.messages?.contents||[]).filter(message=>message.author?.isGM&&message.whisper?.includes(game.user.id)).map(message=>globalThis.ATTestAI.flags(message).getFlag(PCSTORE_ID,'migrationReceiptV1')).filter(row=>row?.version===1&&row.targetOwnerId===game.user.id&&Array.isArray(row.links));
   if(rows.length)await pcWrite(state=>{state.migrationReceipts||=[];for(const row of rows){state.migrationReceipts=state.migrationReceipts.filter(old=>old.packageId!==row.packageId||old.sourceOwnerId!==row.sourceOwnerId);state.migrationReceipts.push(structuredClone(row));}});
   return pcRead().migrationReceipts||[];
 }

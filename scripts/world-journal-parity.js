@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATWJ_MODULE_ID = "adventurers-tome";
 const ATWJ_ROOT = "#adventurers-tome-app";
 const ATWJ_SUPPORTED_TYPES = new Set(["text", "image", "video", "pdf"]);
@@ -126,8 +127,8 @@ async function atWjRenderPage(page, index) {
 }
 
 function atWjPreferredOverviewId(journal, pages) {
-  const profile = journal.getFlag?.(ATWJ_MODULE_ID, "worldProfile");
-  const preferred = String(journal.getFlag?.(ATWJ_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
+  const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATWJ_MODULE_ID, "worldProfile");
+  const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATWJ_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
   if (preferred && pages.some((page) => page.id === preferred)) return preferred;
   return pages.find((page) => atWjType(page) === "text")?.id || "";
 }
@@ -140,7 +141,7 @@ async function atWjEnhanceWorld(root) {
   if (!journalId) return;
   const journal = game.journal?.get(journalId);
   if (!journal) return;
-  if (journal.getFlag?.(ATWJ_MODULE_ID, "backendProjectionV1")?.managed === true) return;
+  if (globalThis.ATTestAI.flags(journal).getFlag?.(ATWJ_MODULE_ID, "backendProjectionV1")?.managed === true) return;
 
   const existing = world.querySelector(`.at-world-journal-parity[data-journal-id="${CSS.escape(journalId)}"]`);
   const stamp = `${journalId}:${journal._stats?.modifiedTime || journal._stats?.updatedTime || journal.pages?.size || 0}:${journal.pages?.contents?.map((p) => `${p.id}:${p._stats?.modifiedTime || p.sort || 0}`).join("|")}`;

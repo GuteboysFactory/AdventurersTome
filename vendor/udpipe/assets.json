@@ -1,0 +1,34 @@
+{
+  "en.udpipe": {
+    "bytes": 16368326,
+    "sha256": "20432a6f87b1f258927207b8fbd2dc21ebff9722b381b7a36cef34c8c9a380dc"
+  },
+  "LICENSE-MPL-2.0.txt": {
+    "bytes": 16725,
+    "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+  },
+  "MODEL-SOURCE-README.txt": {
+    "bytes": 7000,
+    "sha256": "557344e213b9fa62c1f929f0daeaa6de58548bfe76edc1b1ef83e17217ae6fe0"
+  },
+  "NOTICE.txt": {
+    "bytes": 603,
+    "sha256": "4635678700c1b83c998f49001db7124de1f3e10a83f0ed477689e2288c6d81ec"
+  },
+  "RUNTIME-LICENSE.txt": {
+    "bytes": 16726,
+    "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
+  },
+  "runtime.mjs": {
+    "bytes": 49645,
+    "sha256": "56360a3a8f485d3f8fa8deb8919c9d731105df570d16ffe5a5b1669d8e1455a8"
+  },
+  "sv.udpipe": {
+    "bytes": 8134707,
+    "sha256": "a2bdcd314c2f666628d02163954aa5a225df387bb2241699d6aca52f900aaa4a"
+  },
+  "udpipe.wasm": {
+    "bytes": 499779,
+    "sha256": "685277d5d8e31f0ef614493308a370557dcc70555865f332ddc723079911f5a0"
+  }
+}

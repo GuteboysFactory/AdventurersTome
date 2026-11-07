@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-semantic-contact-projection";
 const VERSION = 1;
@@ -79,18 +80,20 @@ async function ensureContactFolder() {
   let world = findFolder("World", root);
   if (!world) world = await ensureFolder("World", root, { section:"world" });
 
-  let contacts = findFolder(CONTACT_FOLDER, world);
+  let contacts = [...(game.folders?.contents ?? [])].find(folder => folder.type === 'JournalEntry'
+    && globalThis.ATTestAI.modules?.get?.('adventurers-tome')?.api?.worldTree?.ownsBackendDocument?.(folder) === true
+    && (globalThis.ATTestAI.flags(folder).getFlag?.(MODULE_ID,'standardFolder') === 'contact' || globalThis.ATTestAI.flags(folder).getFlag?.(MODULE_ID,'worldCategory') === 'contact')) || findFolder(CONTACT_FOLDER, world);
   if (!contacts) contacts = await ensureFolder(CONTACT_FOLDER, world, { worldCategory:"contact" });
 
   return { root, world, contacts };
 }
 
 function discoveryApi() {
-  return game.modules.get(MODULE_ID)?.api?.discovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.discovery || null;
 }
 
 function projectionOf(journal) {
-  const raw = journal?.getFlag?.(MODULE_ID, PROJECTION_FLAG);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(MODULE_ID, PROJECTION_FLAG);
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
 }
 
@@ -392,7 +395,7 @@ async function ensureOverview(journal, summary) {
     },
     sort:100000
   }]);
-  if (created?.[0]) await journal.setFlag(MODULE_ID, "worldSyncPage", created[0].id);
+  if (created?.[0]) await globalThis.ATTestAI.flags(journal).setFlag(MODULE_ID, "worldSyncPage", created[0].id);
 }
 
 async function createProjection(group, folder) {
@@ -435,14 +438,14 @@ async function createProjection(group, folder) {
 
 async function updateProjection(journal, group, folder) {
   const previousProjection = projectionOf(journal) || {};
-  const currentProfile = journal.getFlag?.(MODULE_ID, WORLD_PROFILE_FLAG) || {};
+  const currentProfile = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, WORLD_PROFILE_FLAG) || {};
   const profileData = projectionProfile(group, currentProfile, previousProjection);
   const permissions = await managedProjectionOwnership(group);
   const desiredOwnership = permissions.ownership;
 
   const update = {
     name:group.name || journal.name,
-    folder:folder.id,
+    folder:globalThis.ATTestAI.modules?.get?.('adventurers-tome')?.api?.worldTree?.ownsBackendDocument?.(journal)===true ? (parentId(journal)||null) : folder.id,
     [`flags.${MODULE_ID}.${WORLD_PROFILE_FLAG}`]:profileData.profile,
     [`flags.${MODULE_ID}.${PROJECTION_FLAG}`]:{
       ...clone(previousProjection),
@@ -508,6 +511,7 @@ async function markInactive(journal) {
 }
 
 async function sync(options = {}) {
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
   const startupToken=globalThis.AdventurersTomeStartup?.begin("contact-projection");
   try {
   if (!game.user?.isGM) return {
@@ -547,6 +551,7 @@ async function sync(options = {}) {
     const seen = new Set();
 
     for (const group of groups) {
+      if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.checkpoint();
       seen.add(group.key);
       const journal = existing.get(group.key);
       if (!journal) {
@@ -689,7 +694,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.contactProjections = publicApi;
@@ -720,5 +725,5 @@ Hooks.on("adventurersTomeCampaignDiscoveryUpdated", () => scheduleSync("discover
 Hooks.on("updateActor", () => scheduleSync("actor-updated", 160));
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.contactProjections !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.contactProjections !== publicApi) attach();
 });

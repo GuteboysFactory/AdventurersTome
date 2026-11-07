@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATUTC_ID = "adventurers-tome";
 
 let atutcAttached = false;
@@ -10,7 +11,7 @@ const atutcStats = {
 };
 
 function atutcModule() {
-  return game.modules.get(ATUTC_ID);
+  return globalThis.ATTestAI.modules.get(ATUTC_ID);
 }
 
 function atutcCount(consumer, field) {

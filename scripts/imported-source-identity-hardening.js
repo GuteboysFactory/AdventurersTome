@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATII_ID = "adventurers-tome";
 const ATII_ROOT = "#adventurers-tome-app";
 const ATII_SOURCE_UUID = "quickImportSourceUuid";
@@ -17,7 +18,7 @@ let atiiFolderLocks = 0;
 const atiiRecent = [];
 
 function atiiModule() {
-  return game.modules.get(ATII_ID);
+  return globalThis.ATTestAI.modules.get(ATII_ID);
 }
 
 function atiiParentId(folder) {
@@ -38,7 +39,7 @@ function atiiAncestors(folder) {
 
 function atiiIsWorldRoot(folder) {
   if (!folder || folder.type !== "JournalEntry" || folder.name !== "World") return false;
-  if (String(folder.getFlag?.(ATII_ID, "section") || "") === "world") return true;
+  if (String(globalThis.ATTestAI.flags(folder).getFlag?.(ATII_ID, "section") || "") === "world") return true;
   return atiiAncestors(folder).some((ancestor) => ancestor.id !== folder.id && /adventurer'?s tome/i.test(String(ancestor.name || "")));
 }
 
@@ -77,7 +78,7 @@ function atiiIsWorldJournal(journal) {
 }
 
 function atiiProfile(journal) {
-  const raw = journal?.getFlag?.(ATII_ID, ATII_PROFILE);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATII_ID, ATII_PROFILE);
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
@@ -99,9 +100,9 @@ function atiiDocumentRows() {
     globalThis.AdventurersTomeStartup?.count("imported-source-audit","documentsScanned");
     if (!atiiIsWorldJournal(journal)) continue;
     const profile = atiiProfile(journal);
-    const flagUuid = String(journal.getFlag?.(ATII_ID, ATII_SOURCE_UUID) || "").trim();
+    const flagUuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATII_ID, ATII_SOURCE_UUID) || "").trim();
     const profileUuid = String(profile.sourceUuid || "").trim();
-    const flagType = String(journal.getFlag?.(ATII_ID, ATII_SOURCE_TYPE) || "").trim();
+    const flagType = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATII_ID, ATII_SOURCE_TYPE) || "").trim();
     const profileType = String(profile.sourceDocumentType || "").trim();
     const sourceUuid = flagUuid || profileUuid;
     const sourceType = flagType || profileType;
@@ -128,7 +129,7 @@ function atiiFolderRows() {
   for (const folder of game.folders?.contents ?? []) {
     globalThis.AdventurersTomeStartup?.count("imported-source-audit","foldersScanned");
     if (folder.type !== "JournalEntry" || !atiiWorldRootFor(folder)) continue;
-    const sourceUuid = String(folder.getFlag?.(ATII_ID, ATII_SOURCE_FOLDER_UUID) || "").trim();
+    const sourceUuid = String(globalThis.ATTestAI.flags(folder).getFlag?.(ATII_ID, ATII_SOURCE_FOLDER_UUID) || "").trim();
     if (!sourceUuid) continue;
     rows.push({
       folderUuid: String(folder.uuid || `Folder.${folder.id}`),
@@ -256,11 +257,11 @@ async function atiiLockMirrorTree(sourceFolder, targetParent) {
   const direct = [...(game.folders?.contents ?? [])]
     .filter((folder) => folder.type === "JournalEntry" && atiiParentId(folder) === String(targetParent.id));
 
-  let mirror = direct.find((folder) => String(folder.getFlag?.(ATII_ID, ATII_SOURCE_FOLDER_UUID) || "") === sourceUuid) || null;
+  let mirror = direct.find((folder) => String(globalThis.ATTestAI.flags(folder).getFlag?.(ATII_ID, ATII_SOURCE_FOLDER_UUID) || "") === sourceUuid) || null;
   if (!mirror) {
     mirror = direct.find((folder) => String(folder.name || "") === String(sourceFolder.name || "")) || null;
     if (mirror && game.user?.isGM) {
-      await mirror.setFlag(ATII_ID, ATII_SOURCE_FOLDER_UUID, sourceUuid);
+      await globalThis.ATTestAI.flags(mirror).setFlag(ATII_ID, ATII_SOURCE_FOLDER_UUID, sourceUuid);
       atiiFolderLocks += 1;
       atiiPushRecent({ action: "lock-folder-name-fallback", sourceUuid, mirrorUuid: String(mirror.uuid || "") });
     }

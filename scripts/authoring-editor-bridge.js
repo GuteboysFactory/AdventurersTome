@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATEB_MODULE_ID = "adventurers-tome";
 const ATEB_ROOT = "#adventurers-tome-app";
 const ATEB_DELAY = 700;
@@ -5,7 +6,7 @@ const atEbEditors = new WeakMap();
 let atEbQueued = false;
 
 function atEbApp() {
-  try { return game.modules.get(ATEB_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
+  try { return globalThis.ATTestAI.modules.get(ATEB_MODULE_ID)?.api?.app?.(); } catch (_err) { return null; }
 }
 
 function atEbHoldAppRender() {
@@ -34,8 +35,8 @@ function atEbWorldJournal(root) {
 
 function atEbSyncPage(journal) {
   if (!journal) return null;
-  const profile = journal.getFlag?.(ATEB_MODULE_ID, "worldProfile") || {};
-  const preferred = String(journal.getFlag?.(ATEB_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
+  const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATEB_MODULE_ID, "worldProfile") || {};
+  const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATEB_MODULE_ID, "worldSyncPage") || profile?.syncPageId || "");
   const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   return pages.find((page) => page.id === preferred) || pages.find((page) => String(page.type || "text").toLowerCase() === "text") || null;
 }

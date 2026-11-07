@@ -1,8 +1,9 @@
+globalThis.ATTestAI.assertEnabled();
 // Explicit GM claims. No Contact creation, canonical fact write or inference.
 const pcEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function atRumourSave(button) {
   if(!game.user.isGM)throw Error('Only a GM can save rumours.');
-  const api=game.modules.get('adventurers-tome').api,c=api.playerChronicle;
+  const api=globalThis.ATTestAI.modules.get('adventurers-tome').api,c=api.playerChronicle;
   const sourceUuid=button.dataset.sourceUuid,source=await fromUuid(sourceUuid);
   if(!source||!api.canView(source))throw Error('The source is unavailable.');
   if(!c.ready())await c.provision();

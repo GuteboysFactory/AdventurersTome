@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATAW_MODULE_ID = "adventurers-tome";
 const ATAW_SETTING = "windowMode";
 const ATAW_MODES = Object.freeze({
@@ -34,13 +35,13 @@ function atAwParseState(raw = "") {
 }
 
 function atAwSavedState() {
-  try { return atAwParseState(game.settings.get(ATAW_MODULE_ID, "windowState") || ""); }
+  try { return atAwParseState(globalThis.ATTestAI.settings.get(ATAW_MODULE_ID, "windowState") || ""); }
   catch (_err) { return {}; }
 }
 
 function atAwMode() {
   try {
-    const value = String(game.settings.get(ATAW_MODULE_ID, ATAW_SETTING) || "auto");
+    const value = String(globalThis.ATTestAI.settings.get(ATAW_MODULE_ID, ATAW_SETTING) || "auto");
     return ATAW_MODES[value] ? value : "auto";
   } catch (_err) {
     return "auto";
@@ -179,8 +180,8 @@ async function atAwSaveState(app) {
     viewportHeight: Math.round(viewport.height)
   });
   // Rendering/observing an unchanged window is not a new user preference.
-  if (game.settings.get(ATAW_MODULE_ID, "windowState") === payload) return;
-  await game.settings.set(ATAW_MODULE_ID, "windowState", payload);
+  if (globalThis.ATTestAI.settings.get(ATAW_MODULE_ID, "windowState") === payload) return;
+  await globalThis.ATTestAI.settings.set(ATAW_MODULE_ID, "windowState", payload);
 }
 
 function atAwApply(app, { forceAutoDefault = false } = {}) {
@@ -220,7 +221,7 @@ function atAwInstallControl(app) {
     select?.addEventListener("change", async (event) => {
       const mode = String(event.currentTarget.value || "auto");
       if (!ATAW_MODES[mode]) return;
-      await game.settings.set(ATAW_MODULE_ID, ATAW_SETTING, mode);
+      await globalThis.ATTestAI.settings.set(ATAW_MODULE_ID, ATAW_SETTING, mode);
       atAwScheduleFit(app, { forceAutoDefault: mode === "auto" });
     });
   }
@@ -298,7 +299,7 @@ function atAwExposeApi(module, app) {
     get: () => atAwMode(),
     set: async (mode = "auto") => {
       const normalized = ATAW_MODES[String(mode)] ? String(mode) : "auto";
-      await game.settings.set(ATAW_MODULE_ID, ATAW_SETTING, normalized);
+      await globalThis.ATTestAI.settings.set(ATAW_MODULE_ID, ATAW_SETTING, normalized);
       atAwScheduleFit(app, { forceAutoDefault: normalized === "auto" });
       return normalized;
     },
@@ -314,7 +315,7 @@ function atAwExposeApi(module, app) {
 }
 
 function atAwResolveApp() {
-  const module = game.modules.get(ATAW_MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(ATAW_MODULE_ID);
   if (!module) return { module: null, app: null };
   let app = null;
   try { app = module.api?.app?.() || null; } catch (_err) { app = null; }
@@ -355,7 +356,7 @@ function atAwTryAttach(attempt = 0) {
 }
 
 Hooks.once("init", () => {
-  game.settings.register(ATAW_MODULE_ID, ATAW_SETTING, {
+  globalThis.ATTestAI.settings.register(ATAW_MODULE_ID, ATAW_SETTING, {
     scope: "client",
     config: false,
     type: String,

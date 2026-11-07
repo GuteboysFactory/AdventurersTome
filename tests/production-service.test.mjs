@@ -1,0 +1,24 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+import * as contract from '../scripts/interpretation-contract.js';
+import {createFeedbackLedger} from '../scripts/interpretation-feedback.js';
+import {roleKey} from '../scripts/source-document-map.js';
+function fixture(values=new Map()){
+ const hooks={},ready=[],state={calls:0,catalog:[],learning:{},disposed:0,defer:null},api={testAILanguage:{catalogSnapshot:()=>structuredClone(state.catalog)},campaignReviewLearning:{all:()=>state.learning},worldKnowledge:{ready:async()=>{},status:()=>({revision:'fixture@1'}),lookup:()=>({status:'unknown',references:[]})}},game={world:{id:'one'},user:{id:'gm',isGM:true},modules:{get:()=>({api})},settings:{get:()=> 'auto'}};
+ const storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};
+ const ctx=vm.createContext({console,JSON,Map,Set,String,Error,Promise,structuredClone,game,createFeedbackLedger:options=>createFeedbackLedger({...options,storage}),...contract,
+  ATTestAI:{flags:()=>({getFlag:()=>false})},fromUuid:async()=>state.source,
+  localStorage:storage,
+  Hooks:{once:(k,f)=>ready.push(f),on:(k,f)=>(hooks[k]||=[]).push(f)},
+  documentMap:()=>({}),structureFromMap:x=>x,roleKey,
+  createLanguagePool:()=>({dispose(){state.disposed++;},status:()=>({closed:false}),assistText:async()=>({tokens:[]})}),
+  interpretSource:async args=>{state.calls++;state.history=args.historyFor('Old place');if(state.defer)await state.defer;return {sourceHash:'fixture',map:{text:args.html},decisions:state.decisions||[],diagnostics:[],tokens:[]};}
+ });
+ let code=fs.readFileSync(new URL('../scripts/integrated-interpretation.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');vm.runInContext(code,ctx);ready.forEach(f=>f());
+ return {state,api,game,values,fire:(event,...args)=>(hooks[event]||[]).forEach(f=>f(...args)),I:api.integratedInterpretation};
+}
+test('Presentation updates retain evidence, while changed identity data requires a new assessment',async()=>{const f=fixture(),args={sourceUuid:'JournalEntry.one'};await f.I.assessDocument('<p>Story</p>',args);f.fire('updateSetting');await f.I.assessDocument('<p>Story</p>',args);assert.equal(f.state.calls,1);f.state.catalog=[{uuid:'Actor.new',name:'New identity'}];f.fire('createActor');await f.I.assessDocument('<p>Story</p>',args);assert.equal(f.state.calls,2);});
+test('Changed GM decisions invalidate evidence even when no hook is delivered',async()=>{const f=fixture();await f.I.assessDocument('Story',{sourceUuid:'JournalEntry.one'});f.state.learning={sourceChoices:{one:{targetUuid:'Actor.other'}}};await f.I.assessDocument('Story',{sourceUuid:'JournalEntry.one'});assert.equal(f.state.calls,2);});
+test('A pending assessment is rejected if its identity evidence changes',async()=>{const f=fixture();let release;f.state.defer=new Promise(r=>release=r);const job=f.I.assessDocument('Story',{sourceUuid:'JournalEntry.one'});await new Promise(r=>setImmediate(r));f.state.catalog=[{uuid:'Actor.other'}];f.fire('updateActor');release();await assert.rejects(job,e=>e.code==='TOME_INDEX_STALE');});
+test('Losing GM access erases cached private evidence and denies reads',async()=>{const f=fixture();await f.I.assessDocument('Secret',{sourceUuid:'JournalEntry.one'});f.game.user.isGM=false;f.fire('updateUser');assert.equal(f.I.status().cacheEntries,0);assert.equal(f.state.disposed,1);await assert.rejects(f.I.assessDocument('Secret',{sourceUuid:'JournalEntry.one'}),/owner changed/);});
+test('Deletion history survives a new service instance through storage rather than cached plans',async()=>{const f=fixture();f.fire('deleteJournalEntry',{uuid:'JournalEntry.old',name:'Old place'});const fresh=fixture(f.values);await fresh.I.assessDocument('Story',{sourceUuid:'JournalEntry.one'});assert.equal(fresh.state.history[0].uuid,'JournalEntry.old');});
+test('A review suggestion remains a suggestion even when its legacy match says safe',async()=>{const f=fixture();f.api.testAILanguage.sourceKind=()=> 'session';f.state.source={uuid:'JournalEntry.one',name:'Source',pages:{contents:[{uuid:'JournalEntry.one.JournalEntryPage.page',type:'text',text:{content:'A scout named Veyra arrived.'}}]}};f.state.decisions=[{text:'Veyra',action:'review',reason:'source-supported-new-identity',candidates:[],evidence:[]}];f.api.campaignEntityCreation={existingMatches:()=>[{canonicalUuid:'Actor.suggestion',name:'Veyra Dawn',match:{safe:true}}]};const result=await f.I.resolve({text:'Veyra',sourceJournalUuid:'JournalEntry.one',sourcePageUuid:'JournalEntry.one.JournalEntryPage.page'});assert.equal(result.outcome,'REVIEW');assert.equal(result.targetUuid,'');assert.equal(result.identityCandidates[0].reviewOnly,true);assert.equal(f.I.status().writes,0);});

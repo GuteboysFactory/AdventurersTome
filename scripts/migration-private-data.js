@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Owner-scoped migration. Never read another user's settings or publish private text. */
 (() => {
   const ID='adventurers-tome';

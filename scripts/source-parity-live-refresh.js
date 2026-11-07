@@ -1,14 +1,15 @@
+globalThis.ATTestAI.assertEnabled();
 const ATSPLR_ID = "adventurers-tome";
 
 function atSplrProfile(journal) {
-  const raw = journal?.getFlag?.(ATSPLR_ID, "worldProfile");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATSPLR_ID, "worldProfile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? foundry.utils.deepClone(raw) : {};
 }
 
 function atSplrLinkedActor(journal, actor) {
   if (!journal || !actor) return false;
   const profile = atSplrProfile(journal);
-  const uuid = String(journal.getFlag?.(ATSPLR_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
+  const uuid = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATSPLR_ID, "quickImportSourceUuid") || profile.sourceUuid || "").trim();
   if (uuid) return uuid === actor.uuid;
   return String(profile.actorId || "") === String(actor.id || "");
 }
@@ -77,7 +78,7 @@ function atSplrScheduleSettledRender(actor) {
   window.setTimeout(() => {
     const open = atSplrOpenWorld();
     if (!open || !atSplrLinkedActor(open.journal, actor)) return;
-    const app = game.modules.get(ATSPLR_ID)?.api?.app?.();
+    const app = globalThis.ATTestAI.modules.get(ATSPLR_ID)?.api?.app?.();
     if (!app?.rendered || app._bulkUpdating || Number(app._atRichEditingCount || 0) > 0) return;
     app.render({ parts: ["main"] }).catch((error) => console.warn("Adventurer's Tome | Source identity settled refresh failed safely", error));
   }, 180);

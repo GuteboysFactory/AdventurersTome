@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Optional system adapters. Source data is never modified. */
 (() => {
   const adapters = new Map();

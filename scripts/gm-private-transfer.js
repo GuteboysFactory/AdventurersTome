@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Personal GM backup. No other user's settings or Chronicle books are read. */
 (() => {
   const keys=['gmPrivateVault','gmContextualPrivateVaultV2','gmWorkspace','gmRevealQueue'];

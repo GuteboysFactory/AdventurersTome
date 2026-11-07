@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 import { foundryPlatformInfo } from "./foundry-platform.js";
 
 const ATUDR_SUPPORTED = Object.freeze([
@@ -31,6 +32,8 @@ const ATUDR_HOOKS = Object.freeze([
 let atUdrRecords = new Map();
 let atUdrDocuments = new Map();
 let atUdrAudit = null;
+let atUdrInitialized=false;
+let atUdrDuplicates=[],atUdrInvalid=[];
 let atUdrTimer = null;
 let atUdrRevision = 0;
 let atUdrPublicApi = null;
@@ -55,7 +58,7 @@ function atUdrParentUuid(document) {
 }
 
 function atUdrRecord(document) {
-  if (document?.getFlag?.('adventurers-tome','chronicleV1') || document?.parent?.getFlag?.('adventurers-tome','chronicleV1')) return null;
+  if (globalThis.ATTestAI.flags(document)?.getFlag?.('adventurers-tome','chronicleV1') || globalThis.ATTestAI.flags(document?.parent)?.getFlag?.('adventurers-tome','chronicleV1')) return null;
   const documentName = String(document?.documentName || "");
   const uuid = String(document?.uuid || "");
   if (!uuid || !ATUDR_SUPPORTED.includes(documentName)) return null;
@@ -189,6 +192,8 @@ function atUdrRebuild({ reason = "manual" } = {}) {
     nextDocuments.set(record.uuid, document);
   }
 
+  atUdrDuplicates=duplicateUuids;atUdrInvalid=invalidDocuments;
+  atUdrInitialized=true;
   atUdrRevision += 1;
   atUdrRecords = nextRecords;
   atUdrDocuments = nextDocuments;
@@ -210,9 +215,15 @@ function atUdrSchedule(reason) {
   window.clearTimeout(atUdrTimer);
   atUdrTimer = window.setTimeout(() => {
     atUdrTimer = null;
-    try { atUdrRebuild({ reason }); }
+    try {
+      // Documents are patched by their lifecycle hook. Recompute diagnostics and
+      // notify consumers once per burst; do not enumerate the entire world again.
+      if(!atUdrInitialized){atUdrRebuild({reason});return;}
+      atUdrAudit=atUdrBuildAudit(atUdrRecords,atUdrDocuments,atUdrDuplicates,atUdrInvalid);
+      Hooks.callAll('adventurersTomeUniversalRegistryRebuilt',{reason,revision:atUdrRevision,total:atUdrRecords.size,healthy:atUdrAudit.healthy,canonicalMismatches:atUdrAudit.canonicalMismatches.length,incremental:true});
+    }
     catch (error) { console.error("Adventurer's Tome | Universal Document Registry rebuild failed", error); }
-  }, 60);
+  }, 250);
 }
 
 function atUdrRecordLifecycle(hookName, document) {
@@ -260,7 +271,7 @@ function atUdrApi() {
     supportedTypes: [...ATUDR_SUPPORTED],
     parityFields: [...ATUDR_PARITY_FIELDS],
     rebuild: () => atUdrRebuild({ reason: "api" }),
-    audit: () => atUdrClone(atUdrAudit || atUdrRebuild({ reason: "audit" })),
+    audit: () => atUdrClone(atUdrAudit || (atUdrInitialized ? (atUdrAudit=atUdrBuildAudit(atUdrRecords,atUdrDocuments,atUdrDuplicates,atUdrInvalid)) : atUdrRebuild({ reason: "audit" }))),
     verify: (uuid) => atUdrClone(atUdrVerify(uuid)),
     lifecycle: () => atUdrClone(atUdrLifecycleSnapshot()),
     get: (uuid) => atUdrClone(atUdrRecords.get(String(uuid || "")) || null),
@@ -286,17 +297,28 @@ Hooks.once("ready", () => {
   );
 });
 
+function atUdrApplyDocument(document,deleted=false){
+  // Actor-owned Items belong to the embedded-item layer, never the root registry.
+  if(document?.parent&&document.documentName!=='JournalEntryPage')return;
+  const uuid=String(document?.uuid||'');if(!uuid)return;
+  const excluded=globalThis.ATTestAI.flags(document)?.getFlag?.('adventurers-tome','chronicleV1')||globalThis.ATTestAI.flags(document?.parent)?.getFlag?.('adventurers-tome','chronicleV1');
+  const record=deleted||excluded?null:atUdrRecord(document);
+  if(record){atUdrRecords.set(uuid,record);atUdrDocuments.set(uuid,document);}
+  else {atUdrRecords.delete(uuid);atUdrDocuments.delete(uuid);}
+  if(document?.documentName==='JournalEntry'){
+    for(const [key,row] of atUdrRecords)if(row.parentUuid===uuid&&(deleted||excluded)){atUdrRecords.delete(key);atUdrDocuments.delete(key);}
+    if(!deleted&&!excluded)for(const page of document.pages?.contents||[])atUdrApplyDocument(page);
+  }
+}
 for (const hookName of ATUDR_HOOKS) {
   Hooks.on(hookName, (document,changes,options={}) => {
-    if(document?.getFlag?.('adventurers-tome','chronicleV1')||document?.parent?.getFlag?.('adventurers-tome','chronicleV1'))return;
     atUdrRecordLifecycle(hookName, document);
+    atUdrApplyDocument(document,hookName.startsWith('delete'));atUdrRevision++;
+    // Keep immediate reads current, including permission/rename/delete hooks.
+    // Expensive cross-document diagnostics are coalesced outside GM decisions.
+    atUdrAudit=null;
     if(options.adventurersTomeReviewDecision || globalThis.AdventurersTomeReviewDecision?.isActive?.()) {
-      const record=atUdrRecord(document);
-      if(record) {
-        if(hookName.startsWith("delete")){atUdrRecords.delete(record.uuid);atUdrDocuments.delete(record.uuid);}
-        else {atUdrRecords.set(record.uuid,record);atUdrDocuments.set(record.uuid,document);}
-        atUdrRevision++;atUdrAudit=atUdrBuildAudit(atUdrRecords,atUdrDocuments,atUdrAudit?.duplicateUuids || [],atUdrAudit?.invalidDocuments || []);
-      }
+      atUdrAudit=atUdrBuildAudit(atUdrRecords,atUdrDocuments,atUdrDuplicates,atUdrInvalid);
       if(!options.adventurersTomeReviewDecision)globalThis.AdventurersTomeReviewDecision?.deferExternal(document?.uuid,()=>atUdrSchedule(hookName));
       return;
     }

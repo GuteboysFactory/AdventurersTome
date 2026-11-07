@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const AT_WPP_MODULE_ID = "adventurers-tome";
 const atWppObservers = new WeakMap();
 const atWppTimers = new WeakMap();

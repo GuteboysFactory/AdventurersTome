@@ -1,10 +1,11 @@
+globalThis.ATTestAI.assertEnabled();
 const ATEP_ROOT = "#adventurers-tome-app";
 const ATEP_DELAY = 650;
 let atEpQueued = false;
 const atEpTimers = new Map();
 
 function atEpApp() {
-  try { return game.modules.get("adventurers-tome")?.api?.app?.(); } catch (_err) { return null; }
+  try { return globalThis.ATTestAI.modules.get("adventurers-tome")?.api?.app?.(); } catch (_err) { return null; }
 }
 
 function atEpCanEdit(journal) {

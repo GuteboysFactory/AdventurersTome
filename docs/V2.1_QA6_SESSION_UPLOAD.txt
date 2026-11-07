@@ -1,0 +1,31 @@
+Adventurer's Tome 2.1.0-qa.6 – sessionsimport
+
+Detta är en lokal QA-version. Inget är publicerat eller installerat automatiskt.
+
+Var: Sessions → Import Session, bredvid New Session.
+Format: .txt (UTF-8 eller UTF-16) och Word .docx, högst 10 MB.
+En .docx utan filändelse känns också igen. Äldre .doc måste först sparas som .docx.
+Word-rubriker, stycken, fet/kursiv text, listor och tabeller blir läsbar text i Tomes stil. Detta är inte en kopia av Words sidlayout. Inbäddade bilder och objekt ingår inte i denna första version.
+
+TESTA SÅ HÄR
+1. Lägg QA-paketets innehåll i testmiljöns modulmapp på samma sätt som tidigare QA-versioner och ladda om Foundry. Kontrollera versionsnumret 2.1.0-qa.6.
+2. Gå till Sessions och välj Import Session. Ingen session skapas när du bara väljer fil eller stänger förhandsgranskningen.
+3. Prova Session 9 – Fornost. Filnamnet säger 9 och dokumentrubriken 8: en varning ska visas och sessionsnumret föreslås som 9. Kontrollera titel, rubriker och de tre tabellerna i Chronicle preview.
+4. Fem uttryckliga aktiva Quest Log-punkter ska visas som förslag. Alla börjar med Leave out. Välj Create GM-only Quest på en, eller länka en befintlig Quest. Nya Quests börjar som Dormant och får koppling till källsessionen. Andra frågelistor blir inte automatiskt Quests.
+5. Prova Session 10 – Gravkamrarna under Fornost. Titeln ska hämtas från filnamnet. GM NOTES och Hemlig konsekvens efter Fornost ska föreslås som Private GM note. De ska inte finnas i Chronicle preview eller den importerade Chronicle-texten.
+6. Om ett privat avsnitt ska bli en påminnelse: välj Reminder for next session. Kontrollera fältet Reminders for Session (11 för session 10). Noten sparas privat för ditt GM-konto och visas genom befintliga GM Notebook/Dashboard-flödet.
+7. Import as GM-only sparar den granskade sessionen. Kontrollera Chronicle, privata noter och valda Quest-länkar. Dela sessionen först när du har granskat den i Tome.
+8. Prova även en .txt med # Session 11 – Titel, ## Berättelse, ## GM Notes och ## Nästa session. Kontrollera rubriker och destinationer.
+9. Försök importera exakt samma färdiga fil igen: dubbletten ska stoppas. Samma sessionsnummer från en annan fil kräver att du uttryckligen väljer Create a separate Session. Importen skriver inte över en befintlig session.
+
+VID AVBRUTET SPARANDE
+Välj samma fil och samma val igen. Importen återanvänder sin oavslutade session och fortsätter utan att skapa dubbla noter eller Quests. Om den oavslutade Chronicle-texten har redigerats stoppas återförsöket för granskning. Ändrade val kräver också granskning; inget befintligt innehåll skrivs över.
+
+LOKALT VERIFIERAT
+- Webbläsartester i Edge med riktig import-, skapande-, privatnot- och länkningskod; Foundrys lagring simulerad.
+- Båda tillhandahållna Word-dokumenten lästa direkt utan att ändra originalen.
+- Avbryt, dubbelklick, dubbletter, GM-behörighet, privat lagring, trasiga filer och återförsök efter avbrott.
+- Befintliga briefing-/Quest-flöden samt 93 länk-/vytester och 15 privata åtkomsttester godkända.
+- Test inne i din riktiga Foundry-miljö återstår.
+
+Scribe-instruktionen ligger i SCRIBE-INSTRUKTION.txt. Kopiera hela den texten till Scribe-chatten.

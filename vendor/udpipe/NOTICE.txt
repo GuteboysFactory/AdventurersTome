@@ -1,0 +1,3 @@
+UDPipe runtime: udpipe-wasm 0.1.0, https://github.com/exp-ouroborous/udpipe-wasm, MPL-2.0. Bundled for browser use with esbuild; no change to linguistic processing.
+Models: BNOSAC Swedish and English UD 2.1 (20180111), https://github.com/bnosac/udpipe.models.ud, CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/. These are the liberal BNOSAC models, not the CC BY-NC-SA models in the official UD 2.5 collection. Model weights unmodified. See MODEL-SOURCE-README.txt for authors, sources and training code.
+UDPipe authors: Institute of Formal and Applied Linguistics, Charles University.

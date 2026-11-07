@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-campaign-analysis-preview";
 const VERSION = 4;
@@ -63,7 +64,7 @@ function typeMeta(kind) {
 }
 
 function tomeApp() {
-  try { return game.modules.get(MODULE_ID)?.api?.app?.() || null; }
+  try { return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.app?.() || null; }
   catch (_error) { return null; }
 }
 
@@ -93,31 +94,31 @@ function currentSource(app = tomeApp()) {
 }
 
 function knownApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignMentionDiscovery || null;
 }
 
 function newApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignNewEntityDiscovery || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignNewEntityDiscovery || null;
 }
 
 function learningApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
 }
 
 function creationApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignEntityCreation || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityCreation || null;
 }
 
 function campaignLinksApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignEntityLinks || null;
 }
 
 function campaignIdentityApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation || null;
 }
 
 function sourceScopedIdentityApi() {
-  return game.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignSourceScopedIdentity || null;
 }
 
 function decisionRank(decision) {
@@ -643,7 +644,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignAnalysisPreview = publicApi;
@@ -657,7 +658,7 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.campaignAnalysisPreview !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignAnalysisPreview !== publicApi) attach();
   scheduleRender(120);
 });
 

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATA3_MODULE_ID = "adventurers-tome";
 const ATA3_ROOT = "#adventurers-tome-app";
 const ATA3_SOCKET = `module.${ATA3_MODULE_ID}`;
@@ -77,7 +78,7 @@ function atA3DescendantFolderIds(rootFolder) {
 
 function atA3SectionFromJournal(journal) {
   if (!journal) return "";
-  const type = String(journal.getFlag?.(ATA3_MODULE_ID, "type") || "").toLowerCase();
+  const type = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATA3_MODULE_ID, "type") || "").toLowerCase();
   if (type === "world") return "world";
   if (type === "quests" || type === "quest") return "quests";
   if (type === "sessions" || type === "session") return "sessions";
@@ -97,7 +98,7 @@ function atA3SectionJournals(section) {
 
 function atA3RoleMap() {
   const root = atA3RootFolder();
-  const raw = root?.getFlag?.(ATA3_MODULE_ID, ATA3_SECTION_EDITORS);
+  const raw = globalThis.ATTestAI.flags(root)?.getFlag?.(ATA3_MODULE_ID, ATA3_SECTION_EDITORS);
   const map = { world: [], quests: [], sessions: [] };
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     for (const section of Object.keys(map)) map[section] = Array.isArray(raw[section]) ? [...new Set(raw[section].map(String))] : [];
@@ -111,12 +112,12 @@ function atA3IsSectionEditor(section, userId = game.user?.id) {
 }
 
 function atA3EntryEditors(journal) {
-  const raw = journal?.getFlag?.(ATA3_MODULE_ID, ATA3_ENTRY_EDITORS);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATA3_MODULE_ID, ATA3_ENTRY_EDITORS);
   return Array.isArray(raw) ? [...new Set(raw.map(String))] : [];
 }
 
 function atA3ManagedOwners(journal) {
-  const raw = journal?.getFlag?.(ATA3_MODULE_ID, ATA3_MANAGED_OWNERS);
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATA3_MODULE_ID, ATA3_MANAGED_OWNERS);
   return Array.isArray(raw) ? [...new Set(raw.map(String))] : [];
 }
 
@@ -152,7 +153,7 @@ async function atA3SyncJournalOwner(journal, userId) {
   const nextManaged = [...managed];
   if (ownershipChanged) await journal.update({ ownership });
   if (JSON.stringify(nextManaged.sort()) !== JSON.stringify(atA3ManagedOwners(journal).sort())) {
-    await journal.setFlag(ATA3_MODULE_ID, ATA3_MANAGED_OWNERS, nextManaged);
+    await globalThis.ATTestAI.flags(journal).setFlag(ATA3_MODULE_ID, ATA3_MANAGED_OWNERS, nextManaged);
   }
 }
 
@@ -164,7 +165,7 @@ async function atA3SetSectionEditor(section, userId, enabled) {
   if (enabled) ids.add(String(userId));
   else ids.delete(String(userId));
   map[section] = [...ids];
-  await root.setFlag(ATA3_MODULE_ID, ATA3_SECTION_EDITORS, map);
+  await globalThis.ATTestAI.flags(root).setFlag(ATA3_MODULE_ID, ATA3_SECTION_EDITORS, map);
   for (const journal of atA3SectionJournals(section)) await atA3SyncJournalOwner(journal, userId);
 }
 
@@ -173,7 +174,7 @@ async function atA3SetEntryEditor(journal, userId, enabled) {
   const ids = new Set(atA3EntryEditors(journal));
   if (enabled) ids.add(String(userId));
   else ids.delete(String(userId));
-  await journal.setFlag(ATA3_MODULE_ID, ATA3_ENTRY_EDITORS, [...ids]);
+  await globalThis.ATTestAI.flags(journal).setFlag(ATA3_MODULE_ID, ATA3_ENTRY_EDITORS, [...ids]);
   await atA3SyncJournalOwner(journal, userId);
 }
 
@@ -361,6 +362,9 @@ function atA3FolderOptions(section, selected = "") {
 
 function atA3OpenCreate(section, kind = "entry", defaultParent = "") {
   if (!atA3CanCreate(section)) return;
+  const worldTree = globalThis.ATTestAI.modules.get(ATA3_MODULE_ID)?.api?.worldSourceExplorer;
+  if (section === "world" && game.user?.isGM && kind === "entry" && worldTree?.createEntry) return worldTree.createEntry();
+  if (section === "world" && game.user?.isGM && kind === "folder" && worldTree?.createFolder) return worldTree.createFolder();
   const worldFields = section === "world" && kind === "entry" ? `<label><span>World type</span><select name="category">${Object.entries(ATA3_WORLD_CATEGORIES).map(([id, label]) => `<option value="${id}">${atA3Escape(label.replace(/s$/, ""))}</option>`).join("")}</select></label>` : "";
   const questFields = section === "quests" && kind === "entry" ? '<label><span>Quest status</span><select name="status"><option value="active">Active</option><option value="dormant">Dormant</option><option value="completed">Completed</option><option value="failed">Failed</option></select></label>' : "";
   const sessionFields = section === "sessions" && kind === "entry" ? '<label><span>Session number <small>optional</small></span><input name="sessionNumber" type="number" min="1" step="1"></label>' : "";
@@ -423,7 +427,7 @@ async function atA3CreateAsGM(payload, requesterId = "") {
   const journal = await JournalEntry.create({ name, folder: parent.id, ownership: atA3OwnershipForSection(section), flags: { [ATA3_MODULE_ID]: flags } });
   const pageName = section === "sessions" ? "Chronicle" : "Overview";
   const created = await journal.createEmbeddedDocuments("JournalEntryPage", [{ name: pageName, type: "text", text: { content: '<h2 data-at-tome-summary="true"></h2><p></p>', format: atA3HtmlFormat() }, sort: 100000 }]);
-  if (section === "world" && created?.[0]) await journal.setFlag(ATA3_MODULE_ID, ATA3_WORLD_SYNC_PAGE, created[0].id);
+  if (section === "world" && created?.[0]) await globalThis.ATTestAI.flags(journal).setFlag(ATA3_MODULE_ID, ATA3_WORLD_SYNC_PAGE, created[0].id);
   return { id: journal.id, name: journal.name, kind: "entry" };
 }
 
@@ -441,7 +445,7 @@ function atA3RequestGM(payload) {
       reject(new Error("The GM did not answer the creation request."));
     }, 12000);
     ATA3_PENDING.set(requestId, { resolve, reject, timer });
-    game.socket.emit(ATA3_SOCKET, { channel: "alpha3", type: "createRequest", requestId, requesterId: game.user.id, targetGmId: gm.id, payload });
+    globalThis.ATTestAI.socket.emit(ATA3_SOCKET, { channel: "alpha3", type: "createRequest", requestId, requesterId: game.user.id, targetGmId: gm.id, payload });
   });
 }
 
@@ -450,9 +454,9 @@ async function atA3HandleSocket(message) {
   if (message.type === "createRequest" && game.user?.isGM && String(message.targetGmId) === String(game.user.id)) {
     try {
       const result = await atA3CreateAsGM(message.payload || {}, String(message.requesterId || ""));
-      game.socket.emit(ATA3_SOCKET, { channel: "alpha3", type: "createResponse", requestId: message.requestId, requesterId: message.requesterId, ok: true, result });
+      globalThis.ATTestAI.socket.emit(ATA3_SOCKET, { channel: "alpha3", type: "createResponse", requestId: message.requestId, requesterId: message.requesterId, ok: true, result });
     } catch (error) {
-      game.socket.emit(ATA3_SOCKET, { channel: "alpha3", type: "createResponse", requestId: message.requestId, requesterId: message.requesterId, ok: false, error: error?.message || "Creation failed" });
+      globalThis.ATTestAI.socket.emit(ATA3_SOCKET, { channel: "alpha3", type: "createResponse", requestId: message.requestId, requesterId: message.requesterId, ok: false, error: error?.message || "Creation failed" });
     }
     return;
   }
@@ -467,7 +471,7 @@ async function atA3HandleSocket(message) {
 }
 
 async function atA3AppRender() {
-  try { await game.modules.get(ATA3_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
+  try { await globalThis.ATTestAI.modules.get(ATA3_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] }); } catch (_err) {}
 }
 
 async function atA3MoveJournalToFolder(journalId, folderId) {
@@ -519,7 +523,7 @@ function atA3Queue() {
 }
 
 Hooks.once("ready", () => {
-  game.socket.on(ATA3_SOCKET, atA3HandleSocket);
+  globalThis.ATTestAI.socket.on(ATA3_SOCKET, atA3HandleSocket);
 
   document.addEventListener("click", (event) => {
     const access = event.target.closest?.('[data-action="editAccess"][data-document-type="journal"][data-document-id]');

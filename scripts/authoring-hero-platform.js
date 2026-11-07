@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 import { filePickerClass, foundryPlatformInfo } from "./foundry-platform.js";
 
 const ATHP_ID = "adventurers-tome";
@@ -36,7 +37,7 @@ function atHpNormalizeStoredPath(value) {
 }
 
 function atHpProfile(journal) {
-  const raw = journal?.getFlag?.(ATHP_ID, "worldProfile");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATHP_ID, "worldProfile");
   return raw && typeof raw === "object" && !Array.isArray(raw) ? foundry.utils.deepClone(raw) : {};
 }
 
@@ -46,12 +47,12 @@ function atHpCanEdit(journal) {
   try {
     if (journal.isOwner === true || journal.testUserPermission?.(game.user, "OWNER")) return true;
   } catch (_err) {}
-  const editors = journal.getFlag?.(ATHP_ID, "worldEditors");
+  const editors = globalThis.ATTestAI.flags(journal).getFlag?.(ATHP_ID, "worldEditors");
   return Array.isArray(editors) && editors.map(String).includes(String(game.user.id));
 }
 
 function atHpApp() {
-  try { return game.modules.get(ATHP_ID)?.api?.app?.(); }
+  try { return globalThis.ATTestAI.modules.get(ATHP_ID)?.api?.app?.(); }
   catch (_err) { return null; }
 }
 
@@ -66,7 +67,7 @@ async function atHpSaveHero(journal, path) {
   const app = atHpApp();
   if (app) app._bulkUpdating = true;
   try {
-    await journal.setFlag(ATHP_ID, "worldProfile", profile);
+    await globalThis.ATTestAI.flags(journal).setFlag(ATHP_ID, "worldProfile", profile);
   } finally {
     window.setTimeout(() => { if (app) app._bulkUpdating = false; }, 220);
   }

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 import { universalDocumentRegistryApi } from "./universal-document-registry.js";
 
 const MODULE_ID = "adventurers-tome";
@@ -5,6 +6,7 @@ const CONTRACT = "adventurers-tome-universal-campaign-discovery";
 const VERSION = 1;
 
 let lastSnapshot = null;
+let resolutionRevision=0;
 let lastNotifiedContent = null;
 let scanTimer = null;
 const scanFlights = new Map();
@@ -43,7 +45,7 @@ function currentUser(options = {}) {
 
 function canObserve(document, user) {
   if (!document || !user) return false;
-  if(document.getFlag?.(MODULE_ID,'chronicleV1')||document.parent?.getFlag?.(MODULE_ID,'chronicleV1'))return false;
+  if(globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID,'chronicleV1')||globalThis.ATTestAI.flags(document.parent)?.getFlag?.(MODULE_ID,'chronicleV1'))return false;
   if (user.isGM) return true;
   try {
     if (typeof document.testUserPermission === "function") return document.testUserPermission(user, "OBSERVER") === true;
@@ -63,7 +65,7 @@ function canonicalEvidenceVisible(uuid, registry, user) {
 }
 
 function adapterApi() {
-  return game.modules.get(MODULE_ID)?.api?.adapters
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.adapters
     || globalThis.AdventurersTomeSystemAdapters
     || null;
 }
@@ -366,6 +368,7 @@ async function scan(options = {}) {
   try{return await work;}finally{scanFlights.delete(key);globalThis.AdventurersTomeStartup?.end(token);}
 }
 async function scanWork(options = {}) {
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
   stats.scans += 1;
   stats.worldDocuments = 0;
   stats.compendiumEntries = 0;
@@ -386,6 +389,7 @@ async function scanWork(options = {}) {
   const relationships = [];
 
   for (const record of registry.snapshot()) {
+    if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.checkpoint();
     const document = registry.resolve(record.uuid);
     if (!document || !canObserve(document, user)) continue;
     const entity = worldEntity(record, registry, folderCache);
@@ -411,6 +415,7 @@ async function scanWork(options = {}) {
   const adapters = adapterApi();
   if (adapters?.capabilities?.includes?.("entityDiscovery") && typeof adapters.execute === "function") {
     for (const record of registry.byType("Actor")) {
+      if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.checkpoint();
       const source = registry.resolve(record.uuid);
       if (!source || !canObserve(source, user)) continue;
 
@@ -510,6 +515,7 @@ async function scanWork(options = {}) {
     }
   });
 
+  resolutionRevision++;
   const content=JSON.stringify([lastSnapshot.viewerUserId,lastSnapshot.viewerIsGM,lastSnapshot.systemId,lastSnapshot.systemVersion,lastSnapshot.includeCompendiums,lastSnapshot.entities,lastSnapshot.relationships]);
   if(content !== lastNotifiedContent) {
     lastNotifiedContent=content;
@@ -528,6 +534,7 @@ async function refreshDocument(uuid) {
   const entity=worldEntity(record,registry,new Map());
   const entities=lastSnapshot.entities.filter(row=>row.canonicalUuid !== uuid);entities.push(entity);
   lastSnapshot=Object.freeze({...lastSnapshot,entities,summary:{...lastSnapshot.summary,entities:entities.length}});
+  resolutionRevision++;
   return clone(entity);
 }
 function snapshot() {
@@ -573,6 +580,7 @@ const publicApi = Object.freeze({
   snapshot,
   get,
   identityCandidates,
+  resolutionRevision:()=>resolutionRevision,
   relationshipsFor,
   semanticOnly:()=>clone(lastSnapshot?.semanticOnly || []),
   unresolved:()=>clone(lastSnapshot?.unresolved || []),
@@ -580,7 +588,7 @@ const publicApi = Object.freeze({
 });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.discovery = publicApi;
@@ -611,5 +619,5 @@ Hooks.once("ready", () => {
 Hooks.on("adventurersTomeUniversalRegistryRebuilt", () => scheduleScan("registry-rebuilt"));
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(MODULE_ID)?.api?.discovery !== publicApi) attach();
+  if (globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.discovery !== publicApi) attach();
 });

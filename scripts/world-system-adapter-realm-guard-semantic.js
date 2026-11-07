@@ -1,9 +1,10 @@
+globalThis.ATTestAI.assertEnabled();
 const ATRG_SEMANTIC_ADAPTER_ID = "realm-guard-semantic-reference";
 
 function atRgSemanticRegistry() {
   const early = globalThis.AdventurersTomeSystemAdapters;
   if (early?.register) return early;
-  return globalThis.game?.modules?.get?.("adventurers-tome")?.api?.adapters || null;
+  return globalThis.ATTestAI.modules?.get?.("adventurers-tome")?.api?.adapters || null;
 }
 
 function atRgText(value) {

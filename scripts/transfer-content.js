@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 /* Shared transfer routing. Existing text import/export engines remain authoritative. */
 (() => {
   function detect(text){

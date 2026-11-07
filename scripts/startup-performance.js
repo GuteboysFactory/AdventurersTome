@@ -1,10 +1,14 @@
+globalThis.ATTestAI.assertEnabled();
 // Read-only, content-free startup telemetry. No document names, UUIDs or payloads.
 const ATSP_ID = "adventurers-tome";
 const atSpNow = () => globalThis.performance?.now?.() ?? Date.now();
 let atSpStarted = atSpNow(), atSpLastWork = atSpStarted, atSpReady = false, atSpComplete = false, atSpPending = 0, atSpTimer;
 const atSpStages = new Map(), atSpRuntime = new Map();
+const atSpTimeline=[];let atSpReadyAfterMs=null;
 const atSpPhases = new Set(["source-identity-resolution","candidate-resolution","mention-discovery","new-entity-discovery","mention-sync","contact-projection","discovery-scan","discovery-compendiums","discovery-adapter","tome-ready","tome-render-context","private-vault","summary-repair","relationship-graph","relationship-extraction","relationship-sync","entity-intelligence","visible-document-pass","universal-registry","universal-bridge","universal-permission-read","universal-search-navigation","universal-explorer-catalog","universal-lifecycle","embedded-items-pass","universal-permission-pass","imported-source-identity","universal-takeover","universal-convergence-gate","universal-convergence-audit","universal-lifecycle-audit","imported-source-audit"]);
-const atSpCounters = new Set(["coalescedCalls","calls","writes","documentsScanned","foldersScanned","recordsScanned","recordsRequiringMigration","recordsMigrated","vaultWrites","cleanupWrites","pagesScanned","pagesRequiringRepair","pagesRepaired","graphBuilds","sourcesExtracted","unchangedSyncs","indexBuilds","cacheHits","passes","fullWorldScans","registrations","actorsScanned","convergenceRuns","coreApiPublished"]);
+const atSpExtraPhases=['tome-render-html','view-sessions','view-world','view-actors','view-group','view-dashboard','view-post-session','view-notebook','view-memory','view-analysis','view-row-cache','index-storage-load','index-storage-save','index-queue','index-drain','index-fingerprint'];
+for(const name of atSpExtraPhases)atSpPhases.add(name);
+const atSpCounters = new Set(["builds","reuses","coalescedCalls","calls","writes","documentsScanned","foldersScanned","recordsScanned","recordsRequiringMigration","recordsMigrated","vaultWrites","cleanupWrites","pagesScanned","pagesRequiringRepair","pagesRepaired","graphBuilds","sourcesExtracted","unchangedSyncs","indexBuilds","cacheHits","passes","fullWorldScans","registrations","actorsScanned","convergenceRuns","coreApiPublished"]);
 const atSpSafeCounter = value => atSpCounters.has(value) || /^invalidations\.(?:api|adventurersTome(?:RelationshipEvidenceUpdated|CampaignMentionEvidenceUpdated|CampaignDiscoveryUpdated|CampaignEntityLinkChanged|CampaignLearningUpdated)|(?:create|update|delete)(?:Actor|Item|JournalEntry|JournalEntryPage|Scene|Folder|User))$/.test(value) ? value : "other";
 function atSpRow(name, runtime = atSpComplete) {
   const map = runtime ? atSpRuntime : atSpStages, key = atSpPhases.has(name) ? name : "other";
@@ -39,6 +43,7 @@ function atSpEnd(token) {
   token.ended=true;const elapsed=atSpNow()-token.started;token.row.elapsedMs+=elapsed;
   globalThis.AdventurersTomeReviewDecision?.endPhase(token.reviewToken);
   if(token.startup)atSpLastWork=atSpNow();
+  if(token.startup&&atSpTimeline.length<128&&['tome-ready','tome-render-context','tome-render-html','mention-sync','mention-discovery','new-entity-discovery','candidate-resolution','discovery-scan','view-sessions','view-world','view-actors','view-group','view-dashboard','view-post-session','view-notebook',...atSpExtraPhases].includes(token.row.phase))atSpTimeline.push({phase:token.row.phase,startMs:Number((token.started-atSpStarted).toFixed(2)),endMs:Number((atSpNow()-atSpStarted).toFixed(2)),elapsedMs:Number(elapsed.toFixed(2))});
   if(token.startup)atSpPending--;
   atSpSettle();
 }
@@ -59,11 +64,11 @@ function atSpMeasure(name,work) {
 }
 function atSpSnapshot() {
   const rows=map=>[...map.values()].map(row=>({...row,elapsedMs:Number(row.elapsedMs.toFixed(2)),counters:{...row.counters}}));
-  return {version:1,complete:atSpComplete,totalMs:Number((atSpComplete?atSpTotal:atSpNow()-atSpStarted).toFixed(2)),pending:atSpPending,stages:rows(atSpStages),runtime:rows(atSpRuntime)};
+  return {version:2,readyAfterMs:atSpReadyAfterMs,timeline:atSpTimeline.map(row=>({...row})),complete:atSpComplete,totalMs:Number((atSpComplete?atSpTotal:atSpNow()-atSpStarted).toFixed(2)),pending:atSpPending,stages:rows(atSpStages),runtime:rows(atSpRuntime)};
 }
 globalThis.AdventurersTomeStartup=Object.freeze({begin:atSpBegin,end:atSpEnd,count:atSpCount,measure:atSpMeasure,snapshot:atSpSnapshot});
 Hooks.once("init",()=>{atSpStarted=atSpLastWork=atSpNow();});
 Hooks.once("ready",()=>{
-  const module=game.modules.get(ATSP_ID);if(module){module.api ||= {};module.api.startupPerformance=globalThis.AdventurersTomeStartup;}
-  atSpReady=true;atSpLastWork=atSpNow();atSpSettle();
+  const module=globalThis.ATTestAI.modules.get(ATSP_ID);if(module){module.api ||= {};module.api.startupPerformance=globalThis.AdventurersTomeStartup;}
+  atSpReady=true;atSpReadyAfterMs=Number((atSpNow()-atSpStarted).toFixed(2));atSpLastWork=atSpNow();atSpSettle();
 });

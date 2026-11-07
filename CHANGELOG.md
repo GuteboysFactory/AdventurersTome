@@ -1,3 +1,7 @@
+# 2.1.0
+
+Integrated local Swedish/English interpretation, responsive background analysis, flexible World tree, safe identity decisions and World batches of 10/20/30. TestAI settings transfer once when upgrading. See docs/V2.1_STABLE_RELEASE.md.
+
 ## 1.9.0 — Migration Toolkit and a clearer Tome
 
 ## 2.0.0 — Integration API

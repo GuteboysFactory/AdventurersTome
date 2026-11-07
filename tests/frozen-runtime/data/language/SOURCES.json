@@ -1,0 +1,62 @@
+{
+  "revision": "saldo-20170704-ud-r2.17-word-roles-1",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Swedish-Talbanken/r2.17/README.md",
+      "sha256": "4a250cfc81a314a6cf81d4e2ea2ba58c16465134a3ff4f2dc9b0f8e0924b9870"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Swedish-Talbanken/r2.17/LICENSE.txt",
+      "sha256": "55d116ac4f9bc34715c7823a5f5ca2e4c0cac4917db9e58a470a3d48033d261c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Swedish-Talbanken/r2.17/sv_talbanken-ud-train.conllu",
+      "sha256": "133cf28248d4098c68b49f17999cb85403da1d93c9678cd70a564218cc4540a5"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Swedish-Talbanken/r2.17/sv_talbanken-ud-dev.conllu",
+      "sha256": "31917fc04cfe9ef7ce8c11ed8570b739a0cefdcda5e06ff93207e6d84f37117b"
+    },
+    {
+      "url": "https://svn.spraakbanken.gu.se/sb-arkiv/pub/lmf/saldo/saldo.xml",
+      "sha256": "141ea24b6d821e9fd5bd724a909db4c11684cb64c43fd8955ed9de09536d187a",
+      "licence": "CC BY 4.0",
+      "resource": "SALDO, Spr\u00e5kbanken Text, University of Gothenburg",
+      "licenceURL": "https://sprakbanken.se/resurser/saldo"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/r2.17/README.md",
+      "sha256": "dd74b1b70a6daa0ab3c7d6e53d2048aec1610c55071135ed619734e37500e463"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/r2.17/LICENSE.txt",
+      "sha256": "b3d1b0f4c6ae151f7eb78738f46ebd5ee140f8a7f76501ba26af123140d35ae7"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/r2.17/en_ewt-ud-train.conllu",
+      "sha256": "6fe5692f2e02198262483daba0626efe346dd19f0ce6c3ee7728b08af9b90a9c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/r2.17/en_ewt-ud-dev.conllu",
+      "sha256": "de507882611c54f19934f9a65d654b37f55a5c315da1794b9f13348b28b39c12"
+    }
+  ],
+  "entries": {
+    "sv": 123110,
+    "en": 16942
+  },
+  "masks": {
+    "ADJ": 1,
+    "ADV": 2,
+    "VERB": 4,
+    "NOUN": 8,
+    "PROPN": 16,
+    "CCONJ": 32,
+    "SCONJ": 32,
+    "PRON": 32,
+    "DET": 32,
+    "ADP": 32,
+    "AUX": 32,
+    "PART": 32
+  }
+}

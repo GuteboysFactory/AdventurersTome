@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATDT_MODULE_ID = "adventurers-tome";
 const ATDT_ROOT = "#adventurers-tome-app";
 const ATDT_PAGES = [

@@ -16,3 +16,19 @@ Adventurer's Tome remains proprietary software. The following third-party compon
 Adventurer's Tome uses compromise as a local, offline-capable NLP helper for grammatical tagging and candidate-boundary evidence. Compromise does not own or determine campaign identity; Tome's identity resolver and GM review remain authoritative.
 
 The upstream MIT copyright notice and permission notice are included in `vendor/compromise-LICENSE.txt`.
+
+## Local language models and reference data
+
+- UDPipe / udpipe-wasm runtime: MPL-2.0. See `vendor/udpipe/NOTICE.txt`,
+  `RUNTIME-LICENSE.txt` and `LICENSE-MPL-2.0.txt` for sources and terms.
+- Unmodified BNOSAC Swedish/English UD 2.1 model weights: CC BY-SA 4.0.
+  Authors, training resources and source links: `vendor/udpipe/MODEL-SOURCE-README.txt`.
+- Derived Swedish/English word-class evidence: CC BY-SA 4.0, including SALDO
+  forms under CC BY 4.0. Full attribution, source notices and input hashes:
+  `data/language/ATTRIBUTION.txt` and `data/language/SOURCES.json`.
+- Adapted Tolkien reference dataset: CC BY-SA 4.0 with retained CC0 components.
+  Entry-level source links and terms: `data/world-packs/ATTRIBUTION.txt`.
+
+These data/component licenses apply to their respective files, independently
+of the proprietary Tome application source license. No private campaign data
+is included in the bundled reference datasets.

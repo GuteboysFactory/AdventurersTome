@@ -177,3 +177,12 @@
   #adventurers-tome-app .at-campaign-workspace .at-index-records article { flex-wrap: wrap; }
   #adventurers-tome-app .at-campaign-workspace .at-workspace-rumours > summary small { display: block; margin-left: 0; }
 }
+
+/* Session briefing: explicit refresh, source-first reading, no layout polling. */
+#adventurers-tome-app .at-session-briefing { grid-column: 1 / -1; padding: 24px; border: 1px solid var(--at-border, #695229); border-radius: 10px; margin-bottom: 20px; background: rgba(30,24,13,.5); }
+#adventurers-tome-app .at-session-briefing-card { padding: 16px; margin: 12px 0; border: 1px solid var(--at-border, #695229); border-radius: 6px; min-width: 0; }
+#adventurers-tome-app .at-session-briefing :is(blockquote,p) { line-height: 1.65; overflow-wrap: anywhere; }
+#adventurers-tome-app .at-session-briefing blockquote { white-space: pre-line; margin: 12px 0; padding: 0 16px; border-left: 2px solid #b59750; }
+#adventurers-tome-app .at-session-briefing summary { cursor: pointer; padding: 8px 0; }
+#adventurers-tome-app .at-briefing-links { display: flex; flex-wrap: wrap; gap: 8px; }
+#adventurers-tome-app .at-briefing-scope { opacity: .8; font-size: .9em; }

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const AT_WAU_ID = "adventurers-tome";
 const AT_WAU_SUMMARY_ATTR = "data-at-tome-summary";
 let atWauCleaning = false;
@@ -5,14 +6,14 @@ let atWauDomQueued = false;
 
 function atWauIsWorldJournal(journal) {
   if (journal?.documentName !== "JournalEntry") return false;
-  const profile = journal.getFlag?.(AT_WAU_ID, "worldProfile");
-  return String(journal.getFlag?.(AT_WAU_ID, "type") || "") === "world" || Boolean(profile && typeof profile === "object");
+  const profile = globalThis.ATTestAI.flags(journal).getFlag?.(AT_WAU_ID, "worldProfile");
+  return String(globalThis.ATTestAI.flags(journal).getFlag?.(AT_WAU_ID, "type") || "") === "world" || Boolean(profile && typeof profile === "object");
 }
 
 function atWauPrimaryPage(journal) {
   if (!journal) return null;
-  const profile = journal.getFlag?.(AT_WAU_ID, "worldProfile") || {};
-  const preferred = String(journal.getFlag?.(AT_WAU_ID, "worldSyncPage") || profile.syncPageId || "");
+  const profile = globalThis.ATTestAI.flags(journal).getFlag?.(AT_WAU_ID, "worldProfile") || {};
+  const preferred = String(globalThis.ATTestAI.flags(journal).getFlag?.(AT_WAU_ID, "worldSyncPage") || profile.syncPageId || "");
   const pages = [...(journal.pages?.contents ?? [])].sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0));
   return pages.find((page) => page.id === preferred && String(page.type || "text").toLowerCase() === "text")
     || pages.find((page) => String(page.type || "text").toLowerCase() === "text")

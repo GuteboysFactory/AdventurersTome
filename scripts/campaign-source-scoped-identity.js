@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATSSI_ID = "adventurers-tome";
 const ATSSI_CONTRACT = "adventurers-tome-source-scoped-identity-resolution";
 const ATSSI_VERSION = 1;
@@ -46,11 +47,11 @@ function atSsiUnique(values) {
 }
 
 function atSsiIdentityApi() {
-  return game.modules.get(ATSSI_ID)?.api?.campaignIdentityReconciliation || null;
+  return globalThis.ATTestAI.modules.get(ATSSI_ID)?.api?.campaignIdentityReconciliation || null;
 }
 
 function atSsiDiscoveryApi() {
-  return game.modules.get(ATSSI_ID)?.api?.discovery || null;
+  return globalThis.ATTestAI.modules.get(ATSSI_ID)?.api?.discovery || null;
 }
 
 function atSsiSourceJournal(sourceUuid) {
@@ -61,7 +62,7 @@ function atSsiSourceJournal(sourceUuid) {
 }
 
 function atSsiLegacyLinks(journal) {
-  const raw = journal?.getFlag?.(ATSSI_ID, "links");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATSSI_ID, "links");
   const links = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   return {
     actors:atSsiArray(links.actors).map(String),
@@ -72,7 +73,7 @@ function atSsiLegacyLinks(journal) {
 }
 
 function atSsiCanonicalLinks(journal) {
-  const raw = journal?.getFlag?.(ATSSI_ID, "campaignEntityLinksV1");
+  const raw = globalThis.ATTestAI.flags(journal)?.getFlag?.(ATSSI_ID, "campaignEntityLinksV1");
   const links = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   return {
     actorUuids:atSsiUnique(atSsiArray(links.actorUuids)),
@@ -118,7 +119,7 @@ function atSsiKindForDocument(document) {
   if (document.documentName === "Scene") return "location";
   if (document.documentName !== "JournalEntry") return "unknown";
 
-  const flagged = atSsiClean(document.getFlag?.(ATSSI_ID, "type")).toLowerCase();
+  const flagged = atSsiClean(globalThis.ATTestAI.flags(document).getFlag?.(ATSSI_ID, "type")).toLowerCase();
   if (flagged) {
     if (flagged === "sessions") return "session";
     if (flagged === "quests") return "quest";
@@ -381,7 +382,7 @@ function atSsiResolveMention(input = {}) {
     const text = atSsiClean(input.text || input.name);
     const normalized = atSsiNormalize(text);
     const journal = atSsiSourceJournal(sourceUuid);
-    const learning=game.modules.get(ATSSI_ID)?.api?.campaignReviewLearning;
+    const learning=globalThis.ATTestAI.modules.get(ATSSI_ID)?.api?.campaignReviewLearning;
     const choice=learning?.decisionFor?.(text,{sourceUuid});
     const confirmedResult=(selected)=>{
       const authority=atSsiAuthorityUuid({canonicalUuid:selected.targetUuid});
@@ -603,7 +604,7 @@ const ATSSI_API = Object.freeze({
 });
 
 function atSsiAttach() {
-  const module = game.modules.get(ATSSI_ID);
+  const module = globalThis.ATTestAI.modules.get(ATSSI_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.campaignSourceScopedIdentity = ATSSI_API;
@@ -616,5 +617,5 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("renderApplicationV2", () => {
-  if (game.modules.get(ATSSI_ID)?.api?.campaignSourceScopedIdentity !== ATSSI_API) atSsiAttach();
+  if (globalThis.ATTestAI.modules.get(ATSSI_ID)?.api?.campaignSourceScopedIdentity !== ATSSI_API) atSsiAttach();
 });

@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const CONTRACT = "adventurers-tome-quick-npc-ui";
 const VERSION = 1;
@@ -26,7 +27,7 @@ function esc(value) {
 }
 
 function api() {
-  return game.modules.get(MODULE_ID)?.api || null;
+  return globalThis.ATTestAI.modules.get(MODULE_ID)?.api || null;
 }
 
 function creationApi() {
@@ -515,7 +516,7 @@ async function open(options = {}) {
           const actor = result?.actorUuid ? await fromUuid(result.actorUuid) : null;
           const verb = result?.action === "reuse-world" ? "Using" : result?.action === "import-compendium" ? "Imported" : "Created";
           ui.notifications.info(`Adventurer's Tome: ${verb} ${result?.actorName || draft.name}.`);
-          actor?.sheet?.render?.(true);
+          if (options.openAfterCreate !== false) actor?.sheet?.render?.(true);
           return result;
         } catch (error) {
           stats.failures += 1;
@@ -561,7 +562,7 @@ function audit() {
 const publicApi = Object.freeze({ contract:CONTRACT, version:VERSION, open, providerInfo, audit });
 
 function attach() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   if (!module) return false;
   if (!module.api || typeof module.api !== "object") module.api = {};
   module.api.quickNpc = publicApi;

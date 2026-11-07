@@ -1,9 +1,10 @@
+globalThis.ATTestAI.assertEnabled();
 import { getActorEmbeddedItems } from "./embedded-item-registry-helper.js";
 
 const MODULE_ID = "adventurers-tome";
 
 function attachEmbeddedItemExtension() {
-  const module = game.modules.get(MODULE_ID);
+  const module = globalThis.ATTestAI.modules.get(MODULE_ID);
   const base = module?.api?.universalDocuments;
   if (!base || base.embeddedItems) return Boolean(base);
 

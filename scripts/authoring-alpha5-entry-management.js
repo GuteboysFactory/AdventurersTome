@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATEM_MODULE_ID = "adventurers-tome";
 const ATEM_ROOT = "#adventurers-tome-app";
 const ATEM_SUMMARY_ATTR = "data-at-tome-summary";
@@ -71,7 +72,7 @@ function atEmSelectedId(section) {
 function atEmIsSectionRoot(folder, section) {
   if (!folder || folder.type !== "JournalEntry") return false;
   if (folder.name !== ATEM_SECTIONS[section]?.label) return false;
-  if (String(folder.getFlag?.(ATEM_MODULE_ID, "section") || "") === section) return true;
+  if (String(globalThis.ATTestAI.flags(folder).getFlag?.(ATEM_MODULE_ID, "section") || "") === section) return true;
   return atEmAncestors(folder).some((ancestor) => ancestor.id !== folder.id && /adventurer'?s tome/i.test(String(ancestor.name || "")));
 }
 
@@ -196,7 +197,7 @@ async function atEmCreateEntry(section) {
   if (!parent) return ui.notifications.warn("Adventurer's Tome: Select a folder/source in Explorer first.");
 
   if (section === "world") {
-    const moduleApi = game.modules.get(ATEM_MODULE_ID)?.api || {};
+    const moduleApi = globalThis.ATTestAI.modules.get(ATEM_MODULE_ID)?.api || {};
     const folderQuickCreate = moduleApi.folderQuickCreate || null;
     const backendParity = moduleApi.backendFolderParity || null;
     const semanticType = folderQuickCreate?.semanticType?.(parent) || "";
@@ -259,10 +260,10 @@ async function atEmCreateEntry(section) {
       text: { content: `<p ${ATEM_SUMMARY_ATTR}="true"></p><p></p>`, format: atEmHtmlFormat() },
       sort: 100000
     }]);
-    if (section === "world" && created?.[0]) await journal.setFlag(ATEM_MODULE_ID, "worldSyncPage", created[0].id);
+    if (section === "world" && created?.[0]) await globalThis.ATTestAI.flags(journal).setFlag(ATEM_MODULE_ID, "worldSyncPage", created[0].id);
 
     ui.notifications.info(`Adventurer's Tome: Created ${name}.`);
-    const app = game.modules.get(ATEM_MODULE_ID)?.api?.app?.();
+    const app = globalThis.ATTestAI.modules.get(ATEM_MODULE_ID)?.api?.app?.();
     await app?.render?.({ parts: ["main"] });
     window.setTimeout(() => {
       const root = document.querySelector(ATEM_ROOT);
@@ -276,7 +277,7 @@ async function atEmCreateEntry(section) {
 }
 
 async function atEmDeleteEntry(journal) {
-  const backendParity = game.modules.get(ATEM_MODULE_ID)?.api?.backendFolderParity || null;
+  const backendParity = globalThis.ATTestAI.modules.get(ATEM_MODULE_ID)?.api?.backendFolderParity || null;
   const managed = backendParity?.isManagedProjection?.(journal) === true;
   const source = managed ? backendParity?.sourceForProjection?.(journal) : null;
   const sourceLabel = source ? `${source.documentName} ${source.name}` : "Foundry Journal Entry";
@@ -299,7 +300,7 @@ async function atEmDeleteEntry(journal) {
       await journal.delete();
     }
     ui.notifications.info(`Adventurer's Tome: Deleted ${name}.`);
-    await game.modules.get(ATEM_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] });
+    await globalThis.ATTestAI.modules.get(ATEM_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] });
     atEmSchedule(180);
   } catch (error) {
     console.error("Adventurer's Tome | Explorer entry delete failed", error);
@@ -316,7 +317,7 @@ function atEmOpenInTome(journalId) {
 async function atEmManageEntry(journalId) {
   const journal = game.journal?.get(String(journalId || ""));
   if (!journal || !game.user?.isGM) return;
-  const backendParity = game.modules.get(ATEM_MODULE_ID)?.api?.backendFolderParity || null;
+  const backendParity = globalThis.ATTestAI.modules.get(ATEM_MODULE_ID)?.api?.backendFolderParity || null;
   const managed = backendParity?.isManagedProjection?.(journal) === true;
   const backendSource = managed ? backendParity?.sourceForProjection?.(journal) : null;
   document.querySelector(`${ATEM_ROOT} .at-em-entry-menu-overlay`)?.remove();
@@ -356,7 +357,7 @@ async function atEmManageEntry(journalId) {
       }
       close();
       ui.notifications.info(`Adventurer's Tome: Renamed entry to ${name}.`);
-      await game.modules.get(ATEM_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] });
+      await globalThis.ATTestAI.modules.get(ATEM_MODULE_ID)?.api?.app?.()?.render?.({ parts: ["main"] });
       atEmSchedule(180);
     } catch (error) {
       console.error("Adventurer's Tome | Explorer entry rename failed", error);

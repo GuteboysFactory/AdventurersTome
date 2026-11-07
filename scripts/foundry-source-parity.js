@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 const ATP_ID = "adventurers-tome";
 const ATP_PROFILE = "worldProfile";
 const ATP_UUID = "quickImportSourceUuid";
@@ -20,21 +21,28 @@ function atpLeaderGM() {
   const gms = [...(game.users?.contents ?? [])].filter(u => u.isGM && u.active).sort((a,b) => String(a.id).localeCompare(String(b.id)));
   return !gms.length || gms[0]?.id === game.user.id;
 }
-function atpProfile(j) { const p = j?.getFlag?.(ATP_ID, ATP_PROFILE); return p && typeof p === "object" && !Array.isArray(p) ? atpClone(p) : {}; }
-function atpWorld(j) { return j?.documentName === "JournalEntry" && (String(j.getFlag?.(ATP_ID,"type")||"") === "world" || Boolean(j.getFlag?.(ATP_ID,ATP_PROFILE))); }
-function atpSourceUuid(j,p=atpProfile(j)) { return String(j?.getFlag?.(ATP_ID,ATP_UUID) || p.sourceUuid || "").trim(); }
-function atpSourceType(j,p=atpProfile(j)) { return String(j?.getFlag?.(ATP_ID,ATP_TYPE) || p.sourceDocumentType || "").trim(); }
+function atpProfile(j) { const p = globalThis.ATTestAI.flags(j)?.getFlag?.(ATP_ID, ATP_PROFILE); return p && typeof p === "object" && !Array.isArray(p) ? atpClone(p) : {}; }
+function atpWorld(j) { return j?.documentName === "JournalEntry" && (String(globalThis.ATTestAI.flags(j).getFlag?.(ATP_ID,"type")||"") === "world" || Boolean(globalThis.ATTestAI.flags(j).getFlag?.(ATP_ID,ATP_PROFILE))); }
+function atpManagedSourceUuid(j) {
+  // Match Campaign Identity Reconciliation's explicit authority order. A
+  // stale quick-import mirror must not fight a managed Contact relationship.
+  const flags=globalThis.ATTestAI.flags(j),backend=flags?.getFlag?.(ATP_ID,"backendProjectionV1");
+  const backendUuid=String(backend?.sourceUuid||"").trim();
+  if(backend?.managed===true&&backendUuid&&backendUuid!==j.uuid)return backendUuid;
+  const projection=flags?.getFlag?.(ATP_ID,"semanticProjection"),linked=String(projection?.linkedUuid||"").trim();
+  return projection?.kind==="contact"&&/^Actor\.[^.]+$/.test(linked)?linked:"";
+}
+function atpSourceUuid(j,p=atpProfile(j)) { return atpManagedSourceUuid(j) || String(globalThis.ATTestAI.flags(j)?.getFlag?.(ATP_ID,ATP_UUID) || p.sourceUuid || "").trim(); }
+function atpSourceType(j,p=atpProfile(j)) { const managed=atpManagedSourceUuid(j);return managed?managed.split('.')[0]:String(globalThis.ATTestAI.flags(j)?.getFlag?.(ATP_ID,ATP_TYPE) || p.sourceDocumentType || "").trim(); }
 function atpPermanent(j,p=atpProfile(j)) { const u=atpSourceUuid(j,p); return atpSourceType(j,p)==="Actor" || u.startsWith("Actor.") || Boolean(String(p.actorId||"").trim()); }
 function atpActorByUuid(uuid) { const m=String(uuid||"").match(/^Actor\.([^\.]+)$/); return m ? game.actors?.get(m[1]) || null : null; }
 function atpResolveActor(j,{allowName=true}={}) {
   const p=atpProfile(j), uuid=atpSourceUuid(j,p), type=atpSourceType(j,p);
+  if (!["npc","contact","character","pc","npc-group"].includes(String(p.category||"").toLowerCase())) return {actor:null,permanent:false};
   if (uuid && (type === "Actor" || uuid.startsWith("Actor."))) return {actor:atpActorByUuid(uuid),permanent:true};
   const id=String(p.actorId||"").trim();
   if (id) return {actor:game.actors?.get(id)||null,permanent:true};
-  if (!allowName || String(p.category||"").toLowerCase() !== "npc") return {actor:null,permanent:false};
-  const name=String(j?.name||"").trim().toLocaleLowerCase();
-  const hits=[...(game.actors?.contents??[])].filter(a=>String(a.name||"").trim().toLocaleLowerCase()===name);
-  return hits.length===1 ? {actor:hits[0],permanent:false} : {actor:null,permanent:false};
+  return {actor:null,permanent:false};
 }
 function atpImageMode(p,a) {
   const explicit=String(p.sourceImageMode||"").toLowerCase();
@@ -45,23 +53,24 @@ function atpImageMode(p,a) {
 async function atpJournalUpdate(j,changes) { ATP_JOURNAL_GUARD.add(j.id); try { await j.update(changes); } finally { setTimeout(()=>ATP_JOURNAL_GUARD.delete(j.id),0); } }
 async function atpActorUpdate(a,changes) { ATP_ACTOR_GUARD.add(a.id); try { await a.update(changes); } finally { setTimeout(()=>ATP_ACTOR_GUARD.delete(a.id),0); } }
 async function atpNormalizeLink(j,a,{initial=false}={}) {
-  if (!atpLeaderGM() || !j || !a) return false;
+  if (!atpLeaderGM() || !j || !a || !["npc","contact","character","pc","npc-group"].includes(String(atpProfile(j).category||"").toLowerCase())) return false;
+  const authority=atpSourceUuid(j);if(authority&&authority!==a.uuid)return false;
   const before=atpProfile(j), p=atpProfile(j), oldSnap=String(p.sourceImageSnapshot||""), hero=String(p.heroImage||""), img=String(a.img||"");
   const mode=atpImageMode(p,a), sourceManaged=mode==="source" || !hero || (oldSnap && hero===oldSnap);
   Object.assign(p,{actorId:a.id,sourceUuid:a.uuid,sourceDocumentType:"Actor",sourceNameSnapshot:String(a.name||""),sourceImageSnapshot:img,sourceImageMode:sourceManaged?"source":"override",sourceMissing:false,sourceMissingSince:null,sourceParityVersion:ATP_VERSION});
   if (sourceManaged && img && (!initial || !hero || hero===oldSnap || hero===img)) p.heroImage=img;
   const changes={};
   if (JSON.stringify(before)!==JSON.stringify(p)) changes[`flags.${ATP_ID}.${ATP_PROFILE}`]=p;
-  if (String(j.getFlag?.(ATP_ID,ATP_UUID)||"")!==a.uuid) changes[`flags.${ATP_ID}.${ATP_UUID}`]=a.uuid;
-  if (String(j.getFlag?.(ATP_ID,ATP_TYPE)||"")!=="Actor") changes[`flags.${ATP_ID}.${ATP_TYPE}`]="Actor";
-  if (Number(j.getFlag?.(ATP_ID,"sourceParityVersion")||0)!==ATP_VERSION) changes[`flags.${ATP_ID}.sourceParityVersion`]=ATP_VERSION;
+  if (String(globalThis.ATTestAI.flags(j).getFlag?.(ATP_ID,ATP_UUID)||"")!==a.uuid) changes[`flags.${ATP_ID}.${ATP_UUID}`]=a.uuid;
+  if (String(globalThis.ATTestAI.flags(j).getFlag?.(ATP_ID,ATP_TYPE)||"")!=="Actor") changes[`flags.${ATP_ID}.${ATP_TYPE}`]="Actor";
+  if (Number(globalThis.ATTestAI.flags(j).getFlag?.(ATP_ID,"sourceParityVersion")||0)!==ATP_VERSION) changes[`flags.${ATP_ID}.sourceParityVersion`]=ATP_VERSION;
   if (j.name!==a.name) changes.name=a.name;
   if (!Object.keys(changes).length) return false;
   await atpJournalUpdate(j,changes); return true;
 }
-function atpLinked(a) { return [...(game.journal?.contents??[])].filter(j=>atpWorld(j) && (atpSourceUuid(j)===a.uuid || String(atpProfile(j).actorId||"")===String(a.id))); }
+function atpLinked(a) { return [...(game.journal?.contents??[])].filter(j=>{if(!atpWorld(j))return false;const uuid=atpSourceUuid(j);return uuid?uuid===a.uuid:String(atpProfile(j).actorId||"")===String(a.id);}); }
 async function atpActorToTome(a) {
-  if(game.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
+  if(globalThis.ATTestAI.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
   if (!a || !atpLeaderGM() || ATP_ACTOR_GUARD.has(a.id)) return;
   for (const j of atpLinked(a)) await atpNormalizeLink(j,a);
   atpScheduleVaultSync(); atpScheduleRender();
@@ -74,7 +83,7 @@ async function atpMarkMissing(j,a=null) {
   await atpJournalUpdate(j,{[`flags.${ATP_ID}.${ATP_PROFILE}`]:p});
 }
 async function atpTomeToActor(j,changes={}) {
-  if(game.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
+  if(globalThis.ATTestAI.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
   if (!atpLeaderGM() || !atpWorld(j) || ATP_JOURNAL_GUARD.has(j.id)) return;
   const resolved=atpResolveActor(j,{allowName:!atpPermanent(j)}), a=resolved.actor;
   if (!a) { if (resolved.permanent) await atpMarkMissing(j); return; }
@@ -88,10 +97,12 @@ async function atpTomeToActor(j,changes={}) {
   await atpNormalizeLink(j,a); atpScheduleVaultSync(); atpScheduleRender();
 }
 async function atpMigrateLinks() {
-  if(game.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
+  if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.wait();
+  if(globalThis.ATTestAI.modules.get(ATP_ID)?.api?.migration?.isImporting?.())return;
   if (!atpLeaderGM()) return;
   let linked=0,missing=0;
   for (const j of game.journal?.contents??[]) {
+    if(globalThis.AdventurersTomeBackground)await globalThis.AdventurersTomeBackground.checkpoint();
     if (!atpWorld(j)) continue;
     const r=atpResolveActor(j,{allowName:!atpPermanent(j)});
     if (r.actor) { if (await atpNormalizeLink(j,r.actor,{initial:true})) linked++; }
@@ -100,7 +111,7 @@ async function atpMigrateLinks() {
   if (linked||missing) console.info(`Adventurer's Tome | Source Parity: ${linked} Actor link(s) normalized, ${missing} missing source(s) marked.`);
 }
 function atpApp() {
-  try { return game.modules.get(ATP_ID)?.api?.app?.() || null; } catch (_e) { return null; }
+  try { return globalThis.ATTestAI.modules.get(ATP_ID)?.api?.app?.() || null; } catch (_e) { return null; }
 }
 
 function atpAuthoringActive(app = atpApp()) {
@@ -145,21 +156,21 @@ function atpFlushPendingRender() {
 
 function atpVaultData() {
   if (!game.user?.isGM) return {schema:"adventurers-tome.private-vault",version:2,records:{},migration:{}};
-  const p=atpParse(game.settings.get(ATP_ID,ATP_VAULT),{});
+  const p=atpParse(globalThis.ATTestAI.settings.get(ATP_ID,ATP_VAULT),{});
   return {schema:"adventurers-tome.private-vault",version:2,records:p?.records&&typeof p.records==="object"&&!Array.isArray(p.records)?atpClone(p.records):{},migration:p?.migration&&typeof p.migration==="object"?atpClone(p.migration):{}};
 }
 function atpNote(n={}) { const now=Date.now(); return {id:String(n.id||foundry.utils.randomID?.(12)||now),title:String(n.title||"GM Note").trim()||"GM Note",body:String(n.body||n.text||"").trim(),type:String(n.type||"reminder"),status:String(n.status||"open"),pinned:n.pinned===true,trigger:String(n.trigger||"").trim(),sessionTarget:Number(n.sessionTarget||0)>0?Math.floor(Number(n.sessionTarget)):null,createdAt:Number(n.createdAt||now)||now,updatedAt:Number(n.updatedAt||now)||now}; }
 function atpRecord(doc,r={}) { const now=Date.now(); return {uuid:String(doc?.uuid||r.uuid||""),documentName:String(doc?.documentName||r.documentName||"Document"),documentId:String(doc?.id||r.documentId||""),nameSnapshot:String(doc?.name||r.nameSnapshot||"Untitled"),notes:Array.isArray(r.notes)?r.notes.map(atpNote):[],facts:Array.isArray(r.facts)?atpClone(r.facts):[],relations:Array.isArray(r.relations)?atpClone(r.relations):[],createdAt:Number(r.createdAt||now)||now,updatedAt:Number(r.updatedAt||now)||now}; }
 function atpCanonical(doc) { if (doc?.documentName!=="JournalEntry") return doc; const r=atpResolveActor(doc,{allowName:false}); return r.actor||doc; }
 function atpAliasJournal(actor) { return atpLinked(actor)[0]||null; }
-function atpLegacyData(){const p=atpParse(game.settings.get(ATP_ID,ATP_LEGACY_VAULT),{});return p&&typeof p==="object"&&!Array.isArray(p)?atpClone(p):{};}
+function atpLegacyData(){const p=atpParse(globalThis.ATTestAI.settings.get(ATP_ID,ATP_LEGACY_VAULT),{});return p&&typeof p==="object"&&!Array.isArray(p)?atpClone(p):{};}
 function atpLegacyKey(d){return d?.id?`${String(d.documentName||"document").toLowerCase()}:${d.id}`:"";}
 function atpGetRecord(doc) {
   doc=atpCanonical(doc); const v=atpVaultData(); if(v.records[doc.uuid]) return atpRecord(doc,v.records[doc.uuid]);
   if(doc.documentName==="Actor"){const j=atpAliasJournal(doc); if(j&&v.records[j.uuid]) return atpRecord(doc,v.records[j.uuid]);}
   return atpRecord(doc,atpLegacyData()[atpLegacyKey(doc)]||{});
 }
-async function atpSetVault(v){atpVaultGuard=true;try{await game.settings.set(ATP_ID,ATP_VAULT,JSON.stringify(v));}finally{setTimeout(()=>atpVaultGuard=false,0);}}
+async function atpSetVault(v){atpVaultGuard=true;try{await globalThis.ATTestAI.settings.set(ATP_ID,ATP_VAULT,JSON.stringify(v));}finally{setTimeout(()=>atpVaultGuard=false,0);}}
 async function atpSaveRecord(doc,notes){
   doc=atpCanonical(doc); const alias=doc.documentName==="Actor"?atpAliasJournal(doc):null, v=atpVaultData(), old=atpGetRecord(doc), next=atpRecord(doc,{...old,notes:notes.map(atpNote),createdAt:old.createdAt,updatedAt:Date.now()});
   const empty=!next.notes.length&&!next.facts.length&&!next.relations.length;
@@ -167,7 +178,7 @@ async function atpSaveRecord(doc,notes){
   if(alias){if(empty) delete v.records[alias.uuid]; else v.records[alias.uuid]=atpRecord(alias,next);}
   await atpSetVault(v);
   const legacy=atpLegacyData(), payload={notes:next.notes.map(atpNote),facts:atpClone(next.facts),relations:atpClone(next.relations)};
-  for(const d of [doc,alias].filter(Boolean)){const k=atpLegacyKey(d);if(empty)delete legacy[k];else legacy[k]=atpClone(payload);} await game.settings.set(ATP_ID,ATP_LEGACY_VAULT,JSON.stringify(legacy));
+  for(const d of [doc,alias].filter(Boolean)){const k=atpLegacyKey(d);if(empty)delete legacy[k];else legacy[k]=atpClone(payload);} await globalThis.ATTestAI.settings.set(ATP_ID,ATP_LEGACY_VAULT,JSON.stringify(legacy));
   return next;
 }
 function atpMergeRecords(doc,a,b){if(!a)return b?atpRecord(doc,b):null;if(!b)return atpRecord(doc,a);const newest=Number(a.updatedAt||0)>=Number(b.updatedAt||0)?a:b, older=newest===a?b:a, ids=new Set(),notes=[];for(const n of [...(newest.notes||[]),...(older.notes||[])]){const x=atpNote(n);if(ids.has(x.id))continue;ids.add(x.id);notes.push(x);}return atpRecord(doc,{...older,...newest,notes,updatedAt:Math.max(Number(a.updatedAt||0),Number(b.updatedAt||0))});}

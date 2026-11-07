@@ -1,3 +1,4 @@
+globalThis.ATTestAI.assertEnabled();
 // Park the live Tome DOM instead of closing it: drafts and scroll stay in place.
 const atWindowDocks=new WeakMap();
 function atDockHasDraft(element) {
