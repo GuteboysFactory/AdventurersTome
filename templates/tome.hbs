@@ -80,6 +80,7 @@
       <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsIndex"><i class="fa-solid fa-database"></i><span>Index</span></button>
       <button type="button" class="active" aria-current="page" data-action="navigate" data-tab="campaignToolsSignals"><i class="fa-solid fa-comment"></i><span>Player Signals</span></button>
+      <button type="button" class="{{#if isCampaignToolsVault}}active{{/if}}" data-action="navigate" data-tab="campaignToolsVault"><i class="fa-solid fa-lock"></i><span>Private Vault</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
     <section class="at-chronicle" data-player-chronicle="signals"></section>
@@ -854,8 +855,8 @@
     <section class="at-page-heading at-campaign-tools-heading">
       <div>
         <span class="at-kicker">GM workspace</span>
-        <h1>{{#if isCampaignToolsOverview}}Campaign overview{{/if}}{{#if isCampaignToolsMemory}}Campaign memory{{/if}}{{#if isCampaignToolsAnalysis}}Campaign analysis{{/if}}{{#if isCampaignToolsIndex}}Campaign index{{/if}}{{#if isCampaignToolsAssistant}}Session assistant{{/if}}</h1>
-        <p>{{#if isCampaignToolsOverview}}Your next decisions, private notes and campaign tools — together at a glance.{{/if}}{{#if isCampaignToolsMemory}}Find the people, places and clues mentioned across your sessions and quests.{{/if}}{{#if isCampaignToolsAnalysis}}Review uncertain identities and relationships with the source close at hand.{{/if}}{{#if isCampaignToolsIndex}}See what Tome has analysed and manage the sources behind campaign matching.{{/if}}{{#if isCampaignToolsAssistant}}Prepare the next session, capture ideas and keep your private notes together.{{/if}}</p>
+        <h1>{{#if isCampaignToolsOverview}}Campaign overview{{/if}}{{#if isCampaignToolsMemory}}Campaign memory{{/if}}{{#if isCampaignToolsAnalysis}}Campaign analysis{{/if}}{{#if isCampaignToolsIndex}}Campaign index{{/if}}{{#if isCampaignToolsVault}}Private Vault{{/if}}{{#if isCampaignToolsAssistant}}Session assistant{{/if}}</h1>
+        <p>{{#if isCampaignToolsOverview}}Your next decisions, private notes and campaign tools — together at a glance.{{/if}}{{#if isCampaignToolsMemory}}Find the people, places and clues mentioned across your sessions and quests.{{/if}}{{#if isCampaignToolsAnalysis}}Review uncertain identities and relationships with the source close at hand.{{/if}}{{#if isCampaignToolsIndex}}See what Tome has analysed and manage the sources behind campaign matching.{{/if}}{{#if isCampaignToolsVault}}Your private notes, secrets and preparation — organised around the people and places that matter.{{/if}}{{#if isCampaignToolsAssistant}}Prepare the next session, capture ideas and keep your private notes together.{{/if}}</p>
       </div>
       {{#if isCampaignToolsOverview}}<div class="at-ov-session"><span><i class="fa-solid fa-book-open"></i> Next session</span><strong>{{settings.gmNotebook.nextSession}}</strong><small><i class="fa-solid fa-lock"></i> Private GM workspace</small></div>{{else}}<span class="at-workspace-private"><i class="fa-solid fa-lock"></i> Private GM workspace</span>{{/if}}
     </section>
@@ -866,9 +867,11 @@
       <button type="button" class="{{#if isCampaignToolsAnalysis}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="{{#if isCampaignToolsIndex}}active{{/if}}" data-action="navigate" data-tab="campaignToolsIndex"><i class="fa-solid fa-database"></i><span>Index</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsSignals"><i class="fa-solid fa-comment"></i><span>Player Signals</span></button>
+      <button type="button" class="{{#if isCampaignToolsVault}}active{{/if}}" data-action="navigate" data-tab="campaignToolsVault"><i class="fa-solid fa-lock"></i><span>Private Vault</span></button>
       <button type="button" class="{{#if isCampaignToolsAssistantNavActive}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
+    {{#if isCampaignToolsVault}}<section data-at-private-vault-workspace></section>{{/if}}
     {{#if isCampaignToolsIndex}}<section class="at-campaign-index" data-at-campaign-index></section>{{/if}}
     {{#if isCampaignToolsAnalysis}}<details class="at-workspace-rumours"><summary><i class="fa-solid fa-comment-dots"></i> Saved rumours <small>Unconfirmed claims kept separate from campaign facts</small></summary><section class="at-chronicle" data-player-chronicle="rumours"></section></details>{{/if}}
     {{#if isCampaignToolsOverview}}
@@ -1396,6 +1399,7 @@
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
+      <button type="button" class="{{#if isCampaignToolsVault}}active{{/if}}" data-action="navigate" data-tab="campaignToolsVault"><i class="fa-solid fa-lock"></i><span>Private Vault</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
@@ -1452,6 +1456,7 @@
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
+      <button type="button" class="{{#if isCampaignToolsVault}}active{{/if}}" data-action="navigate" data-tab="campaignToolsVault"><i class="fa-solid fa-lock"></i><span>Private Vault</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
@@ -1477,6 +1482,7 @@
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
+      <button type="button" class="{{#if isCampaignToolsVault}}active{{/if}}" data-action="navigate" data-tab="campaignToolsVault"><i class="fa-solid fa-lock"></i><span>Private Vault</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 
@@ -1497,6 +1503,7 @@
       <button type="button" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
       <button type="button" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
+      <button type="button" class="{{#if isCampaignToolsVault}}active{{/if}}" data-action="navigate" data-tab="campaignToolsVault"><i class="fa-solid fa-lock"></i><span>Private Vault</span></button>
       <button type="button" class="active" data-action="navigate" data-tab="campaignToolsAssistant"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Assistant</span></button>
     </nav>
 

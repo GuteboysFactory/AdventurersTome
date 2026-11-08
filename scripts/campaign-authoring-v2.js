@@ -113,6 +113,7 @@ function nextSessionNumber() {
   return (values.length ? Math.max(...values) : 0) + 1;
 }
 
+function canAuthorCampaign(){return Boolean(game.user?.isGM||(Number(game.user?.role)>=(CONST.USER_ROLES?.TRUSTED??2)&&game.user?.can?.('JOURNAL_CREATE')!==false));}
 async function ensureCanonicalFolder(section) {
   const sectionName = section === "sessions" ? "Sessions" : "Quests";
   const folders = game.folders?.contents || [];
@@ -123,6 +124,7 @@ async function ensureCanonicalFolder(section) {
     && !parentId(folder)
   ) || null;
 
+  if (!root && !game.user?.isGM) return null;
   if (!root) {
     root = await Folder.create({
       name:"Adventurer's Tome",
@@ -138,6 +140,7 @@ async function ensureCanonicalFolder(section) {
     && parentId(folder) === root.id
   ) || null;
 
+  if (!target && !game.user?.isGM) return null;
   if (!target) {
     target = await Folder.create({
       name:sectionName,
@@ -310,26 +313,28 @@ function primaryPageTemplate(section, body = "", bodyFormat = "text") {
 }
 
 async function createSession({ number, title, date, body = "", bodyFormat = "text", visibility = "shared", uploadReceipt = null, open = true, quiet = false, beforeCreate } = {}) {
-  if (!game.user?.isGM) throw new Error("Only a GM can create Sessions.");
+  if (!canAuthorCampaign()) throw new Error("Session import requires a Trusted Player or GM with permission to create Journal entries.");
   const sessionNumber = Number(number || 0);
   if (!Number.isFinite(sessionNumber) || sessionNumber < 1) throw new Error("Enter a valid Session number.");
   const cleanTitle = clean(title);
   if (!cleanTitle) throw new Error("Enter a Session title.");
 
+  if(!game.user.isGM)visibility="private";
   const folder = await ensureCanonicalFolder("sessions");
   await beforeCreate?.();
-  if (!game.user?.isGM) throw new Error("Only a GM can create Sessions.");
+  if (!canAuthorCampaign()) throw new Error("Session import requires a Trusted Player or GM with permission to create Journal entries.");
   const name = /^session\s+\d+\b/i.test(cleanTitle)
     ? cleanTitle
     : `Session ${sessionNumber} — ${cleanTitle}`;
 
   const journal = await JournalEntry.create({
     name,
-    folder:folder.id,
-    ownership:{ default:visibility === "gm" ? (CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0) : (CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2) },
+    folder:folder?.id??null,
+    ownership:{ default:["gm","private"].includes(visibility) ? (CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0) : (CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2),...(!game.user.isGM?{[game.user.id]:CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER??3}:{}) },
     flags:{
       [MODULE_ID]:{
         type:"sessions",
+        ...(!game.user.isGM?{access:{visibility:"inherit",discovered:true}}:{}),
         ...(visibility === "gm" ? {access:{visibility:"gm"}} : {}),
         ...(uploadReceipt ? {sessionUploadV1:uploadReceipt} : {}),
         session:{
@@ -355,7 +360,7 @@ async function createSession({ number, title, date, body = "", bodyFormat = "tex
 }
 
 async function createQuest(options = {}) {
-  if (!game.user?.isGM) throw new Error("Only a GM can create Quests.");
+  if (!canAuthorCampaign()) throw new Error("Quest import requires a Trusted Player or GM with permission to create Journal entries.");
   const source = options.briefingSource;
   const key = source ? JSON.stringify([source.sourceUuid,source.pageUuid,source.excerpt]) : null;
   if (key && questSourcesInFlight.has(key)) throw new Error('This follow-up is already being saved.');
@@ -364,24 +369,27 @@ async function createQuest(options = {}) {
   finally { if (key) questSourcesInFlight.delete(key); }
 }
 
-async function createQuestRecord({ title, status, body = "", visibility = "shared", briefingSource = null, beforeCreate, open = true, quiet = false } = {}) {
-  if (!game.user?.isGM) throw new Error("Only a GM can create Quests.");
+async function createQuestRecord({ title, status, body = "", visibility = "shared", briefingSource = null, beforeCreate, bodyFormat = "text", uploadReceipt = null, open = true, quiet = false } = {}) {
+  if (!canAuthorCampaign()) throw new Error("Quest import requires a Trusted Player or GM with permission to create Journal entries.");
   const cleanTitle = clean(title);
   if (!cleanTitle) throw new Error("Enter a Quest title.");
   const normalizedStatus = ["active","dormant","completed","failed"].includes(clean(status))
     ? clean(status)
     : "active";
 
+  if(!game.user.isGM)visibility="private";
   const folder = await ensureCanonicalFolder("quests");
   await beforeCreate?.();
-  if (!game.user?.isGM) throw new Error("Only a GM can create Quests.");
+  if (!canAuthorCampaign()) throw new Error("Quest import requires a Trusted Player or GM with permission to create Journal entries.");
   const journal = await JournalEntry.create({
     name:cleanTitle,
-    folder:folder.id,
-    ownership:{ default:visibility === 'gm' ? (CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0) : (CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2) },
+    folder:folder?.id??null,
+    ownership:{ default:['gm','private'].includes(visibility) ? (CONST.DOCUMENT_OWNERSHIP_LEVELS?.NONE ?? 0) : (CONST.DOCUMENT_OWNERSHIP_LEVELS?.OBSERVER ?? 2),...(!game.user.isGM?{[game.user.id]:CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER??3}:{}) },
     flags:{
       [MODULE_ID]:{
         type:"quests",
+        ...(!game.user.isGM?{access:{visibility:"inherit",discovered:true}}:{}),
+        ...(uploadReceipt?{questUploadV1:uploadReceipt}:{}),
         ...(visibility === 'gm' ? {access:{visibility:'gm'}} : {}),
         ...(briefingSource ? {briefingSourceV1:{sourceUuid:String(briefingSource.sourceUuid),pageUuid:String(briefingSource.pageUuid),excerpt:String(briefingSource.excerpt)}} : {}),
         status:normalizedStatus,
@@ -396,10 +404,10 @@ async function createQuestRecord({ title, status, body = "", visibility = "share
   if (briefingSource?.pageUuid && !body.includes(`@UUID[${briefingSource.pageUuid}]`)) {
     body += `\n\nSource: @UUID[${briefingSource.pageUuid}]{Session source}`;
   }
-  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("quests", body)]);
+  const created = await journal.createEmbeddedDocuments("JournalEntryPage", [primaryPageTemplate("quests", body, bodyFormat)]);
   const page = created?.[0] || null;
   if (!page) throw new Error("Quest was created, but its Overview page could not be created.");
-  if (briefingSource) {
+  if (briefingSource && game.user.isGM) {
     try {
       const linkSource = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.sessionBriefing?.linkQuestSource;
       if (!linkSource) throw new Error('Session linking is unavailable.');

@@ -1,3 +1,10 @@
+# 2.1.1
+
+Private Vault workspace, rich-text notes, encrypted images, custom categories,
+encrypted selected-content whispers, secure GM Inbox, Trusted/Assistant import
+and HTTP-compatible document checksums. See docs/V2.1.1_STABLE_RELEASE.md for
+upgrade instructions, HTTPS requirements and recovery/history limits.
+
 # 2.1.0
 
 Integrated local Swedish/English interpretation, responsive background analysis, flexible World tree, safe identity decisions and World batches of 10/20/30. TestAI settings transfer once when upgrading. See docs/V2.1_STABLE_RELEASE.md.

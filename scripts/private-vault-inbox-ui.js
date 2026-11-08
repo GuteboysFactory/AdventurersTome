@@ -1,0 +1,16 @@
+const ID='adventurers-tome',api=()=>game.modules.get(ID)?.api,states=new WeakMap();
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function mount(host){
+ if(!host||!game.user?.isGM||!api().securePrivateVault.unlocked())return;const inbox=api().gmInbox;if(!inbox)return;
+ const rows=inbox.pending(),key=game.user.id+'|'+rows.map(m=>m.id+':'+m.getFlag(ID,'vaultInboxV1')?.signature).join('|'),old=states.get(host);if(old?.key===key)return;
+ const expanded=host.querySelector('details')?.open;states.set(host,{key});host.innerHTML=`<details ${expanded?'open':''}><summary><strong>GM Inbox</strong> · ${rows.length} awaiting your review</summary><p>GM-only sections stay here until you accept them into Private Vault. Opening this list does not read every incoming note.</p><div data-inbox-list></div><button type="button" class="at-secondary" data-inbox-more>Show more incoming records</button></details>`;
+ const list=host.querySelector('[data-inbox-list]');let limit=10;
+ function paint(){list.replaceChildren();for(const record of rows.slice(0,limit)){const card=document.createElement('article');card.className='at-vault-reading-note';card.dataset.inboxRecord=record.id;const packet=record.getFlag(ID,'vaultInboxV1'),sender=game.users.get(packet.senderId)?.name||'Former user';card.innerHTML=`<header>Submitted account: ${esc(sender)}</header><button type="button" class="at-secondary" data-inbox-review>Review GM sections</button>`;
+  card.querySelector('button').onclick=async e=>{e.target.disabled=true;try{const expectedPacket=JSON.stringify(record.getFlag(ID,'vaultInboxV1')),payload=await inbox.read(record);if(!card.isConnected||!game.user.isGM||!api().securePrivateVault.unlocked())return;card.innerHTML=`<header>From ${esc(sender)}</header><h3>${esc(payload.sourceTitle)}</h3>${payload.notes.map((n,i)=>`<details><summary>${esc(n.title)} · ${n.type==='reminder'?'Reminder':'GM note'}</summary><p data-inbox-note="${i}">${esc(n.body.slice(0,12000)).replace(/\n/g,'<br>')}</p>${n.body.length>12000?`<button type="button" class="at-secondary" data-inbox-full="${i}">Show full section</button>`:''}</details>`).join('')}<p data-inbox-error role="alert" hidden></p><button type="button" class="at-primary" data-inbox-accept>Accept to Private Vault</button>`;
+   for(const button of card.querySelectorAll('[data-inbox-full]'))button.onclick=()=>{card.querySelector(`[data-inbox-note="${button.dataset.inboxFull}"]`).textContent=payload.notes[Number(button.dataset.inboxFull)].body;button.remove();};
+   card.querySelector('[data-inbox-accept]').onclick=async event=>{event.target.disabled=true;try{await inbox.decide(record.id,true,{expectedPacket});states.delete(host);mount(host);}catch(error){const warning=card.querySelector('[data-inbox-error]');warning.textContent=error.message;warning.hidden=false;event.target.disabled=false;}};
+  }catch(error){const warning=document.createElement('p');warning.setAttribute('role','alert');warning.textContent=error.message;card.append(warning);e.target.disabled=false;}};list.append(card);
+ }host.querySelector('[data-inbox-more]').hidden=limit>=rows.length;}
+ host.querySelector('[data-inbox-more]').onclick=()=>{limit+=10;paint();};paint();
+}
+Hooks.once('ready',()=>{api().gmInboxUI=Object.freeze({mount});});

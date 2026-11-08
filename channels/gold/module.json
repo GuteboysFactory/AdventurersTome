@@ -2,7 +2,7 @@
   "id": "adventurers-tome",
   "title": "Adventurer’s Tome",
   "description": "Campaign workspace with local Swedish and English analysis, campaign memory, world knowledge and responsive browsing.",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "authors": [
     {
       "name": "Per"
@@ -14,6 +14,7 @@
     "maximum": "14"
   },
   "esmodules": [
+    "scripts/private-vault-security.js",
     "scripts/production-bootstrap.js",
     "scripts/startup-performance.js",
     "scripts/background-work.mjs",
@@ -83,6 +84,7 @@
     "scripts/semantic-contact-projection.js",
     "scripts/world-quick-import-content.js",
     "scripts/adaptive-window.js",
+    "scripts/private-vault-runtime.js",
     "scripts/contextual-private-vault.js",
     "scripts/foundry-source-parity.js",
     "scripts/source-parity-hardening.js",
@@ -133,7 +135,11 @@
     "scripts/identity-conflicts.js",
     "scripts/world-source-explorer.js",
     "scripts/player-character-placement.js",
-    "scripts/integrated-interpretation.js"
+    "scripts/integrated-interpretation.js",
+    "scripts/private-vault-ui.js",
+    "scripts/private-vault-token-ui.js",
+    "scripts/private-vault-workspace.js",
+    "scripts/private-vault-media.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
@@ -177,7 +183,8 @@
     "styles/session-upload.css",
     "styles/testai-language.css",
     "styles/world-tree.css",
-    "styles/player-character-placement.css"
+    "styles/player-character-placement.css",
+    "styles/private-vault-notes.css"
   ],
   "languages": [
     {
@@ -198,5 +205,5 @@
     "vendor/compromise-14.17.0.js"
   ],
   "manifest": "https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json",
-  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.0/adventurers-tome.zip"
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.1/adventurers-tome.zip"
 }

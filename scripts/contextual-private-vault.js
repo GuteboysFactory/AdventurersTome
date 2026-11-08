@@ -148,7 +148,10 @@ function normalizeRecord(document, record = {}) {
   };
 }
 
-function getRecord(document, vault = getContextVault()) {
+function getRecord(document, vault) {
+  const shared=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVault;
+  if(shared)return shared.record(document)||normalizeRecord(document,{});
+  vault ||= getContextVault();
   const uuid = canonicalUuid(document);
   if (!uuid) return normalizeRecord(document, {});
   const direct = vault.records?.[uuid];
@@ -174,6 +177,8 @@ async function mirrorLegacyRecord(document, record) {
 }
 
 async function saveRecord(document, patch = {}) {
+  const shared=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVault;
+  if(shared&&Array.isArray(patch.notes)&&!Object.hasOwn(patch,"facts")&&!Object.hasOwn(patch,"relations"))return shared.saveNotes(document,patch.notes);
   if (!game.user?.isGM) throw new Error("Only a GM can change private Adventurer's Tome data.");
   const uuid = canonicalUuid(document);
   if (!uuid) throw new Error("A stable Foundry UUID is required for contextual GM notes.");
@@ -200,6 +205,7 @@ async function saveRecord(document, patch = {}) {
 }
 
 async function migrateLegacyVault() {
+  if(globalThis.AdventurersTomeVaultSecurity&&!globalThis.AdventurersTomeVaultSecurity.unlocked())return {imported:0,skipped:true,locked:true};
   if (!game.user?.isGM) return { imported: 0, skipped: true };
   const vault = getContextVault();
   const legacy = getLegacyVault();
@@ -453,6 +459,8 @@ function gmApi() {
       return deepClone(getRecord(document).notes || []);
     },
     async addNote(document, note = {}) {
+      const shared=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVault;
+      if(shared){const normalized=normalizeNote(note);await shared.addNote(document,normalized);return {note:normalized,summary:this.getSummary(document)};}
       if (!game.user?.isGM) throw new Error("Only a GM can add private Adventurer's Tome context.");
       if (!canonicalUuid(document)) throw new Error("A stable Foundry UUID is required for contextual GM notes.");
       const record = getRecord(document);

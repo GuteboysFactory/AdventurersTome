@@ -32,3 +32,7 @@ The upstream MIT copyright notice and permission notice are included in `vendor/
 These data/component licenses apply to their respective files, independently
 of the proprietary Tome application source license. No private campaign data
 is included in the bundled reference datasets.
+
+## Secure GM Inbox and encrypted Tome whispers
+
+TweetNaCl.js 1.0.3, TweetNaCl-js contributors, Unlicense. Upstream: https://github.com/dchest/tweetnacl-js/tree/1.0.3 . Source blob `7ea5fb5883289b49f8d543f2d48af7132c3c6a6d`. The upstream nacl-fast.js body is preserved inside a small ES module wrapper in `vendor/tweetnacl-1.0.3.mjs`; license in `vendor/tweetnacl-LICENSE.txt`. Used for recipient-key encryption of incoming GM notes and selected Tome text/image whispers, including browsers without WebCrypto. Whisper encryption and decryption run in dedicated module workers.

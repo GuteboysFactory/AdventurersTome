@@ -10,6 +10,7 @@ globalThis.ATTestAI.assertEnabled();
   function gm(env){if(!env.user()?.isGM)throw Error('Only the active GM can migrate campaign-private data.');}
   function safe(value){if(!value||typeof value!=='object')return;for(const [key,child] of Object.entries(value)){if(['__proto__','constructor','prototype'].includes(key))throw Error('Unsafe private-data key.');safe(child);}}
   function capture(env){
+    if(globalThis.AdventurersTomeVaultSecurity&&!globalThis.AdventurersTomeVaultSecurity.unlocked())throw Error('Unlock Private Vault before exporting campaign-private data.');
     gm(env);const read=keys=>Object.fromEntries(keys.filter(key=>env.hasSetting(key)).map(key=>[key,clone(env.getSetting(key))]));
     // GM inbox contains only versions players already explicitly shared with this GM.
     const inbox=env.hasSetting('playerChronicleV1')?clone(env.getSetting('playerChronicleV1')?.inbox||{}):{};

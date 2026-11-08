@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {imageDimensions} from '../../scripts/private-vault-image-header.mjs';
+function png(w,h){const b=new Uint8Array(24);b.set([137,80,78,71,13,10,26,10]);b.set(new TextEncoder().encode('IHDR'),12);const v=new DataView(b.buffer);v.setUint32(16,w);v.setUint32(20,h);return b;}
+test('PNG dimensions and decompression limits are checked without decoding pixels',()=>{assert.deepEqual(imageDimensions(png(1600,900)),{width:1600,height:900});assert.throws(()=>imageDimensions(png(100000,100000)),/40 megapixels/);});
+test('JPEG SOF dimensions are read across metadata segments',()=>{const b=new Uint8Array([255,216,255,224,0,4,0,0,255,192,0,8,8,0,100,0,200,0]);assert.deepEqual(imageDimensions(b),{width:200,height:100});assert.throws(()=>imageDimensions(b.subarray(0,12)));});
+test('Truncated and unsupported files fail before a browser image decode',()=>{for(const b of [new Uint8Array(),new Uint8Array([255,216,255,224,255,255]),new TextEncoder().encode('<svg onload="alert(1)"></svg>')])assert.throws(()=>imageDimensions(b));});

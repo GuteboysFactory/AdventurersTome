@@ -1,0 +1,8 @@
+// Reject excessive dimensions before asking the browser to decode pixels.
+export function imageDimensions(input){
+ const b=new Uint8Array(input),v=new DataView(b.buffer,b.byteOffset,b.byteLength),text=(i,n)=>String.fromCharCode(...b.subarray(i,i+n));let width,height;
+ if(b.length>=24&&b[0]===137&&text(1,3)==='PNG'&&text(12,4)==='IHDR'){width=v.getUint32(16);height=v.getUint32(20);}
+ else if(b.length>=4&&b[0]===255&&b[1]===216){let i=2;while(i+4<=b.length){if(b[i++]!==255)throw Error('Invalid JPEG header.');while(b[i]===255)i++;const marker=b[i++];if(marker===217||marker===218)break;if(marker===1||(marker>=208&&marker<=215))continue;if(i+2>b.length)break;const size=v.getUint16(i);if(size<2||i+size>b.length)throw Error('Invalid JPEG header.');if([192,193,194,195,197,198,199,201,202,203,205,206,207].includes(marker)){if(size<7)throw Error('Invalid JPEG frame.');height=v.getUint16(i+3);width=v.getUint16(i+5);break;}i+=size;}}
+ else if(b.length>=20&&text(0,4)==='RIFF'&&text(8,4)==='WEBP'){let i=12;while(i+8<=b.length){const kind=text(i,4),size=v.getUint32(i+4,true),p=i+8;if(p+size>b.length)throw Error('Invalid WebP header.');if(kind==='VP8X'&&size>=10){width=1+b[p+4]+(b[p+5]<<8)+(b[p+6]<<16);height=1+b[p+7]+(b[p+8]<<8)+(b[p+9]<<16);break;}if(kind==='VP8L'&&size>=5&&b[p]===47){const bits=v.getUint32(p+1,true);width=1+(bits&16383);height=1+((bits>>>14)&16383);break;}if(kind==='VP8 '&&size>=10&&b[p+3]===157&&b[p+4]===1&&b[p+5]===42){width=v.getUint16(p+6,true)&16383;height=v.getUint16(p+8,true)&16383;break;}i=p+size+(size&1);}}
+ if(!width||!height)throw Error('The image dimensions could not be read. Choose a valid PNG, JPEG or WebP.');if(width*height>40000000)throw Error('Choose an image smaller than 40 megapixels.');return {width,height};
+}

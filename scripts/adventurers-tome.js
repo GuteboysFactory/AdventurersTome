@@ -785,13 +785,19 @@ function getPrivateOverlay(document) {
   const raw = getPrivateVault()[privateVaultKey(document)];
   const overlay = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   return {
-    notes: Array.isArray(overlay.notes) ? overlay.notes.map(normalizeGmNote) : [],
+    notes: globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVault?.notes(document) ?? (Array.isArray(overlay.notes) ? overlay.notes.map(normalizeGmNote) : []),
     facts: Array.isArray(overlay.facts) ? foundry.utils.deepClone(overlay.facts) : [],
     relations: Array.isArray(overlay.relations) ? foundry.utils.deepClone(overlay.relations) : []
   };
 }
 
 async function setPrivateOverlay(document, patch = {}) {
+  const shared=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVault;
+  if(shared&&Array.isArray(patch.notes)){
+    const saved=await shared.saveNotes(document,patch.notes);
+    if(!saved.legacySynced)ui.notifications.warn("GM notes saved. GM Notebook synchronization is pending.");
+    if(!Object.hasOwn(patch,"facts")&&!Object.hasOwn(patch,"relations"))return getPrivateOverlay(document);
+  }
   if (!game.user?.isGM) throw new Error("Only a GM can change private Adventurer's Tome data.");
   if (!document?.id) throw new Error("A Foundry Document is required.");
   const vault = getPrivateVault();
@@ -823,7 +829,7 @@ function getTomeAccess(document) {
   let notes = [];
   if (game.user?.isGM) {
     const overlay = getPrivateOverlay(document);
-    notes = overlay.notes.length ? overlay.notes : normalizeGmNotes(globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, FLAGS.ACCESS) || {});
+    notes = globalThis.AdventurersTomeVaultSecurity ? overlay.notes : (overlay.notes.length ? overlay.notes : normalizeGmNotes(globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID, FLAGS.ACCESS) || {}));
   }
   return {
     ...publicAccess,
@@ -892,6 +898,7 @@ function semanticContactEvidenceVisible(document, user = game.user) {
 
 function canViewInTome(document, user = game.user) {
   if (!document) return false;
+  if(globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID,'vaultInboxV1'))return false;
   if (globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID,'chronicleV1') || globalThis.ATTestAI.flags(document.parent)?.getFlag?.(MODULE_ID,'chronicleV1')) return false;
   if (user?.isGM) return true;
   // Tome renders full campaign content, so require Foundry OBSERVER or better.
@@ -2449,6 +2456,7 @@ function resolveWorldActor(entryOrId, profile = null) {
 }
 
 async function migrateLegacyPrivateData() {
+  if(globalThis.AdventurersTomeVaultSecurity&&!globalThis.AdventurersTomeVaultSecurity.unlocked())return {migrated:0,locked:true};
   const atStartupToken = globalThis.AdventurersTomeStartup?.begin("private-vault");
   try {
   if (!game.user?.isGM) return { migrated: 0 };
@@ -5214,7 +5222,7 @@ function tomeViewNeeds(tab) {
     search:['sessions','quests','world','rules','group','search'],
     campaignToolsOverview:['sessions','quests','world','group','analysis','memory','notebook','reveal'],
     campaignToolsMemory:['memory'], campaignToolsAnalysis:['memory','analysis','relationships'],
-    campaignToolsIndex:[], campaignToolsAssistant:['notebook','reveal'], campaignToolsSignals:[],
+    campaignToolsIndex:[], campaignToolsVault:[], campaignToolsAssistant:['notebook','reveal'], campaignToolsSignals:[],
     gmDashboard:['sessions','quests','world','group','dashboard'],
     quickCapture:['notebook','capture'], revealQueue:['reveal'],
     postSession:['sessions','quests','post'], settings:['sessions','quests','world','rules','group','settings','notebook'],
@@ -5446,7 +5454,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.activeTab === "worldProfile") return { activeTab: "world" };
     if (this.activeTab === "ruleDetail") return { activeTab: "rules" };
     if (this.activeTab === "access") return { activeTab: "settings" };
-    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
+    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
     return { activeTab: "home" };
   }
 
@@ -6186,12 +6194,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isSearch: this.activeTab === "search",
       isMyChronicle: this.activeTab === "myChronicle" && !game.user.isGM,
       isPlayerSignals: this.activeTab === "campaignToolsSignals" && game.user.isGM,
-      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant", "campaignToolsSignals", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
-      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsAssistant"].includes(this.activeTab),
+      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsAssistant", "campaignToolsSignals", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
+      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsAssistant"].includes(this.activeTab),
       isCampaignToolsOverview: game.user.isGM && this.activeTab === "campaignToolsOverview",
       isCampaignToolsMemory: game.user.isGM && this.activeTab === "campaignToolsMemory",
       isCampaignToolsIndex: game.user.isGM && this.activeTab === "campaignToolsIndex",
       isCampaignToolsAnalysis: game.user.isGM && this.activeTab === "campaignToolsAnalysis",
+      isCampaignToolsVault: game.user.isGM && this.activeTab === "campaignToolsVault",
       isCampaignToolsAssistant: game.user.isGM && this.activeTab === "campaignToolsAssistant",
       isCampaignToolsAssistantNavActive: game.user.isGM && ["campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
       isManual: this.activeTab === "manual",
@@ -6774,6 +6783,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
           return;
         }
         this._selectedShareText = text.slice(0, 4000);
+        this._selectedSharePrivate = Boolean(shareable.closest(".at-vault-workspace"));
         selectionButton.hidden = false;
         if (!range) return;
 
@@ -6806,6 +6816,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
           const shareable = common?.closest?.(".at-shareable-text");
           if (currentText && shareable && this.element?.contains?.(shareable)) {
             this._selectedShareText = currentText.slice(0, 4000);
+            this._selectedSharePrivate = Boolean(shareable.closest(".at-vault-workspace"));
           }
           const now = globalThis.performance?.now?.() ?? Date.now();
           this._selectionShareLockUntil = now + 1800;
@@ -7950,6 +7961,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static _getSelectedShareText() {
+    if(this._selectedSharePrivate&&!game.modules.get(MODULE_ID)?.api?.securePrivateVault?.unlocked())return "";
     return String(this._selectedShareText || globalThis.getSelection?.()?.toString?.() || "").trim();
   }
 
@@ -8029,12 +8041,11 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const whisper = Array.from(new Set([...recipients, game.user.id]));
     const speaker = ChatMessage.getSpeaker?.() ?? { alias: game.user?.name || "Adventurer's Tome" };
-    await ChatMessage.create({
-      user: game.user?.id,
-      content: AdventurersTomeApp._formatSelectedChatContent.call(this, text),
-      speaker,
-      whisper
-    });
+    const encrypted = game.modules.get(MODULE_ID)?.api?.privateWhisper;
+    if (!encrypted) throw Error("Encrypted Tome whispers are not ready. Nothing was sent.");
+    await encrypted.send({version:1,kind:'text',title:"Shared Tome text",text},whisper,{guard:()=>{
+      if(this._selectedSharePrivate&&!game.modules.get(MODULE_ID)?.api?.securePrivateVault?.unlocked())throw Error("Unlock Private Vault before sharing this selection.");
+    }});
     AdventurersTomeApp._clearSelectedShareText.call(this);
   }
 
@@ -9130,6 +9141,7 @@ Hooks.once("ready", async () => {
   if (!module) throw new Error("Adventurer's Tome module package was not found during ready.");
   if (!module.api || typeof module.api !== "object") module.api = {};
   const coreApi = {
+    migratePrivateVaultSources: migrateLegacyPrivateData,
     privateFactStore:Object.freeze({
       read:(document)=>getPrivateOverlay(document).facts,
       write:(document,facts)=>setPrivateOverlay(document,{facts})
@@ -9244,6 +9256,8 @@ Hooks.once("ready", async () => {
       return true;
     },
     openPrivateVault: async (actorOrId) => {
+      const notesUI=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVaultUI;
+      if(notesUI){const actor=typeof actorOrId==="string"?game.actors.get(actorOrId):actorOrId;return notesUI.open(actor);}
       if (!game.user.isGM) throw new Error("Only a GM can open the Private Vault.");
       const actor = typeof actorOrId === "string" ? game.actors.get(actorOrId) : actorOrId;
       if (!actor) throw new Error("Private Vault Actor not found.");
@@ -9278,7 +9292,9 @@ Hooks.once("ready", async () => {
         sessionTarget: Number.isFinite(targetSession) && targetSession > 0 ? Math.floor(targetSession) : null,
         status: "open"
       });
-      await setPrivateOverlay(document, { notes: [note, ...access.notes] });
+      const shared=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVault;
+      if(shared)await shared.addNote(document,note);
+      else await setPrivateOverlay(document, { notes: [note, ...access.notes] });
       if (tomeApp?.rendered) await tomeApp.render({ parts: ["main"] });
       const payload = {
         documentUuid: String(document.uuid || ""),
@@ -9367,7 +9383,7 @@ Hooks.once("ready", async () => {
     if (!game.user?.isGM) return;
     const root = html instanceof HTMLElement ? html : html?.[0];
     if (!root || root.querySelector?.("[data-at-token-private-vault]")) return;
-    const token = canvas?.tokens?.controlled?.[0] || canvas?.tokens?.placeables?.find?.((entry) => entry?.id === _hud?.object?.id) || _hud?.object || null;
+    const token = _hud?.object || canvas?.tokens?.placeables?.find?.((entry) => entry?.id === _hud?.object?.id) || null;
     const actor = token?.actor || token?.document?.actor || null;
     if (!actor) return;
     const column = root.querySelector?.(".col.left") || root.querySelector?.(".left") || root;

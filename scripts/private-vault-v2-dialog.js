@@ -210,6 +210,8 @@ function pv2WireDialog(dialog) {
 }
 
 async function pv2OpenVault(document) {
+  const ui=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.privateVaultUI;
+  if(ui)return ui.open(document);
   if (!game.user?.isGM) return;
   document = pv2Canonical(document);
   if (!document?.uuid) return;

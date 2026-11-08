@@ -1,3 +1,4 @@
+import {sha256} from './local-sha256.mjs';
 globalThis.ATTestAI.assertEnabled();
 // Local, bounded document reader. No document content is executed or fetched.
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -6,10 +7,8 @@ const MAX_XML = 8 * 1024 * 1024;
 export const escapeText = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;').replaceAll('@','&#64;');
 const normalized = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[-_:]/g,' ').replace(/\s+/g,' ').trim();
 const fail = message => { throw new Error(message); };
-export async function digest(value) {
-  const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
-  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
-}
+export async function digest(value) { return sha256(value); }
+
 function xml(source) {
   if (/<!DOCTYPE|<!ENTITY/i.test(source)) fail('This document contains unsupported XML declarations.');
   const doc = new DOMParser().parseFromString(source,'application/xml');

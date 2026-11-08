@@ -2,7 +2,13 @@
 
 A campaign workspace for Foundry VTT.
 
-Current stable release: **2.1.0**. See [release notes and upgrade instructions](docs/V2.1_STABLE_RELEASE.md).
+Current stable release: **2.1.1**. See [release notes and upgrade instructions](docs/V2.1.1_STABLE_RELEASE.md).
+
+Private Vault: rich-text GM notes, private images, custom categories, encrypted
+selected-content whispers and a GM Inbox for imported private sections. HTTPS
+or localhost is required for Vault unlock. Trusted Player and Assistant GM
+Session/Quest import retains Foundry permissions. See the release notes for
+backup, passphrase recovery and device-bound whisper-history limits.
 
 Install/update using the [stable manifest](https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json).
 

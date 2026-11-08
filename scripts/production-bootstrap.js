@@ -20,6 +20,7 @@ function receipt(scope){
 }
 async function mark(scope,key){const done=receipt(scope);done[key]=true;await game.settings.set(ID,receiptKey(scope),{...done});}
 function register(namespace,key,options){
+ if(globalThis.AdventurersTomeVaultSecurity?.handles(namespace,key))return game.settings.register(namespace,key,options);
  if(namespace!==ID)return game.settings.register(namespace,key,options);
  const scope=['world','user'].includes(options.scope)?options.scope:'client',done=receipt(scope);
  game.settings.register(namespace,key,options);
@@ -33,12 +34,14 @@ function register(namespace,key,options){
 const settings=new Proxy({},{get(_target,key){const target=game.settings;
  if(key==='register')return register;
  if(key==='get')return (namespace,name,...args)=>{
+  if(globalThis.AdventurersTomeVaultSecurity?.handles(namespace,name))return globalThis.AdventurersTomeVaultSecurity.get(name);
   const entry=namespace===ID?pending.get(name):null;
   if(entry?.owner===owner()&&target.get(ID,receiptKey(entry.scope))?.[name]===true){pending.delete(name);return target.get(namespace,name,...args);}
   if(entry?.owner===owner()&&!args[0]?.document)return structuredClone(entry.value);
   return target.get(namespace,name,...args);
  };
  if(key==='set')return async(namespace,name,value,...args)=>{
+  if(globalThis.AdventurersTomeVaultSecurity?.handles(namespace,name))return globalThis.AdventurersTomeVaultSecurity.set(name,value);
   const entry=namespace===ID?pending.get(name):null;
   const result=await target.set(namespace,name,value,...args);
   if(entry?.owner===owner()){pending.delete(name);await mark(entry.scope,name);}
@@ -77,8 +80,8 @@ async function migrate(){
   return {pending:pending.size,errors:[...errors]};
  })();return running;
 }
-const modules=new Proxy({},{get(_target,key){const target=game.modules,value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
-const socket=new Proxy({},{get(_target,key){const target=game.socket,value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
+const modules=new Proxy({},{get(_target,key){if(key==='get')return id=>globalThis.game?.modules?.get(id);if(key==='has')return id=>globalThis.game?.modules?.has(id)||false;const target=globalThis.game?.modules;if(!target)return undefined;const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
+const socket=new Proxy({},{get(_target,key){const target=game.socket;if(!target)return undefined;const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
 globalThis.ATTestAI=Object.freeze({id:ID,dataNamespace:ID,modules,settings,socket,flags:document=>document,assertEnabled,get conflict(){return conflict();},upgrade:Object.freeze({run:migrate,status:()=>({pending:pending.size,errors:[...errors]})})});
 Hooks.once('init',()=>{if(conflict()){ui.notifications.error('Deactivate Adventurer’s Tome – TestAI and reload. Only one Tome engine can run in a world.',{permanent:true});assertEnabled();}});
 Hooks.once('ready',()=>{void migrate();});

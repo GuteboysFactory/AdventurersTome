@@ -341,6 +341,8 @@ function pvbWireBrowser(dialog) {
 }
 
 async function pvbOpenBrowser() {
+  const ui=globalThis.ATTestAI.modules.get(PVB_MODULE_ID)?.api?.privateVaultUI;
+  if(ui?.browse)return ui.browse();
   if (!game.user?.isGM) return;
   const DialogV2 = foundry?.applications?.api?.DialogV2;
   if (!DialogV2) return ui.notifications.error("Adventurer's Tome: DialogV2 is unavailable in this Foundry build.");
@@ -382,8 +384,8 @@ function pvbInstallTomeButton(app, element) {
   const actions = root?.querySelector?.(".at-gm-top-actions");
   if (!actions || actions.querySelector("[data-at-pvb-browser]")) return;
 
-  const records = pvbCanonicalRecords();
-  const noteCount = records.reduce((sum, record) => sum + record.notes.length, 0);
+  // Do not parse or enumerate private records while mounting a navigation button.
+  const records = [], noteCount = 0;
   const button = document.createElement("button");
   button.type = "button";
   button.className = "at-icon-button at-context-vault-browser-button";

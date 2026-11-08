@@ -6,7 +6,8 @@ let saving=false;
 const api=()=>globalThis.ATTestAI.modules.get(ID)?.api;
 const flag=(doc,key)=>globalThis.ATTestAI.flags(doc)?.getFlag?.(ID,key);
 const journals=()=>game.journal?.contents||[];
-const gm=owner=>{if(!game.user?.isGM || (owner&&game.user.id!==owner))throw new Error('Only the GM who opened this preview can import it.');};
+const canImport=()=>Boolean(game.user?.isGM||(Number(game.user?.role)>=(CONST.USER_ROLES?.TRUSTED??2)&&game.user?.can?.('JOURNAL_CREATE')!==false));
+const gm=owner=>{if(!canImport()||(owner&&game.user.id!==owner))throw new Error('Import requires the Trusted Player or GM who opened this preview, with permission to create Journal entries.');};
 const quest=doc=>['quest','quests'].includes(String(flag(doc,'type')||'').toLowerCase());
 const sectionNumber=doc=>Number(flag(doc,'session')?.number)||Number(doc.name?.match(/^session\s+(\d+)/i)?.[1])||0;
 const typeOf=doc=>String(flag(doc,'type')||'');
@@ -14,28 +15,37 @@ const normalizeHtml=html=>new DOMParser().parseFromString(html,'text/html').body
 const withSummary=html=>'<p data-at-tome-summary="true"></p>'+html;
 const textBody=value=>'<p data-at-tome-summary="true"></p>'+String(value).split(/\n{2,}/).map(p=>'<p>'+escapeText(p).replaceAll('\n','<br>')+'</p>').join('');
 
-async function previewFile(file) {
+async function previewFile(file,{kind="session"}={}) {
+  if(!["session","quest"].includes(kind))throw Error("Choose Session or Quest import.");
   gm();const owner=game.user.id;
   const parsed=await readSessionFile(file);gm(owner);
-  const model={name:parsed.name,format:parsed.format,title:parsed.title,number:parsed.number||api().campaignAuthoringV2.nextSessionNumber(),warnings:[...parsed.warnings],sections:parsed.sections.map(s=>({id:s.id,title:s.title,route:s.route,html:blocksHtml(s.blocks),text:s.blocks.map(b=>b.text).join('\n\n')})),quests:parsed.sections.flatMap(s=>s.questItems.map((body,i)=>({id:s.id+':'+i,sectionId:s.id,title:body.split(/\s+[—–]\s+|:\s/)[0],body})))};
+  const privateRecipients=api().gmInbox?.recipients()||[],primary=privateRecipients.find(u=>u.role>=(CONST.USER_ROLES.GAMEMASTER??4)),defaultPrivateRecipient=game.user.isGM&&game.user.id===primary?.id?(api().securePrivateVault?.unlocked()?'self':primary.id):(primary?.id||(game.user.isGM?'self':privateRecipients[0]?.id||''));
+  const model={kind,privateRecipients,privateRecipient:defaultPrivateRecipient,name:parsed.name,format:parsed.format,title:parsed.title,number:parsed.number||api().campaignAuthoringV2.nextSessionNumber(),warnings:[...parsed.warnings],sections:parsed.sections.map(s=>({id:s.id,title:s.title,route:s.route,html:blocksHtml(s.blocks),text:s.blocks.map(b=>b.text).join('\n\n')})),quests:kind==="quest"?[]:parsed.sections.flatMap(s=>s.questItems.map((body,i)=>({id:s.id+':'+i,sectionId:s.id,title:body.split(/\s+[—–]\s+|:\s/)[0],body})))};
   // Only previews issued here can be applied. Public objects are detached from the source.
-  previews.set(model,{parsed,owner,questRows:structuredClone(model.quests)});
+  previews.set(model,{kind,parsed,owner,defaultPrivateRecipient,questRows:structuredClone(model.quests)});
   return model;
 }
 function planFor(model,choices) {
   const state=previews.get(model);if(!state)throw new Error('Choose a file and create a new preview first.');gm(state.owner);
   const number=Number(choices.number), title=String(choices.title||'').trim(), date=String(choices.date||'').trim();
-  if(!Number.isSafeInteger(number)||number<1||number>999999)throw new Error('Enter a whole Session number greater than zero.');
+  if(state.kind!=="quest"&&(!Number.isSafeInteger(number)||number<1||number>999999))throw new Error('Enter a whole Session number greater than zero.');
   if(!title||title.length>250)throw new Error('Enter a Session title, up to 250 characters.');
   if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('Choose a valid date or leave it empty.');
   const routes=state.parsed.sections.map(s=>{
     const route=choices.routes?.[s.id]??s.route;
+    if(!game.user.isGM&&['private','reminder'].includes(s.route)&&route!==s.route)throw Error('GM-only sections must be sent to the selected GM Inbox.');
     if(!['chronicle','private','reminder','skip'].includes(route))throw new Error('Unknown section destination.');
     return {section:s,route};
   });
   if(!routes.some(row=>row.route==='chronicle'))throw new Error('Keep at least one section in the Chronicle.');
-  const target=Number(choices.reminderTarget??number+1);
+  const target=Number(choices.reminderTarget??(state.kind==='quest'?api().campaignAuthoringV2.nextSessionNumber():number+1));
   if(routes.some(r=>r.route==='reminder')&&(!Number.isSafeInteger(target)||target<1))throw new Error('Enter a whole target Session number for the reminders.');
+  const privateRecipient=String(choices.privateRecipient||state.defaultPrivateRecipient||''),privateRows=routes.filter(r=>['private','reminder'].includes(r.route));
+  if(privateRows.length){
+   if(privateRecipient==='self'){if(!game.user.isGM||!api().securePrivateVault?.unlocked())throw Error('Unlock your Private Vault, or choose a prepared GM Inbox for these GM-only sections. No private section has been discarded.');}
+   else{if(!api().gmInbox)throw Error('GM Inbox is not ready. Keep this preview and try again.');api().gmInbox.preflight(privateRecipient);}
+   if(privateRows.length>128||new TextEncoder().encode(JSON.stringify(privateRows.map(r=>[r.section.title,r.section.blocks.map(b=>b.text).join('\n\n')]))).length>500000)throw Error('The GM-only sections are too large for one inbox record. Split the document before importing.');
+  }
   const quests=[];
   for(const row of state.questRows){
     const selected=choices.quests?.[row.id]||{action:'skip'};
@@ -45,22 +55,38 @@ function planFor(model,choices) {
       const name=String(selected.title||row.title).trim();if(!name||name.length>250)throw new Error('Enter a shorter title for the selected Quest.');
       quests.push({...row,action:'create',title:name});
     }else if(selected.action==='link'){
-      const doc=journals().find(d=>d.uuid===selected.targetUuid);if(!quest(doc))throw new Error('A selected existing Quest is no longer available.');
+      const doc=journals().find(d=>d.uuid===selected.targetUuid);if(!quest(doc)||(!game.user.isGM&&!api().canView(doc,game.user)))throw new Error('A selected existing Quest is no longer available.');
       quests.push({...row,action:'link',targetUuid:doc.uuid});
     }else throw new Error('Unknown Quest choice.');
   }
-  return {state,number,title,date,routes,target,quests,allowSameNumber:choices.allowSameNumber===true,html:`<h1>${escapeText(`Session ${number} — ${title}`)}</h1>`+routes.filter(r=>r.route==='chronicle').map(r=>blocksHtml(r.section.blocks)).join('')};
+  return {state,number,title,date,routes,target,quests,privateRecipient,allowSameNumber:choices.allowSameNumber===true,html:`<h1>${escapeText(state.kind==="quest"?title:`Session ${number} — ${title}`)}</h1>`+routes.filter(r=>r.route==='chronicle').map(r=>blocksHtml(r.section.blocks)).join('')};
+}
+async function savePrivateSections(plan,journal){
+ const rows=plan.routes.filter(r=>['private','reminder'].includes(r.route));if(!rows.length)return;
+ const notes=[];for(const row of rows){const id='upload-'+(await digest(plan.state.parsed.digest+':'+row.section.id)).slice(0,24);gm(plan.state.owner);notes.push({id,title:String(row.section.title).slice(0,300),body:row.section.blocks.map(b=>b.text).join('\n\n'),type:row.route==='reminder'?'reminder':'prep',sessionTarget:row.route==='reminder'?plan.target:null,status:'open'});}
+ if(plan.privateRecipient==='self'){const vault=api().privateVault;await vault.saveNotes(journal,current=>{const ids=new Set(current.map(n=>n.id));return [...current,...notes.filter(n=>!ids.has(n.id))];});}
+ else{const storageUuid=await api().gmInbox.send({recipientId:plan.privateRecipient,source:journal,notes,fileDigest:plan.state.parsed.digest});gm(plan.state.owner);await globalThis.ATTestAI.flags(journal).setFlag(ID,'privateHandoffV1',{recipientId:plan.privateRecipient,storageUuid});}
+}
+async function applyQuestPlan(plan){
+ const owner=plan.state.owner,current=()=>gm(owner),fileDigest=plan.state.parsed.digest;
+ saving=true;try{const planHash=await digest(JSON.stringify({kind:'quest',title:plan.title,privateRecipient:plan.privateRecipient,routes:plan.routes.map(r=>[r.section.id,r.route])}));current();
+ const matches=journals().filter(d=>flag(d,'questUploadV1')?.digest===fileDigest&&flag(d,'questUploadV1')?.ownerId===owner);
+ if(matches.length>1)throw Error('Multiple receipts exist for this Quest import. Review them before retrying.');let journal=matches[0],page;
+ if(journal){const receipt=flag(journal,'questUploadV1');if(receipt.state==='complete')throw Error(`This file was already imported as ${journal.name}.`);if(receipt.planHash!==planHash)throw Error('Retry with the original choices to avoid duplicates.');if(journal.ownership?.default!==0||(!game.user.isGM&&!journal.testUserPermission?.(game.user,CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)))throw Error('The unfinished Quest was shared or permissions changed.');page=journal.pages?.contents?.[0];if(page&&normalizeHtml(page.text?.content||'')!==normalizeHtml(withSummary(plan.html)))throw Error('The unfinished Quest was edited. It will not be overwritten.');if(!page){current();[page]=await journal.createEmbeddedDocuments('JournalEntryPage',[{name:'Overview',type:'text',text:{content:withSummary(plan.html),format:CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML??1},sort:100000}]);}}
+ else{({journal,page}=await api().campaignAuthoringV2.createQuest({title:plan.title,status:'dormant',visibility:'gm',body:plan.html,bodyFormat:'html',uploadReceipt:{version:1,digest:fileDigest,ownerId:owner,planHash,state:'pending'},beforeCreate:current,open:false,quiet:true}));}
+ await savePrivateSections(plan,journal);current();await globalThis.ATTestAI.flags(journal).setFlag(ID,'questUploadV1',{...flag(journal,'questUploadV1'),state:'complete'});return {journal,page,privateNotes:plan.routes.filter(r=>r.route==='private').length,reminders:plan.routes.filter(r=>r.route==='reminder').length,quests:0};
+ }finally{saving=false;}
 }
 async function applyPreview(model,choices={}) {
   if(saving)throw new Error('A Session import is already being saved.');
-  const plan=planFor(model,choices), owner=plan.state.owner, fileDigest=plan.state.parsed.digest;
+  const plan=planFor(model,choices);if(plan.state.kind==="quest")return applyQuestPlan(plan);const owner=plan.state.owner, fileDigest=plan.state.parsed.digest;
   const current=()=>{gm(owner);};
   saving=true;
   try {
     const author=api()?.campaignAuthoringV2, vault=api()?.contextualPrivateVault;
     if(!author?.createSession||!api()?.campaignEntityLinks?.linkCanonical)throw new Error('Session authoring and campaign links must be ready before importing.');
-    if(plan.routes.some(r=>['private','reminder'].includes(r.route))&&(!vault?.addNote||!vault?.getNotes||!vault?.syncNotebook))throw new Error('Private GM notes are not ready. Nothing has been imported.');
-    const planHash=await digest(JSON.stringify({number:plan.number,title:plan.title,date:plan.date,routes:plan.routes.map(r=>[r.section.id,r.route]),target:plan.target,quests:plan.quests.map(q=>[q.id,q.action,q.title,q.targetUuid])}));current();
+    if(plan.privateRecipient==='self'&&plan.routes.some(r=>['private','reminder'].includes(r.route))&&!api().privateVault?.saveNotes)throw Error('Private Vault is not ready. Nothing has been imported.');
+    const planHash=await digest(JSON.stringify({number:plan.number,title:plan.title,date:plan.date,privateRecipient:plan.privateRecipient,routes:plan.routes.map(r=>[r.section.id,r.route]),target:plan.target,quests:plan.quests.map(q=>[q.id,q.action,q.title,q.targetUuid])}));current();
     const matches=journals().filter(d=>flag(d,'sessionUploadV1')?.digest===fileDigest&&flag(d,'sessionUploadV1')?.ownerId===owner);
     if(matches.length>1)throw new Error('More than one import receipt exists for this file. Review the Sessions before retrying.');
     let journal=matches[0], page;
@@ -68,7 +94,7 @@ async function applyPreview(model,choices={}) {
       const receipt=flag(journal,'sessionUploadV1');
       if(receipt.state==='complete')throw new Error(`This file was already imported as ${journal.name}. Open that Session instead.`);
       if(receipt.planHash!==planHash)throw new Error('An unfinished import exists with different choices. Retry with the original choices to avoid duplicates.');
-      if(journal.ownership?.default!==0||flag(journal,'access')?.visibility!=='gm')throw new Error('This unfinished Session was shared or changed. Restore GM-only access before retrying.');
+      if(journal.ownership?.default!==0||(game.user.isGM?flag(journal,'access')?.visibility!=='gm':!journal.testUserPermission?.(game.user,CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)))throw new Error('This unfinished Session was shared or changed. Restore GM-only access before retrying.');
       page=journal.pages?.contents?.[0];
       if(page&&normalizeHtml(page.text?.content||'')!==normalizeHtml(withSummary(plan.html)))throw new Error('The unfinished Chronicle was edited. Review it before retrying; it will not be overwritten.');
       if(!page){current();[page]=await journal.createEmbeddedDocuments('JournalEntryPage',[{name:'Chronicle',type:'text',text:{content:withSummary(plan.html),format:CONST.JOURNAL_ENTRY_PAGE_FORMATS?.HTML??1},sort:100000}]);}
@@ -77,12 +103,7 @@ async function applyPreview(model,choices={}) {
       ({journal,page}=await author.createSession({number:plan.number,title:plan.title,date:plan.date,body:plan.html,bodyFormat:'html',visibility:'gm',open:false,quiet:true,beforeCreate:current,uploadReceipt:{version:1,digest:fileDigest,ownerId:owner,planHash,state:'pending'}}));
     }
     if(!page)throw new Error('The Chronicle could not be created. Retry this file with the same choices.');
-    for(const row of plan.routes){
-      if(!['private','reminder'].includes(row.route))continue;current();
-      const id='session-upload-'+(await digest(fileDigest+':'+row.section.id)).slice(0,24);current();
-      if(!vault.getNotes(journal).some(note=>note.id===id))await vault.addNote(journal,{id,title:row.section.title,body:row.section.blocks.map(b=>b.text).join('\n\n'),type:row.route==='reminder'?'reminder':'prep',sessionTarget:row.route==='reminder'?plan.target:null,status:'open'});
-    }
-    if(plan.routes.some(r=>['private','reminder'].includes(r.route))){current();await vault.syncNotebook(journal);}
+    await savePrivateSections(plan,journal);
     for(const row of plan.quests){
       current();let target;
       if(row.action==='link')target=journals().find(d=>d.uuid===row.targetUuid);
@@ -97,31 +118,31 @@ async function applyPreview(model,choices={}) {
         }
       }
       current();if(!quest(target))throw new Error('A selected Quest is no longer available.');
-      await api().campaignEntityLinks.linkCanonical({sourceUuid:journal.uuid,targetUuid:target.uuid});
+      if(game.user.isGM)await api().campaignEntityLinks.linkCanonical({sourceUuid:journal.uuid,targetUuid:target.uuid});else{const links=structuredClone(flag(journal,'links')||{});links.quests=[...new Set([...(links.quests||[]),target.id])];await globalThis.ATTestAI.flags(journal).setFlag(ID,'links',links);if(target.testUserPermission?.(game.user,CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)){const reverse=structuredClone(flag(target,'links')||{});reverse.sessions=[...new Set([...(reverse.sessions||[]),journal.id])];await globalThis.ATTestAI.flags(target).setFlag(ID,'links',reverse);}}
     }
     current();await globalThis.ATTestAI.flags(journal).setFlag(ID,'sessionUploadV1',{...flag(journal,'sessionUploadV1'),state:'complete'});
     return {journal,page,privateNotes:plan.routes.filter(r=>r.route==='private').length,reminders:plan.routes.filter(r=>r.route==='reminder').length,quests:plan.quests.length};
   } finally {saving=false;}
 }
 function close(overlay){if(!saving)overlay.remove();}
-function openDialog(){
+function openDialog(kind="session"){
   gm();const root=document.querySelector('#adventurers-tome-app');if(!root)return;
   if(document.querySelector('.at-su-overlay'))return;
   const overlay=document.createElement('div');overlay.className='at-cw-modal-overlay at-su-overlay';
   overlay.innerHTML=`<form class="at-cw-modal at-su-dialog"><header><div><span class="at-kicker">Local session document</span><h2>Import Session</h2></div><button type="button" data-su-close aria-label="Close">×</button></header><p>Choose a text file or Word document. Review the Chronicle, private GM notes and Quest suggestions before saving.</p><label>Session document (.txt or .docx)<input data-su-file type="file" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label><small>Up to 10 MB. A Word document without a file extension is also supported. The file is read locally in your browser.</small><p data-su-message role="status" aria-live="polite"></p><div data-su-preview></div><footer><button type="button" data-su-close>Cancel</button><button type="submit" data-su-save disabled>Import as GM-only</button></footer></form>`;
-  root.append(overlay);let model=null,loading=false;
+  root.append(overlay);if(kind==='quest'){overlay.querySelector('h2').textContent='Import Quest';overlay.querySelector('header+p').textContent='Review the Quest text before saving. GM-only sections are sent to the selected Vault or GM Inbox.';}if(!game.user.isGM){overlay.querySelector('[data-su-save]').textContent='Import for me and GMs';overlay.querySelector('header+p').textContent='Review your Session and Quest suggestions before saving. The imported documents are visible to you and GMs. GM-only sections are sent to the selected secure GM Inbox for review.';}let model=null,loading=false;
   const message=overlay.querySelector('[data-su-message]'), save=overlay.querySelector('[data-su-save]');
   overlay.addEventListener('click',event=>{if(event.target===overlay||event.target.closest('[data-su-close]'))close(overlay);});
   overlay.querySelector('[data-su-file]').addEventListener('change',async event=>{
     if(loading||saving)return;loading=true;save.disabled=true;model=null;const input=event.currentTarget;input.disabled=true;
     overlay.querySelector('[data-su-preview]').replaceChildren();message.textContent='Reading document…';
-    try{model=await previewFile(input.files[0]);renderPreview(overlay,model);message.textContent='Review each section below. Nothing has been saved yet.';save.disabled=false;}
+    try{model=await previewFile(input.files[0],{kind});renderPreview(overlay,model);message.textContent='Review each section below. Nothing has been saved yet.';save.disabled=false;}
     catch(error){message.textContent=error.message;}finally{loading=false;input.disabled=false;}
   });
   overlay.querySelector('form').addEventListener('submit',async event=>{
     event.preventDefault();if(!model||saving||loading)return;
     const field=name=>overlay.querySelector(`[name="${name}"]`);
-    const choices={number:Number(field('number').value),title:field('title').value,date:field('date').value,reminderTarget:Number(field('reminderTarget').value),allowSameNumber:field('allowSameNumber').checked,routes:{},quests:{}};
+    const choices={privateRecipient:field('privateRecipient').value,number:Number(field('number').value),title:field('title').value,date:field('date').value,reminderTarget:Number(field('reminderTarget').value),allowSameNumber:field('allowSameNumber').checked,routes:{},quests:{}};
     for(const section of model.sections)choices.routes[section.id]=overlay.querySelector(`[data-su-route="${section.id}"]`).value;
     for(const row of model.quests){const selected=overlay.querySelector(`[data-su-quest="${row.id}"]`).value;choices.quests[row.id]=selected.startsWith('link:')?{action:'link',targetUuid:selected.slice(5)}:{action:selected,title:overlay.querySelector(`[data-su-quest-title="${row.id}"]`).value};}
     // Keep the preview and every choice stable during writes, including a partial failure.
@@ -129,7 +150,7 @@ function openDialog(){
     try{
       const result=await applyPreview(model,choices);
       overlay.remove();ui.notifications.info(`Imported ${result.journal.name}: ${result.privateNotes} private notes, ${result.reminders} reminders, ${result.quests} Quest links.`);
-      await api().campaignAuthoringV2.openCreatedEntry('sessions',result.journal,result.page);
+      await api().campaignAuthoringV2.openCreatedEntry(kind==='quest'?'quests':'sessions',result.journal,result.page);
     }catch(error){message.textContent=error.message+' No existing text was overwritten. If saving started, retry with the same choices to continue.';fields.forEach(node=>node.disabled=false);}
   });
   overlay.addEventListener('keydown',event=>{
@@ -145,20 +166,21 @@ function openDialog(){
 }
 function renderPreview(overlay,model){
   const host=overlay.querySelector('[data-su-preview]');
-  const options=Object.entries({chronicle:'Chronicle text',private:'Private GM note',reminder:'Reminder for next session',skip:'Leave out'});
-  host.innerHTML=`${model.warnings.map(w=>`<p class="at-su-warning">${escapeText(w)}</p>`).join('')}<div class="at-su-metadata"><label>Session number<input name="number" type="number" min="1" step="1" required></label><label>Title<input name="title" maxlength="250" required></label><label>Date (optional)<input name="date" type="date"></label><label>Reminders for Session<input name="reminderTarget" type="number" min="1" step="1" required></label></div><label class="at-su-check"><input name="allowSameNumber" type="checkbox">Create a separate Session if this number already exists</label><h3>Document sections</h3><p>Keep the story in Chronicle. GM notes and reminders are saved privately for your GM account. They are excluded from the Chronicle.</p>${model.sections.map(section=>`<section class="at-su-section"><div class="at-su-section-heading"><strong>${escapeText(section.title)}</strong><label>Destination<select data-su-route="${section.id}">${options.map(([v,t])=>`<option value="${v}"${v===section.route?' selected':''}>${t}</option>`).join('')}</select></label></div><details${section.route!=='chronicle'?' open':''}><summary>Read section</summary><div class="at-su-document">${section.html}</div></details></section>`).join('')}<h3>Quest suggestions</h3><p>Only explicit active Quest Log entries appear here. Choose which to create or link. New Quests start as dormant and GM-only.</p><div data-su-quests></div><div class="at-su-final-preview"><h3>Chronicle preview</h3><p>This is the text that will be saved in the Session. Review it before importing.</p><div class="at-su-document" data-su-chronicle></div></div>`;
-  host.querySelector('[name="number"]').value=model.number;host.querySelector('[name="title"]').value=model.title;host.querySelector('[name="reminderTarget"]').value=model.number+1;
+  const options=Object.entries({chronicle:'Chronicle text',private:'GM-only note',reminder:'GM reminder',skip:'Leave out'});
+  host.innerHTML=`${model.warnings.map(w=>`<p class="at-su-warning">${escapeText(w)}</p>`).join('')}<div class="at-su-metadata"><label>Session number<input name="number" type="number" min="1" step="1" required></label><label>Title<input name="title" maxlength="250" required></label><label>Date (optional)<input name="date" type="date"></label><label>Reminders for Session<input name="reminderTarget" type="number" min="1" step="1" required></label></div><label class="at-su-check"><input name="allowSameNumber" type="checkbox">Create a separate Session if this number already exists</label><label>Destination for GM-only sections<select name="privateRecipient">${game.user.isGM?'<option value="self">My Private Vault (unlocked)</option>':''}${model.privateRecipients.map(u=>`<option value="${escapeText(u.id)}">GM Inbox · ${escapeText(u.name)}${u.ready?'':' (GM must open Vault once)'}</option>`).join('')}</select></label><h3>Document sections</h3><p>Keep the story in Chronicle. ${game.user.isGM?'GM-only sections go to the selected Private Vault or secure GM Inbox. They are excluded from the Chronicle.':'GM-only sections are sent to the selected secure GM Inbox for review. Your import is visible only to you and GMs.'}</p>${model.sections.map(section=>`<section class="at-su-section"><div class="at-su-section-heading"><strong>${escapeText(section.title)}</strong><label>Destination<select data-su-route="${section.id}">${options.filter(([v])=>game.user.isGM||!['private','reminder'].includes(section.route)||v===section.route).map(([v,t])=>`<option value="${v}"${v===section.route?' selected':''}>${t}</option>`).join('')}</select></label></div><details${section.route!=='chronicle'?' open':''}><summary>Read section</summary><div class="at-su-document">${section.html}</div></details></section>`).join('')}<h3>Quest suggestions</h3><p>Only explicit active Quest Log entries appear here. Choose which to create or link. New Quests start as dormant and are visible to GMs and their importer.</p><div data-su-quests></div><div class="at-su-final-preview"><h3>Chronicle preview</h3><p>This is the text that will be saved in the Session. Review it before importing.</p><div class="at-su-document" data-su-chronicle></div></div>`;
+  host.querySelector('[name="privateRecipient"]').value=model.privateRecipient;host.querySelector('[name="number"]').value=model.number;host.querySelector('[name="title"]').value=model.title;host.querySelector('[name="reminderTarget"]').value=model.kind==='quest'?api().campaignAuthoringV2.nextSessionNumber():model.number+1;
   const choices=host.querySelector('[data-su-quests]');
   if(!model.quests.length)choices.textContent='No explicit active Quest Log entries were found. You can create Quests later.';
   for(const row of model.quests){
     const card=document.createElement('section');card.className='at-su-section';
     card.innerHTML=`<label>Quest title<input data-su-quest-title="${row.id}" maxlength="250"></label><p>${escapeText(row.body)}</p><label>Import choice<select data-su-quest="${row.id}"><option value="skip">Leave out</option><option value="create">Create GM-only Quest</option></select></label>`;
     card.querySelector('input').value=row.title;
-    for(const existing of journals().filter(quest)){const opt=document.createElement('option');opt.value='link:'+existing.uuid;opt.textContent='Link existing: '+existing.name;card.querySelector('select').append(opt);}
+    for(const existing of journals().filter(d=>quest(d)&&(game.user.isGM||api().canView(d,game.user)))){const opt=document.createElement('option');opt.value='link:'+existing.uuid;opt.textContent='Link existing: '+existing.name;card.querySelector('select').append(opt);}
     choices.append(card);
   }
+  if(model.kind==='quest'){for(const name of ['number','date','allowSameNumber'])host.querySelector(`[name="${name}"]`).closest('label').hidden=true;host.querySelector('[data-su-quests]').previousElementSibling.hidden=true;}
   const refresh=()=>{
-    host.querySelector('[data-su-chronicle]').innerHTML=`<h1>${escapeText('Session '+host.querySelector('[name="number"]').value+' — '+host.querySelector('[name="title"]').value)}</h1>`+model.sections.filter(s=>host.querySelector(`[data-su-route="${s.id}"]`).value==='chronicle').map(s=>s.html).join('');
+    host.querySelector('[data-su-chronicle]').innerHTML=`<h1>${escapeText(model.kind==='quest'?host.querySelector('[name="title"]').value:'Session '+host.querySelector('[name="number"]').value+' — '+host.querySelector('[name="title"]').value)}</h1>`+model.sections.filter(s=>host.querySelector(`[data-su-route="${s.id}"]`).value==='chronicle').map(s=>s.html).join('');
     for(const row of model.quests){const select=host.querySelector(`[data-su-quest="${row.id}"]`);select.disabled=host.querySelector(`[data-su-route="${row.sectionId}"]`).value!=='chronicle';if(select.disabled)select.value='skip';}
   };
   host.addEventListener('change',refresh);host.addEventListener('input',event=>{if(['number','title'].includes(event.target.name))refresh();});
@@ -167,11 +189,12 @@ function renderPreview(overlay,model){
 }
 function mount(){
   const root=document.querySelector('#adventurers-tome-app');if(!root)return;
-  for(const button of root.querySelectorAll('[data-at-session-upload]'))if(!game.user?.isGM)button.remove();
-  if(!game.user?.isGM)return;
-  const page=root.querySelector('.at-sessions-page');const host=page?.querySelector('.at-page-tools')||page?.querySelector(':scope > .at-page-heading');
-  if(!host||host.querySelector('[data-at-session-upload]'))return;
-  const button=document.createElement('button');button.type='button';button.className='at-secondary';button.dataset.atSessionUpload='';button.innerHTML='<i class="fa-solid fa-file-arrow-up"></i> Import Session';button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openDialog();});host.append(button);
+  for(const button of root.querySelectorAll('[data-at-session-upload],[data-at-quest-upload]'))if(!canImport())button.remove();
+  if(!canImport())return;
+  for(const [selector,kind] of [['.at-sessions-page','session'],['.at-quests-page','quest']]){
+   const page=root.querySelector(selector),host=page?.querySelector('.at-page-tools')||page?.querySelector(':scope > .at-page-heading');if(!host||host.querySelector(`[data-at-${kind}-upload]`))continue;
+   const button=document.createElement('button');button.type='button';button.className='at-secondary';button.setAttribute(`data-at-${kind}-upload`,'');button.innerHTML=`<i class="fa-solid fa-file-arrow-up"></i> Import ${kind==='quest'?'Quest':'Session'}`;button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openDialog(kind);});host.append(button);
+  }
 }
 Hooks.once('ready',()=>{const module=globalThis.ATTestAI.modules.get(ID);if(!module)return;module.api||={};module.api.sessionUpload=Object.freeze({version:1,previewFile,applyPreview,openDialog});mount();});
 Hooks.on('adventurersTomeViewPrepared',mount);

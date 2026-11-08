@@ -1,0 +1,5 @@
+import {createDevice} from './private-whisper-codec.mjs';
+let opening,preparing;
+function db(){return opening||=new Promise((resolve,reject)=>{const r=indexedDB.open('adventurers-tome-whisper-device',1);r.onupgradeneeded=()=>r.result.createObjectStore('keys');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
+async function record(action,owner,value){const database=await db();return new Promise((resolve,reject)=>{const t=database.transaction('keys',action==='get'?'readonly':'readwrite'),s=t.objectStore('keys'),r=action==='get'?s.get(owner):s.put(value,owner);t.oncomplete=()=>resolve(r.result);t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error);});}
+export async function whisperDevice(owner){if(preparing?.owner===owner)return preparing.work;const work=(async()=>{let key=await record('get',owner);if(!key){key=await createDevice();await record('put',owner,key);}return key;})();preparing={owner,work};try{return await work;}finally{if(preparing?.work===work)preparing=null;}}
