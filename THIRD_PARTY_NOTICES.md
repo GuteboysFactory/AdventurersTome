@@ -1,5 +1,19 @@
 # Third-Party Notices
 
+## Portable Vault cryptography
+
+The HTTP-compatible AES-GCM / PBKDF2-SHA-256 path uses @noble/hashes 1.8.0
+and @noble/ciphers 1.3.0 by Paul Miller and contributors, under the MIT License.
+Dependency-closed ESM source subsets and their upstream licenses are included
+in vendor/noble-hashes-1.8.0 and vendor/noble-ciphers-1.3.0. The hashes utility's
+package import @noble/hashes/crypto is changed to ./crypto.js for browser ESM.
+Other source bodies are unchanged. Source package archives:
+https://registry.npmjs.org/@noble/hashes/-/hashes-1.8.0.tgz
+https://registry.npmjs.org/@noble/ciphers/-/ciphers-1.3.0.tgz
+
+Quick Search is an independent Tome implementation inspired by the workflow of
+Sunspots' Quick Insert. No Quick Insert source code is redistributed.
+
 Adventurer's Tome remains proprietary software. The following third-party components are redistributed under their own licenses.
 
 ## compromise 14.17.0

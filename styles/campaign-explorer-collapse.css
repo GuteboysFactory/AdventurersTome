@@ -1,0 +1,8 @@
+#adventurers-tome-app .at-explorer-toggle-layout { position:relative; }
+#adventurers-tome-app .at-explorer-toggle { position:absolute; top:8px; left:188px; z-index:4; width:26px; min-height:26px; padding:0; border:1px solid #b38d4580; border-radius:4px; color:#e5c477; background:#171209; }
+#adventurers-tome-app .at-explorer-toggle-layout>.at-cw-explorer>header { padding-right:38px; }
+#adventurers-tome-app .at-explorer-collapsed { grid-template-columns:36px minmax(0,1fr) !important; }
+#adventurers-tome-app .at-explorer-collapsed>.at-cw-explorer { display:none !important; }
+#adventurers-tome-app .at-explorer-collapsed>.at-explorer-toggle { position:sticky; top:8px; left:auto; align-self:start; width:32px; display:flex; flex-direction:column; align-items:center; gap:12px; padding:10px 4px; }
+#adventurers-tome-app .at-explorer-toggle span { writing-mode:vertical-rl; font-size:11px; }
+#adventurers-tome-app .at-explorer-toggle:focus-visible { outline:2px solid #f4d48b; outline-offset:2px; }

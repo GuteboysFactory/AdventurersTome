@@ -1,0 +1,14 @@
+#at-reminder-indicator { position:fixed; z-index:10002; width:28px; height:28px; min-height:28px; margin:0; padding:0; border:1px solid #c49b4d; border-radius:5px; background:#1b150b; color:#f7d993; cursor:pointer; animation:at-unread-glow 2.4s ease-in-out infinite; }
+#at-reminder-indicator[hidden],.at-reminder-dialog [hidden] { display:none !important; }
+#at-reminder-indicator:focus-visible { outline:2px solid #f7d993; outline-offset:2px; }
+.at-reminder-dialog .window-content,.at-reminder-dialog form { min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+.at-reminder-dialog .dialog-content { min-height:0; overflow:auto; flex:1; }
+.at-reminder-dialog .form-footer { flex:0 0 auto; }
+.at-reminder-dialog { max-height:calc(100dvh - 32px); }
+.at-reminder-manager,.at-reminder-editor { display:grid; gap:12px; }
+.at-reminder-editor label,.at-reminder-manager label { display:grid; gap:5px; }
+.at-reminder-manager [data-reminder-row] { padding:12px; border:1px solid #c49b4d66; border-radius:5px; margin-top:10px; }
+.at-reminder-manager [data-reminder-row] small { display:block; margin:6px 0; }
+.at-reminder-manager [data-reminder-row]>div { display:flex; flex-wrap:wrap; gap:6px; }
+.at-reminder-editor [role=alert] { color:#e9ab8d; }
+@media (prefers-reduced-motion:reduce) { #at-reminder-indicator { animation:none; } }

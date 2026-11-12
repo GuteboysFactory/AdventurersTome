@@ -2,13 +2,13 @@
 
 A campaign workspace for Foundry VTT.
 
-Current stable release: **2.1.1**. See [release notes and upgrade instructions](docs/V2.1.1_STABLE_RELEASE.md).
+Current stable release: **2.1.2**. See [release notes and upgrade instructions](docs/V2.1.2_STABLE_RELEASE.md).
 
-Private Vault: rich-text GM notes, private images, custom categories, encrypted
-selected-content whispers and a GM Inbox for imported private sections. HTTPS
-or localhost is required for Vault unlock. Trusted Player and Assistant GM
-Session/Quest import retains Foundry permissions. See the release notes for
-backup, passphrase recovery and device-bound whisper-history limits.
+Group members automatically share public Tome profiles and Party Member links.
+Campaign Tools includes bulk NPC/Contact/Item ownership, Quick Search and reminders.
+New Private Vaults use account access without an extra password; existing encrypted
+Vaults are preserved. Encrypted Vault unlocking also works over HTTP. See the release
+notes for privacy boundaries, upgrade steps and device-bound whisper-history limits.
 
 Install/update using the [stable manifest](https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json).
 

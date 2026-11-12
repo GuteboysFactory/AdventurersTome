@@ -7,7 +7,16 @@ const pcEpochs=new WeakMap();
 const pcDashboardEpochs=new WeakMap();
 const pcViewState=new WeakMap();
 async function pcDialog(title,content,label='Save') {
-  return foundry.applications.api.DialogV2.wait({window:{title},content,buttons:[{action:'save',label,default:true,callback:(_event,button)=>{const data=new FormData(button.form);return {...Object.fromEntries(data),targets:data.getAll("target")};}},{action:'cancel',label:'Cancel',callback:()=>null}],rejectClose:false});
+  return foundry.applications.api.DialogV2.wait({window:{title,resizable:true},position:{width:720,height:Math.min(820,window.innerHeight-40),top:20},classes:['at-chronicle-note-dialog'],content,render:(_event,dialog)=>pcWireLinks(dialog.element),buttons:[{action:'save',label,default:true,callback:(_event,button)=>{const data=new FormData(button.form);return {...Object.fromEntries(data),targets:data.getAll("target")};}},{action:'cancel',label:'Cancel',callback:()=>false}],rejectClose:false});
+}
+function pcWireLinks(root){
+  const select=root.querySelector('[data-pc-link-list]'),search=root.querySelector('[data-pc-link-search]'),chosen=root.querySelector('[data-pc-chosen-links]');
+  if(!select||!search||!chosen)return;
+  const paint=()=>{chosen.replaceChildren();for(const option of select.selectedOptions){const button=document.createElement('button');button.type='button';button.textContent=option.textContent+' ×';button.setAttribute('aria-label','Remove link to '+option.textContent);button.onclick=()=>{option.selected=false;paint();};chosen.append(button);}};
+  search.oninput=()=>{const query=search.value.trim().toLocaleLowerCase();for(const option of select.options)option.hidden=!option.textContent.toLocaleLowerCase().includes(query);};
+  search.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();event.stopPropagation();const first=[...select.options].find(option=>!option.hidden);if(first)first.selected=true;paint();}};
+  select.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();event.stopPropagation();paint();}};
+  select.onchange=paint;paint();
 }
 async function pcEdit(note={}) {
   const c=pcApi().playerChronicle;
@@ -22,7 +31,7 @@ async function pcEdit(note={}) {
     <label>Title<input name="title" maxlength="160" value="${pcEscape(note.title)}"></label>
     <label>My note<textarea name="text" rows="8" maxlength="20000">${pcEscape(note.text)}</textarea></label>
     <label>${pcT('AT.Chronicle.MomentDate','Remembered moment date (optional)')}<input name="momentDate" type="date" value="${pcEscape(note.momentDate||'')}"></label>
-    <label>Linked entity<select name="target" multiple size="5">${candidates.map(row=>`<option value="${pcEscape(row.uuid)}" ${note.targetUuids?.includes(row.uuid)?'selected':''}>${pcEscape(row.name)}</option>`).join('')}</select></label>
+    <div class="at-chronicle-links"><label>Linked entry<input type="search" data-pc-link-search placeholder="Find a person, place or entry…"></label><label>Available entries<select data-pc-link-list name="target" multiple size="8">${candidates.map(row=>`<option value="${pcEscape(row.uuid)}" ${note.targetUuids?.includes(row.uuid)?'selected':''}>${pcEscape(row.name)}</option>`).join('')}</select></label><small>Use Ctrl / Cmd to select multiple entries. Click a selected link below to remove it.</small><div data-pc-chosen-links aria-live="polite"></div></div>
     <label>Signal type<select name="signalType">${['Interest','Suspicion','Goal','Question','Theory','Relationship','Fear','Unfinished business'].map(type=>`<option ${note.signalType===type?'selected':''}>${type}</option>`).join('')}</select></label>
     <label><input type="checkbox" name="bookmark" ${note.bookmark?'checked':''}> Bookmark this entity</label>
     <label><input type="checkbox" name="encrypt" ${note.encrypted?'checked disabled':''}> Encrypt this private note</label>
@@ -125,6 +134,7 @@ async function pcRender(root=document) {
       ${signals?`<div class="at-signal-layout" aria-label="Player signals view"><button type="button" data-pc-signal-layout="players" aria-pressed="${state.signalLayout==='players'}"><i class="fa-solid fa-users"></i> By player</button><button type="button" data-pc-signal-layout="latest" aria-pressed="${state.signalLayout==='latest'}"><i class="fa-solid fa-clock"></i> All · latest first</button></div>`:''}
       <label>${signals?'Search shared player signals':pcT('AT.Chronicle.Search','Search your Chronicle')}<input type="search" data-pc-search placeholder="${pcEscape(pcT('AT.Chronicle.SearchPlaceholder','Notes, people, places or signal'))}"></label>
       <div data-pc-results></div>`;
+    if(!signals&&!rumours)host.querySelector('[data-pc="new"]')?.insertAdjacentHTML('afterend','<button type="button" data-pc="reminders"><i class="fa-solid fa-bell"></i> Reminders</button>');
     for(const [node,top] of scroll)node.scrollTop=top;
     const merged=pcUniqueNotes(ownRows,sharedRows),known=signals||rumours?[]:await c.knownEntities(),results=host.querySelector('[data-pc-results]');
     const renderBody=()=>{
@@ -142,19 +152,22 @@ async function pcRender(root=document) {
         results.innerHTML=`<h3>${timeline?pcT('AT.Chronicle.Moments','Remembered moments'):signals?'Shared notes':'My Notes & Bookmarks'}</h3>${timeline?`<p>${pcT('AT.Chronicle.MomentsRule','Only notes with a date you chose appear here.')}</p>`:''}${rows.map(row=>pcCard(row,!row.shared&&ownRows.some(own=>own.id===row.id))).join('')|| (timeline?`<p>${pcT('AT.Chronicle.MomentsEmpty','Add a remembered-moment date to a note to place it on this timeline.')}</p>`:'<p>No notes here yet.</p>')}`;
       }
     };
-    renderBody();host.querySelector('[data-pc-search]').value=state.search;
-    host.querySelector('[data-pc-search]').oninput=event=>{state.search=event.target.value;renderBody();};
+    const addReminderButtons=()=>{for(const card of results.querySelectorAll('[data-pc-id]'))if(card.querySelector('[data-pc="withdraw"]')&&!card.querySelector('[data-pc="remind"]'))card.querySelector('.at-chronicle-actions')?.insertAdjacentHTML('beforeend','<button type="button" data-pc="remind"><i class="fa-solid fa-bell"></i> Remind me</button>');};
+    renderBody();addReminderButtons();host.querySelector('[data-pc-search]').value=state.search;
+    host.querySelector('[data-pc-search]').oninput=event=>{state.search=event.target.value;renderBody();addReminderButtons();};
     if(signals){
       host.querySelectorAll('[data-pc-signal-layout]').forEach(button=>button.onclick=event=>{event.stopPropagation();state.signalLayout=button.dataset.pcSignalLayout;renderBody();host.querySelectorAll('[data-pc-signal-layout]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===button)));});
       results.addEventListener('toggle',event=>{const owner=event.target.dataset?.pcPlayer;if(owner===undefined||state.search.trim())return;if(event.target.open)state.openSignalPlayers.add(owner);else state.openSignalPlayers.delete(owner);},true);
     }
-    host.querySelectorAll('[data-pc-view]').forEach(button=>button.onclick=event=>{event.stopPropagation();state.view=button.dataset.pcView;renderBody();host.querySelectorAll('[data-pc-view]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===button)));});
+    host.querySelectorAll('[data-pc-view]').forEach(button=>button.onclick=event=>{event.stopPropagation();state.view=button.dataset.pcView;renderBody();addReminderButtons();host.querySelectorAll('[data-pc-view]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===button)));});
     host.onclick=async event=>{
       const button=event.target.closest('button');if(!button||button.disabled)return;
       event.stopPropagation();button.disabled=true;
       try {
         if(button.dataset.pcOpen){await pcApi().entityIntelligence.open(button.dataset.pcOpen,pcApi().app());return;}
         const action=button.dataset.pc,id=button.closest('[data-pc-id]')?.dataset.pcId,row=own.find(value=>value.id===id);
+        if(action==='reminders'){await pcApi().reminders.open();return;}
+        if(action==='remind'){await pcApi().reminders.editor({kind:'chronicle',id});return;}
         if(action==='refresh')await globalThis.AdventurersTomeChronicleStorage.importDeliveries();
         if(action==='move'){if(pcApi().transfer?.open)await pcApi().transfer.open();else await pcMoveChronicle();}
         if(action==='new')await pcEdit({targetUuids:filter?[filter]:[]});

@@ -185,6 +185,7 @@ jobs:
           rm -rf dist /tmp/adventurers-tome-release
           mkdir -p dist /tmp/adventurers-tome-release
           rsync -a ./ /tmp/adventurers-tome-release/ \
+            --exclude '.build/' \
             --exclude '.git/' \
             --exclude '.github/' \
             --exclude 'dist/' \
@@ -285,7 +286,7 @@ jobs:
           for (const file of [...(m.scripts || []), ...(m.esmodules || []), ...(m.styles || []), ...((m.languages || []).map((entry) => entry.path).filter(Boolean))]) {
             if (!files.has(file)) throw new Error(`Release ZIP is missing manifest runtime file: ${file}`);
           }
-          const forbiddenPrefixes = ['.git/', '.github/', 'dist/', 'release/', 'channels/'];
+          const forbiddenPrefixes = ['.build/', '.git/', '.github/', 'dist/', 'release/', 'channels/', 'tests/'];
           for (const file of listed) {
             if (forbiddenPrefixes.some((prefix) => file.startsWith(prefix))) throw new Error(`Release ZIP contains excluded path: ${file}`);
           }
@@ -531,6 +532,13 @@ jobs:
             NOTES="$(cat docs/V2.1_STABLE_RELEASE.md)"
             if gh release view "$VERSION" >/dev/null 2>&1; then
               echo "Stable 2.1.0 already exists; refusing to replace it." >&2
+              exit 1
+            fi
+          fi
+          if [[ "$VERSION" == "2.1.2" ]]; then
+            NOTES="$(cat docs/V2.1.2_STABLE_RELEASE.md)"
+            if gh release view "$VERSION" >/dev/null 2>&1; then
+              echo "Stable 2.1.2 already exists; refusing to replace it." >&2
               exit 1
             fi
           fi

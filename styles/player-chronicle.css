@@ -6,6 +6,15 @@
 .at-chronicle button{width:auto}.at-chronicle input[type=search]{max-width:480px;display:block}
 .at-chronicle-editor{display:grid;gap:12px}.at-chronicle-editor label{display:grid;gap:5px}
 .at-chronicle-editor textarea{min-height:160px}.at-chronicle-card[hidden]{display:none}
+.application.at-chronicle-note-dialog{max-height:calc(100dvh - 32px);max-width:calc(100vw - 24px)}
+.at-chronicle-note-dialog .window-content{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.at-chronicle-note-dialog .dialog-form{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.at-chronicle-note-dialog .dialog-content{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:8px}
+.at-chronicle-note-dialog .form-footer{flex:0 0 auto}
+.at-chronicle-note-dialog .at-chronicle-links{display:grid;gap:8px;min-width:0}
+.at-chronicle-note-dialog [data-pc-link-list]{height:clamp(180px,28vh,360px)!important;min-height:180px;resize:vertical;overflow:auto;width:100%}
+.at-chronicle-note-dialog [data-pc-link-list] option{padding:5px 8px}
+.at-chronicle-note-dialog [data-pc-chosen-links]{display:flex;flex-wrap:wrap;gap:6px}
 .at-chronicle button{background:#211a10;color:#f1d49a;border:1px solid #806332;border-radius:4px;padding:7px 12px;font:inherit;cursor:pointer;line-height:1.3}
 .at-chronicle [data-pc-view][aria-pressed="true"]{background:#493719;border-color:#d0a64f;box-shadow:inset 0 -2px #d0a64f}
 .at-chronicle-moment{display:block;color:#e6c277;font-weight:600;margin:5px 0}

@@ -3,6 +3,7 @@
 import vm from 'node:vm';
 import * as learningScope from '../../scripts/analysis-learning-scope.mjs';
 import * as digestPool from '../../scripts/index-digest-pool.mjs';
+import * as playerCharacters from '../../scripts/player-character-core.mjs';
 const create=vm.createContext;
 vm.createContext=function(sandbox={},...args){
  const defaults={assertEnabled(){},flags:d=>d,get modules(){return sandbox.game?.modules;},get settings(){return sandbox.game?.settings;},get socket(){return sandbox.game?.socket;}};
@@ -15,7 +16,7 @@ vm.runInContext=function(code,context,...args){
  // These VM suites load source text rather than using an ESM linker. New pure
  // dependencies are linked explicitly; the domain implementation is unchanged.
  code=code.replace(/^import\s+\{([^}]+)\}\s+from\s+['"]\.\/([^'"]+)['"];?\s*$/gm,(line,names,file)=>{
-  const exports=({'analysis-learning-scope.mjs':learningScope,'index-digest-pool.mjs':digestPool})[file];
+  const exports=({'analysis-learning-scope.mjs':learningScope,'index-digest-pool.mjs':digestPool,'player-character-core.mjs':playerCharacters})[file];
   if(!exports)return line;
   for(const name of names.split(',').map(s=>s.trim()))context[name]=exports[name];
   return '';

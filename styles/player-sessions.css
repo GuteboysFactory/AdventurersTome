@@ -1,0 +1,27 @@
+/* Player library: the Session list stays visible beside the selected reader. */
+#adventurers-tome-app .at-player-sessions .at-cw-catalog-layout { grid-template-columns:minmax(170px,220px) minmax(0,1fr); }
+#adventurers-tome-app .at-player-sessions .at-session-workspace { display:grid; grid-template-columns:minmax(240px,.4fr) minmax(0,.6fr); min-width:0; gap:18px; align-items:start; }
+#adventurers-tome-app .at-player-sessions .at-session-master,#adventurers-tome-app .at-player-sessions .at-session-detail { display:block; width:100%; min-width:0; max-width:none; }
+#adventurers-tome-app .at-player-sessions { padding-top:20px; }
+#adventurers-tome-app .at-player-sessions>.at-page-heading { min-height:0 !important; height:auto !important; padding:0 !important; margin:0 0 18px !important; }
+#adventurers-tome-app .at-player-sessions>.at-page-heading .at-kicker,#adventurers-tome-app .at-player-sessions>.at-page-heading p { display:none; }
+#adventurers-tome-app .at-player-sessions>.at-page-heading h1 { margin:0; font-size:2rem; }
+#adventurers-tome-app .at-player-sessions .at-a6-page-navigator { display:none; }
+#adventurers-tome-app .at-player-sessions .at-session-chronicle { display:grid; gap:8px; max-height:calc(100dvh - 300px); overflow:auto; }
+#adventurers-tome-app .at-player-sessions .at-session-row { width:100%; min-width:0; max-width:100%; }
+#adventurers-tome-app .at-player-sessions .at-af-pages-layout { display:flex; flex-direction:column; min-width:0; }
+#adventurers-tome-app .at-player-sessions .at-af-pages-layout>nav { display:flex; flex-wrap:wrap; border-right:0; border-bottom:1px solid #d6b26c33; }
+#adventurers-tome-app .at-player-sessions .at-af-pages-layout>nav:has(>button:only-child) { display:none; }
+#adventurers-tome-app .at-player-sessions .at-af-pages-document { max-height:none; overflow:visible; min-width:0; }
+#adventurers-tome-app .at-player-sessions .at-af-pages-head { display:none; }
+#adventurers-tome-app .at-player-sessions .at-af-page-text { max-width:76ch; margin-inline:auto; overflow-wrap:anywhere; line-height:1.65; }
+#adventurers-tome-app .at-player-sessions .at-session-detail-head { grid-template-columns:58px minmax(0,1fr) 36px; }
+.at-known-release { display:grid; gap:12px; }
+.at-known-release label { display:grid; gap:6px; }
+#adventurers-tome-app.at-layout-narrow .at-player-sessions .at-cw-catalog-layout,#adventurers-tome-app.at-layout-tiny .at-player-sessions .at-cw-catalog-layout { grid-template-columns:minmax(0,1fr); }
+#adventurers-tome-app.at-layout-narrow .at-player-sessions .at-cw-explorer,#adventurers-tome-app.at-layout-tiny .at-player-sessions .at-cw-explorer { max-height:180px; overflow:auto; }
+#adventurers-tome-app.at-layout-tiny .at-player-sessions .at-session-workspace { grid-template-columns:minmax(0,1fr); }
+@media(max-width:900px) {
+ #adventurers-tome-app .at-player-sessions .at-cw-catalog-layout,#adventurers-tome-app .at-player-sessions .at-session-workspace { grid-template-columns:minmax(0,1fr); }
+ #adventurers-tome-app .at-player-sessions .at-session-chronicle { max-height:220px; }
+}

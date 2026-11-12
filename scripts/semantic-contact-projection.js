@@ -129,6 +129,10 @@ function projectionEvidenceVisible(journal, projection, user = game.user) {
   if (!projection || projection.kind !== "contact") return true;
   if (!user || user.isGM) return true;
 
+  // An explicit GM ownership decision is authoritative for this Contact only.
+  // It does not grant access to its source Actor or expose source-only fields.
+  if (projection.permissionOverride === true) return canObserve(journal, user);
+
   // permissionSourceUuids is the authority produced by
   // managedProjectionOwnership(). linkedUuid is identity/navigation metadata
   // and may legitimately survive after its Actor stops resolving. Do not let a

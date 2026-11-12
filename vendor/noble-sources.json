@@ -1,0 +1,24 @@
+{
+  "noble-hashes-1.8.0": {
+    "archive": "https://registry.npmjs.org/@noble/hashes/-/hashes-1.8.0.tgz",
+    "archiveSha256": "e8a765d92c04faaccba8776411c5038cb195f812ee629fce07e1d2e6aec80ea0",
+    "files": {
+      "crypto.js": "9211d026c5d21e60e0126dd6f01150d87da5ba7261b8f468215c1264372ff5a5",
+      "hmac.js": "a330af1af3fb00ebdbba2f023dd5e023aa367669081cd51c7d172eb499533d0b",
+      "pbkdf2.js": "dab190f2112ba5fdef75fe027aecc1183a79bad3cdffdf42014c40ecc75bbf78",
+      "sha2.js": "e729088b82e5450bff54c3a0013582aa42e1fe8f58dd31f5967f6ebe34c52299",
+      "utils.js": "6939d5778fbd4a10feb224e1b9158ea59fb160b59dcaa43ea2ebb49f85c3b4ce",
+      "_md.js": "cefb1557e7715cb2117c83f82ef3e3175c7e0391c80bd5795b2d4effc45fc582",
+      "_u64.js": "e48c0cfc10810439a4807b46db136ce603a3fa09b62584f513ef2f3ca496af54"
+    }
+  },
+  "noble-ciphers-1.3.0": {
+    "archive": "https://registry.npmjs.org/@noble/ciphers/-/ciphers-1.3.0.tgz",
+    "archiveSha256": "e02e7c03c26b8dd88ab0bd5e46f2996689e33f252bacb551a1cf504bc912501f",
+    "files": {
+      "aes.js": "c112ad02f2b5315f5f6d51b211c208ed29d91b4a81f9a99ccfc35b043de5c4fc",
+      "utils.js": "306e36d8c59519a289756f5775e2fc2faed9b02b6b60029a7c8e3e943522e441",
+      "_polyval.js": "93b718b57b8a6739b62145e6ba82ac0be5f225ba6754d825427fef8010b142e6"
+    }
+  }
+}

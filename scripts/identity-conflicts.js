@@ -22,7 +22,7 @@ function similar(a,b){
 function worldRows(){
  const docs=[game.actors,game.items,game.journal].flatMap(c=>c?.contents||[]).filter(d=>!d.pack&&kind(d)&&!['sessions','quests','rules'].includes(kind(d))&&!String(flags(d).getFlag(ID,'quickImportSourceUuid')||flags(d).getFlag(ID,'worldProfile')?.sourceUuid||'').startsWith('Compendium.'));
  const byUuid=new Map(docs.map(d=>[d.uuid,d]));
- return docs.filter(d=>{if(d.documentName!=='JournalEntry')return true;const f=flags(d),p=f.getFlag(ID,'worldProfile')||{},uuid=f.getFlag(ID,'backendProjectionV1')?.sourceUuid||f.getFlag(ID,'semanticProjection')?.linkedUuid||p.sourceUuid||(p.actorId?'Actor.'+p.actorId:'');const authority=byUuid.get(uuid);return !authority||!compatible(kind(d),kind(authority));});
+ return docs.filter(d=>{if(d.documentName!=='JournalEntry')return true;const f=flags(d),p=f.getFlag(ID,'worldProfile')||{},uuid=f.getFlag(ID,'knownPersonV1')?.actorUuid||f.getFlag(ID,'backendProjectionV1')?.sourceUuid||f.getFlag(ID,'semanticProjection')?.linkedUuid||p.sourceUuid||(p.actorId?'Actor.'+p.actorId:'');const authority=byUuid.get(uuid);return !authority||!compatible(kind(d),kind(authority));});
 }
 function conflicts(data,type,{excludeUuid=''}={}){
  if(!game.user?.isGM)return [];
@@ -50,6 +50,10 @@ function managed(data,options,type){
  if(options.pack||options.adventurersTomeBackendParity||options.adventurersTomeIdentityChecked)return true;
  if(type==='JournalEntry'&&!['npc','contact','character','pc','location','faction','item','lore','npc-group'].includes(kind(data,type)))return true;
  const f=flags(data),p=f.getFlag(ID,'worldProfile')||{},backend=f.getFlag(ID,'backendProjectionV1'),semantic=f.getFlag(ID,'semanticProjection');
+ const known=String(f.getFlag(ID,'knownPersonV1')?.actorUuid||'');
+ // A minimal player card is a deliberate presentation of this exact Actor,
+ // not a proposed second identity requiring an interactive naming decision.
+ if(type==='JournalEntry'&&/^Actor\.[^.]+$/.test(known)&&game.actors?.get(known.slice(6)))return true;
  return Boolean(backend?.managed&&backend.sourceUuid||semantic?.kind==='contact'&&semantic.linkedUuid||p.sourceUuid&&compatible(kind(data,type),p.sourceUuid.startsWith('Actor.')?'npc':p.sourceUuid.startsWith('Item.')?'item':kind(data,type)));
 }
 let pending=Promise.resolve();

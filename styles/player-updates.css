@@ -1,0 +1,6 @@
+#at-player-updates { position:fixed; z-index:10002; display:flex; gap:5px; }
+#at-player-updates[hidden],#at-player-updates button[hidden] { display:none !important; }
+#at-player-updates button { width:28px; height:28px; min-height:28px; margin:0; padding:0; border:1px solid #c49b4d; border-radius:5px; background:#1b150b; color:#f7d993; font:bold 15px Georgia,serif; cursor:pointer; animation:at-unread-glow 2.4s ease-in-out infinite; }
+#at-player-updates button:hover,#at-player-updates button:focus-visible { color:#fff3c9; outline:2px solid #f7d993; outline-offset:2px; }
+@keyframes at-unread-glow { 0%,100% { box-shadow:0 0 0 #d9ae5b00; } 50% { box-shadow:0 0 9px #d9ae5b99; background:#3d2c12; } }
+@media (prefers-reduced-motion:reduce) { #at-player-updates button { animation:none; } }

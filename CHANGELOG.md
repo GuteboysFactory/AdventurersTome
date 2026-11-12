@@ -1,3 +1,12 @@
+## 2.1.2
+
+- Automatic public Group profiles and Party Member relationships using native Limited access.
+- Safe NPC basic cards, PC exclusion/archiving, improved Session/Quest sharing and imports.
+- Bulk NPC/Contact/Item ownership, Quick Search, unread Q/S badges and reminders.
+- Collapsible Explorer, persistent session list, Chronicle dialog and canvas token improvements.
+- Passwordless account-mode Vaults, preserved encrypted archives and HTTP crypto support.
+- See docs/V2.1.2_STABLE_RELEASE.md for upgrade steps and privacy boundaries.
+
 # 2.1.1
 
 Private Vault workspace, rich-text notes, encrypted images, custom categories,

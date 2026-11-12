@@ -293,6 +293,9 @@ function formattedBodyToHtml(value) {
     if (node.nodeType === 3) return escapeBodyText(node.textContent).replaceAll("@", "&#64;");
     if (node.nodeType !== 1 || ["script","style","iframe","object","svg","math"].includes(node.localName)) return "";
     const children = Array.from(node.childNodes).map(serialize).join("");
+    // Keep Foundry secrecy when formatting imported HTML. Unwrapping an
+    // unsupported container must never turn its private children into story text.
+    if (node.matches('.secret,[data-secret="true"]')) return `<section class="secret">${children}</section>`;
     if (!allowed.has(node.localName)) return children;
     return node.localName === "br" ? "<br>" : `<${node.localName}>${children}</${node.localName}>`;
   }

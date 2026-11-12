@@ -1,3 +1,8 @@
+import {canReadPartyProfile} from './party-access-core.mjs';
+import {playerPresentationUpdate, presentationAuthorityUuid} from './player-visibility.mjs';
+import {linkedPeople} from './known-people-core.mjs';
+import {isPlayerCharacter,isWorldPlayerCharacter,presentationActorUuid} from './player-character-core.mjs';
+import {readableRelationTarget} from './group-relation-target.mjs';
 globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const DEFAULT_BACKGROUND = `modules/adventurers-tome/assets/default-hero.webp`;
@@ -229,6 +234,7 @@ const MANUAL_SECTIONS = Object.freeze([
     ["Foundry ownership first", "The user must have Observer-or-better access for Tome to expose full player-facing content."],
     ["Tome discovery second", "Discovered controls whether otherwise accessible content has been revealed inside Tome."],
     ["GM-only last", "GM-only hides a Tome entry from players even if Foundry access would otherwise allow it."],
+    ["Show to Players", "Explicitly presenting an entry grants the required Foundry access and marks it Discovered. Personal Quests keep their chosen player audience."],
     ["Private fields", "GM Notes plus GM-only Facts and Relations are kept in the GM's private user vault."]
   ], example: "Prepare an NPC before play, keep it Undiscovered, then reveal it when the party meets them. If the NPC is a true secret, keep Foundry ownership at None as well." },
 
@@ -643,6 +649,7 @@ function sectionEntries(section) {
 
   return game.journal.contents
     .filter((entry) => canViewInTome(entry))
+    .filter((entry) => normalized !== 'world' || !isWorldPlayerCharacter(entry,game.actors.contents,game.users.contents))
     .filter((entry) => {
       const flagged = String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "type") ?? "").toLowerCase();
       if (flagged === normalized) return true;
@@ -873,9 +880,9 @@ function semanticContactEvidenceVisible(document, user = game.user) {
   if (!projection || projection.kind !== "contact") return true;
   if (!user || user.isGM) return true;
 
-  // A Journal permission override never authorizes derived semantic evidence
-  // by itself. Generated Contact visibility is always bounded by the live
-  // Actor evidence that supports the projection.
+  // Explicit GM sharing authorizes the Contact itself. Its relationship owner
+  // need not become visible; automatic Contacts still follow live evidence.
+  if (projection.permissionOverride === true) return userCanObserveDocument(document, user);
   const evidenceUuids = Array.from(new Set([
     String(projection.sourceUuid || "").trim(),
     String(projection.linkedUuid || "").trim(),
@@ -901,6 +908,8 @@ function canViewInTome(document, user = game.user) {
   if(globalThis.ATTestAI.flags(document)?.getFlag?.(MODULE_ID,'vaultInboxV1'))return false;
   if (globalThis.ATTestAI.flags(document).getFlag?.(MODULE_ID,'chronicleV1') || globalThis.ATTestAI.flags(document.parent)?.getFlag?.(MODULE_ID,'chronicleV1')) return false;
   if (user?.isGM) return true;
+  // Group membership shares the public Tome profile using native LIMITED access.
+  if(canReadPartyProfile(document,user,{actors:game.actors.contents,users:game.users.contents,legacyIds:getLegacyGroupActorIds()}))return true;
   // Tome renders full campaign content, so require Foundry OBSERVER or better.
   // LIMITED visibility is intentionally not enough, which prevents Tome from
   // exposing more content than the underlying Foundry document permission.
@@ -1056,6 +1065,7 @@ function campaignWorldProjectionIdForAuthorityUuid(authorityUuid = "") {
   if (!wanted) return "";
 
   for (const journal of game.journal?.contents || []) {
+    if(isWorldPlayerCharacter(journal,game.actors.contents,game.users.contents))continue;
     const backend = globalThis.ATTestAI.flags(journal).getFlag?.(MODULE_ID, "backendProjectionV1");
     if (backend?.managed === true && String(backend?.sourceUuid || "").trim() === wanted) return journal.id;
 
@@ -2156,11 +2166,18 @@ function campaignNarrativeLinks(entry, world = [], actors = []) {
   const legacyIds = new Set(getLegacyGroupActorIds());
   const characters = actors.filter((view) => {
     const actor = game.actors.get(view.id);
-    return actor && actorIsGroupMember(actor, legacyIds);
+    return actor && (isPlayerCharacter(actor,game.users.contents)||actorIsGroupMember(actor, legacyIds));
   });
-  const linkedActors = candidatesFromExplicit(entry, "actors", actors);
+  const encountered = new Set([...linkedPeople(entry, game.journal.contents),...(globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.knownPeople?.referencesForSession?.(entry)||[])]);
+  const basics = game.user.isGM ? [] : world.filter(view => view.knownActorUuid && encountered.has(view.knownActorUuid));
+  const basicIds = new Set(basics.map(view => view.knownActorUuid));
+  const linkedActors = candidatesFromExplicit(entry, "actors", actors).filter(view => !basicIds.has('Actor.' + view.id));
   const actorLinks = linkedActors.filter((view) => characters.some((character) => character.id === view.id));
-  const worldLinks = candidatesFromExplicit(entry, "world", world);
+  const worldLinks = candidatesFromExplicit(entry, "world", world).filter(view => {
+    if(game.user.isGM || view.knownActorUuid)return true;
+    return !basicIds.has(presentationAuthorityUuid(game.journal.get(view.id)));
+  });
+  for(const view of basics)if(!worldLinks.some(row => row.id === view.id))worldLinks.push(view);
   const identityApi = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation;
   const authorityOf = (view) => identityApi?.identityFor?.({ canonicalUuid:`JournalEntry.${view.id}` })?.authorityUuid || `JournalEntry.${view.id}`;
   for (const view of linkedActors) {
@@ -2350,6 +2367,7 @@ function actorView(actor) {
     img: profile.heroImage || fallbackImage,
     actorImg: fallbackImage,
     owner: actor.isOwner,
+    canOpenSheet: userCanObserveDocument(actor,game.user),
     title: profile.title,
     subtitle: profile.subtitle,
     summary: profile.summary,
@@ -2446,6 +2464,8 @@ function getWorldProfile(entryOrId) {
 function resolveWorldActor(entryOrId, profile = null) {
   const entry = typeof entryOrId === "string" ? game.journal.get(entryOrId) : entryOrId;
   if (!entry) return null;
+  const known = globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, 'knownPersonV1');
+  if(known)return game.user.isGM ? actorFromWorldUuid(known.actorUuid) : null;
   const worldProfile = profile || getWorldProfile(entry);
   if (!["npc","contact","character","pc","npc-group"].includes(worldProfile?.category)) return null;
   if (worldProfile?.actorId) {
@@ -2626,6 +2646,7 @@ function worldEntryView(entry) {
   const journalFallback = stripMarkup(journalText(entry));
   return {
     ...base,
+    knownActorUuid: String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, 'knownPersonV1')?.actorUuid || ''),
     category: profile.category,
     categoryLabel: meta.label,
     icon: meta.icon,
@@ -2694,7 +2715,7 @@ function contextualSemanticRelationsForActor(actor) {
     let targetActor = null;
     if (canonicalUuid.startsWith("Actor.")) {
       const candidate = game.actors.get(canonicalUuid.slice(6)) || null;
-      if (candidate && !canViewInTome(candidate)) continue;
+      if (candidate && !readableRelationTarget(candidate,{user:game.user,users:game.users.contents,journals:game.journal.contents,canView:canViewInTome})) continue;
       targetActor = candidate;
     }
 
@@ -2705,11 +2726,14 @@ function contextualSemanticRelationsForActor(actor) {
     let sourceBadge = "Campaign Contact";
 
     if (targetActor) {
-      const view = actorView(targetActor);
+      const destination=readableRelationTarget(targetActor,{user:game.user,users:game.users.contents,journals:game.journal.contents,canView:canViewInTome});
+      if(!destination)continue;
+      const view = destination.document.documentName==='Actor'?actorView(destination.document):worldEntryView(destination.document);
       target = { ...view, img:view.img || "icons/svg/mystery-man.svg" };
-      action = "openProfile";
-      actorId = targetActor.id;
-      sourceBadge = "Linked Actor";
+      action = destination.action;
+      actorId = destination.actorId;
+      journalId = destination.journalId;
+      sourceBadge = journalId?'Known person':'Linked Actor';
     } else {
       // Semantic-only or unresolved relationship targets require a Contact
       // projection that is readable by the current viewer. Do not synthesize
@@ -2759,7 +2783,7 @@ function contextualSemanticRelationsForActor(actor) {
       journalId,
       action,
       label:semanticRelationLabel(edge?.role || "related"),
-      note:semanticRelationNote(edge, targetEntity),
+      note:semanticRelationNote(edge, journalId&&!game.user.isGM?null:targetEntity),
       gmOnly:false,
       sourceBadge,
       target
@@ -5222,7 +5246,7 @@ function tomeViewNeeds(tab) {
     search:['sessions','quests','world','rules','group','search'],
     campaignToolsOverview:['sessions','quests','world','group','analysis','memory','notebook','reveal'],
     campaignToolsMemory:['memory'], campaignToolsAnalysis:['memory','analysis','relationships'],
-    campaignToolsIndex:[], campaignToolsVault:[], campaignToolsAssistant:['notebook','reveal'], campaignToolsSignals:[],
+    campaignToolsIndex:[], campaignToolsVault:[], campaignToolsPeople:[], campaignToolsAssistant:['notebook','reveal'], campaignToolsSignals:[],
     gmDashboard:['sessions','quests','world','group','dashboard'],
     quickCapture:['notebook','capture'], revealQueue:['reveal'],
     postSession:['sessions','quests','post'], settings:['sessions','quests','world','rules','group','settings','notebook'],
@@ -5454,7 +5478,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.activeTab === "worldProfile") return { activeTab: "world" };
     if (this.activeTab === "ruleDetail") return { activeTab: "rules" };
     if (this.activeTab === "access") return { activeTab: "settings" };
-    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
+    if (["gmDashboard", "quickCapture", "revealQueue", "postSession", "manual", "campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsPeople", "campaignToolsAssistant"].includes(this.activeTab)) return { activeTab: "home" };
     return { activeTab: "home" };
   }
 
@@ -5626,6 +5650,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     try {
     const context = await super._prepareContext(options);
     tomeContextReads = {reads:new Map(),markup:new Map(),markupBytes:0};
+    if(this.activeTab==='worldProfile'){
+      const entry=game.journal.get(this.activeWorldId);
+      if(entry&&isWorldPlayerCharacter(entry,game.actors.contents,game.users.contents)){
+        const actor=actorFromWorldUuid(presentationActorUuid(entry));this.activeWorldId=null;
+        if(actor&&canViewInTome(actor)){this.activeTab='profile';this.activeActorId=actor.id;}else this.activeTab='group';
+      }
+    }
     const needs = tomeViewNeeds(this.activeTab);
     const useWorldExplorer = this.activeTab === 'world' && typeof globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.worldSourceExplorer?.mount === 'function';
     if (useWorldExplorer) needs.delete('world');
@@ -5807,18 +5838,19 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const manualRelations = profile.relations
         .map((relation) => {
           const target = game.actors.get(relation.actorId);
-          if (!target || !canViewInTome(target)) return null;
+          const destination=readableRelationTarget(target,{user:game.user,users:game.users.contents,journals:game.journal.contents,canView:canViewInTome});
+          if (!destination) return null;
           return {
             ...relation,
             semantic:false,
             authority:"tome-extension",
             targetUuid:String(target.uuid || "").trim(),
             targetIdentity:target.uuid ? `uuid:${target.uuid}` : `actor:${target.id}`,
-            action:"openProfile",
-            actorId:target.id,
-            journalId:"",
+            action:destination.action,
+            actorId:destination.actorId,
+            journalId:destination.journalId,
             sourceBadge:"",
-            target: actorView(target)
+            target: destination.document.documentName==='Actor'?actorView(destination.document):worldEntryView(destination.document)
           };
         })
         .filter(Boolean);
@@ -6194,13 +6226,14 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isSearch: this.activeTab === "search",
       isMyChronicle: this.activeTab === "myChronicle" && !game.user.isGM,
       isPlayerSignals: this.activeTab === "campaignToolsSignals" && game.user.isGM,
-      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsAssistant", "campaignToolsSignals", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
-      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsAssistant"].includes(this.activeTab),
+      isCampaignToolsNavActive: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsPeople", "campaignToolsAssistant", "campaignToolsSignals", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
+      isCampaignToolsPage: game.user.isGM && ["campaignToolsOverview", "campaignToolsMemory", "campaignToolsAnalysis", "campaignToolsIndex", "campaignToolsVault", "campaignToolsPeople", "campaignToolsAssistant"].includes(this.activeTab),
       isCampaignToolsOverview: game.user.isGM && this.activeTab === "campaignToolsOverview",
       isCampaignToolsMemory: game.user.isGM && this.activeTab === "campaignToolsMemory",
       isCampaignToolsIndex: game.user.isGM && this.activeTab === "campaignToolsIndex",
       isCampaignToolsAnalysis: game.user.isGM && this.activeTab === "campaignToolsAnalysis",
       isCampaignToolsVault: game.user.isGM && this.activeTab === "campaignToolsVault",
+      isCampaignToolsPeople: game.user.isGM && this.activeTab === "campaignToolsPeople",
       isCampaignToolsAssistant: game.user.isGM && this.activeTab === "campaignToolsAssistant",
       isCampaignToolsAssistantNavActive: game.user.isGM && ["campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
       isManual: this.activeTab === "manual",
@@ -7354,17 +7387,41 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const refKey = String(target.dataset.refKey || "").trim();
     const meta = tomeRefMeta(refKey);
     if (!meta) return ui.notifications.warn("Adventurer's Tome: Reveal target not found.");
-    const access = getTomeAccess(meta.document);
-    if (access.visibility === "gm") return ui.notifications.warn("This entry is GM-only in Tome. Change its Permissions before revealing it.");
-    if (!access.discovered) {
-      await globalThis.ATTestAI.flags(meta.document).setFlag(MODULE_ID, FLAGS.ACCESS, { visibility: access.visibility, discovered: true });
+    const questAudience = meta.type === 'quest' ? globalThis.ATTestAI.flags(meta.document).getFlag(MODULE_ID, 'questAudienceV1') : null;
+    const currentPlayers = game.users?.contents?.filter(user => !user.isGM) || [];
+    // Presenting a personal Quest must never widen it to the whole party.
+    const existingPersonal = meta.type === 'quest' && Number(meta.document.ownership?.default || 0) < 2
+      ? currentPlayers.filter(user => userCanObserveDocument(meta.document, user)).map(user => user.id) : [];
+    const audience = questAudience?.mode === 'personal' ? questAudience.userIds || [] : existingPersonal.length ? existingPersonal : null;
+    try {
+      const documents = new Map([[meta.document.uuid, meta.document]]);
+      const authorityUuid = presentationAuthorityUuid(meta.document);
+      const match = /^(Actor|Item)\.([^.]+)$/.exec(authorityUuid);
+      if (match) {
+        const authority = (match[1] === 'Actor' ? game.actors : game.items)?.get(match[2]);
+        if (!authority) throw Error('The linked document is no longer available.');
+        documents.set(authority.uuid, authority);
+      }
+      if (['Actor', 'Item'].includes(meta.document.documentName)) {
+        const projectionId = campaignWorldProjectionIdForAuthorityUuid(meta.document.uuid);
+        const projection = projectionId ? game.journal.get(projectionId) : null;
+        if (projection) documents.set(projection.uuid, projection);
+      }
+      const players = game.users?.contents || [];
+      const changes = [...documents.values()].map(document => ({document, patch: playerPresentationUpdate(document, players, {audience})}));
+      for (const {document, patch} of changes) {
+        if (!game.user.isGM) throw Error('Only a GM can present campaign content.');
+        await document.update(patch, {adventurersTomeOwnership: true});
+      }
+    } catch (error) {
+      console.error("Adventurer's Tome | Could not share entry", error);
+      return ui.notifications.warn(`Could not share this entry: ${error.message}`);
     }
     const activePlayers = game.users?.contents?.filter((user) => !user.isGM && user.active) || [];
-    const eligible = activePlayers.filter((user) => meta.document.testUserPermission?.(user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER));
-    if (!eligible.length) return ui.notifications.warn("No active player currently has Foundry access to this entry. Grant Foundry permission first.");
+    const eligible = activePlayers.filter((user) => canViewInTome(meta.document, user));
     globalThis.ATTestAI.socket.emit(`module.${MODULE_ID}`, { type: "showTomeRef", refKey, senderId: game.user.id, sentAt: Date.now() });
     await markRevealShown(refKey);
-    ui.notifications.info(`Revealed ${meta.name} to ${eligible.length} active player(s).`);
+    ui.notifications.info(`Shared ${meta.name} with ${audience ? 'its personal Quest audience' : 'all players'}. Presented to ${eligible.length} active player(s).`);
     await this.render({ parts: ["main"] });
   }
 
@@ -7903,6 +7960,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static _onOpenActor(_event, target) {
     const actor = game.actors.get(target.dataset.actorId);
     if (!actor || !canViewInTome(actor)) return ui.notifications.warn("Adventurer's Tome: Actor not found or not visible.");
+    if(!game.user.isGM&&!userCanObserveDocument(actor,game.user))return ui.notifications.warn("Adventurer's Tome: Only the public Tome profile is shared with you.");
     actor.sheet.render(true);
   }
 
@@ -9117,6 +9175,7 @@ function installLauncher() {
     ui.notifications.info("Adventurer's Tome launcher position reset.");
   });
   window.addEventListener("resize", () => applyPos(currentPos));
+  Hooks.callAll('adventurersTomeLauncherReady', button);
 }
 
 Hooks.once("init", () => {
@@ -9410,12 +9469,10 @@ Hooks.once("ready", async () => {
     if (!sender?.isGM) return;
     const refKey = String(payload.refKey || "").trim();
     let targetDocument = resolveTomeRefKey(refKey);
-    if (!targetDocument) return;
-    // A reveal may immediately follow a GM Discovered flag update. Give the
-    // normal Foundry Document update a brief chance to arrive before deciding
-    // the player still cannot see the target.
-    if (!canViewInTome(targetDocument)) {
-      await new Promise((resolve) => setTimeout(resolve, 250));
+    // Permission changes can make a previously absent Document arrive here.
+    // Wait for normal Foundry synchronization before opening the presentation.
+    for (let attempt = 0; attempt < 5 && (!targetDocument || !canViewInTome(targetDocument)); attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 150));
       targetDocument = resolveTomeRefKey(refKey);
     }
     if (!targetDocument || !canViewInTome(targetDocument)) return;

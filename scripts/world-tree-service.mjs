@@ -1,4 +1,5 @@
 import {emptyTree,validateTree,copy,parentId,folderById,insertFolder,moveFolder,assignEntry,subtree,importStructure,captureOriginalStructure,projectTreeView,TREE_VIEWS} from './world-tree-core.mjs';
+import {isWorldPlayerCharacter} from './player-character-core.mjs';
 const ID='adventurers-tome',KEY='worldTreeV1',OPTIONS={render:false,adventurersTomeWorldTree:true};
 const api=()=>globalThis.ATTestAI.modules.get(ID)?.api;
 const flag=(d,k)=>globalThis.ATTestAI.flags(d)?.getFlag?.(ID,k);
@@ -54,10 +55,12 @@ function independentTree(s,{capture=false}={}){
 }
 export function readTree(){const text=raw();if(!text)return independentTree(seed());try{return independentTree(validateTree(JSON.parse(text)));}catch(error){throw new Error('The saved World tree cannot be read: '+error.message);}}
 export function rowsForTree(s=readTree()){
- const rows=[],native=[...(game.actors?.contents||[]),...(game.items?.contents||[])],nativeMap=new Map(native.map(d=>[d.uuid,d])),representations=new Map();
- const journals=(game.journal?.contents||[]).filter(d=>canView(d)&&(flag(d,'worldProfile')||flag(d,'type')==='world')&&!String(flag(d,'quickImportSourceUuid')||flag(d,'worldProfile')?.sourceUuid||'').startsWith('Compendium.'));
- for(const j of journals){const ref=sourceUuid(j);if(nativeMap.has(ref)){if(canView(nativeMap.get(ref)))representations.set(ref,j);continue;}const p=flag(j,'worldProfile')||{};rows.push({uuid:j.uuid,id:j.id,name:j.name,kind:p.category||'lore',img:p.heroImage||j.img||'',summary:p.summary||'',subtitle:p.subtitle||'',journalId:j.id});}
- for(const doc of native){if(!canView(doc))continue;const j=representations.get(doc.uuid),p=j?flag(j,'worldProfile')||{}:flag(doc,'actorProfile')||{};
+ const isPC=doc=>isWorldPlayerCharacter(doc,game.actors?.contents||[],game.users?.contents||[]);
+ const rows=[],native=[...(game.actors?.contents||[]),...(game.items?.contents||[])].filter(d=>!isPC(d)),nativeMap=new Map(native.map(d=>[d.uuid,d])),representations=new Map();
+ const journals=(game.journal?.contents||[]).filter(d=>!isPC(d)&&canView(d)&&(flag(d,'worldProfile')||flag(d,'type')==='world')&&!String(flag(d,'quickImportSourceUuid')||flag(d,'worldProfile')?.sourceUuid||'').startsWith('Compendium.'));
+ const basicActors=new Set(game.user?.isGM?[]:journals.map(j=>flag(j,'knownPersonV1')?.actorUuid).filter(Boolean));
+ for(const j of journals){const ref=(game.user?.isGM&&flag(j,'knownPersonV1')?.actorUuid)||sourceUuid(j);if(basicActors.has(ref))continue;if(nativeMap.has(ref)){if(canView(nativeMap.get(ref))&&(!representations.has(ref)||flag(j,'knownPersonV1')||!flag(representations.get(ref),'knownPersonV1')))representations.set(ref,j);continue;}const p=flag(j,'worldProfile')||{};rows.push({uuid:j.uuid,id:j.id,name:j.name,kind:p.category||'lore',img:p.heroImage||j.img||'',summary:p.summary||'',subtitle:p.subtitle||'',journalId:j.id});}
+ for(const doc of native){if(!canView(doc)||basicActors.has(doc.uuid))continue;const j=representations.get(doc.uuid),p=j?flag(j,'worldProfile')||{}:flag(doc,'actorProfile')||{};
   const owned=s.folders.some(f=>f.bindings?.[doc.documentName]?.id===parentId(doc));
   if(s.setup!=='imported'&&!j&&!owned&&!Object.hasOwn(s.assignments,doc.uuid))continue;
   rows.push({uuid:doc.uuid,id:doc.id,name:doc.name,kind:doc.documentName==='Item'?'item':p.category|| (doc.type==='character'?'pc':'npc'),img:p.heroImage||doc.img||'',summary:p.summary||'',subtitle:p.subtitle||p.title||'',journalId:j?.id||''});

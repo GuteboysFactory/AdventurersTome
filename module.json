@@ -2,7 +2,7 @@
   "id": "adventurers-tome",
   "title": "Adventurer’s Tome",
   "description": "Campaign workspace with local Swedish and English analysis, campaign memory, world knowledge and responsive browsing.",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "authors": [
     {
       "name": "Per"
@@ -139,7 +139,14 @@
     "scripts/private-vault-ui.js",
     "scripts/private-vault-token-ui.js",
     "scripts/private-vault-workspace.js",
-    "scripts/private-vault-media.js"
+    "scripts/private-vault-media.js",
+    "scripts/people-workspace.js",
+    "scripts/quick-search.js",
+    "scripts/player-updates.js",
+    "scripts/campaign-reminders.js",
+    "scripts/known-people.js",
+    "scripts/campaign-explorer-collapse.js",
+    "scripts/party-relations.js"
   ],
   "styles": [
     "styles/adventurers-tome.css",
@@ -184,7 +191,13 @@
     "styles/testai-language.css",
     "styles/world-tree.css",
     "styles/player-character-placement.css",
-    "styles/private-vault-notes.css"
+    "styles/private-vault-notes.css",
+    "styles/people-workspace.css",
+    "styles/quick-search.css",
+    "styles/player-updates.css",
+    "styles/campaign-reminders.css",
+    "styles/player-sessions.css",
+    "styles/campaign-explorer-collapse.css"
   ],
   "languages": [
     {
@@ -205,5 +218,5 @@
     "vendor/compromise-14.17.0.js"
   ],
   "manifest": "https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json",
-  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.1/adventurers-tome.zip"
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.2/adventurers-tome.zip"
 }
