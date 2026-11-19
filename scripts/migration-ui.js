@@ -251,7 +251,8 @@ import './migration-portraits.js';
           const pairs=record.identities?AdventurersTomeMigrationCore.identityPairs(record):[[record.sourceUuid,doc.uuid]];
           return [...aliases,...pairs.filter(([,uuid])=>typeof fromUuidSync!=='function'||fromUuidSync(uuid))];
       })),
-      create:(type,data,{pack}={})=>getDocumentClass(type).create(data,{keepId:true,renderSheet:false,cloning:true,...(pack?{pack}:{})})});
+      // The approved plan copies distinct source UUIDs, even when their names match existing documents.
+      create:(type,data,{pack}={})=>getDocumentClass(type).create(data,{keepId:true,renderSheet:false,cloning:true,adventurersTomeIdentityChecked:true,...(pack?{pack}:{})})});
     const content=AdventurersTomeTransferContent.create({user:()=>game.user,api:()=>core,revision:()=>sourceEpoch});
     const open=({tab='import',mode='auto',kind}={})=>{if(!game.user)throw Error('Sign in to Import & Export.');if(!app||app.ownerId!==game.user.id){app?.close();app=new TomeMigrationApp();app.ownerId=game.user.id;}app.activeTab=tab;app.contentMode=mode;if(kind&&game.user.isGM&&app.exportKind!==kind){app.exportKind=kind;app.jsonExport=null;}return app.render({force:true});};
     core.transfer=Object.freeze({open,content});

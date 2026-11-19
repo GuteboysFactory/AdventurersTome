@@ -8,6 +8,7 @@ export function assessWorldReferences(text,assessment,engine,catalog,choiceFor,s
  for(const hit of engine.mentions(text)){
   if(hit.status!=='recognized'||excludedOccurrence(hit.start,hit.end,structure||{},{known:true}))continue;
   const choice=choiceFor?.(hit.text)||choiceFor?.(hit.references[0].name),campaign=resolveMention(hit.text,catalog,choice);
+  if(campaign.reason==='confirmed-alias-conflict')continue;
   if(!occurrenceAllowed({text,start:hit.start,end:hit.end,structure,context:nameContext,trusted:Boolean(choice?.sourceChoice)}))continue;
   const grounded=decideReference({lookup:hit,catalog,choice});
   if(grounded.status==='ambiguous'){

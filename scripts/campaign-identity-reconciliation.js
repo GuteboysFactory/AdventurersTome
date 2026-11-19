@@ -38,6 +38,9 @@ function atCirBackendSourceUuidFromJournal(journal) {
   const category = String(globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "worldProfile")?.category || "").toLowerCase();
   const compatible = uuid => String(uuid).startsWith("Actor.") ? ["npc","contact","character","pc","npc-group"].includes(category) : String(uuid).startsWith("Item.") ? category === "item" : true;
 
+  const knownActor = atCirClean(globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "knownPersonV1")?.actorUuid);
+  if (/^Actor\.[^.]+$/.test(knownActor) && atCirDocumentFromUuid(knownActor)) return knownActor;
+
   const backend = globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "backendProjectionV1");
   const backendUuid = atCirClean(backend?.sourceUuid);
   if (backend?.managed === true && backendUuid && backendUuid !== journal.uuid && compatible(backendUuid)) return backendUuid;
@@ -45,6 +48,9 @@ function atCirBackendSourceUuidFromJournal(journal) {
   const projection = globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "semanticProjection");
   const projectionUuid = atCirClean(projection?.linkedUuid);
   if (projection?.kind === "contact" && projectionUuid.startsWith("Actor.") && compatible(projectionUuid)) return projectionUuid;
+
+  const importedUuid = atCirClean(globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "quickImportSourceUuid"));
+  if (/^(Actor|Item)\.[^.]+$/.test(importedUuid) && compatible(importedUuid) && atCirDocumentFromUuid(importedUuid)) return importedUuid;
 
   const profile = globalThis.ATTestAI.flags(journal).getFlag?.(ATCIR_ID, "worldProfile");
   const sourceUuid = atCirClean(profile?.sourceUuid);

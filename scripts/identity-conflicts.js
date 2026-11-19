@@ -46,8 +46,19 @@ async function ask(data,type,rows){
    {action:'separate',label:'Create separate identity',callback:(_event,button,dialog)=>{const form=button.form||dialog.element?.querySelector('form');const reason=clean(form?.elements.difference.value);if(!reason){ui.notifications.warn('Describe the difference before creating a separate identity.');return null;}return {action:'separate',reason};}},
    {action:'cancel',label:'Cancel',callback:()=>null}],rejectClose:false});
 }
+const traitSlug=name=>norm(clean(name).replace(/['’]/g,'')).replaceAll(' ','-');
+function isMissingRealmGuardTrait(data){
+ // Realm Guard 1.13.5 seeds missing catalog traits through native Item creation.
+ const catalog=data.flags?.['realm-guard'];
+ if(game.system?.id!=='realm-guard'||data.type!=='trait'||catalog?.suppliedTrait!==true||catalog.starterCategory!=='traits')return false;
+ const slug=traitSlug(data.name);
+ if(!slug||catalog.starterKey!==`trait:${slug}`)return false;
+ return !game.items?.contents?.some(item=>item.type==='trait'&&(
+  item.flags?.['realm-guard']?.starterKey===catalog.starterKey||traitSlug(item.name)===slug));
+}
 function managed(data,options,type){
  if(options.pack||options.adventurersTomeBackendParity||options.adventurersTomeIdentityChecked)return true;
+ if(type==='Item'&&isMissingRealmGuardTrait(data))return true;
  if(type==='JournalEntry'&&!['npc','contact','character','pc','location','faction','item','lore','npc-group'].includes(kind(data,type)))return true;
  const f=flags(data),p=f.getFlag(ID,'worldProfile')||{},backend=f.getFlag(ID,'backendProjectionV1'),semantic=f.getFlag(ID,'semanticProjection');
  const known=String(f.getFlag(ID,'knownPersonV1')?.actorUuid||'');

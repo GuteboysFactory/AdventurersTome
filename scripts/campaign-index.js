@@ -4,7 +4,7 @@ import {createIndexDigestPool} from './index-digest-pool.mjs';
 // GM-local derived index. Canonical documents and Review learning remain the
 // authority; this database can be discarded and rebuilt without losing either.
 const ID='adventurers-tome',REVISION='testai-automatic-language-1';
-const ANALYSIS_REVISION='tome-integrated-evidence-1';
+const ANALYSIS_REVISION='tome-integrated-evidence-2';
 let state={revision:REVISION,cache:{},signatures:{},history:{},snapshots:{},paused:false};
 let loaded=null,db=null,worker=null,serial=0,timer=null,running=false,again=false;
 let lastYield=0,workerError='',storageError='',lastError='',current='',completed=0,total=0;
@@ -160,8 +160,8 @@ function identityFlags(doc){
 async function dependencies() {
   const identities=[];
   for(const doc of documents().filter(doc=>!sourceKind(doc))){await yieldControl();identities.push({uuid:doc.uuid,name:doc.name,ownership:doc.ownership,flags:identityFlags(doc)});}
-  return {revision:REVISION,analysisPolicy:analysisPolicy(),language:game.i18n?.lang,testAILanguage:globalThis.ATTestAI.settings.get('adventurers-tome','languageMode'),learning:globalLearning(learning()),
-    identities,interpretation:api().integratedInterpretation?.policyInputs?.()||null,
+  return {revision:REVISION,analysisPolicy:analysisPolicy(),language:game.i18n?.lang,testAILanguage:globalThis.ATTestAI.settings.get('adventurers-tome','languageMode'),worldTree:globalThis.ATTestAI.settings.get(ID,'worldTreeV1'),learning:globalLearning(learning()),
+    identities,identityAliases:[...(api().campaignReviewLearning?.identityAliases?.()||[])],interpretation:api().integratedInterpretation?.policyInputs?.()||null,
     discovered:(api().discovery?.identityCandidates?.() || api().discovery?.snapshot?.()?.entities || []).map(row=>({uuid:row.canonicalUuid,name:row.name,kind:row.kind,aliases:row.aliases}))};
 }
 // Compare persisted modification markers before opening the heavyweight

@@ -2,9 +2,9 @@
 export const REVISION='testai-language-1';
 import {annotateSourceRoles,GRAMMAR_PREFIXES} from './source-document-roles.js';
 import {candidateEvidence,incompleteName,prepareNameContext,refineNameSpans,proposeNameSpans,occurrenceAllowed,explicitNaming} from './candidate-evidence.js';
-import {selectAuthority} from './tome-decision-policy.js';
+import {preferWorldPeople,selectAuthority} from './tome-decision-policy.js';
 export {decideReference,referenceKey,documentRole} from './tome-decision-policy.js';
-export const POLICY_REVISION='tome-interpretation-10';
+export const POLICY_REVISION='tome-interpretation-11';
 // Structure is advisory data with offsets in the unchanged collapsed text.
 // It never changes source HTML or grants permission to read private content.
 export function documentStructure(html,plain,{sourceName=''}={}){
@@ -96,8 +96,9 @@ export function resolveMention(text,catalog,choice,prepared){
  const index=prepared||prepareCatalog(catalog),pool=index.pool;const wanted=normalize(text);
  if(!wanted)return {status:'unknown',candidates:[],reason:'empty'};
  if(choice?.action==='suppressed'||['ignored','source-ignored'].includes(choice?.action))return {status:'ignored',candidates:[],reason:'confirmed-ignore'};
- if(choice?.sourceChoice?.targetUuid||choice?.sourceChoice===true&&choice.targetUuid){const uuid=choice.sourceChoice?.targetUuid||choice.targetUuid;const picked=pool.filter(r=>r.uuid===uuid);if(picked.length===1)return {status:'matched',candidates:picked,target:picked[0],reason:'confirmed-source-choice'};}
- let matches=[...(index.exact.get(wanted)||[])];let reason='exact-name-or-registered-alias';
+ const chosenUuid=choice?.sourceChoice?.targetUuid||(choice?.sourceChoice===true||choice?.campaignDefault===true?choice.targetUuid:null);
+ if(chosenUuid){const picked=pool.find(row=>row.uuid===chosenUuid);if(picked)return {status:'matched',candidates:[picked],target:picked,reason:choice.campaignDefault?'campaign-default-choice':'confirmed-source-choice'};}
+ let matches=[...(index.exact.get(wanted)||[])];let reason='exact-name-or-registered-alias',matchedName=wanted;
  const baseTitle=normalize(untitled(String(text).trim()));
  if(baseTitle!==wanted||index.titled.has(wanted)){
   matches.push(...(index.exact.get(baseTitle)||[]).filter(person),...(index.titled.get(baseTitle)||[]));reason='title-qualified-campaign-name';
@@ -107,7 +108,7 @@ export function resolveMention(text,catalog,choice,prepared){
   if(/[’']s$/iu.test(raw))base=raw.slice(0,-2);
   else if(/s[’']$/iu.test(raw))base=raw.slice(0,-1);
   else if(/s$/iu.test(raw))base=raw.slice(0,-1);
-  if(base){matches=[...(index.exact.get(normalize(base))||[])];reason='attested-possessive-form';}
+  if(base){matchedName=normalize(base);matches=[...(index.exact.get(matchedName)||[])];reason='attested-possessive-form';}
  }
  if(!matches.length){
   const raw=String(text).trim().replace(/[’']s$/iu,'').replace(/s[’']$/iu,'s');
@@ -129,9 +130,12 @@ export function resolveMention(text,catalog,choice,prepared){
  // A shared surname is a candidate identity, never sufficient authority to
  // attach a mention to an existing person or invent a family relationship.
  if(!matches.length&&wanted.split(' ').length===1&&index.surname?.has(wanted))return {status:'ambiguous',candidates:unique(index.surname.get(wanted)),reason:'surname-needs-context'};
- const authority=selectAuthority(matches);matches=authority.rows;if(authority.reason==='npc-before-contact'&&matches.length===1)reason=authority.reason;
+ const available=preferWorldPeople(matches);
+ if(available.length<matches.length)reason='world-identity-preferred';
+ matches=selectAuthority(available).rows;
  if(matches.length===1)return {status:'matched',target:matches[0],candidates:matches,reason};
- return {status:matches.length?'ambiguous':'unknown',candidates:matches,reason:matches.length?'multiple-visible-identities':'no-supported-catalogue-match'};
+ const learned=matches.some(row=>row.confirmedAliases?.some(alias=>normalize(alias)===matchedName));
+ return {status:matches.length?'ambiguous':'unknown',candidates:matches,reason:matches.length?(learned?'confirmed-alias-conflict':'multiple-visible-identities'):'no-supported-catalogue-match'};
 }
 function* protectedOccurrenceSteps(text,catalog){
  const names=new Set();for(const row of catalog.filter(valid)){

@@ -34,7 +34,13 @@ function installButtons(app,element){
  const isTome=app.id==='adventurers-tome-app',d=currentDocument(app);if(!d?.uuid)return;
  const existing=root.querySelector('[data-atp-vault-open],[data-at-context-open],[data-atp-sheet-vault],[data-at-vault-open]');
  let button=existing?.cloneNode(true);if(!button&&d.documentName==='Actor'){button=document.createElement('button');button.type='button';button.className='at-secondary';const host=isTome?root.querySelector('.at-gm-top-actions'):root.querySelector('.window-header');host?.append(button);}
- if(!button)return;if(existing)existing.replaceWith(button);button.removeAttribute('data-at-context-open');button.removeAttribute('data-action');button.classList.remove('at-icon-button','atp-sheet-vault-v2');button.classList.add('at-secondary','at-vault-entry-button');button.dataset.atVaultOpen='';button.title=`Open Private Vault · ${d.name}`;button.setAttribute('aria-label',button.title);button.innerHTML='<i class="fa-solid fa-lock"></i><span> GM Notes</span>';button.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();openSafely(d);};
+ if(!button)return;if(existing)existing.replaceWith(button);button.removeAttribute('data-at-context-open');button.removeAttribute('data-action');button.classList.remove('at-icon-button','atp-sheet-vault-v2');button.classList.add('at-secondary','at-vault-entry-button');button.dataset.atVaultOpen='';
+ const compact=!isTome&&d.documentName==='Actor'&&Boolean(button.closest('.window-header'));
+ button.classList.toggle('at-vault-header-button',compact);
+ button.title=compact?'Open Private Vault':`Open Private Vault · ${d.name}`;
+ button.setAttribute('aria-label',button.title);
+ button.innerHTML='<i class="fa-solid fa-lock" aria-hidden="true"></i>'+(compact?'':'<span> GM Notes</span>');
+ button.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();openSafely(d);};
 }
 async function browse(){
  if(api()?.privateVaultWorkspace)return api().privateVaultWorkspace.open();

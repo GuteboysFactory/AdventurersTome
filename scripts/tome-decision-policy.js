@@ -3,7 +3,11 @@
 export const DECISION_REVISION='tome-decisions-3';
 const norm=v=>String(v||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
 const id=r=>r.uuid||r.canonicalUuid||r.match?.authorityUuid||'';
-const person=r=>['character','npc','person','contact','pc'].includes(r.kind);
+const person=r=>['actor','character','npc','person','contact','pc','adventurer'].includes(String(r.kind||'').toLowerCase());
+export function preferWorldPeople(rows, inWorld = row => row.inWorld) {
+ const worldNames = new Set(rows.filter(row=>person(row)&&inWorld(row)).map(row=>norm(row.name)).filter(Boolean));
+ return rows.filter(row=>!person(row)||!worldNames.has(norm(row.name))||inWorld(row));
+}
 export function documentRole(doc){
  if(doc?.documentName!=='Actor')return 'identity';
  const flags=doc.flags||{},t=flags['adventurers-tome']||{},r=flags['realm-guard']||{};
@@ -30,7 +34,7 @@ export function decideReference({lookup,catalog=[],choice=null,blocked=false}){
   &&(r.referenceKey===key||[r.name,...(r.aliases||[])].some(n=>names.has(norm(n)))));
  if(candidates.some(r=>r.excluded||r.paused))return {status:'blocked',reason:'campaign-identity-disabled',reference,candidates,trace};
  const sameKind=r=>reference.kind==='npc'?person(r):r.kind===reference.kind;
- const locations=candidates.filter(sameKind);
+ const locations=preferWorldPeople(candidates.filter(sameKind));
  const canonical=locations.filter(r=>r.referenceKey===key);
  const pool=canonical.length?canonical:locations;
  const worlds=pool.filter(r=>/^JournalEntry\./u.test(id(r)));
@@ -39,4 +43,4 @@ export function decideReference({lookup,catalog=[],choice=null,blocked=false}){
  if(selected.length===1)return {status:'existing',reason:reference.kind==='npc'?'library-person-authority':'library-location-authority',reference,target:selected[0],trace};
  return {status:'create',reason:reference.kind==='npc'?'verified-library-person':'verified-library-location',reference,trace:[...trace,'no-existing-identity']};
 }
-globalThis.AdventurersTomeDecisionPolicy=Object.freeze({selectAuthority,decideReference,referenceKey,documentRole,revision:DECISION_REVISION});
+globalThis.AdventurersTomeDecisionPolicy=Object.freeze({selectAuthority,preferWorldPeople,decideReference,referenceKey,documentRole,revision:DECISION_REVISION});

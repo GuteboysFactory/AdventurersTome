@@ -1,13 +1,14 @@
 import {REVISION,POLICY_REVISION,normalize,chunks,alignTokens,assessText,resolveMention,prepareCatalog,documentStructure,excludedOccurrence} from './testai-language-core.js';
 import {worldKnowledge} from './world-knowledge.js';
 import {assessWorldReferences} from './world-knowledge-assessment.js';
-import {decideReference,referenceKey,documentRole} from './tome-decision-policy.js';
+import {decideReference,referenceKey,documentRole,preferWorldPeople} from './tome-decision-policy.js';
 import {NAME_POLICY_REVISION} from './candidate-evidence.js';
+import {rowsForTree} from './world-tree-service.mjs';
 const ID='adventurers-tome',DATA='adventurers-tome';
 const api=()=>game.modules.get(ID)?.api;
 const issued=new WeakMap(),cache=new Map();let worker=null,workerLanguage='',pending=null,serial=0,idle=null,busy=false;
 const models={sv:8134707,en:16368326};
-let catalogMemo=null,catalogStamp='',catalogBuilds=0,catalogReuses=0;
+let catalogMemo=null,catalogStamp='',catalogBuilds=0,catalogReuses=0,worldIdentities=new Set();
 let preparedMemo=null,preparedSource=null,preparedBuilds=0;
 const resolutionMemo=new Map();let resolutionSource=null,resolutionLearning,resolutionKnowledge='';
 const invalidateCatalog=()=>{catalogMemo=null;preparedMemo=null;preparedSource=null;resolutionSource=null;resolutionMemo.clear();};
@@ -34,6 +35,10 @@ function catalog(){
  const all=[...(game.actors?.contents||[]),...(game.items?.contents||[]),...(game.journal?.contents||[]),...(game.scenes?.contents||[])].filter(observe);const byUuid=new Map(all.map(d=>[d.uuid,d]));
  let group=[];try{const raw=globalThis.ATTestAI.settings.get(DATA,'groupActors');group=typeof raw==='string'?JSON.parse(raw):raw;}catch{}
  const groupSet=new Set(Array.isArray(group)?group:[]),identity=api()?.campaignIdentityReconciliation;
+ const authorityFor=uuid=>identity?.identityFor?.({canonicalUuid:uuid})?.authorityUuid||uuid;
+ const learning=api()?.campaignReviewLearning,learnedAliases=learning?.identityAliases?.();
+ worldIdentities=new Set();
+ try{for(const row of rowsForTree())worldIdentities.add(authorityFor(row.uuid));}catch{}
  const aliases=new Map();for(const row of (api()?.discovery?.identityCandidates?.()||api()?.discovery?.snapshot?.()?.entities||[])){const key=row.canonicalUuid;if(!byUuid.has(key))continue;aliases.set(key,[...(aliases.get(key)||[]),...(Array.isArray(row.aliases)?row.aliases:[]).filter(a=>typeof a==='string')]);}
  const rows=[];
  for(const doc of all){
@@ -43,15 +48,17 @@ function catalog(){
   const role=documentRole(doc);
   const excluded=role==='template'||flag(doc,'testaiIdentityRole')==='non-person'||profile?.kind==='inventory'||Boolean(migration&&/\[inventory\]\s*$/iu.test(doc.name||''));
   const member=doc.documentName==='Actor'&&(flag(doc,'groupMember')===true||flag(doc,'groupMember')!==false&&groupSet.has(doc.id));
-  let canonical=doc;try{const authority=identity?.identityFor?.({canonicalUuid:doc.uuid})?.authorityUuid;if(authority&&byUuid.has(authority))canonical=byUuid.get(authority);}catch{}
+  const canonical=byUuid.get(authorityFor(doc.uuid))||doc;
   const kind=doc.documentName==='Actor'?'character':doc.documentName==='Item'?'item':doc.documentName==='Scene'?'location':String(flag(doc,'worldProfile')?.category||flag(doc,'semanticProjection')?.kind||flag(doc,'type')||'lore').replace(/s$/,'');
-  const registered=[flag(doc,'aliases'),profile?.aliases,flag(doc,'worldProfile')?.aliases,flag(doc,'semanticProjection')?.aliases].flatMap(value=>Array.isArray(value)?value.filter(a=>typeof a==='string'):[]);
+  const confirmedAliases=learnedAliases?.get(canonical.uuid)||[];
+  const registered=learnedAliases?confirmedAliases:[flag(doc,'aliases'),profile?.aliases,flag(doc,'worldProfile')?.aliases,flag(doc,'semanticProjection')?.aliases].flatMap(value=>Array.isArray(value)?value.filter(a=>typeof a==='string'):[]);
   const importedPerson=doc.documentName==='Actor'&&migration&&doc.name?.match(/^([^,]+\s+[^,]+),\s*[^,]+\([^()]+\)\s*$/u)?.[1];
-  rows.push({uuid:canonical.uuid,name:canonical.name,aliases:[...(aliases.get(doc.uuid)||[]),...registered,...(importedPerson?[importedPerson]:[]),...(canonical.uuid!==doc.uuid?[doc.name]:[])],referenceKey:referenceKey(flag(doc,'worldProfile')?.libraryReference),kind,role,group:member,excluded,paused:api()?.campaignReviewLearning?.isPaused?.(canonical.uuid)===true});
+  const discovered=(aliases.get(doc.uuid)||[]).filter(name=>!learning?.isIdentityAliasRemoved?.(canonical.uuid,name));
+  rows.push({uuid:canonical.uuid,name:canonical.name,aliases:[...discovered,...registered,...(importedPerson?[importedPerson]:[]),...(canonical.uuid!==doc.uuid?[doc.name]:[])],confirmedAliases,referenceKey:referenceKey(flag(doc,'worldProfile')?.libraryReference),kind,role,group:member,excluded,inWorld:worldIdentities.has(canonical.uuid),paused:learning?.isPaused?.(canonical.uuid)===true});
  }
  // Reconcile projection aliases and Group membership without duplicating a person.
  const merged=new Map();for(const row of rows){const old=merged.get(row.uuid);if(old){old.aliases.push(row.name,...row.aliases);old.group ||= row.group;old.referenceKey ||= row.referenceKey;old.excluded &&= row.excluded;if(row.group)old.kind='character';}else merged.set(row.uuid,{...row,aliases:[...row.aliases]});}
- catalogStamp=stamp;catalogMemo=Object.freeze([...merged.values()].map(row=>Object.freeze({...row,aliases:Object.freeze([...row.aliases])})));return catalogMemo;
+ catalogStamp=stamp;catalogMemo=Object.freeze([...merged.values()].map(row=>Object.freeze({...row,confirmedAliases:Object.freeze([...row.confirmedAliases]),aliases:Object.freeze([...new Set(row.aliases)])})));return catalogMemo;
 }
 function release(reason='Language analysis stopped.'){
  clearTimeout(idle);idle=null;worker?.terminate();worker=null;workerLanguage='';
@@ -111,7 +118,7 @@ export function resolveCatalogue(text,sourceUuid=''){
 }
 function resolveCatalogueFresh(text,sourceUuid,entries){
  const choice=api()?.campaignReviewLearning?.decisionFor?.(text,{sourceUuid});const result=resolveMention(text,entries,choice,catalogIndex(entries));
- if(!choice){const reference=resolveReference(text,sourceUuid);if(reference.status==='ambiguous')return {status:'ambiguous',target:null,candidates:reference.candidates||[],reason:'library-entity-type-conflict'};if(reference.status==='existing'&&!['ignored'].includes(result.status)&&reference.target.uuid!==sourceUuid)return {status:'matched',target:reference.target,candidates:[reference.target],reason:reference.reason};}
+ if(!choice&&result.reason!=='confirmed-alias-conflict'){const reference=resolveReference(text,sourceUuid);if(reference.status==='ambiguous')return {status:'ambiguous',target:null,candidates:reference.candidates||[],reason:'library-entity-type-conflict'};if(reference.status==='existing'&&result.status!=='ignored'&&reference.target.uuid!==sourceUuid)return {status:'matched',target:reference.target,candidates:[reference.target],reason:reference.reason};}
  if(result.status!=='matched'||result.target.uuid===sourceUuid)return {...result,status:result.target?.uuid===sourceUuid?'unknown':result.status};
  return result;
 }
@@ -121,6 +128,7 @@ export function resolveReference(text,sourceUuid=''){
  return decideReference({lookup,catalog:lookup.status==='recognized'?catalog():[],choice});
 }
 export function excludedUuids(){gm();return catalog().filter(c=>c.excluded).map(c=>c.uuid);}
+function preferredReviewTargets(rows){gm();catalog();return preferWorldPeople(rows,row=>worldIdentities.has(row.canonicalUuid||row.uuid));}
 export async function analyzeSource(sourceUuid,{language='auto',onProgress}={}){
  gm();if(busy)throw Error('A diagnostic analysis is already running.');
  const stamp=owner(),source=sourceDocument(sourceUuid),pages=sourceSnapshot(source),structure=prepareDocument(pages.map(p=>p.html).join('\n'),{sourceName:source.name}),text=structure.text,fingerprint=JSON.stringify(pages);if(!text.trim())throw Error('The source has no readable text.');
@@ -144,7 +152,7 @@ export async function applyMatch(result,rowIndex,targetUuid){
 }
 export function stop(){release();}
 export function status(){return {busy,modelLoaded:workerLanguage||null,cacheEntries:cache.size,localOnly:true,automaticAssistance:true,policyRevision:POLICY_REVISION,namePolicyRevision:NAME_POLICY_REVISION,languageEvidenceAvailable:!lastFailure,knowledgeRevision:worldKnowledge.status().revision,analyses,reuses,catalogBuilds,catalogReuses,preparedBuilds,lastFailure,modelWrites:false};}
-function attach(){const module=game.modules.get(ID);if(!module)return;module.api||={};module.api.testAILanguage=Object.freeze({analyzeSource,applyMatch,stop,status,sourceKind,sources,evidenceFor,assistText,prepareDocument,excludedOccurrence,resolveCatalogue,resolveReference,excludedUuids,catalogSnapshot:()=>{gm();return structuredClone(catalog());},version:1});}
+function attach(){const module=game.modules.get(ID);if(!module)return;module.api||={};module.api.testAILanguage=Object.freeze({analyzeSource,applyMatch,stop,status,sourceKind,sources,evidenceFor,assistText,prepareDocument,excludedOccurrence,resolveCatalogue,resolveReference,excludedUuids,preferredReviewTargets,catalogSnapshot:()=>{gm();return structuredClone(catalog());},version:1});}
 Hooks.once('ready',()=>{attach();});
 Hooks.on('shutdown',()=>{stop();cache.clear();invalidateCatalog();});
 

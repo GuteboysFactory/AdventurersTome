@@ -1,3 +1,12 @@
+## 2.1.5
+
+- Remember GM-confirmed alternative names across the campaign, with a source-only option and a GM editor on identity profiles.
+- Reuse alternative names in World search and Session and Quest analysis. Explain when a saved name matches another identity.
+- Reconcile linked Actor and Tome profiles, and prefer the World NPC when the same name appears on a person outside World.
+- Avoid interactive identity prompts during Realm Guard catalog Trait restoration and approved campaign migration. Keep the prompt for manual creation.
+- Use a compact Private Vault icon in Actor sheet headers and add GM-only previews for Realm Guard map markers.
+- See [the 2.1.5 release notes](docs/V2.1.5_STABLE_RELEASE.md) for upgrade instructions.
+
 ## 2.1.2
 
 - Automatic public Group profiles and Party Member relationships using native Limited access.

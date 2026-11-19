@@ -2,7 +2,11 @@
 
 A campaign workspace for Foundry VTT.
 
-Current stable release: **2.1.2**. See [release notes and upgrade instructions](docs/V2.1.2_STABLE_RELEASE.md).
+Current stable release: **2.1.5**. See [release notes and upgrade instructions](docs/V2.1.5_STABLE_RELEASE.md).
+
+Identity choices in Review now remember alternative names for the campaign. GM
+can edit them on the identity profile or keep a choice specific to one source.
+Analysis and World search reuse those names across sessions and quests.
 
 Group members automatically share public Tome profiles and Party Member links.
 Campaign Tools includes bulk NPC/Contact/Item ownership, Quick Search and reminders.
@@ -118,7 +122,7 @@ Use the stable manifest:
 
 Or install manually:
 
-1. Download `adventurers-tome.zip` from the 1.7.0 GitHub release.
+1. Download `adventurers-tome.zip` from the current stable GitHub release.
 2. Extract/install the module into Foundry's module data directory.
 3. Start Foundry VTT 13.351.
 4. Enable **Adventurer's Tome** under Manage Modules.

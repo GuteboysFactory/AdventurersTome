@@ -91,7 +91,14 @@ async function resolveNow(row,options={}){
  if(result.outcome==='REVIEW'){
   const suggestions=api().campaignEntityCreation?.existingMatches?.({text:row.text,kind:'unknown',sourceUuid:row.sourceJournalUuid})||[];
   const combined=[...result.identityCandidates,...suggestions],seen=new Set();
-  result.identityCandidates=combined.filter(c=>{const uuid=c.canonicalUuid||c.uuid;if(!/^(Actor|Item|JournalEntry|Scene)\.[^.]+$/u.test(uuid)||seen.has(uuid))return false;seen.add(uuid);return true;}).map(c=>({...c,reviewOnly:true}));
+  const candidates=[];
+  for(const candidate of combined){
+   const uuid=candidate.match?.authorityUuid||candidate.canonicalUuid||candidate.uuid;
+   const authority=api().campaignIdentityReconciliation?.identityFor?.({canonicalUuid:uuid})?.authorityUuid||uuid;
+   if(!/^(Actor|Item|JournalEntry|Scene)\.[^.]+$/u.test(authority)||seen.has(authority))continue;
+   seen.add(authority);candidates.push({...candidate,canonicalUuid:authority,reviewOnly:true});
+  }
+  result.identityCandidates=api().testAILanguage.preferredReviewTargets?.(candidates)||candidates;
  }
  return result;
 }

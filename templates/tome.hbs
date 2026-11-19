@@ -525,6 +525,7 @@
       <div class="at-profile-intro">
         <span class="at-kicker">{{profileView.displayRole}}</span>
         <h1>{{profileView.name}}</h1>
+        {{#if isGM}}<button type="button" class="at-secondary" data-action="editIdentityAliases" data-target-uuid="Actor.{{profileView.id}}">Alternative names</button>{{/if}}
         {{#if profileView.subtitle}}<h2>{{profileView.subtitle}}</h2>{{/if}}
         {{#if profileView.motto}}<blockquote class="at-profile-motto">“{{profileView.motto}}”</blockquote>{{/if}}
         {{#if profileView.summary}}<p>{{profileView.summary}}</p>{{else}}<p class="at-empty">No Tome profile summary has been written yet.</p>{{/if}}
@@ -646,6 +647,7 @@
       <div class="at-world-profile-art {{#unless worldProfileView.img}}at-no-image{{/unless}}">{{#if worldProfileView.img}}<img data-at-tome-image src="{{atImageSrc worldProfileView.img}}" alt="{{worldProfileView.name}}">{{else}}<i class="fa-solid {{worldProfileView.icon}}"></i>{{/if}}</div>
       <div class="at-profile-intro"><span class="at-kicker">{{worldProfileView.categoryLabel}}</span><h1>{{worldProfileView.name}}</h1>{{#if worldProfileView.subtitle}}<h2>{{worldProfileView.subtitle}}</h2>{{/if}}{{#if worldProfileView.summary}}<p>{{worldProfileView.summary}}</p>{{/if}}</div>
     </section>
+    {{#if isGM}}<button type="button" class="at-secondary" data-action="editIdentityAliases" data-target-uuid="JournalEntry.{{worldProfileView.id}}">Alternative names</button>{{/if}}
     {{#if isGM}}{{#if worldProfileView.access.openNotes.length}}<div class="at-gm-note-stack at-detail-gm-note">{{#each worldProfileView.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
     <section class="at-profile-content">
       <article class="at-profile-biography at-profile-panel at-shareable-text"><div class="at-profile-section-heading"><i class="fa-solid fa-book-open-reader"></i><h2>Known Information</h2>{{#if worldProfileView.syncedToJournal}}<span class="at-sync-badge"><i class="fa-solid fa-arrows-rotate"></i> Journal synced</span>{{/if}}</div>{{#if worldProfileView.body}}<p>{{worldProfileView.body}}</p>{{else}}<p class="at-empty">No Tome details have been added yet.</p>{{/if}}</article>
@@ -1197,6 +1199,7 @@
 
 
             {{#if hasCandidates}}
+            <label class="at-guided-candidate-reason"><input type="checkbox" data-at-source-only> Only remember this name for this source</label>
             <div class="at-guided-candidate-list">
               {{#each candidates}}
               <article class="at-guided-candidate-card {{#if recommended}}is-recommended{{/if}}">

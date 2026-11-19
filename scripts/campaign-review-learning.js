@@ -47,6 +47,7 @@ function emptyState() {
     sourceIgnores:{},
     sourceChoices:{},
     nameDefaults:{},
+    identityAliasEdits:{},
     pausedIdentities:{},
     decisionHistory:[]
   };
@@ -62,6 +63,7 @@ function parseState(raw) {
       sourceIgnores:parsed.sourceIgnores && typeof parsed.sourceIgnores === "object" ? parsed.sourceIgnores : {},
       sourceChoices:parsed.sourceChoices && typeof parsed.sourceChoices === "object" ? parsed.sourceChoices : {},
       nameDefaults:parsed.nameDefaults && typeof parsed.nameDefaults === 'object' ? parsed.nameDefaults : {},
+      identityAliasEdits:parsed.identityAliasEdits && typeof parsed.identityAliasEdits === 'object' ? parsed.identityAliasEdits : {},
       pausedIdentities:parsed.pausedIdentities && typeof parsed.pausedIdentities === 'object' ? parsed.pausedIdentities : {},
       decisionHistory:Array.isArray(parsed.decisionHistory) ? parsed.decisionHistory.slice(-10) : []
     };
@@ -93,6 +95,7 @@ async function writeState(state, reason = "update") {
       sourceIgnores:state?.sourceIgnores || {},
       sourceChoices:state?.sourceChoices || {},
       nameDefaults:state?.nameDefaults || {},
+      identityAliasEdits:state?.identityAliasEdits || {},
       pausedIdentities:state?.pausedIdentities || {},
       decisionHistory:state?.decisionHistory || []
     };
@@ -120,9 +123,9 @@ function decisionFor(text, { sourceUuid = "" } = {}) {
   const sourceDecision = sourceKey ? state.sourceIgnores?.[sourceKey]?.[key] || null : null;
   if (sourceDecision) return clone({ ...sourceDecision, action:ACTIONS.SOURCE_IGNORED });
   const sourceChoice = sourceKey ? state.sourceChoices?.[sourceKey]?.[key] : null;
-  if (sourceChoice && !isSourceTargetRemoved(sourceKey,sourceChoice.targetUuid)) return clone({ ...sourceChoice, sourceChoice:true });
+  if (sourceChoice && !isSourceTargetRemoved(sourceKey,sourceChoice.targetUuid)) return clone({ ...sourceChoice, targetUuid:matchingAuthority(sourceChoice.targetUuid), sourceChoice:true });
   const preferred=Object.hasOwn(state.nameDefaults,key) ? state.nameDefaults[key] : null;
-  if(preferred && !isPaused(preferred.targetUuid) && !isSourceTargetRemoved(sourceKey,preferred.targetUuid))return clone({...preferred,action:ACTIONS.LINKED,campaignDefault:true,sourceUuid:sourceKey});
+  if(preferred && !isPaused(preferred.targetUuid) && !isSourceTargetRemoved(sourceKey,preferred.targetUuid))return clone({...preferred,targetUuid:matchingAuthority(preferred.targetUuid),action:ACTIONS.LINKED,campaignDefault:true,sourceUuid:sourceKey});
   const globalDecision = state.decisions?.[key] || null;
   if(globalDecision?.targetUuid && (isSourceTargetRemoved(sourceKey,globalDecision.targetUuid) || isSourceTargetRemoved(globalDecision.sourceUuid,globalDecision.targetUuid)))return null;
   return globalDecision ? clone(globalDecision) : null;
@@ -271,6 +274,7 @@ function searchTargets(rows, { query = "", kind = "all" } = {}) {
 function linkTargets({ query = "", kind = "all" } = {}) {
   if (!game.user?.isGM) return [];
   const api = globalThis.ATTestAI.modules.get(MODULE_ID)?.api;
+  const confirmedAliases = identityAliases();
   const documents = new Map();
   const collections = [game.actors, game.items, game.journal, game.scenes, ...(game.collections?.values?.() || [])];
   for (const collection of collections) for (const doc of collection?.contents || []) {
@@ -286,14 +290,15 @@ function linkTargets({ query = "", kind = "all" } = {}) {
     const profile = globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"worldProfile") || globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"actorProfile") || {};
     const category = doc.documentName === "Actor" ? "person" : doc.documentName === "Item" ? "item"
       : doc.documentName === "Scene" ? "location" : profile.category || globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"type") || candidate.kind;
-    const aliases = [globalThis.ATTestAI.flags(doc).getFlag?.(MODULE_ID,"aliases"),profile.aliases].flatMap(value=>Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,;\n]/) : []);
+    const aliases = confirmedAliases.get(uuid) || [];
     const metadata = [doc.folder?.name,profile.title,profile.subtitle,profile.summary,...(Array.isArray(profile.facts) ? profile.facts : []).map(fact=>`${fact.label || ""} ${fact.value || ""}`)];
     const row = rows.get(uuid) || {uuid,name:clean(doc.name),kind:clean(category),folder:clean(doc.folder?.name),aliases:[],searchText:""};
     row.aliases = [...new Set([...row.aliases,...aliases.map(clean),candidate.name].filter(Boolean))];
-    row.searchText = normalize([row.name,...row.aliases,...metadata].join(" "));
+    row.searchText = normalize([row.name,...row.aliases,...aliases.map(name=>`${name}s`),...metadata].join(" "));
     rows.set(uuid,row);
   }
-  return searchTargets([...rows.values()],{query,kind});
+  const targets = [...rows.values()];
+  return searchTargets(api?.testAILanguage?.preferredReviewTargets?.(targets) || targets,{query,kind});
 }
 
 async function canonicalTarget(targetUuid) {
@@ -360,7 +365,7 @@ async function recordCreated({ text, sourceUuid = "", targetUuid, targetName = "
   return writeState(state, "created");
 }
 
-async function chooseForSource({ text, sourceUuid, targetUuid } = {}) {
+async function chooseForSource({ text, sourceUuid, targetUuid, rememberAlias = true } = {}) {
   const key = normalize(text);
   const source = clean(sourceUuid);
   const target = await canonicalTarget(targetUuid);
@@ -369,7 +374,7 @@ async function chooseForSource({ text, sourceUuid, targetUuid } = {}) {
   if (!state.sourceChoices[source]) state.sourceChoices[source] = {};
   state.sourceChoices[source][key] = gmStamp({
     action:ACTIONS.LINKED, text:clean(text), sourceUuid:source,
-    targetUuid:target.uuid, targetName:target.name, targetKind:target.documentName
+    targetUuid:target.uuid, targetName:target.name, targetKind:target.documentName, rememberAlias:rememberAlias !== false
   });
   if (state.sourceIgnores[source]?.[key]) delete state.sourceIgnores[source][key];
   return writeState(state,"source-identity-choice");
@@ -450,6 +455,62 @@ function decisionSnapshot(text,sourceUuid,state=readState(true)) {
 }
 function matchingAuthority(uuid) {
   return globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignIdentityReconciliation?.identityFor?.({canonicalUuid:uuid})?.authorityUuid || uuid;
+}
+function identityAliases(state = readState(true)) {
+  const aliases = new Map();
+  if (!game.user?.isGM) return aliases;
+  const authorities = new Map();
+  const authority = uuid => {
+    if (!authorities.has(uuid)) authorities.set(uuid,matchingAuthority(uuid));
+    return authorities.get(uuid);
+  };
+  const add = (uuid,text,learnedAt=0) => {
+    const key = normalize(text);
+    if (!uuid || !key) return;
+    if (!aliases.has(uuid)) aliases.set(uuid,new Map());
+    const names = aliases.get(uuid);
+    if ((names.get(key)?.learnedAt || 0) <= learnedAt) names.set(key,{text:clean(text),learnedAt});
+  };
+  for (const collection of [game.actors,game.items,game.journal,game.scenes]) for (const doc of collection?.contents || []) {
+    const get = key => globalThis.ATTestAI.flags(doc)?.getFlag?.(MODULE_ID,key);
+    for (const names of [get('aliases'),get('actorProfile')?.aliases,get('worldProfile')?.aliases,get('semanticProjection')?.aliases]) {
+      for (const name of Array.isArray(names) ? names : typeof names === 'string' ? names.split(/[,;\n]/) : []) {
+        if (typeof name === 'string') add(authority(doc.uuid),name);
+      }
+    }
+  }
+  for (const [source,choices] of Object.entries(state.sourceChoices)) for (const choice of Object.values(choices || {})) {
+    if (!choice?.targetUuid || choice.rememberAlias === false || isSourceTargetRemoved(source,choice.targetUuid)) continue;
+    const text = clean(choice.text);
+    // If the GM selected a known name in genitive form, remember its base.
+    const base = text.replace(/(?:[’']s|s)$/iu,'');
+    const nameWords = normalize(choice.targetName).split(' ');
+    add(authority(choice.targetUuid),base !== text && nameWords.includes(normalize(base)) ? base : text,Number(choice.updatedAt)||0);
+  }
+  for (const [uuid,edits] of Object.entries(state.identityAliasEdits)) for (const [key,edit] of Object.entries(edits || {})) {
+    const target = authority(uuid);
+    if (edit?.text) add(target,edit.text,Number(edit.editedAt)||0);
+    else if ((aliases.get(target)?.get(key)?.learnedAt || 0) <= (edit?.removedAt ?? Infinity)) aliases.get(target)?.delete(key);
+  }
+  return new Map([...aliases].map(([uuid,names])=>[uuid,[...names.values()].map(row=>row.text)]));
+}
+function isIdentityAliasRemoved(uuid,text) {
+  return game.user?.isGM === true && Boolean(readState(true).identityAliasEdits[uuid]?.[normalize(text)]?.removedAt);
+}
+async function setIdentityAliases({targetUuid,names,expected} = {}) {
+  const target = await canonicalTarget(targetUuid);
+  if (!/^(Actor|Item|JournalEntry|Scene)\.[^.]+$/.test(target.uuid) || target.pack || target.parent) throw Error('Choose a campaign identity.');
+  const state = readState();
+  const current = identityAliases(state).get(target.uuid) || [];
+  if (JSON.stringify(current) !== JSON.stringify(expected)) throw Error('Alternative names changed. Reopen the editor before saving.');
+  const desired = new Map(names.map(clean).filter(Boolean).map(name=>[normalize(name),name]));
+  if (desired.size > 100 || [...desired].some(([key,name])=>!key || name.length > 160)) throw Error('Use up to 100 names of 160 characters each.');
+  const edits = new Map(Object.entries(state.identityAliasEdits[target.uuid] || {}));
+  const editedAt = Date.now();
+  for (const name of current) if (!desired.has(normalize(name))) edits.set(normalize(name),{removedAt:editedAt});
+  for (const [key,name] of desired) if (!current.includes(name)) edits.set(key,{text:name,editedAt});
+  state.identityAliasEdits[target.uuid] = Object.fromEntries(edits);
+  return writeState(state,'identity-aliases');
 }
 function isPaused(uuid) { return Boolean(readState(true).pausedIdentities[matchingAuthority(uuid)]); }
 function matchingPreferences() { const state=readState(true);return clone({nameDefaults:state.nameDefaults,pausedIdentities:state.pausedIdentities}); }
@@ -594,6 +655,9 @@ const publicApi = Object.freeze({
   version:VERSION,
   actions:ACTIONS,
   decisionFor,
+  identityAliases,
+  isIdentityAliasRemoved,
+  setIdentityAliases,
   decisionSnapshot,
   isPaused,
   matchingPreferences,
@@ -633,6 +697,7 @@ Hooks.once("init", () => {
   globalThis.ATTestAI.settings.register(MODULE_ID, SETTING_KEY, {
     scope:"world",
     config:false,
+    restricted:true,
     type:String,
     default:JSON.stringify(emptyState())
   });

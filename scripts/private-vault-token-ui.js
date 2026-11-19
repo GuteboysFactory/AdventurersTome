@@ -5,22 +5,40 @@ const metrics={scheduled:0,shown:0,reads:0,buildMs:[],dismissed:0};
 function clear(){clearTimeout(timer);clearTimeout(closing);timer=closing=null;panel?.remove();panel=null;active=null;metrics.dismissed++;}
 function dragging(){return pressed||Boolean(globalThis.canvas?.tokens?.preview?.children?.length);}
 function position(){const point=lastPoint||{x:innerWidth/2,y:innerHeight/2},rect=panel.getBoundingClientRect();panel.style.left=Math.max(12,Math.min(point.x+18,innerWidth-rect.width-12))+'px';panel.style.top=Math.max(12,Math.min(point.y+16,innerHeight-rect.height-12))+'px';}
-function display(token,stamp){
- timer=null;if(!allowed()||owner()!==stamp||active!==token||dragging()||!globalThis.canvas?.ready)return;
- const actor=api().privateVault.canonical(token);if(!actor||token.visible===false||token.renderable===false)return;
- const start=performance.now();let notes;try{metrics.reads++;notes=api().privateVault.notes(actor);}catch{ return; }
- notes=notes.filter(n=>n.body?.trim()||n.title?.trim()&&n.title!=='GM Note');if(!notes.length)return;
- panel=document.createElement('aside');panel.className='at-vault-hover';panel.dataset.atVaultHover=actor.uuid;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',`Private GM notes · ${actor.name}`);
- const header=document.createElement('header'),title=document.createElement('div'),small=document.createElement('small'),heading=document.createElement('h3'),close=document.createElement('button');small.textContent='PRIVATE · YOUR GM ACCOUNT';heading.textContent=actor.name;title.append(small,heading);close.type='button';close.textContent='×';close.setAttribute('aria-label','Close private preview');close.onclick=clear;header.append(title,close);
+function realmGuardMapEntry(note){
+ if(game.system?.id!=='realm-guard'||note?.document?.documentName!=='Note')return null;
+ const icon=note.document.texture?.src||'';
+ return /^systems\/realm-guard\/assets\/ui\/map-icons\/[a-z-]+\.svg$/.test(icon)?note.entry:null;
+}
+function display(placeable,stamp,mapEntry){
+ timer=null;if(!allowed()||owner()!==stamp||active!==placeable||dragging()||!globalThis.canvas?.ready)return;
+ if(placeable.visible===false||placeable.renderable===false)return;
+ if(mapEntry&&realmGuardMapEntry(placeable)!==mapEntry)return;
+ const vault=api()?.privateVault,source=vault?.canonical(mapEntry||placeable);if(!source)return;
+ const start=performance.now();let notes=[];
+ if(api()?.securePrivateVault?.unlocked()!==false){
+  try{metrics.reads++;notes=vault.notes(source);}catch{return;}
+ }
+ notes=notes.filter(n=>n.body?.trim()||n.title?.trim()&&n.title!=='GM Note');if(!notes.length&&!mapEntry)return;
+ panel=document.createElement('aside');panel.className='at-vault-hover';panel.dataset.atVaultHover=source.uuid;panel.setAttribute('role','dialog');panel.setAttribute('aria-label',`Private GM notes · ${source.name}`);
+ const header=document.createElement('header'),title=document.createElement('div'),small=document.createElement('small'),heading=document.createElement('h3'),close=document.createElement('button');small.textContent='PRIVATE · YOUR GM ACCOUNT';heading.textContent=source.name;title.append(small,heading);close.type='button';close.textContent='×';close.setAttribute('aria-label','Close private preview');close.onclick=clear;header.append(title,close);
  const body=document.createElement('div');body.dataset.vaultPreviewBody='';const sorted=[...notes].sort((a,b)=>Number(b.pinned)-Number(a.pinned));
  for(const n of sorted.slice(0,20)){const article=document.createElement('article'),h=document.createElement('h4'),p=document.createElement('p');h.textContent=n.title+(n.status==='resolved'?' · Resolved':'');p.textContent=n.body.slice(0,12000)+(n.body.length>12000?'\n… Open Private Vault for the full note.':'');article.append(h,p);if(n.attachments?.length){const image=document.createElement('button');image.type='button';image.textContent=n.attachments.length>1?`View first private image (${n.attachments.length} in Vault)`:'View private image';image.onclick=()=>{clear();void api().privateVaultMedia.enlarge(n.attachments[0]).catch(e=>ui.notifications.error(e.message));};article.append(image);}body.append(article);}
  if(notes.length>20){const more=document.createElement('p');more.textContent=`${notes.length-20} more notes in Private Vault.`;body.append(more);}
- const footer=document.createElement('footer'),open=document.createElement('button');open.type='button';open.textContent='Open Private Vault';open.onclick=()=>{clear();void api().privateVaultUI.open(actor).catch(e=>ui.notifications.error(e.message));};footer.append(open);panel.append(header,body,footer);document.body.append(panel);position();
+ const footer=document.createElement('footer'),open=document.createElement('button');open.type='button';open.textContent='Open Private Vault';open.onclick=()=>{clear();if(allowed()&&owner()===stamp)void api().privateVaultUI.open(source).catch(e=>ui.notifications.error(e.message));};footer.append(open);panel.append(header,body,footer);document.body.append(panel);position();
  panel.addEventListener('pointerenter',()=>clearTimeout(closing));panel.addEventListener('pointerleave',()=>{closing=setTimeout(clear,120);});metrics.shown++;metrics.buildMs.push(performance.now()-start);if(metrics.buildMs.length>100)metrics.buildMs.shift();
 }
-Hooks.on('hoverToken',(token,hovered)=>{
- if(!allowed()){clear();return;}if(!hovered){clearTimeout(timer);if(active===token)closing=setTimeout(clear,120);return;}
- clear();if(dragging())return;active=token;metrics.scheduled++;const stamp=owner();timer=setTimeout(()=>display(token,stamp),350);
+function hover(placeable,hovered,mapEntry){
+ if(!allowed()){clear();return;}
+ if(!hovered){if(active===placeable){clearTimeout(timer);closing=setTimeout(clear,120);}return;}
+ clear();if(dragging())return;active=placeable;metrics.scheduled++;const stamp=owner();timer=setTimeout(()=>display(placeable,stamp,mapEntry),350);
+}
+Hooks.on('hoverToken',(token,hovered)=>hover(token,hovered));
+Hooks.on('hoverNote',(note,hovered)=>{
+ if(!hovered){hover(note,false);return;}
+ if(!allowed())return;
+ const entry=realmGuardMapEntry(note);
+ if(entry)hover(note,true,entry);
 });
 Hooks.on('renderTokenHUD',(hud,element)=>{
  if(!allowed())return;const root=element instanceof HTMLElement?element:element?.[0],token=hud.object;if(!root||!token)return;
@@ -30,6 +48,6 @@ document.addEventListener('pointermove',e=>{lastPoint={x:e.clientX,y:e.clientY};
 document.addEventListener('pointerdown',e=>{if(panel?.contains(e.target))return;clear();if(e.target===document.getElementById('board'))pressed=true;},true);
 for(const event of ['pointerup','pointercancel'])document.addEventListener(event,()=>{pressed=false;},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')clear();});
-for(const hook of ['canvasTearDown','canvasReady','deleteToken','deleteActor','updateUser','adventurersTomePrivateNotesChanged','adventurersTomeVaultLockChanged'])Hooks.on(hook,clear);
+for(const hook of ['canvasTearDown','canvasReady','deleteToken','deleteActor','updateNote','deleteNote','deleteJournalEntry','updateUser','adventurersTomePrivateNotesChanged','adventurersTomeVaultLockChanged'])Hooks.on(hook,clear);
 Hooks.on('updateSetting',setting=>{if(/\.gm(?:ContextualPrivateVaultV2|PrivateVault)$/.test(setting?.key||''))clear();});
 Hooks.once('ready',()=>{api().privateVaultHover=Object.freeze({status:()=>structuredClone(metrics),hide:clear});});

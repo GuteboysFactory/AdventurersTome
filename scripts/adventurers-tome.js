@@ -1501,6 +1501,7 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "", {details=tru
   if (!game.user?.isGM) return null;
   const memory = memorySearch || campaignMemorySearchView();
   const learning = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning || null;
+  let knownAliases;
   const sourceFilter = String(sourceUuid || "").trim();
   const activeRows = Array.isArray(memory?.rows)
     ? memory.rows.filter((row) => {
@@ -1608,7 +1609,10 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "", {details=tru
         if (fallback.uuid && !candidateMap.has(fallback.uuid) && (!precision || precision.eligible)) candidateMap.set(fallback.uuid, fallback);
       }
 
-      const candidates = [...candidateMap.values()].sort((a, b) => b.matchRank - a.matchRank || b.score - a.score);
+      const availableCandidates = [...candidateMap.values()];
+      const language = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.testAILanguage;
+      const candidates = (language?.preferredReviewTargets?.(availableCandidates) || availableCandidates)
+        .sort((a, b) => b.matchRank - a.matchRank || b.score - a.score);
       const safeCandidates = candidates.filter((candidate)=>candidate.safeExistingMatch);
       const recommendationUuid = !base.isAmbiguous && safeCandidates.length === 1 ? safeCandidates[0].uuid : "";
       for (const candidate of candidates) {
@@ -1622,6 +1626,17 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "", {details=tru
         location:"location",place:"location",faction:"faction",organization:"faction",organisation:"faction",item:"item",gear:"item",lore:"lore"};
       const creationType = creationTypes[String(base.discoveryKind || "").toLowerCase()]
         || creationTypes[String(base.targetKind || "").toLowerCase()] || "contact";
+      let aliasConflict = '';
+      if (base.outcomeReason === 'confirmed-alias-conflict') {
+        knownAliases ??= learning?.identityAliases?.() || new Map();
+        const mention = normalizeImportName(base.mentionText);
+        const prior = candidates.filter(candidate=>knownAliases.get(candidate.uuid)?.some(name=>{
+          const normalized=normalizeImportName(name);
+          return mention===normalized||mention===`${normalized}s`;
+        })).map(candidate=>candidate.name);
+        aliasConflict = prior.length ? `Saved alternative name for ${[...new Set(prior)].join(' · ')}. Another campaign identity also matches. Check which one this source means.`
+          : 'A saved alternative name and another campaign identity both match. Check which one this source means.';
+      }
 
       return {
         ...base,
@@ -1644,6 +1659,11 @@ function campaignAnalysisView(memorySearch = null, sourceUuid = "", {details=tru
         outcomeReason:({
           "insufficient-identity-evidence":"Identity or type needs a GM decision.",
           "no-safe-existing-match":"Tome has no safe existing match to suggest",
+          "confirmed-alias-conflict":aliasConflict,
+          "multiple-visible-identities":"Several campaign identities match this name. Choose which one this source refers to.",
+          "source-identity-type-conflict":"The text uses the name for a different kind of entity than the saved match. Check the source before linking.",
+          "library-entity-type-conflict":"Campaign records and the background library disagree on the identity or its type. Check the source before linking.",
+          "source-supported-new-identity":"The text uses this as a name, but Tome found no confirmed identity for it.",
           "world-reference-not-in-campaign":"Recognized background place. Create or link it only if it belongs in this campaign.",
           "possible-duplicate-or-ambiguous-identity":"Possible duplicate or several existing identities. Choose the intended identity.",
           "gm-unlink-suppression":"This identity was deliberately unlinked for this source.",
@@ -5373,6 +5393,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       removeDemo: this._onRemoveDemo,
       removeHistoricalLink: this._onRemoveHistoricalLink,
       matchingPreferences: this._onMatchingPreferences,
+      editIdentityAliases: this._onEditIdentityAliases,
       openSettings: this._onOpenSettings,
       editAccess: this._onEditAccess,
       cancelAccess: this._onCancelAccess,
@@ -8240,10 +8261,11 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     for (const row of catalog) if (!types.has(row.kind)) types.set(row.kind,row.kind);
     if (!types.has(hint)) types.set(hint,hint);
     const content = `<div class="at-identity-picker" data-at-identity-picker="${escapeHtml(sourceUuid)}">
-      <p>Choose an existing identity for <strong>${escapeHtml(text)}</strong>. This applies only to this source.</p>
+      <p>Choose the campaign identity for <strong>${escapeHtml(text)}</strong>.</p>
       <div class="at-identity-picker-filters"><label>Search<input type="search" name="identitySearch" value="${escapeHtml(text)}" placeholder="Name, alias or context"></label>
       <label>Entity type<select name="identityType">${[...types].map(([value,label])=>`<option value="${escapeHtml(value)}" ${value === hint ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label></div>
       <p class="at-identity-picker-status" role="status"></p><div class="at-identity-picker-results" role="group" aria-label="Existing identities"></div>
+      <label><input type="checkbox" name="identitySourceOnly"> Only remember this name for this source</label>
       <small>Select one identity, then confirm. You can change the type filter to broaden your search.</small></div>`;
     let mounted = null;
     const renderPicker = (_event, app) => {
@@ -8277,13 +8299,13 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     try {
       const result = await DialogV2.wait({
         window:{title:"Tome — Link existing identity"},position:{width:580},content,modal:true,rejectClose:false,render:renderPicker,
-        buttons:[{action:"confirm",label:"Link selected identity",icon:"fa-solid fa-link",callback:(event,button)=>{confirmTime=event?.timeStamp ?? globalThis.performance?.now?.();return button.form.querySelector('input[name="canonicalIdentity"]:checked')?.value || null;}},
+        buttons:[{action:"confirm",label:"Link selected identity",icon:"fa-solid fa-link",callback:(event,button)=>{confirmTime=event?.timeStamp ?? globalThis.performance?.now?.();const uuid=button.form.querySelector('input[name="canonicalIdentity"]:checked')?.value;return uuid?{uuid,sourceOnly:button.form.elements.identitySourceOnly.checked}:null;}},
           {action:"cancel",label:"Cancel",callback:()=>null}]
       });
       if (!result) return;
       // The decision handler revalidates the UUID; catalog text never authorizes it.
-      const selected = catalog.find(row=>row.uuid === result);
-      await this.constructor._onResolveCampaignDecision.call(this,{timeStamp:confirmTime,dialogClosedAt:globalThis.performance?.now?.()},{disabled:false,dataset:{decisionMode:"choose",decisionText:text,sourceUuid,targetUuid:result,targetName:selected?.name || "selected identity"}});
+      const selected = catalog.find(row=>row.uuid === result.uuid);
+      await this.constructor._onResolveCampaignDecision.call(this,{timeStamp:confirmTime,dialogClosedAt:globalThis.performance?.now?.()},{disabled:false,dataset:{decisionMode:"choose",decisionText:text,sourceUuid,targetUuid:result.uuid,targetName:selected?.name || "selected identity",sourceOnly:String(result.sourceOnly)}});
     } catch (error) {
       ui.notifications.error(`Adventurer's Tome: ${error?.message || "Could not link this identity."}`);
     } finally {
@@ -8327,7 +8349,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const hadLinkBefore = links.hasCanonicalLink?.({ sourceUuid, targetUuid }) === true;
         const previousChoice = learning?.decisionFor?.(text, { sourceUuid });
         await measure("canonical-write",()=>links.linkCanonical({ sourceUuid, targetUuid }));
-        try { await measure("decision-save",()=>learning.chooseForSource({ text, sourceUuid, targetUuid })); }
+        const sourceOnly = target.dataset.sourceOnly === 'true' || target.closest?.('.at-guided-decision-card')?.querySelector('[data-at-source-only]')?.checked === true;
+        try { await measure("decision-save",()=>learning.chooseForSource({ text, sourceUuid, targetUuid, rememberAlias:!sourceOnly })); }
         catch (error) {
           if (!hadLinkBefore) await links.unlinkCanonical?.({sourceUuid,targetUuid});
           throw error;
@@ -8342,7 +8365,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
           previousIgnore:previousChoice?.action === "source-ignored" ? previousChoice : null,
           label:`${text} → ${String(target.dataset.targetName || "selected identity")}`
         };
-        ui.notifications.info(`Tome: linked ${text} to ${String(target.dataset.targetName || "the selected identity")}.`);
+        ui.notifications.info(`Tome: linked ${text} to ${selected.name}.${sourceOnly ? '' : ' Name remembered for this campaign.'}`);
       } else if (mode === "keep" || mode === "mention-only") {
         if (!learning?.ignoreOnce) throw new Error("Campaign learning is unavailable.");
         await measure("decision-save",()=>learning.ignoreOnce({ text, sourceUuid }));
@@ -8389,6 +8412,25 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this._campaignDecisionPending = false;
       target.disabled = false;
     }
+  }
+
+  static async _onEditIdentityAliases(_event,target) {
+    const learning=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning;
+    if(!game.user?.isGM||!learning)return;
+    try {
+      const identity=await learning.canonicalTarget(target.dataset.targetUuid);
+      const names=learning.identityAliases().get(identity.uuid)||[];
+      const value=await foundry.applications.api.DialogV2.wait({
+        window:{title:`Alternative names · ${identity.name}`},rejectClose:false,
+        content:`<label>Campaign names, one per line<textarea name="identityAliases" rows="7" autofocus>${escapeHtml(names.join('\n'))}</textarea></label>`,
+        buttons:[{action:'save',label:'Save names',callback:(_event,button)=>({names:button.form.elements.identityAliases.value.split(/\r?\n/)})},
+          {action:'cancel',label:'Cancel',callback:()=>null}]
+      });
+      if(!value)return;
+      await learning.setIdentityAliases({targetUuid:identity.uuid,names:value.names,expected:names});
+      ui.notifications.info('Alternative names saved for this campaign.');
+      await this.render({parts:['main']});
+    }catch(error){ui.notifications.error(error.message);}
   }
 
   static async _onMatchingPreferences(event,target) {
@@ -8494,7 +8536,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         await learning?.clear?.({ text:decision.text, sourceUuid:decision.sourceUuid, scope:"source" });
       }
       if (decision.mode === "choose") {
-        if (decision.previousChoice) await learning?.chooseForSource?.({ text:decision.text, sourceUuid:decision.sourceUuid, targetUuid:decision.previousChoice.targetUuid });
+        if (decision.previousChoice) await learning?.chooseForSource?.({ text:decision.text, sourceUuid:decision.sourceUuid, targetUuid:decision.previousChoice.targetUuid, rememberAlias:decision.previousChoice.rememberAlias });
         else await learning?.clear?.({ text:decision.text, sourceUuid:decision.sourceUuid, scope:"choice" });
         if (decision.previousIgnore) await learning?.ignoreOnce?.({text:decision.text,sourceUuid:decision.sourceUuid});
       }
