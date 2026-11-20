@@ -38,9 +38,13 @@
 {{/inline}}
 {{#*inline "entityIntelligence"}}
 {{#if profileSurface}}
+{{#if available}}
+<div class="at-derived-sections" data-at-index-region="entity-intelligence">
 {{> entityRelationships this}}
 {{> entityContext this}}
-{{#if available}}{{#unless @root.isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="{{entity.uuid}}"></section>{{/unless}}{{/if}}
+</div>
+{{#unless @root.isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="{{entity.uuid}}"></section>{{/unless}}
+{{/if}}
 {{/if}}
 {{/inline}}
 <div class="at-shell {{settings.themeClass}}">
@@ -207,13 +211,13 @@
   {{/if}}
 
   {{#if isSessions}}
-  <main class="at-page at-sessions-page {{#unless isGM}}at-player-sessions{{/unless}}">
+  <main class="at-page at-sessions-page {{#if sessionReaderOpen}}at-session-reader-open{{/if}} {{#unless isGM}}at-player-sessions{{/unless}}">
     <section class="at-page-heading at-page-heading-actions"><div><span class="at-kicker">Chronicle</span><h1>Sessions</h1><p>Your campaign history, one chapter at a time.</p></div><div class="at-page-tools"><div class="at-local-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" data-at-local-search="sessions" placeholder="Search Sessions…"></div>{{#if isGM}}<button type="button" class="at-secondary" data-action="openImporter" data-import-mode="session"><i class="fa-solid fa-file-import"></i> Import Session</button>{{/if}}</div></section>
     <section class="at-session-workspace">
-      <section class="at-session-master" aria-label="Campaign session history">
+      <section class="at-session-master" tabindex="0" aria-label="Campaign session history">
         <div class="at-session-chronicle">
           {{#each sessions}}
-          <button type="button" class="at-session-row {{#if selected}}is-selected{{/if}}" data-action="selectSession" data-journal-id="{{id}}" title="{{summary}}" data-at-local-search-row="sessions" data-local-search-text="{{localSearchText}}">
+          <button type="button" class="at-session-row {{#if selected}}is-selected{{/if}}" {{#if selected}}aria-current="true"{{/if}} data-action="selectSession" data-journal-id="{{id}}" title="{{summary}}" data-at-local-search-row="sessions" data-local-search-text="{{localSearchText}}">
             <span class="at-session-marker">{{#if sessionNumber}}{{sessionNumber}}{{else}}<i class="fa-solid fa-book-open"></i>{{/if}}</span>
             <span class="at-session-content">
               <span class="at-session-eyebrow">{{#if sessionNumber}}Session {{sessionNumber}}{{else}}Chronicle entry{{/if}}</span>
@@ -227,20 +231,20 @@
       </section>
 
       {{#if selectedSession}}
-      <aside class="at-session-detail">
+      <aside class="at-session-detail" data-at-session-reader="{{selectedSession.id}}" tabindex="0" aria-label="Session chronicle">
         <header class="at-session-detail-head">
           <div class="at-session-detail-number">{{#if selectedSession.sessionNumber}}{{selectedSession.sessionNumber}}{{else}}<i class="fa-solid fa-book-open"></i>{{/if}}</div>
-          <div>
+          <div class="at-session-reader-title">
             <span class="at-kicker">{{#if selectedSession.sessionNumber}}Session {{selectedSession.sessionNumber}}{{else}}Chronicle entry{{/if}}</span>
             <h2>{{selectedSession.displayTitle}}</h2>
           </div>
           {{#if isGM}}<button type="button" class="at-access-icon" data-action="queueReveal" data-ref-key="{{selectedSession.refKey}}" title="Add to Reveal Queue"><i class="fa-solid fa-eye-low-vision"></i></button><button type="button" class="at-access-icon" data-action="showToPlayers" data-ref-key="{{selectedSession.refKey}}" title="Show to Players"><i class="fa-solid fa-bullhorn"></i></button><button type="button" class="at-access-icon" data-action="quickNote" data-document-type="journal" data-document-id="{{selectedSession.id}}" title="GM Notes"><i class="fa-solid fa-note-sticky"></i></button><button type="button" class="at-access-icon" data-action="editAccess" data-document-type="journal" data-document-id="{{selectedSession.id}}" title="Tome permissions"><i class="fa-solid fa-shield-halved"></i></button>{{/if}}<button type="button" class="at-favorite-icon {{#if selectedSession.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{selectedSession.refKey}}" title="{{#if selectedSession.isFavorite}}Remove from favorites{{else}}Add to favorites{{/if}}"><i class="{{#if selectedSession.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i></button>
+          <button type="button" class="at-secondary at-session-list-back" data-action="showSessionList"><i class="fa-solid fa-arrow-left"></i> Sessions</button>
+          {{#if canGoBack}}<button type="button" class="at-secondary at-session-history-back" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>{{/if}}
         </header>
-
-        {{#if canGoBack}}<button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>{{/if}}
         <p class="at-session-detail-summary">{{selectedSession.summary}}</p>{{#if isGM}}{{#if selectedSession.access.restricted}}<div class="at-access-badges">{{#if selectedSession.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if selectedSession.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{#if selectedSession.access.openNotes.length}}<div class="at-gm-note-stack">{{#each selectedSession.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
 
-        <div class="at-session-detail-stats">
+        <div class="at-session-detail-stats" data-at-index-region="session-counts">
           <span><i class="fa-solid fa-diamond"></i><strong>{{selectedSession.questLinks.length}}</strong> Quest links</span>
           <span><i class="fa-solid fa-earth-europe"></i><strong>{{selectedSession.worldLinks.length}}</strong> World links</span>
           <span><i class="fa-solid fa-users"></i><strong>{{selectedSession.actorLinks.length}}</strong> Character links</span>
@@ -258,6 +262,7 @@
         </section>
         {{/if}}
 
+        <div class="at-derived-sections" data-at-index-region="session-links">
         {{#if selectedSession.hasQuestLinks}}
         <section class="at-session-detail-section">
           <h3><i class="fa-solid fa-diamond"></i> Quest threads</h3>
@@ -297,6 +302,7 @@
         </section>
         {{/if}}
 
+        </div>
         <button type="button" class="at-primary at-session-open-full" data-action="openJournal" data-journal-id="{{selectedSession.id}}"><i class="fa-solid fa-book-open"></i> Open Full Session</button>
       </aside>
       {{/if}}
@@ -350,7 +356,7 @@
         <h1>{{questDetail.name}}</h1>
         <p>{{questDetail.summary}}</p>{{#unless isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="JournalEntry.{{questDetail.id}}"></section>{{/unless}}{{#if isGM}}{{#if questDetail.access.restricted}}<div class="at-access-badges">{{#if questDetail.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if questDetail.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{/if}}
       </div>
-      <aside class="at-quest-detail-glance">
+      <aside class="at-quest-detail-glance" data-at-index-region="quest-counts">
         <div><span>Sessions</span><strong>{{questDetail.sessionLinks.length}}</strong></div>
         <div><span>World</span><strong>{{questDetail.worldLinks.length}}</strong></div>
         <div><span>Characters</span><strong>{{questDetail.actorLinks.length}}</strong></div>
@@ -368,7 +374,7 @@
         {{#if questDetail.hasUpdates}}<h3>Updates</h3><ul>{{#each questDetail.updates}}<li>{{this}}</li>{{/each}}</ul>{{/if}}
         <p>{{questDetail.bodyPreview}}</p>
       </article>
-      <aside class="at-profile-panel at-linked-panel">
+      <aside class="at-profile-panel at-linked-panel" data-at-index-region="quest-links">
         <div class="at-profile-section-heading"><i class="fa-solid fa-link"></i><h2>Campaign Links</h2></div>
         {{#if questDetail.hasSessionLinks}}<h3>Sessions</h3><div class="at-link-chip-list">{{#each questDetail.sessionLinks}}<button type="button" data-action="selectSession" data-journal-id="{{id}}"><i class="fa-solid fa-book-open"></i>{{name}}</button>{{/each}}</div>{{/if}}
         {{#if questDetail.hasWorldLinks}}<h3>People, places & lore</h3><div class="at-link-chip-list">{{#each questDetail.worldLinks}}<button type="button" {{#if actorOnly}}data-action="openActor" data-actor-id="{{actorId}}"{{else}}data-action="openWorldProfile" data-journal-id="{{id}}"{{/if}}><i class="fa-solid {{icon}}"></i>{{name}}</button>{{/each}}</div>{{/if}}
@@ -891,7 +897,7 @@
       {{/if}}
 
       <div class="at-ov-focus-grid">
-        <section class="at-overview-intelligence-monitor at-ov-panel {{#if campaignAnalysisAll.attentionCount}}has-attention{{/if}}" aria-labelledby="at-ov-decisions-title">
+        <section class="at-overview-intelligence-monitor at-ov-panel {{#if campaignAnalysisAll.attentionCount}}has-attention{{/if}}" aria-labelledby="at-ov-decisions-title" data-at-index-region="overview-decisions">
           <header class="at-ov-panel-heading">
             <span class="at-ov-icon at-ov-icon-review"><i class="fa-solid fa-binoculars"></i></span>
             <div><span class="at-kicker">Campaign intelligence</span><h2 id="at-ov-decisions-title">Needs your attention</h2></div>
@@ -966,7 +972,7 @@
           <article class="at-ov-tool at-ov-memory">
             <span class="at-ov-icon at-ov-icon-memory"><i class="fa-solid fa-brain"></i></span>
             <h3>Campaign Memory</h3><p>Find where people, places and events appeared in your campaign.</p>
-            <dl class="at-ov-memory-stats"><div><dt>Evidence</dt><dd>{{campaignMemorySearch.total}}</dd></div><div><dt>Linked & mentioned</dt><dd>{{campaignMemorySearch.linked}}</dd></div><div><dt>Unresolved</dt><dd>{{campaignMemorySearch.unresolved}}</dd></div><div><dt>Historical</dt><dd>{{campaignMemorySearch.historical}}</dd></div></dl>
+            <dl class="at-ov-memory-stats" data-at-index-region="overview-memory"><div><dt>Evidence</dt><dd>{{campaignMemorySearch.total}}</dd></div><div><dt>Linked & mentioned</dt><dd>{{campaignMemorySearch.linked}}</dd></div><div><dt>Unresolved</dt><dd>{{campaignMemorySearch.unresolved}}</dd></div><div><dt>Historical</dt><dd>{{campaignMemorySearch.historical}}</dd></div></dl>
             <footer><button type="button" class="at-secondary" data-action="navigate" data-tab="campaignToolsMemory">Search Memory <i class="fa-solid fa-arrow-right"></i></button><button type="button" class="at-ov-text-button" data-action="navigate" data-tab="campaignToolsIndex" title="View background analysis and check for changes">Analysis index</button></footer>
           </article>
           <article class="at-ov-tool at-ov-assistant">
@@ -995,7 +1001,7 @@
           <h2><i class="fa-solid fa-brain"></i> Evidence Search</h2>
           <p>Find mentions across sessions and quests, then open the original source for context.</p>
         </div>
-        <div class="at-memory-search-stats">
+        <div class="at-memory-search-stats" data-at-index-region="memory-counts">
           <span><strong>{{campaignMemorySearch.total}}</strong> total</span>
           <span><strong>{{campaignMemorySearch.active}}</strong> active</span>
           <span><strong>{{campaignMemorySearch.historical}}</strong> historical</span>
@@ -1047,7 +1053,7 @@
         <span data-at-memory-count>{{campaignMemorySearch.total}} evidence records</span>
       </div>
 
-      <div class="at-memory-results" data-at-memory-results>
+      <div class="at-memory-results" data-at-memory-results data-at-index-region="memory-results">
         {{#each campaignMemorySearch.rows}}
         <article class="at-memory-result {{#if historical}}is-historical{{/if}}"
           data-at-memory-row
@@ -1134,7 +1140,7 @@
       </div>
 
       {{#if isGM}}{{#if relationshipReview.length}}
-      <section class="at-analysis-panel">
+      <section class="at-analysis-panel" data-at-index-region="analysis-relationships">
         <div class="at-analysis-panel-heading"><h3>Possible relationships</h3><span>{{relationshipReview.length}} to review</span></div>
         {{#each relationshipReview}}
         <article class="at-guided-decision-card" data-at-review-key="relationship|{{id}}">
@@ -1158,7 +1164,7 @@
       </section>
       {{/if}}{{/if}}
 
-      <section class="at-analysis-panel">
+      <section class="at-analysis-panel" data-at-index-region="analysis-review">
         <div class="at-analysis-panel-heading">
           <div><span class="at-kicker">Needs a GM decision</span><h3>Entity Review Queue</h3><p>Tome frames the question, shows the relevant context and offers the safest existing choices. Confirm one option or deliberately defer it.</p></div>
           <span class="at-analysis-count">{{campaignAnalysis.attentionCount}} to review</span>
@@ -1287,7 +1293,7 @@
         </div>
       </section>
 
-      <section class="at-analysis-panel at-analysis-noticed">
+      <section class="at-analysis-panel at-analysis-noticed" data-at-index-region="analysis-noticed">
         <div class="at-analysis-panel-heading">
           <div><span class="at-kicker">Mentioned, not canonically linked</span><h3>Tome noticed</h3><p>Ordinary active mentions that are not currently canonical Links. These are informational and do not require action unless you want to inspect them.</p></div>
           <span class="at-analysis-count">{{campaignAnalysis.noticedCount}} noticed</span>

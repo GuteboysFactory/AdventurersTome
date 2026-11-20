@@ -25,3 +25,63 @@
  #adventurers-tome-app .at-player-sessions .at-cw-catalog-layout,#adventurers-tome-app .at-player-sessions .at-session-workspace { grid-template-columns:minmax(0,1fr); }
  #adventurers-tome-app .at-player-sessions .at-session-chronicle { max-height:220px; }
 }
+
+/* Sessions uses the available Tome window height, including in windowed mode. */
+#adventurers-tome-app .at-sessions-page {
+  display:flex; flex-direction:column; min-height:0; overflow:hidden;
+  padding:clamp(10px,1.3cqw,22px) clamp(10px,2cqw,32px);
+}
+#adventurers-tome-app .at-sessions-page>.at-page-heading {
+  flex:none; align-items:center; min-height:0; margin:0 0 12px; padding:0;
+}
+#adventurers-tome-app .at-sessions-page>.at-page-heading :is(.at-kicker,p) { display:none; }
+#adventurers-tome-app .at-sessions-page>.at-page-heading h1 { margin:0; font-size:clamp(1.35rem,2.1cqw,2.1rem); }
+#adventurers-tome-app .at-sessions-page>.at-cw-catalog-layout {
+  flex:1 1 auto; grid-template-columns:minmax(160px,15cqw) minmax(0,1fr);
+  min-height:0; align-items:stretch; gap:12px;
+}
+#adventurers-tome-app .at-sessions-page .at-cw-explorer {
+  position:relative; top:auto; display:flex; flex-direction:column;
+  max-height:none; min-height:0; overflow:hidden;
+}
+#adventurers-tome-app .at-sessions-page .at-cw-tree-scroll { min-height:0; max-height:none; overflow:auto; overscroll-behavior:contain; }
+#adventurers-tome-app .at-sessions-page .at-cw-catalog {
+  display:flex; flex-direction:column; min-height:0; min-width:0;
+}
+#adventurers-tome-app .at-sessions-page .at-cw-filterbar {
+  flex:none; grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto; min-height:0;
+}
+#adventurers-tome-app .at-sessions-page .at-session-workspace {
+  flex:1 1 auto; min-height:0; display:grid;
+  grid-template-columns:minmax(0,2fr) minmax(0,3fr); align-items:stretch; gap:12px;
+}
+#adventurers-tome-app .at-sessions-page:not(:has(.at-cw-catalog-layout)) .at-session-workspace { flex:1 1 auto; }
+#adventurers-tome-app .at-sessions-page .at-session-workspace:not(:has(.at-session-detail)) { grid-template-columns:minmax(0,1fr); }
+#adventurers-tome-app .at-sessions-page :is(.at-session-master,.at-session-detail) {
+  min-width:0; min-height:0; max-height:none; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable;
+}
+#adventurers-tome-app .at-sessions-page .at-session-chronicle { max-height:none; overflow:visible; }
+#adventurers-tome-app .at-sessions-page .at-session-detail {
+  position:relative; top:auto; display:block; order:0; padding:0 14px 14px; scroll-padding-top:5rem;
+}
+#adventurers-tome-app .at-sessions-page .at-session-detail-head {
+  position:sticky; top:0; z-index:3; display:flex; flex-wrap:wrap; gap:6px;
+  align-items:center; padding:8px 12px; margin:0 -14px 12px;
+  background:#22170e;
+}
+#adventurers-tome-app .at-sessions-page .at-session-detail-number { width:34px; height:34px; flex:none; }
+#adventurers-tome-app .at-sessions-page .at-session-reader-title { min-width:9rem; flex:1 1 12rem; }
+#adventurers-tome-app .at-sessions-page .at-session-detail-head h2 { font-size:clamp(1.05rem,1.65cqw,1.6rem); overflow-wrap:anywhere; }
+#adventurers-tome-app .at-sessions-page .at-session-detail > :is(.at-session-detail-stats,.at-session-story,.at-session-detail-section,.at-session-open-full),
+#adventurers-tome-app .at-sessions-page .at-derived-sections > .at-session-detail-section { margin-bottom:14px; }
+#adventurers-tome-app .at-sessions-page .at-af-pages-document { min-width:0; max-height:none; overflow:visible; }
+#adventurers-tome-app .at-session-list-back { display:none; }
+#adventurers-tome-app .at-shell.at-layout-narrow .at-sessions-page>.at-cw-catalog-layout { grid-template-columns:minmax(125px,.32fr) minmax(0,1fr); }
+#adventurers-tome-app .at-shell.at-layout-narrow .at-sessions-page .at-session-workspace { grid-template-columns:minmax(0,1fr); }
+#adventurers-tome-app .at-shell.at-layout-narrow .at-sessions-page:not(.at-session-reader-open) .at-session-detail,
+#adventurers-tome-app .at-shell.at-layout-narrow .at-session-reader-open :is(.at-session-master,.at-cw-explorer,.at-explorer-toggle,.at-cw-filterbar) { display:none; }
+#adventurers-tome-app .at-shell.at-layout-narrow .at-session-reader-open>.at-cw-catalog-layout { grid-template-columns:minmax(0,1fr)!important; }
+#adventurers-tome-app .at-shell.at-layout-narrow .at-session-reader-open .at-session-list-back { display:inline-flex; }
+#adventurers-tome-app .at-shell.at-layout-tiny .at-sessions-page:not(.at-session-reader-open)>.at-cw-catalog-layout { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) minmax(0,3fr); }
+#adventurers-tome-app .at-shell.at-layout-tiny .at-sessions-page:not(.at-session-reader-open)>.at-explorer-collapsed { grid-template-rows:minmax(0,1fr); }
+.at-derived-sections { display:contents; }

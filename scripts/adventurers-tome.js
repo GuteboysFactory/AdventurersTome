@@ -5303,6 +5303,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     actions: {
       navigate: this._onNavigate,
       goBack: this._onGoBack,
+      showSessionList: this._onShowSessionList,
       toggleFavorite: this._onToggleFavorite,
       clearRecent: this._onClearRecent,
       selectSession: this._onSelectSession,
@@ -5458,6 +5459,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return {
       activeTab: this.activeTab,
       activeSessionId: this.activeSessionId,
+      sessionReaderOpen: this._sessionReaderOpen === true,
       activeActorId: this.activeActorId,
       activeWorldId: this.activeWorldId,
       activeQuestId: this.activeQuestId,
@@ -5480,6 +5482,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   _restoreNavigationState(state = {}) {
     this.activeTab = state.activeTab || "home";
     this.activeSessionId = state.activeSessionId || null;
+    this._sessionReaderOpen = state.sessionReaderOpen === true;
     this.activeActorId = state.activeActorId || null;
     this.activeWorldId = state.activeWorldId || null;
     this.activeQuestId = state.activeQuestId || null;
@@ -6231,6 +6234,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       activeTab: this.activeTab,
       isHome: this.activeTab === "home",
       isSessions: this.activeTab === "sessions",
+      sessionReaderOpen: this._sessionReaderOpen === true && Boolean(selectedSession),
       isQuests: this.activeTab === "quests",
       isQuestNavActive: this.activeTab === "quests" || this.activeTab === "questDetail",
       isQuestDetail: this.activeTab === "questDetail" && Boolean(questDetail),
@@ -6346,6 +6350,10 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const token=globalThis.AdventurersTomeStartup?.begin("tome-render-html");
     try {
     const html = await super._renderHTML(context, options);
+    const continuity=globalThis.AdventurersTomeViewContinuity;
+    continuity?.rememberRegions(html.main);
+    this._renderedViewMarkup=continuity?.viewMarkup(html.main);
+    globalThis.AdventurersTomeSessionLayout?.capture(this.element);
     const route = JSON.stringify({...this._captureNavigationState(), profileEditing:this.profileEditing, worldEditing:this.worldEditing});
     this._viewContinuity = route === this._renderedContinuityRoute
       ? globalThis.AdventurersTomeViewContinuity?.capture(this.element,
@@ -6354,6 +6362,31 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this._renderedContinuityRoute = route;
     return html;
     } finally {globalThis.AdventurersTomeStartup?.end(token);}
+  }
+
+  async _refreshIndexRegions({checkView=false} = {}) {
+    const shell=this.element?.querySelector('.at-shell');
+    const continuity=globalThis.AdventurersTomeViewContinuity;
+    if(!continuity||!shell||(!checkView&&!shell.querySelector('[data-at-index-region]')))return;
+    if(this._atWindowDocked){
+      if(checkView)this._atDockRefreshPending=true;
+      else this._atDockIndexRefreshPending=true;
+      return;
+    }
+    const options={parts:['main']};
+    const route=this._renderedContinuityRoute;
+    const refreshId=this._indexRefreshId=(this._indexRefreshId||0)+1;
+    const viewer=`${game.world?.id}|${game.user?.id}|${game.user?.isGM}`;
+    const context=await this._prepareContext(options);
+    const {main}=await super._renderHTML(context,options);
+    if(!this.rendered||refreshId!==this._indexRefreshId||route!==this._renderedContinuityRoute||this.element?.querySelector('.at-shell')!==shell
+      ||viewer!==`${game.world?.id}|${game.user?.id}|${game.user?.isGM}`)return;
+    if(tomeHasActiveAuthoring()||this._bulkUpdating||this._atWindowDocked) {
+      scheduleTomeRefresh(null,null,{adventurersTomeDerivedLinks:!checkView});return;
+    }
+    if(checkView&&continuity.viewMarkup(main)!==this._renderedViewMarkup)return this.render(options);
+    if(checkView&&this.activeTab==='world')globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.worldSourceExplorer?.mount?.();
+    continuity.patchRegions(this.element,main,()=>{this._applyMemorySearch?.();this._attachImageFallbacks();});
   }
 
   async _onRender(context, options) {
@@ -6745,6 +6778,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       applySearchState();
     }
 
+    this._applyMemorySearch=null;
     const memoryRoot = this.element?.querySelector("[data-at-memory-search-root]");
     if (memoryRoot) {
       const input = memoryRoot.querySelector("[data-at-memory-search]");
@@ -6793,6 +6827,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         control.addEventListener(control === input ? "input" : "change", applyMemorySearch);
       }
       applyMemorySearch();
+      this._applyMemorySearch=applyMemorySearch;
     }
 
     for (const input of this.element?.querySelectorAll?.("[data-at-local-search]") || []) {
@@ -6949,7 +6984,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         preview.src = resolveFoundryAssetUrl(value || preview.dataset.fallback || "icons/svg/book.svg");
       });
     }
+    globalThis.AdventurersTomeSessionLayout?.restore(this.element);
     this._restoreViewContinuity();
+    flushQueuedTomeRefresh();
   }
 
   _restoreViewContinuity() {
@@ -7167,6 +7204,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const nextTab = target.dataset.tab || "home";
     if (nextTab !== this.activeTab) this._pushNavigationState();
     this.activeTab = nextTab;
+    if (nextTab === 'sessions') this._sessionReaderOpen=false;
     if (this.activeTab !== "profile") this.profileEditing = false;
     if (this.activeTab !== "worldProfile") this.worldEditing = false;
     if (this.activeTab !== "questDetail") this.activeQuestId = null;
@@ -7203,12 +7241,17 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if (this.activeTab !== "sessions" || this.activeSessionId !== journal.id) this._pushNavigationState();
     this.activeSessionId = journal.id;
+    this._sessionReaderOpen = true;
     this.activeTab = "sessions";
     await recordRecentRef(`session:${journal.id}`);
     await this.render({ parts: ["main"] });
-    if (this.element?.querySelector(".at-shell")?.classList.contains("at-layout-narrow")) {
-      this.element?.querySelector(".at-session-detail")?.scrollIntoView?.({ block: "start", behavior: "smooth" });
-    }
+    if (this.element?.querySelector('.at-shell.at-layout-narrow')) this.element.querySelector('.at-session-detail')?.focus({preventScroll:true});
+  }
+
+  static async _onShowSessionList() {
+    this._sessionReaderOpen=false;
+    await this.render({parts:['main']});
+    this.element?.querySelector('.at-session-row.is-selected')?.focus({preventScroll:true});
   }
 
 
@@ -7326,7 +7369,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (parsed.type === "actor") {
       this.activeActorId = document.id; this.activeTab = "profile"; this.profileEditing = false;
     } else if (parsed.type === "session") {
-      this.activeSessionId = document.id; this.activeTab = "sessions";
+      this.activeSessionId = document.id; this.activeTab = "sessions"; this._sessionReaderOpen=true;
     } else if (parsed.type === "quest") {
       this.activeQuestId = document.id; this.activeTab = "questDetail";
     } else if (parsed.type === "world") {
@@ -9537,9 +9580,11 @@ Hooks.once("ready", async () => {
 // DOM under the caret. The queued refresh runs once editing has genuinely ended.
 let tomeRefreshTimer = null;
 let tomeRefreshPending = false;
+let tomeFullRefreshPending = false;
+let tomeRefreshRunning = false;
 
 function tomeHasActiveAuthoring() {
-  if (Number(tomeApp?._atRichEditingCount || 0) > 0) return true;
+  if (tomeApp?.profileEditing || tomeApp?.worldEditing || Number(tomeApp?._atRichEditingCount || 0) > 0) return true;
   const root = document.querySelector("#adventurers-tome-app");
   return Boolean(root?.querySelector(
     "[data-at-af-editing='true'], [data-at-ep-editing='true'], [data-at-wie-rich-editing='true'], .at-wie-rich-editor[contenteditable='true'], [data-at-ep-editor][contenteditable='true']"
@@ -9549,6 +9594,9 @@ function tomeHasActiveAuthoring() {
 function scheduleTomeRefresh(document,changes,options={}) {
   if(options.adventurersTomeReviewDecision || document?.reviewDecision) return;
   if (!tomeApp?.rendered) return;
+  tomeRefreshPending = true;
+  tomeFullRefreshPending ||= !options.adventurersTomeDerivedLinks;
+  if(tomeRefreshRunning)return;
 
   if (tomeApp._bulkUpdating || tomeHasActiveAuthoring()) {
     tomeRefreshPending = true;
@@ -9562,7 +9610,7 @@ function scheduleTomeRefresh(document,changes,options={}) {
     tomeRefreshTimer = null;
 
     if (!tomeApp?.rendered) {
-      tomeRefreshPending = false;
+      tomeRefreshPending = tomeFullRefreshPending = false;
       return;
     }
 
@@ -9571,23 +9619,30 @@ function scheduleTomeRefresh(document,changes,options={}) {
       return;
     }
 
-    tomeRefreshPending = false;
-    tomeApp.render({ parts: ["main"] }).catch((error) => console.error("Adventurer's Tome | Background refresh failed", error));
+    const full=tomeFullRefreshPending;
+    tomeRefreshPending = tomeFullRefreshPending = false;
+    tomeRefreshRunning=true;
+    tomeApp._refreshIndexRegions({checkView:full})
+      .catch(error=>console.error("Adventurer's Tome | Background refresh failed",error))
+      .finally(()=>{tomeRefreshRunning=false;flushQueuedTomeRefresh();});
   }, 90);
 }
 
 function flushQueuedTomeRefresh() {
   if (!tomeRefreshPending || !tomeApp?.rendered) return;
   if (tomeApp._bulkUpdating || tomeHasActiveAuthoring()) return;
-  scheduleTomeRefresh();
+  scheduleTomeRefresh(null,null,{adventurersTomeDerivedLinks:!tomeFullRefreshPending});
 }
+
+function scheduleIndexViewRefresh() {scheduleTomeRefresh(null,null,{adventurersTomeDerivedLinks:true});}
 
 for (const hookName of ["createActor", "updateActor", "deleteActor", "createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createJournalEntryPage", "updateJournalEntryPage", "deleteJournalEntryPage"]) {
   Hooks.on(hookName, scheduleTomeRefresh);
 }
-Hooks.on("adventurersTomeCampaignDiscoveryUpdated", scheduleTomeRefresh);
-Hooks.on("adventurersTomeContactProjectionUpdated", scheduleTomeRefresh);
-Hooks.on("adventurersTomeRelationshipEvidenceUpdated", scheduleTomeRefresh);
+Hooks.on("adventurersTomeCampaignDiscoveryUpdated", scheduleIndexViewRefresh);
+Hooks.on("adventurersTomeContactProjectionUpdated", scheduleIndexViewRefresh);
+Hooks.on("adventurersTomeRelationshipEvidenceUpdated", scheduleIndexViewRefresh);
+Hooks.on('adventurersTomeIndexViewChanged',scheduleIndexViewRefresh);
 Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
   if (!active) window.setTimeout(flushQueuedTomeRefresh, 0);
 });

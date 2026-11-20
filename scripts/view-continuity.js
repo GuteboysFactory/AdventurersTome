@@ -2,6 +2,8 @@ globalThis.ATTestAI.assertEnabled();
 // Client-only DOM state. Never stored in campaign documents or shared with players.
 const atVcElements = root => [root, ...root.querySelectorAll('*')];
 const atVcSettling = new WeakMap();
+const atVcRegionMarkup = new WeakMap();
+const atVcRegionSelector = '[data-at-index-region]';
 const atVcIdentityAttributes = new Set(['data-action','data-tab','data-section','data-journal-id','data-page-id','data-actor-id','data-world-id','data-quest-id','data-ref','data-uuid','data-at-review-key','data-at-notebook-pad','data-at-cw-drop-folder']);
 function atVcKeys(root) {
   const counts = new Map(), result = new Map();
@@ -92,4 +94,30 @@ function atVcRestoreSettled(root,state) {
   observer.observe(root,{childList:true,subtree:true});
   retry();timer=env.setTimeout(cancel,600);
 }
-globalThis.AdventurersTomeViewContinuity = Object.freeze({capture:atVcCapture,restore:atVcRestore,restoreSettled:atVcRestoreSettled,cancel:atVcCancel});
+function atVcRememberRegions(root) {
+  for (const node of root?.querySelectorAll?.(atVcRegionSelector) || []) atVcRegionMarkup.set(node,node.outerHTML);
+}
+function atVcViewMarkup(root) {
+  const view=root?.cloneNode?.(true);
+  if(!view)return null;
+  for(const node of view.querySelectorAll(atVcRegionSelector))node.replaceWith(view.ownerDocument.createComment(node.dataset.atIndexRegion));
+  return view.outerHTML;
+}
+function atVcPatchRegions(root,fresh,after) {
+  const incoming=new Map([...fresh.querySelectorAll(atVcRegionSelector)].map(node=>[node.dataset.atIndexRegion,node]));
+  const changes=[];
+  for(const current of root.querySelectorAll(atVcRegionSelector)) {
+    const next=incoming.get(current.dataset.atIndexRegion);
+    if(next && atVcRegionMarkup.get(current)!==next.outerHTML)changes.push([current,next]);
+  }
+  if(!changes.length)return false;
+  const continuity=atVcCapture(root);
+  for(const [current,next] of changes) {
+    atVcRegionMarkup.set(next,next.outerHTML);
+    current.replaceWith(next);
+  }
+  after?.();
+  atVcRestore(root,continuity);
+  return true;
+}
+globalThis.AdventurersTomeViewContinuity = Object.freeze({capture:atVcCapture,restore:atVcRestore,restoreSettled:atVcRestoreSettled,cancel:atVcCancel,rememberRegions:atVcRememberRegions,patchRegions:atVcPatchRegions,viewMarkup:atVcViewMarkup});

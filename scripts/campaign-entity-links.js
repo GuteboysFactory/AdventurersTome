@@ -140,7 +140,7 @@ async function atCelSetActorLink(journal, actor, linked) {
       ...legacy,
       actors: [...actorIds]
     }
-  }, {adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
+  }, {adventurersTomeDerivedLinks:true,adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
 
   return linked;
 }
@@ -170,7 +170,7 @@ async function atCelSetLegacyReciprocal(document, key, id, linked = true) {
       ...legacy,
       [key]: [...values]
     }
-  }, {adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
+  }, {adventurersTomeDerivedLinks:true,adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
   return true;
 }
 
@@ -218,7 +218,7 @@ async function atCelLinkCanonical(sourceUuid, targetUuid, linked = true) {
         // this proven Session/Quest target to its proper track on add/remove.
         ...(legacyKey !== 'world' ? {world:sourceLegacy.world.filter(id => String(id) !== target.id)} : {})
       }
-    }, {adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
+    }, {adventurersTomeDerivedLinks:true,adventurersTomeReviewDecision:globalThis.AdventurersTomeReviewDecision?.isActive?.() === true});
 
     await atCelSetLegacyReciprocal(target, sourceKind === "session" ? "sessions" : "quests", source.id, linked);
   }

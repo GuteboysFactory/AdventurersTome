@@ -1,3 +1,10 @@
+## 2.1.6
+
+- Give Sessions a compact fixed heading and independent scrolling for the Explorer, list and reader. Use separate list and reader views in narrow windows.
+- Preserve the session search, list position and reading position when moving between sessions.
+- Refresh affected links, counters and review results after campaign indexing without rebuilding the open view. Defer background changes while profiles are being edited.
+- See [the 2.1.6 release notes](docs/V2.1.6_STABLE_RELEASE.md) for upgrade instructions.
+
 ## 2.1.5
 
 - Remember GM-confirmed alternative names across the campaign, with a source-only option and a GM editor on identity profiles.

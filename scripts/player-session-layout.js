@@ -1,22 +1,27 @@
 globalThis.ATTestAI.assertEnabled();
-let term='',owner='';
-function account(){const key=game.world.id+'|'+game.user.id;if(key!==owner){owner=key;term='';}}
-function searchState(root){
-  root?.classList.toggle('is-searching-sessions',Boolean(term.trim()));
+let term='',owner='',listTop=0,explorerTop=0;
+const readerPositions=new Map();
+const pageSelector='.at-sessions-page',readerSelector='[data-at-session-reader]';
+const findSearch=root=>root.querySelector('[data-at-lup-search-proxy="sessions"]')||root.querySelector('[data-at-local-search="sessions"]');
+function account(){const key=game.world.id+'|'+game.user.id;if(key!==owner){owner=key;term='';listTop=explorerTop=0;readerPositions.clear();}}
+function capture(element){
+  account();const root=element?.querySelector(pageSelector);if(!root)return;
+  const list=root.querySelector('.at-session-master'),explorer=root.querySelector('.at-cw-tree-scroll'),reader=root.querySelector(readerSelector);
+  if(list?.getClientRects().length)listTop=list.scrollTop;
+  if(explorer?.getClientRects().length)explorerTop=explorer.scrollTop;
+  if(reader?.getClientRects().length)readerPositions.set(reader.dataset.atSessionReader,reader.scrollTop);
 }
-Hooks.on('adventurersTomeViewPrepared',app=>{
-  account();const root=app?.element?.querySelector('.at-player-sessions');if(!root)return;
+function restore(element){
+  account();const root=element?.querySelector(pageSelector);if(!root)return;
   for(const field of root.querySelectorAll('[data-at-local-search="sessions"],[data-at-lup-search-proxy="sessions"]'))field.value=term;
-  const field=root.querySelector('[data-at-lup-search-proxy="sessions"]')||root.querySelector('[data-at-local-search="sessions"]');
-  if(term&&field)field.dispatchEvent(new Event('input',{bubbles:true}));searchState(root);
-});
+  const field=findSearch(root);
+  if(term&&field)field.dispatchEvent(new Event('input',{bubbles:true}));
+  const list=root.querySelector('.at-session-master'),explorer=root.querySelector('.at-cw-tree-scroll'),reader=root.querySelector(readerSelector);
+  if(list)list.scrollTop=listTop;
+  if(explorer)explorer.scrollTop=explorerTop;
+  if(reader)reader.scrollTop=readerPositions.get(reader.dataset.atSessionReader)||0;
+}
+globalThis.AdventurersTomeSessionLayout=Object.freeze({capture,restore});
 Hooks.once('ready',()=>{
-  document.addEventListener('input',event=>{const root=event.target.closest?.('.at-player-sessions');if(root&&event.target.matches?.('[data-at-local-search="sessions"],[data-at-lup-search-proxy="sessions"]')){account();term=event.target.value;searchState(root);}});
-  document.addEventListener('click',event=>{
-    const row=event.target.closest?.('.at-player-sessions [data-action="selectSession"]');if(!row)return;
-    const root=row.closest('.at-player-sessions'),field=root.querySelector('[data-at-lup-search-proxy="sessions"]')||root.querySelector('[data-at-local-search="sessions"]');
-    account();term='';
-    if(field?.value){field.value='';field.dispatchEvent(new Event('input',{bubbles:true}));}
-    searchState(root);
-  },true);
+  document.addEventListener('input',event=>{const root=event.target.closest?.(pageSelector);if(root&&event.target.matches?.('[data-at-local-search="sessions"],[data-at-lup-search-proxy="sessions"]')){account();term=event.target.value;}});
 });

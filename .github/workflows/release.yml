@@ -535,10 +535,10 @@ jobs:
               exit 1
             fi
           fi
-          if [[ "$VERSION" == "2.1.5" ]]; then
-            NOTES="$(cat docs/V2.1.5_STABLE_RELEASE.md)"
+          if [[ "$VERSION" == "2.1.5" || "$VERSION" == "2.1.6" ]]; then
+            NOTES="$(cat "docs/V${VERSION}_STABLE_RELEASE.md")"
             if git show-ref --verify --quiet "refs/tags/$VERSION" || gh release view "$VERSION" >/dev/null 2>&1; then
-              echo "Stable 2.1.5 already exists; refusing to replace it." >&2
+              echo "Stable $VERSION already exists; refusing to replace it." >&2
               exit 1
             fi
           fi

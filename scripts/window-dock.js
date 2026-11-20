@@ -96,6 +96,7 @@ async function atDockRestore(app) {
     if(navigated||(app._atDockRefreshPending&&!state.draft&&!atDockHasDraft(state.element))){
       app._atDockRefreshPending=false;await app.render({parts:['main']});
     }
+    if(app._atDockIndexRefreshPending){app._atDockIndexRefreshPending=false;await app._refreshIndexRegions?.();}
     if(state.focus?.isConnected)state.focus.focus({preventScroll:true});
     else state.header.querySelector('[data-action="close"],.close')?.focus({preventScroll:true});
     return app;
@@ -106,6 +107,6 @@ function atDockDispose(app) {
   const state=atWindowDocks.get(app);if(!state)return;
   state.disposed=true;state.animation?.cancel();state.header.removeEventListener('click',state.onClick,true);
   atDockLauncherState(state,false);state.close.remove();state.element.inert=false;state.element.classList.remove('at-window-docked');
-  app._atWindowDocked=false;app._atDockRefreshPending=false;atWindowDocks.delete(app);
+  app._atWindowDocked=false;app._atDockRefreshPending=false;app._atDockIndexRefreshPending=false;atWindowDocks.delete(app);
 }
 globalThis.AdventurersTomeWindowDock=Object.freeze({attach:atDockAttach,park:atDockPark,restore:atDockRestore,dispose:atDockDispose,navigationChanged:atDockNavigationChanged,launcherMoved:atDockLauncherMoved});

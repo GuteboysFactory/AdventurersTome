@@ -403,7 +403,7 @@ async function drain() {
     await save();
   } catch(error) {stale=error.code==='TOME_INDEX_STALE';again ||= stale;lastError=stale?'':String(error.message || error);if(!stale)console.warn('Adventurer’s Tome | Index job stopped safely',error);}
   finally {running=false;phase='idle';current='';renderStatus();}
-  if(completed && api().app?.()?.rendered && api().app().activeTab!=='campaignToolsIndex')void api().app().render({parts:['main']});
+  if(completed)Hooks.callAll('adventurersTomeIndexViewChanged');
   if(again&&!state.paused&&(!lastError || stale))request('queued-changes');
   } finally {globalThis.AdventurersTomeStartup?.end(startupToken);}
 }

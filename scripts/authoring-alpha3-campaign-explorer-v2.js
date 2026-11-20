@@ -1045,7 +1045,9 @@ for (const hookName of ["renderApplication", "renderApplicationV2"]) {
 }
 
 for (const hookName of ["createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createFolder", "updateFolder", "deleteFolder"]) {
-  Hooks.on(hookName, () => atCwRequestStructuralRefresh(120));
+  Hooks.on(hookName, (_doc,_changes,options) => {
+    if (!options?.adventurersTomeDerivedLinks) atCwRequestStructuralRefresh(120);
+  });
 }
 
 // Called synchronously by Tome before the newly rendered view can paint.

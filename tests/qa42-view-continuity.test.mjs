@@ -13,7 +13,7 @@ class Node {
   get classList(){return {contains:value=>(this.attrs.class||this.className||'').split(' ').includes(value)};}
   add(node){node.parent=this;node.ownerDocument=this.ownerDocument;this.children.push(node);return node;}
   append(...nodes){for(const node of nodes)this.add(node);}
-  querySelectorAll(selector){const nodes=this.children.flatMap(node=>[node,...node.querySelectorAll('*')]);return selector==='*'?nodes:nodes.filter(node=>selector==='[data-at-review-key]'&&node.dataset.atReviewKey);}
+  querySelectorAll(selector){const nodes=this.children.flatMap(node=>[node,...node.querySelectorAll('*')]);return selector==='*'?nodes:nodes.filter(node=>selector==='[data-at-review-key]'&&node.dataset.atReviewKey||selector==='[data-at-index-region]'&&node.dataset.atIndexRegion);}
   querySelector(selector){return this.querySelectorAll('*').find(node=>selector==='.at-guided-decision-list'&&node.classList.contains('at-guided-decision-list'))||null;}
   closest(){return this.dataset.atReviewKey?this:this.parent?.closest()||null;}
   matches(selector){if(selector.includes('[data-action]'))return ['ARTICLE','LI','TR','H2','H3','H4'].includes(this.tagName)||!!this.attrs['data-action'];if(selector.includes('input[type='))return this.tagName==='INPUT'&&['checkbox','radio'].includes(this.attrs.type);return this.tagName==='TEXTAREA'||this.tagName==='INPUT'&&!['file','checkbox','radio'].includes(this.attrs.type);}
@@ -22,8 +22,29 @@ class Node {
   contains(node){return this.children.some(child=>child===node||child.contains(node));}
   getBoundingClientRect(){let top=this.layoutTop||0;for(let parent=this.parent;parent;parent=parent.parent)top-=parent.scrollTop;return {height:this.height,top};}
   get nextElementSibling(){return this.parent?.children[this.parent.children.indexOf(this)+1];}
+  replaceWith(node){const index=this.parent.children.indexOf(this);this.parent.children[index]=node;node.parent=this.parent;node.ownerDocument=this.ownerDocument;}
   insertBefore(node,next){node.parent=this;node.ownerDocument=this.ownerDocument;const index=this.children.indexOf(next);this.children.splice(index<0?this.children.length:index,0,node);}
 }
+test('Index updates only changed regions and leaves the open search, draft and scroll nodes in place',()=>{
+  const old=surface(),fresh=surface();
+  const region=(fixture,key,markup)=>{const node=fixture.scroll.add(new Node('section',{class:key,'data-at-index-region':key}));node.dataset.atIndexRegion=key;node.outerHTML=markup;return node;};
+  const oldLinks=region(old,'session-links','<section>Old links</section>');
+  const other=region(old,'session-counts','<section>1 review</section>');
+  api.rememberRegions(old.root);
+  other.outerHTML='<section>1 review, runtime decorations</section>';
+  const latest=region(fresh,'session-links','<section>New links</section>');
+  region(fresh,'session-counts','<section>1 review</section>');
+  old.input.value='draft in progress';old.input.focus();old.scroll.scrollTop=360;
+  assert.equal(api.patchRegions(old.root,fresh.root),true);
+  assert.equal(old.scroll.children.includes(latest),true);
+  assert.equal(old.scroll.children.includes(oldLinks),false);
+  assert.equal(old.scroll.children.includes(other),true);
+  assert.equal(old.doc.activeElement,old.input);
+  assert.equal(old.input.value,'draft in progress');
+  assert.equal(old.scroll.scrollTop,360);
+  assert.equal(api.patchRegions(old.root,fresh.root),false);
+  assert.equal(api.patchRegions(surface().root,fresh.root),false);
+});
 function surface() {
   const root=new Node('main',{id:'main'}),doc={activeElement:null,createElement:tag=>{const node=new Node(tag);node.ownerDocument=doc;return node;}};root.ownerDocument=doc;
   const scroll=root.add(new Node('section',{class:'at-content'}));
@@ -47,6 +68,26 @@ test('Saved values are refreshed, and initial renders/navigation do not restore 
   await app._renderHTML();assert.equal(app._viewContinuity,null);
   old.scroll.scrollTop=320;await app._renderHTML();assert.ok(app._viewContinuity);app.element=next.root;api.restore(app.element,app._viewContinuity);assert.equal(next.scroll.scrollTop,320);
   route='sessions';await app._renderHTML();assert.equal(app._viewContinuity,null);
+});
+test('An index notification does not render an unrelated route or apply a stale result after navigation',async()=>{
+  const source=fs.readFileSync(new URL('../scripts/adventurers-tome.js',import.meta.url),'utf8');
+  const method=source.slice(source.indexOf('  async _refreshIndexRegions('),source.indexOf('  async _onRender('));
+  context.Base=class {async _renderHTML(){throw Error('Stale render attempt');}};
+  context.game={world:{id:'world'},user:{id:'gm',isGM:true}};
+  vm.runInContext(`globalThis.App=class extends Base {${method}}`,context);
+  const app=new context.App();app.rendered=true;let prepared=0;
+  const shell={querySelector:()=>null};app.element={querySelector:()=>shell};
+  app._prepareContext=async()=>{prepared++;return {};};
+  await app._refreshIndexRegions();assert.equal(prepared,0);
+
+  let resume;context.Base.prototype._renderHTML=()=>new Promise(resolve=>{resume=resolve;});
+  shell.querySelector=()=>({});
+  const update=app._refreshIndexRegions();
+  await new Promise(setImmediate);
+  app.element={querySelector:()=>({})};
+  resume({main:null});
+  await update;
+  assert.equal(prepared,1);
 });
 test('A resolved Review card disappears without a placeholder; Undo can restore the real card',()=>{
   const old=surface(),list=old.scroll.add(new Node('div',{class:'at-guided-decision-list'}));
