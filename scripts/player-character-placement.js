@@ -1,6 +1,8 @@
 globalThis.ATTestAI.assertEnabled();
 const MODULE_ID='adventurers-tome',PLACEMENT_QUERY='adventurersTome.placeAssignedCharacter',REMOVAL_QUERY='adventurersTome.removeAssignedToken';
 let menu=null,hostedButton=null,hostedOriginal=null,menuEpoch=0,rightPress=null,pending=null;
+const hostedMapButtons=new Set();
+const hiddenMapButtons=new Map();
 const board=()=>document.getElementById('board')||globalThis.canvas?.app?.canvas;
 function character(user=game.user){const assigned=user?.character;return typeof assigned==='string'?game.actors?.get(assigned):assigned;}
 function owns(actor,user){return typeof actor?.testUserPermission==='function'?actor.testUserPermission(user,'OWNER')===true:user===game.user&&actor?.isOwner===true;}
@@ -128,23 +130,63 @@ export async function placeExistingCharacter(actorId,point,modifiers={}){
  return canvas.tokens._onDropActorData({shiftKey:Boolean(modifiers.shiftKey),altKey:Boolean(modifiers.altKey)},{...actor.toDragData(),type:'Actor',uuid:actor.uuid,x:point.x,y:point.y});
 }
 Hooks.once('init',()=>{if(globalThis.CONFIG?.queries){CONFIG.queries[PLACEMENT_QUERY]=handlePlacementQuery;CONFIG.queries[REMOVAL_QUERY]=handleRemovalQuery;}});
-export function closeMenu(){menuEpoch++;menu?.remove();menu=null;if(hostedButton?.isConnected&&hostedOriginal)hostedButton.replaceWith(hostedOriginal);else hostedButton?.remove();hostedButton=null;hostedOriginal=null;}
-function gmMenu(event,point){
+export function closeMenu(){menuEpoch++;menu?.remove();menu=null;for(const button of hostedMapButtons)button.remove();hostedMapButtons.clear();for(const [button,wasHidden] of hiddenMapButtons)button.hidden=wasHidden;hiddenMapButtons.clear();if(hostedButton?.isConnected&&hostedOriginal)hostedButton.replaceWith(hostedOriginal);else hostedButton?.remove();hostedButton=null;hostedOriginal=null;}
+function gmMenu(event,point,noteId,groupId){
  const sceneId=canvas.scene.id,epoch=menuEpoch;
+ const visibleMenus=()=>[...document.querySelectorAll('[role="menu"],#context-menu')].filter(el=>el.isConnected&&el.getClientRects().length&&el.getAttribute('aria-hidden')!=='true');
+ const previousMenus=new Set(visibleMenus());
  // Let other canvas handlers finish first. If a system or module opened a menu,
  // contribute one action to that menu instead of drawing a competing overlay.
  // A new task (not a microtask) is necessary for real browser contextmenu events:
  // browsers may run microtasks between capture listeners, before the host opens.
  setTimeout(()=>{
   if(epoch!==menuEpoch||!game.user?.isGM||canvas.scene?.id!==sceneId)return;
-  const characters=placementCandidates();
-  const host=[...document.querySelectorAll('[role="menu"],#context-menu')].reverse().find(el=>el.isConnected&&el.getClientRects().length&&el.getAttribute('aria-hidden')!=='true');
+  const api=globalThis.ATTestAI.modules.get(MODULE_ID)?.api;
+  const actions=(groupId?api?.travelPlanner?.flagActions(groupId):api?.partyTravel?.mapActions?.({...point,sceneId},noteId))||[];
+  if((noteId||groupId)&&!actions.length)return;
+  const host=visibleMenus().reverse().find(el=>!previousMenus.has(el));
   let root=host;
-  if(!root){root=document.createElement('section');root.className='at-player-character-menu';root.setAttribute('role','menu');root.setAttribute('aria-label','Character token');document.body.append(root);menu=root;}
+  if(!root){root=document.createElement('section');root.className='at-player-character-menu';root.setAttribute('role','menu');root.setAttribute('aria-label','Map actions');document.body.append(root);menu=root;}
+  const dismiss=()=>{
+   if(host){document.body.dispatchEvent(new PointerEvent('pointerdown',{button:0,bubbles:true}));if(host.isConnected)host.remove();}
+   closeMenu();
+  };
+  const clamp=()=>{
+   const surface=root.closest('.rg-scene-quick-surface')||root;
+   if(getComputedStyle(surface).position==='fixed'||!host){surface.style.left=Math.max(8,Math.min(event.clientX,window.innerWidth-surface.offsetWidth-8))+'px';surface.style.top=Math.max(8,Math.min(event.clientY,window.innerHeight-surface.offsetHeight-8))+'px';}
+  };
+  const mapButton=(label,run)=>{
+   const button=document.createElement('button');
+   button.type='button';button.setAttribute('role','menuitem');button.textContent=label;button.onclick=run;
+   if(host)hostedMapButtons.add(button);
+   return button;
+  };
+  const actionButton=({label,run})=>mapButton(label,async()=>{
+   dismiss();
+   try{await run();}catch(error){ui.notifications.warn(error.message);}
+  });
+  if(noteId||groupId){
+   const realmEdit=noteId&&host?.matches('.rg-scene-quick-menu')&&
+    [...host.querySelectorAll('button[role="menuitem"]')].find(button=>button.textContent.trim()==='Edit');
+   const buttons=actions.map(action=>{
+    const button=actionButton(action);
+    if(realmEdit&&action.id==='edit-marker'){
+     const focused=document.activeElement===realmEdit;
+     realmEdit.replaceWith(button);
+     hostedMapButtons.delete(button);
+     hostedButton=button;hostedOriginal=realmEdit;
+     if(focused)button.focus({preventScroll:true});
+    }else root.append(button);
+    return button;
+   });
+   clamp();if(!host)buttons[0].focus({preventScroll:true});
+   return;
+  }
+  const characters=placementCandidates();
   const original=host?[...host.querySelectorAll('button,[role="menuitem"]')].find(b=>/^Place existing NPC(?:…|\.{3})?$/i.test(b.textContent.trim())):null;
   const button=original?original.cloneNode(false):document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.textContent='Place existing NPC or PC…';button.dataset.atPlaceExisting='';button.disabled=!characters.length;
   button.onclick=async()=>{
-   if(host){document.body.dispatchEvent(new PointerEvent('pointerdown',{button:0,bubbles:true}));if(host.isConnected)host.remove();}closeMenu();
+   dismiss();
    try{
     const esc=value=>foundry.utils.escapeHTML(String(value));
     const id=await foundry.applications.api.DialogV2.prompt({window:{title:'Place existing NPC or PC',resizable:true},position:{width:560},content:`<label>Find character<input type="search" data-place-search placeholder="Name…"></label><label>Type<select data-place-kind><option value="all">NPCs &amp; PCs</option><option>NPC</option><option>PC</option></select></label><label>Character<select name="character">${characters.map(({actor,kind})=>`<option value="${esc(actor.id)}" data-kind="${kind}">${esc(actor.name)} · ${kind}</option>`).join('')}</select></label><p>Places a token at the clicked position. No new Actor is created.</p>`,render:(_e,d)=>{
@@ -155,9 +197,25 @@ function gmMenu(event,point){
    }catch(error){ui.notifications.warn(error.message);}
   };
   if(original){original.replaceWith(button);hostedOriginal=original;}else root.append(button);if(host)hostedButton=button;
-  // Re-clamp after contributing an entry; respect the host's own menu styling.
-  if(getComputedStyle(root).position==='fixed'||!host){root.style.left=Math.max(8,Math.min(event.clientX,window.innerWidth-root.offsetWidth-8))+'px';root.style.top=Math.max(8,Math.min(event.clientY,window.innerHeight-root.offsetHeight-8))+'px';}
-  if(!host)button.focus({preventScroll:true});
+  let addToMap;
+  if(actions.length){
+   if(host&&actions.some(row=>/^Create item \/ place on map/.test(row.label))){
+    const legacy=[...host.querySelectorAll('button,[role="menuitem"]')].find(row=>/^Create item \/ place on map/i.test(row.textContent.trim()));
+    if(legacy){hiddenMapButtons.set(legacy,legacy.hidden);legacy.hidden=true;}
+   }
+   const choices=actions.map(actionButton);
+   addToMap=mapButton('Add to map…',()=>{
+    const open=addToMap.getAttribute('aria-expanded')==='true';
+    addToMap.setAttribute('aria-expanded',String(!open));
+    if(open)for(const choice of choices)choice.remove();
+    else{addToMap.after(...choices);choices[0].focus({preventScroll:true});}
+    clamp();
+   });
+   addToMap.setAttribute('aria-expanded','false');
+   button.after(addToMap);
+  }
+  clamp();
+  if(!host)(addToMap||button).focus({preventScroll:true});
  },0);
 }
 function occupied(point,event){
@@ -170,7 +228,14 @@ function occupied(point,event){
 function openMenu(event){
  if(event.target!==board()||!globalThis.canvas?.ready||!canvas.scene||rightPress?.dragged||rightPress?.blocked)return;
  const point=canvas.canvasCoordinatesFromClient({x:event.clientX,y:event.clientY});
- if(!Number.isFinite(point.x)||!Number.isFinite(point.y)||!canvas.dimensions?.rect?.contains(point.x,point.y)||occupied(point,event))return;
+ if(!Number.isFinite(point.x)||!Number.isFinite(point.y)||!canvas.dimensions?.rect?.contains(point.x,point.y))return;
+ if(game.user?.isGM&&!event.shiftKey&&!canvas.tokens?.hover&&!canvas.controls?.ruler?.active){
+  const flag=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.travelMapEditor?.flagAt(point);
+  if(flag){event.preventDefault();event.stopImmediatePropagation();closeMenu();gmMenu(event,point,null,flag.groupId);return;}
+  const note=canvas.notes?.placeables?.find(object=>object.isVisible!==false&&object.visible!==false&&object.bounds?.contains?.(point.x,point.y));
+  if(note?.document?.id){event.preventDefault();closeMenu();gmMenu(event,point,note.document.id);return;}
+ }
+ if(occupied(point,event))return;
  event.preventDefault();closeMenu();
  if(game.user?.isGM){gmMenu(event,point);return;}
  const actor=character(),actorId=actor?.id,reason=pending?'Placing your character…':unavailable(),sceneId=canvas.scene.id;
@@ -178,6 +243,12 @@ function openMenu(event){
  const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.disabled=Boolean(reason);
  const icon=document.createElement('i');icon.className='fa-solid fa-user-plus';icon.setAttribute('aria-hidden','true');button.append(icon,document.createTextNode(' Place token here'));
  const caption=document.createElement('small');caption.textContent=reason||actor.name;menu.append(button,caption);document.body.append(menu);
+ const routes=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.travelPlanner?.routeRecordsAction?.(sceneId);
+ if(routes){
+  const manage=document.createElement('button');manage.type='button';manage.setAttribute('role','menuitem');manage.textContent=routes.label;
+  manage.addEventListener('click',()=>{closeMenu();void routes.run().catch(error=>ui.notifications.warn(error.message));});
+  menu.append(manage);
+ }
  menu.style.left=Math.max(8,Math.min(event.clientX,window.innerWidth-menu.offsetWidth-8))+'px';menu.style.top=Math.max(8,Math.min(event.clientY,window.innerHeight-menu.offsetHeight-8))+'px';
  button.addEventListener('click',()=>{closeMenu();if(character()?.id!==actorId){ui.notifications.warn('Your assigned character changed. Right-click the map again.');return;}
   void placeCharacter({...point,sceneId},{shiftKey:event.shiftKey,altKey:event.altKey}).catch(error=>ui.notifications.warn(String(error?.message||error||'Token placement failed.')));

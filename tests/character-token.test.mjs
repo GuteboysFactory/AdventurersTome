@@ -9,6 +9,32 @@ function fixture(){
  const ctx=vm.createContext({ATTestAI:{assertEnabled(){},modules:{get:()=>module}},game,canvas,CONFIG:{queries},Hooks:{once:(key,fn)=>(hooks[key]||=[]).push(fn),on(){}},document:{addEventListener(){},getElementById(){return null;}},ui:{notifications:{warn(){}}},foundry:{utils:{randomID:()=> '1234567890abcdef'}},console,Promise,Map,WeakMap,window:{},setTimeout,clearTimeout});vm.runInContext(code,ctx);hooks.init.forEach(fn=>fn());
  return {ctx,game,gm,player,actor,token,other,tokens,scene,queries,async query(sender,data){ctx.sender=sender;ctx.packet=data;vm.runInContext("rememberQuerySender(sender,'q','adventurersTome.removeAssignedToken',packet)",ctx);return queries['adventurersTome.removeAssignedToken'](data);}};
 }
+test('Tome replaces the duplicate Realm Guard edit action and restores the host menu on close',()=>{
+ const {ctx}=fixture();
+ const children=[];
+ const button=text=>({textContent:text,get isConnected(){return children.includes(this);},
+  setAttribute(){},focus(){ctx.document.activeElement=this;},
+  replaceWith(next){children.splice(children.indexOf(this),1,next);},
+  remove(){const index=children.indexOf(this);if(index>=0)children.splice(index,1);}});
+ const legacy=button('Edit'),move=button('Move marker…');
+ children.push(legacy,move);
+ const host={isConnected:true,getClientRects:()=>[{}],getAttribute:()=>null,matches:selector=>selector==='.rg-scene-quick-menu',
+  querySelectorAll:()=>children.slice(),append:entry=>children.push(entry),closest:()=>null};
+ let opened=false,callback;
+ Object.assign(ctx.document,{activeElement:legacy,querySelectorAll:()=>opened?[host]:[],createElement:()=>button('')});
+ ctx.setTimeout=fn=>{callback=fn;};
+ ctx.getComputedStyle=()=>({position:'static'});
+ ctx.ATTestAI.modules.get().api.partyTravel={mapActions:()=>[
+  {id:'edit-marker',label:'Edit marker…',run(){}},{label:'Link scene…',run(){}}
+ ]};
+ ctx.gmMenu({}, {x:20,y:30},'note');
+ opened=true;
+ callback();
+ assert.deepEqual(children.map(entry=>entry.textContent),['Edit marker…','Move marker…','Link scene…']);
+ assert.equal(ctx.document.activeElement,children[0]);
+ ctx.closeMenu();
+ assert.deepEqual(children,[legacy,move]);
+});
 test('GM delegation removes only the authenticated player assigned token and preserves Actor',async()=>{const f=fixture(),data={requestId:'1234567890abcdef',sceneId:'scene',tokenId:'token'};await f.query('p',data);assert.equal(f.tokens.has('token'),false);assert.equal(f.tokens.has('other'),true);assert.equal(f.game.actors.get('pc'),f.actor);await f.query('p',data);});
 test('Forged payload sender, other tokens, hidden tokens and changed scenes are rejected',async()=>{for(const kind of ['other','hidden','scene','forged']){const f=fixture();if(kind==='hidden')f.token.hidden=true;if(kind==='scene')f.player.viewedScene='elsewhere';const data={requestId:'1234567890abcdef',sceneId:'scene',tokenId:kind==='other'?'other':'token',userId:'p'};await assert.rejects(f.query(kind==='forged'?'stranger':'p',data));assert.equal(f.tokens.has('token'),true);}});
 test('Uncorrelated removal query cannot authorize using payload userId',async()=>{const f=fixture();await assert.rejects(f.queries['adventurersTome.removeAssignedToken']({requestId:'1234567890abcdef',sceneId:'scene',tokenId:'token',userId:'p'}));assert.equal(f.tokens.size,2);});

@@ -1,5 +1,6 @@
 import {worldTreeService as service} from './world-tree-service.mjs';
 import {CATEGORIES,subtree,visibleFolders,TREE_VIEWS} from './world-tree-core.mjs';
+import {ownershipLevel,ownershipLevels} from './people-ownership.mjs';
 globalThis.ATTestAI.assertEnabled();
 const ID='adventurers-tome',ROOT='#adventurers-tome-app';let epoch=0,lastView=null;const views=new Map();
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
@@ -15,6 +16,74 @@ function pageSize(){const owner=worldUserKey();if(!pageSizes.has(owner)){let val
 function changePageSize(value){const size=validPageSize(value);pageSizes.set(worldUserKey(),size);try{localStorage.setItem(pageSizeKey(),String(size));}catch{}for(const [key,s] of views)if(key.startsWith(worldUserKey()+'|'))s.limit=size;mount();}
 function state(){const mode=viewMode(),key=worldUserKey()+'|'+mode;if(!views.has(key))views.set(key,{mode,selected:'',query:'',treeQuery:'',treeFilter:'all',collapsed:new Set(),limit:pageSize(),error:''});return views.get(key);}
 const canEdit=()=>game.user?.isGM&&viewMode()==='custom';
+const worldApi=()=>globalThis.ATTestAI.modules.get(ID)?.api;
+function selection(s){return s.selection??=new Set();}
+function worldCard(row,s){
+ const entry=card(row);
+ if(!game.user?.isGM)return entry;
+ const uuid=esc(row.uuid), name=esc(row.name);
+ return `<article class="at-twt-entry" data-twt-access-card="${uuid}">${entry}<input class="at-twt-check" type="checkbox" data-twt-check="${uuid}" aria-label="Select ${name}" ${selection(s).has(row.uuid)?'checked':''}></article>`;
+}
+function worldAccessControls(s){
+ if(!game.user?.isGM)return '';
+ const size=selection(s).size;
+ return `<div class="at-twt-entry-actions"><button type="button" class="at-secondary" data-twt-access aria-haspopup="dialog" ${size?'':'disabled'}>Who can see?</button><button type="button" class="at-secondary" data-twt-bulk ${size?'':'disabled'}>Review Selected</button><span data-twt-count role="status">${size} selected</span><button type="button" class="at-secondary" data-twt-clear ${size?'':'disabled'}>Clear selection</button></div>`;
+}
+function selectedDocuments(){
+ const available=new Set(snapshot().rows.map(row=>row.uuid));
+ return [...selection(state())].filter(uuid=>available.has(uuid)).map(uuid=>foundry.utils.fromUuidSync(uuid)).filter(Boolean);
+}
+function updateSelectionControls(page){
+ const size=selection(state()).size;
+ page.querySelector('[data-twt-count]').textContent=`${size} selected`;
+ for(const button of page.querySelectorAll('[data-twt-access],[data-twt-bulk],[data-twt-clear]'))button.disabled=!size;
+ for(const box of page.querySelectorAll('[data-twt-check]'))box.checked=selection(state()).has(box.dataset.twtCheck);
+}
+function worldAccessRows(entry){
+ const rows=game.users.contents.filter(user=>!user.isGM).map(user=>{
+  const level=ownershipLevels[ownershipLevel(entry.ownership,user.id)];
+  const visible=worldApi().canView(entry,user);
+  return `<li><strong>${esc(user.name)}</strong><span>${esc(level)}</span><small>${visible?'Visible in Tome':'Hidden in Tome'}</small></li>`;
+ });
+ return rows.length?`<ul aria-label="Foundry ownership and Tome visibility">${rows.join('')}</ul>`:'<p>No player accounts in this world.</p>';
+}
+let accessPanel,accessAnchor,accessTimer,accessPinned=false;
+function closeWorldAccess(restoreFocus=false){
+ clearTimeout(accessTimer);
+ accessPanel?.remove();
+ accessPanel=null;
+ accessPinned=false;
+ if(restoreFocus)accessAnchor?.focus({preventScroll:true});
+ accessAnchor=null;
+}
+function showWorldAccess(entries,anchor,pinned=false){
+ if(!game.user?.isGM||!anchor.isConnected||!entries.length)return;
+ closeWorldAccess();
+ accessAnchor=anchor;
+ accessPinned=pinned;
+ const panel=document.createElement('section');
+ panel.className='at-twt-access-panel';
+ panel.setAttribute('popover','manual');
+ panel.setAttribute('role',pinned?'dialog':'tooltip');
+ panel.setAttribute('aria-label','Who can see?');
+ panel.innerHTML=`<header><div><span>Who can see?</span><h3>${entries.length===1?esc(entries[0].name):`${entries.length} selected entries`}</h3></div>${pinned?'<button type="button" data-twt-close-access aria-label="Close access preview"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>':''}</header><div class="at-twt-access-list">${entries.map(entry=>`${entries.length>1?`<h4>${esc(entry.name)}</h4>`:''}${worldAccessRows(entry)}`).join('')}</div>${pinned?'<footer><button type="button" data-twt-review-access>Review access changes…</button></footer>':''}`;
+ accessPanel=panel;
+ anchor.closest(ROOT).append(panel);
+ panel.showPopover();
+ const rect=anchor.getBoundingClientRect();
+ const gap=8;
+ const left=Math.min(rect.left,innerWidth-panel.offsetWidth-gap);
+ const top=rect.bottom+gap+panel.offsetHeight<=innerHeight?rect.bottom+gap:rect.top-panel.offsetHeight-gap;
+ panel.style.left=`${Math.max(gap,left)}px`;
+ panel.style.top=`${Math.max(gap,top)}px`;
+ panel.querySelector('[data-twt-close-access]')?.addEventListener('click',()=>closeWorldAccess(true));
+ panel.querySelector('[data-twt-review-access]')?.addEventListener('click',()=>{
+  closeWorldAccess(true);
+  const current=entries.map(entry=>foundry.utils.fromUuidSync(entry.uuid)).filter(Boolean);
+  void perform(()=>worldApi().peopleWorkspace.configureWorld(current));
+ });
+ if(pinned)panel.querySelector('[data-twt-close-access]')?.focus({preventScroll:true});
+}
 function switchView(mode){if(!Object.hasOwn(TREE_VIEWS,mode))return;viewModes.set(worldUserKey(),mode);try{localStorage.setItem(viewStorageKey(),mode);}catch{}mount();}
 function useCustom(){if(viewMode()!=='custom'){const selected=state().selected;switchView('custom');state().selected=service.view().state.folders.some(f=>f.id===selected)?selected:'';mount();}}
 function snapshot(){const key=`${epoch}|${game.world?.id}|${game.user?.id}|${game.user?.isGM}|${game.user?.role}`;if(lastView?.key!==key)lastView={key,layouts:new Map()};const mode=viewMode();if(!lastView.layouts.has(mode))lastView.layouts.set(mode,service.view(mode));return lastView.layouts.get(mode);}
@@ -42,6 +111,7 @@ export function mount({page}={}){
  let data;try{data=snapshot();}catch(error){ui.notifications.error(error.message);return true;}
  const s=state();if(s.selected&&!data.state.folders.some(f=>f.id===s.selected))s.selected='';
  const stamp=`${epoch}|${game.user?.id}|${game.user?.isGM}|${s.mode}|${s.selected}|${s.query}|${s.treeQuery}|${s.treeFilter}|${[...s.collapsed].join(',')}|${s.error}|${s.limit||pageSize()}|${pageSize()}`;if(page._atTomeTreeStamp===stamp)return true;
+ closeWorldAccess();
  const focused=document.activeElement?.matches?.('[data-twt-search],[data-twt-folder-search],[data-twt-page-size]')?(document.activeElement.hasAttribute('data-twt-page-size')?'[data-twt-page-size]':document.activeElement.hasAttribute('data-twt-folder-search')?'[data-twt-folder-search]':'[data-twt-search]'):null,position=focused?document.activeElement.selectionStart:null,scroll=page.querySelector('.at-cw-tree-scroll')?.scrollTop||0;
  let layout=page.querySelector(':scope > .at-cw-catalog-layout');if(!layout){layout=document.createElement('section');layout.className='at-cw-catalog-layout at-twt-layout';const heading=page.querySelector(':scope > .at-page-heading');for(const node of [...page.children])if(node!==heading)node.remove();if(heading)heading.after(layout);else page.append(layout);}layout.classList.add('at-twt-layout');
  const ids=s.selected?subtree(data.state,s.selected):null,query=s.query.toLocaleLowerCase(),aliases=query&&alternativeNames();
@@ -49,7 +119,7 @@ export function mount({page}={}){
   ||aliases.get(r.uuid)?.some(name=>name.toLocaleLowerCase().includes(query)||`${name.toLocaleLowerCase()}s`===query)));
  const chosen=data.state.folders.find(f=>f.id===s.selected),breadcrumbs=path(data.state,s.selected);
  const setup=game.user?.isGM&&data.state.setup==='pending'&&data.hasFoundryStructure?`<section class="at-twt-setup"><div><span class="at-kicker">Your campaign, your structure</span><h3>Bring your existing folders into Tome?</h3><p>Copy the current campaign folder hierarchy once. Organize it freely in Tome; Foundry documents stay linked in their existing folders.</p></div><div><button type="button" class="at-primary" data-twt-import>Copy existing structure</button><button type="button" class="at-secondary" data-twt-start>Build in Tome instead</button></div></section>`:'';
- layout.innerHTML=`<aside class="at-cw-explorer at-twt-explorer"><header class="at-twt-root" ${canEdit()?'data-twt-drop=""':''}><div><span class="at-kicker">Campaign library</span><div class="at-twt-root-row"><button type="button" class="at-twt-toggle" data-twt-toggle="@world" aria-label="Toggle World tree" aria-expanded="${!rootCollapsed(s)}"><i class="fa-solid ${rootCollapsed(s)?'fa-chevron-right':'fa-chevron-down'}"></i></button><button type="button" class="at-twt-root-select" data-twt-select="" title="World root — drop folders here to move them out of their parent"><i class="fa-solid fa-folder-tree"></i> World</button></div></div>${canEdit()?'<button type="button" class="at-icon-button" data-twt-new-folder="" aria-label="New root folder"><i class="fa-solid fa-folder-plus"></i></button>':''}</header><button type="button" class="at-twt-all ${s.selected?'':'is-selected'}" data-twt-select="" ${canEdit()?'data-twt-drop=""':''}><i class="fa-solid fa-layer-group"></i><span>All entries</span><small>${data.rows.length}</small></button>${treeControls(s)}<div class="at-cw-tree-scroll" ${rootCollapsed(s)?'hidden':''}>${treeBody(data,s)}</div>${game.user?.isGM?'<footer><button type="button" class="at-secondary" data-twt-import><i class="fa-solid fa-file-import"></i> Copy folder structure</button></footer>':''}</aside><section class="at-cw-catalog at-twt-catalog">${setup}${s.mode==='custom'?'':`<p class="at-twt-view-note">${s.mode==='content'?'Folders are grouped by their contents. Mixed folders stay together.':data.originalOrigin==='current-foundry'?'This original was saved from the Foundry folders available when tree views were enabled.':'This is the saved original folder layout. Entries added later are listed separately.'} Organize folders in <button type="button" data-twt-custom>Custom structure</button>.</p>`}${data.state.cleanup?.length?'<div class="at-twt-notice">Some backend cleanup is incomplete. Your tree is saved and remaining documents are preserved.<button type="button" data-twt-retry>Retry cleanup</button></div>':''}${s.error?`<p class="at-twt-error" role="alert">${esc(s.error)}</p>`:''}<nav class="at-twt-breadcrumb" aria-label="World folder"><button type="button" data-twt-select="">World</button>${breadcrumbs.map(f=>`<i class="fa-solid fa-chevron-right"></i><button type="button" data-twt-select="${esc(f.id)}">${esc(f.name)}</button>`).join('')}</nav><div class="at-twt-toolbar"><div><span class="at-kicker">${chosen?.nodeKind==='category'?'Tome category':'Campaign collection'}</span><h2>${esc(chosen?.name||'Your world')}</h2><small>${rows.length} ${rows.length===1?'entry':'entries'}</small></div>${canEdit()?`<div><button type="button" class="at-primary" data-twt-create><i class="fa-solid fa-plus"></i> New entry</button><button type="button" class="at-secondary" data-twt-new-folder="${esc(s.selected)}"><i class="fa-solid fa-folder-plus"></i> New folder</button></div>`:''}</div><label class="at-twt-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" data-twt-search value="${esc(s.query)}" placeholder="Find people, places and stories…" aria-label="Search World"></label><div class="at-twt-paging"><span role="status">Showing ${Math.min(rows.length,s.limit||pageSize())} of ${rows.length} entries</span><label>Show <select data-twt-page-size aria-label="Entries at a time">${[10,20,30].map(size=>`<option value="${size}" ${pageSize()===size?'selected':''}>${size}</option>`).join('')}</select> at a time</label></div><div class="at-world-card-grid at-twt-cards">${rows.slice(0,s.limit||pageSize()).map(card).join('')||'<div class="at-empty at-wide">This part of your world is ready for its first entry.</div>'}</div>${rows.length>(s.limit||pageSize())?`<button type="button" class="at-secondary" data-twt-more>Show more entries · ${s.limit||pageSize()} of ${rows.length}</button>`:''}</section>`;
+ layout.innerHTML=`<aside class="at-cw-explorer at-twt-explorer"><header class="at-twt-root" ${canEdit()?'data-twt-drop=""':''}><div><span class="at-kicker">Campaign library</span><div class="at-twt-root-row"><button type="button" class="at-twt-toggle" data-twt-toggle="@world" aria-label="Toggle World tree" aria-expanded="${!rootCollapsed(s)}"><i class="fa-solid ${rootCollapsed(s)?'fa-chevron-right':'fa-chevron-down'}"></i></button><button type="button" class="at-twt-root-select" data-twt-select="" title="World root — drop folders here to move them out of their parent"><i class="fa-solid fa-folder-tree"></i> World</button></div></div>${canEdit()?'<button type="button" class="at-icon-button" data-twt-new-folder="" aria-label="New root folder"><i class="fa-solid fa-folder-plus"></i></button>':''}</header><button type="button" class="at-twt-all ${s.selected?'':'is-selected'}" data-twt-select="" ${canEdit()?'data-twt-drop=""':''}><i class="fa-solid fa-layer-group"></i><span>All entries</span><small>${data.rows.length}</small></button>${treeControls(s)}<div class="at-cw-tree-scroll" ${rootCollapsed(s)?'hidden':''}>${treeBody(data,s)}</div>${game.user?.isGM?'<footer><button type="button" class="at-secondary" data-twt-import><i class="fa-solid fa-file-import"></i> Copy folder structure</button></footer>':''}</aside><section class="at-cw-catalog at-twt-catalog">${setup}${s.mode==='custom'?'':`<p class="at-twt-view-note">${s.mode==='content'?'Folders are grouped by their contents. Mixed folders stay together.':data.originalOrigin==='current-foundry'?'This original was saved from the Foundry folders available when tree views were enabled.':'This is the saved original folder layout. Entries added later are listed separately.'} Organize folders in <button type="button" data-twt-custom>Custom structure</button>.</p>`}${data.state.cleanup?.length?'<div class="at-twt-notice">Some backend cleanup is incomplete. Your tree is saved and remaining documents are preserved.<button type="button" data-twt-retry>Retry cleanup</button></div>':''}${s.error?`<p class="at-twt-error" role="alert">${esc(s.error)}</p>`:''}<nav class="at-twt-breadcrumb" aria-label="World folder"><button type="button" data-twt-select="">World</button>${breadcrumbs.map(f=>`<i class="fa-solid fa-chevron-right"></i><button type="button" data-twt-select="${esc(f.id)}">${esc(f.name)}</button>`).join('')}</nav><div class="at-twt-toolbar"><div><span class="at-kicker">${chosen?.nodeKind==='category'?'Tome category':'Campaign collection'}</span><h2>${esc(chosen?.name||'Your world')}</h2><small>${rows.length} ${rows.length===1?'entry':'entries'}</small></div>${canEdit()?`<div><button type="button" class="at-primary" data-twt-create><i class="fa-solid fa-plus"></i> New entry</button><button type="button" class="at-secondary" data-twt-new-folder="${esc(s.selected)}"><i class="fa-solid fa-folder-plus"></i> New folder</button></div>`:''}</div><label class="at-twt-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" data-twt-search value="${esc(s.query)}" placeholder="Find people, places and stories…" aria-label="Search World"></label>${worldAccessControls(s)}<div class="at-twt-paging"><span role="status">Showing ${Math.min(rows.length,s.limit||pageSize())} of ${rows.length} entries</span><label>Show <select data-twt-page-size aria-label="Entries at a time">${[10,20,30].map(size=>`<option value="${size}" ${pageSize()===size?'selected':''}>${size}</option>`).join('')}</select> at a time</label></div><div class="at-world-card-grid at-twt-cards">${rows.slice(0,s.limit||pageSize()) .map(row=>worldCard(row,s)).join('')||'<div class="at-empty at-wide">This part of your world is ready for its first entry.</div>'}</div>${rows.length>(s.limit||pageSize())?`<button type="button" class="at-secondary" data-twt-more>Show more entries · ${s.limit||pageSize()} of ${rows.length}</button>`:''}</section>`;
  page._atTomeTreeStamp=stamp;let status=page.querySelector('[data-twt-status]');if(!status){status=document.createElement('span');status.dataset.twtStatus='';status.setAttribute('role','status');page.querySelector('.at-twt-toolbar')?.append(status);}status.textContent=service.busy?'Saving World changes…':'';
  if(focused){const input=page.querySelector(focused);input?.focus();try{input?.setSelectionRange(position,position);}catch{}}const treeScroll=page.querySelector('.at-cw-tree-scroll');if(treeScroll&&scroll)treeScroll.scrollTop=scroll;return true;
 }
@@ -82,6 +152,58 @@ async function createEntry(){const s=state(),node=snapshot().state.folders.find(
 async function perform(work){try{state().error='';await work();}catch(error){state().error=String(error.message||error);ui.notifications.error(state().error);}finally{mount();}}
 function install(){
  document.addEventListener('click',event=>{
+  const control=event.target.closest?.('[data-twt-clear],[data-twt-bulk],[data-twt-access]');
+  const page=control?.closest(ROOT+' .at-world-page');
+  if(!page||!game.user?.isGM)return;
+  if(control.hasAttribute('data-twt-clear')){
+   selection(state()).clear();
+   updateSelectionControls(page);
+   page.querySelector('[data-twt-check]')?.focus({preventScroll:true});
+   return;
+  }
+  const documents=selectedDocuments();
+  if(control.hasAttribute('data-twt-access'))return showWorldAccess(documents,control,true);
+  void perform(()=>worldApi().peopleWorkspace.configureWorld(documents));
+ });
+ document.addEventListener('change',event=>{
+  const box=event.target;
+  if(!game.user?.isGM||!box.matches?.(ROOT+' [data-twt-check]'))return;
+  const uuid=box.dataset.twtCheck, selected=selection(state());
+  if(box.checked)selected.add(uuid);
+  else selected.delete(uuid);
+  updateSelectionControls(box.closest('.at-world-page'));
+ });
+ const accessCard=target=>target?.closest?.(ROOT+' [data-twt-access-card]');
+ const showCard=(card,pinned)=>{
+  const entry=foundry.utils.fromUuidSync(card.dataset.twtAccessCard);
+  if(entry)showWorldAccess([entry],card.querySelector('[data-twt-open]'),pinned);
+ };
+ document.addEventListener('pointerover',event=>{
+  if(!game.user?.isGM||accessPinned||event.pointerType==='touch')return;
+  const card=accessCard(event.target);
+  if(!card||card.contains(event.relatedTarget))return;
+  closeWorldAccess();
+  accessTimer=setTimeout(()=>{if(card.isConnected)showCard(card,false);},350);
+ });
+ document.addEventListener('pointerout',event=>{
+  const card=accessCard(event.target);
+  if(!accessPinned&&card&&!card.contains(event.relatedTarget))closeWorldAccess();
+ });
+ document.addEventListener('contextmenu',event=>{
+  const card=accessCard(event.target);
+  if(!game.user?.isGM||!card)return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  showCard(card,true);
+ },true);
+ document.addEventListener('pointerdown',event=>{if(!accessPanel?.contains(event.target))closeWorldAccess();},true);
+ document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||!accessPanel)return;
+  event.stopImmediatePropagation();
+  closeWorldAccess(accessPinned);
+ },true);
+ document.addEventListener('scroll',event=>{if(accessPanel&&!accessPanel.contains(event.target))closeWorldAccess();},true);
+ document.addEventListener('click',event=>{
   const el=event.target.closest?.(`${ROOT} [data-twt-more],${ROOT} [data-twt-custom],${ROOT} [data-twt-category],${ROOT} [data-twt-expand],${ROOT} [data-twt-collapse],${ROOT} [data-twt-select],${ROOT} [data-twt-toggle],${ROOT} [data-twt-menu],${ROOT} [data-twt-new-folder],${ROOT} [data-twt-open],${ROOT} [data-twt-import],${ROOT} [data-twt-start],${ROOT} [data-twt-create],${ROOT} [data-twt-resolve],${ROOT} [data-twt-retry]`);if(!el)return;event.preventDefault();event.stopImmediatePropagation();const s=state();
   if(el.hasAttribute('data-twt-more')){s.limit=(s.limit||pageSize())+pageSize();mount();return;}if(el.hasAttribute('data-twt-custom')){switchView('custom');return;}if(el.hasAttribute('data-twt-expand')||el.hasAttribute('data-twt-collapse')){s.collapsed=el.hasAttribute('data-twt-collapse')?new Set(['@world',...snapshot().state.folders.map(f=>f.id)]):new Set();refreshTree();return;}if(el.hasAttribute('data-twt-select')){s.selected=el.dataset.twtSelect;s.limit=pageSize();mount();return;}if(el.hasAttribute('data-twt-toggle')){const id=el.dataset.twtToggle;s.collapsed.has(id)?s.collapsed.delete(id):s.collapsed.add(id);mount();return;}if(el.hasAttribute('data-twt-open'))return void perform(()=>service.openEntry(el.dataset.twtOpen));if(!game.user?.isGM||service.busy)return;if(!canEdit()&&!el.hasAttribute('data-twt-resolve')&&!el.hasAttribute('data-twt-import')&&!el.hasAttribute('data-twt-retry'))return;
   void perform(()=>el.hasAttribute('data-twt-category')?createFolder('',true):el.hasAttribute('data-twt-new-folder')?createFolder(el.dataset.twtNewFolder):el.hasAttribute('data-twt-menu')?manageFolder(el.dataset.twtMenu):el.hasAttribute('data-twt-import')?importFolders():el.hasAttribute('data-twt-start')?service.change('setup',{copy:false}):el.hasAttribute('data-twt-create')?createEntry():el.hasAttribute('data-twt-resolve')?service.change('resolveBackendGroup',{groupId:el.dataset.group,token:el.dataset.token,choice:el.dataset.choice}):service.change('retryCleanup'));
@@ -98,7 +220,8 @@ function install(){
  },true);
 }
 Hooks.once('ready',()=>{const module=globalThis.ATTestAI.modules.get(ID);if(module){module.api||={};module.api.worldSourceExplorer=Object.freeze({mount,snapshot:()=>structuredClone(snapshot()),createEntry:()=>{useCustom();return perform(createEntry);},createFolder:parent=>{useCustom();return perform(()=>createFolder(parent));}});module.api.worldTree=service;}install();mount();void service.ensureOriginalStructure().catch(error=>ui.notifications.error(error.message));});
-for(const hook of ['adventurersTomePrepareView','adventurersTomeViewPrepared'])Hooks.on(hook,()=>mount());
+for(const hook of ['adventurersTomePrepareView','adventurersTomeViewPrepared'])Hooks.on(hook,()=>{if(!mount())closeWorldAccess();});
+Hooks.on('updateUser',()=>closeWorldAccess());
 for(const type of ['Actor','Item','JournalEntry','Folder','User'])for(const verb of ['create','update','delete'])Hooks.on(verb+type,()=>{epoch++;lastView=null;});
 Hooks.on('updateSetting',setting=>{if(/^(?:adventurers-tome|adventurers-tome)\.(?:windowState|windowMode|tomeTransparency|launcherPosition|favorites|recentItems|recentRefs|lastActiveTab)$/.test(String(setting?.key||'')))return;epoch++;lastView=null;if(String(setting?.key||'').endsWith('worldTreeV1'))mount();});
 Hooks.on('adventurersTomeWorldTreeUpdated',()=>{epoch++;lastView=null;mount();});

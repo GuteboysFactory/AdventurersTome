@@ -9,14 +9,16 @@ const resolve=uuid=>fromUuidSync(uuid);
 const labels={hidden:'Hidden from players',shared:'Shared with all players',custom:'Custom access'};
 function sources(documents){const counts=new Map();for(const d of documents){const label=d.documentName==='JournalEntry'?'Journal':d.documentName;counts.set(label,(counts.get(label)||0)+1);}return [...counts].map(([label,n])=>n===1?label:`${n} ${label}s`).join(' + ');}
 async function open(){if(!game.user?.isGM)throw Error('Only a GM can manage entries.');const app=api().app();app._pushNavigationState?.();app.activeTab='campaignToolsPeople';await app.render({force:true,parts:['main']});}
-async function configure(rows){
+async function configure(rows,{worldSelection=false}={}){
  const fields=[{id:'default',name:'All Players'},...users().filter(u=>!u.isGM).map(u=>({id:u.id,name:u.name}))];
- return foundry.applications.api.DialogV2.prompt({window:{title:`Configure ownership · ${rows.length} entries`,resizable:true},position:{width:580},content:`<p>Changes are saved to Foundry Actors, Journals and Items. GM access is preserved.</p>${fields.map(u=>`<label>${esc(u.name)}<small>Current: ${esc([...new Set(rows.flatMap(r=>r.documents.map(d=>u.id!=='default'&&!(Number.isInteger(d.ownership?.[u.id])&&d.ownership[u.id]>=0)?'Default ('+ownershipLevels[ownershipLevel(d.ownership,u.id)]+')':ownershipLevels[ownershipLevel(d.ownership,u.id)])))].join(' / '))}</small><select name="${esc(u.id)}"><option value="keep">Keep existing</option>${u.id==='default'?'':'<option value="-1">Default</option>'}${ownershipLevels.map((name,n)=>`<option value="${n}">${name}</option>`).join('')}</select></label>`).join('')}`,ok:{label:'Review changes',callback:(_e,_b,d)=>Object.fromEntries([...d.element.querySelectorAll('select')].map(s=>[s.name,s.value==='keep'?'keep':Number(s.value)]))},rejectClose:false});
+ return foundry.applications.api.DialogV2.prompt({classes:worldSelection?['at-twt-ownership-dialog']:[],window:{title:`Configure ownership · ${rows.length} entries`,resizable:true},position:{width:580},content:`<p>Changes are saved to the selected Foundry documents. GM access is preserved.</p>${fields.map(u=>`<label>${esc(u.name)}<small>Current: ${esc([...new Set(rows.flatMap(r=>r.documents.map(d=>u.id!=='default'&&!(Number.isInteger(d.ownership?.[u.id])&&d.ownership[u.id]>=0)?'Default ('+ownershipLevels[ownershipLevel(d.ownership,u.id)]+')':ownershipLevels[ownershipLevel(d.ownership,u.id)])))].join(' / '))}</small><select name="${esc(u.id)}"><option value="keep">Keep existing</option>${u.id==='default'?'':'<option value="-1">Default</option>'}${ownershipLevels.map((name,n)=>`<option value="${n}">${name}</option>`).join('')}</select></label>`).join('')}`,ok:{label:'Review changes',callback:(_e,_b,d)=>Object.fromEntries([...d.element.querySelectorAll('select')].map(s=>[s.name,s.value==='keep'?'keep':Number(s.value)]))},rejectClose:false});
 }
-async function change(rows,changes){
+async function change(rows,changes,{worldSelection=false}={}){
  if(busy||!changes)return;const plan=planOwnership(rows,changes,users());if(!plan.length)return ui.notifications.info('No ownership changes are needed.');
- const confirmed=await foundry.applications.api.DialogV2.confirm({window:{title:'Review ownership changes'},content:`<p>Update ${rows.length} entries across ${plan.length} Foundry documents?</p><ul>${Object.entries(changes).filter(([,v])=>v!=='keep').map(([id,v])=>`<li>${esc(id==='default'?'All Players':users().find(u=>u.id===id)?.name)} → ${v===-1?'Default':ownershipLevels[v]}</li>`).join('')}</ul><p>Linked Contact journals are included. Explicit Contact permissions will be kept during synchronization. GM overrides are preserved.</p><details><summary>Affected documents</summary><ul>${plan.map(p=>`<li>${esc(p.name)} · ${esc(p.uuid)}</li>`).join('')}</ul></details>`,rejectClose:false});
- if(!confirmed)return;busy=true;current?.refresh();
+ const scope=worldSelection?'Tome visibility and discovery still apply. GM overrides are preserved.':'Linked Contact journals are included. Explicit Contact permissions will be kept during synchronization. GM overrides are preserved.';
+ const owner=game.user.id,world=game.world.id;
+ const confirmed=await foundry.applications.api.DialogV2.confirm({classes:worldSelection?['at-twt-ownership-dialog']:[],window:{title:'Review ownership changes'},content:`<p>Update ${rows.length} entries across ${plan.length} Foundry documents?</p><ul>${Object.entries(changes).filter(([,v])=>v!=='keep').map(([id,v])=>`<li>${esc(id==='default'?'All Players':users().find(u=>u.id===id)?.name)} → ${v===-1?'Default':ownershipLevels[v]}</li>`).join('')}</ul><p>${scope}</p><details ${worldSelection?'open':''}><summary>Affected documents</summary><ul>${plan.map(p=>`<li>${esc(p.name)} · ${esc(p.uuid)}</li>`).join('')}</ul></details>`,rejectClose:false});
+ if(!confirmed||busy||!game.user.isGM||game.user.id!==owner||game.world.id!==world)return;busy=true;current?.refresh();
  try{const completed=await applyOwnership(plan,{resolve,users,user:()=>game.user});receipt={owner:game.user.id,world:game.world.id,plan:completed};ui.notifications.info('Foundry ownership updated.');current?.selected.clear();}
  catch(error){if(error.completed?.length)receipt={owner:game.user.id,world:game.world.id,plan:error.completed};ui.notifications.error(error.message);}
  finally{busy=false;current?.refresh();}
@@ -52,6 +54,14 @@ function mount(app,element){
  root.addEventListener('click',async e=>{try{const b=e.target.closest('[data-one],[data-open]');if(!b||busy)return;if(b.dataset.open)await resolve(b.dataset.open)?.sheet?.render(true);else{const row=entries().find(p=>p.id===b.dataset.one);if(row)await change([row],await configure([row]));}}catch(error){ui.notifications.error(error.message);}});state.refresh();
 }
 Hooks.once('init',()=>game.settings.register(ID,'peopleNpcActorTypes',{name:'NPCs, Contacts & Items: NPC Actor types',hint:'Comma-separated Actor type IDs for this game system. Assigned player characters are always excluded.',scope:'world',config:true,type:String,default:defaultNpcTypes.join(',')}));
-Hooks.once('ready',()=>{api().peopleWorkspace=Object.freeze({open,rows:entries,configure:async doc=>{if(!game.user?.isGM)throw Error('Only a GM can configure ownership.');const row=entries().find(p=>p.documents.some(d=>d.uuid===doc.uuid));if(row)await change([row],await configure([row]));}});});
+Hooks.once('ready',()=>{api().peopleWorkspace=Object.freeze({open,rows:entries,configure:async doc=>{if(!game.user?.isGM)throw Error('Only a GM can configure ownership.');const row=entries().find(p=>p.documents.some(d=>d.uuid===doc.uuid));if(row)await change([row],await configure([row]));},
+ configureWorld:async documents=>{
+  if(!game.user?.isGM)throw Error('Only a GM can configure ownership.');
+  if(!documents.length)return;
+  const rows=documents.map(document=>({documents:[document]}));
+  const options={worldSelection:true};
+  await change(rows,await configure(rows,options),options);
+ }
+});});
 Hooks.on('renderApplicationV2',mount);
 let refreshTimer;for(const hook of ['updateActor','createActor','deleteActor','createItem','updateItem','deleteItem','updateJournalEntry','createJournalEntry','deleteJournalEntry','updateUser','deleteUser','createUser','updateFolder'])Hooks.on(hook,()=>{clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{if(current?.root.isConnected)current.refresh();},100);});

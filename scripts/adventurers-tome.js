@@ -3,6 +3,7 @@ import {playerPresentationUpdate, presentationAuthorityUuid} from './player-visi
 import {linkedPeople} from './known-people-core.mjs';
 import {isPlayerCharacter,isWorldPlayerCharacter,presentationActorUuid} from './player-character-core.mjs';
 import {readableRelationTarget} from './group-relation-target.mjs';
+import {actorFullArtwork,savedActorDisplayArtwork} from './token-art.mjs';
 globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const DEFAULT_BACKGROUND = `modules/adventurers-tome/assets/default-hero.webp`;
@@ -668,9 +669,11 @@ function sessionDisplayMeta(name = "") {
   };
 }
 
+const QUEST_STATUSES = ["active", "dormant", "completed", "failed"];
+
 function normalizeQuestStatus(status = "") {
   const normalized = String(status || "active").trim().toLowerCase();
-  return ["active", "completed", "failed", "dormant"].includes(normalized) ? normalized : "active";
+  return QUEST_STATUSES.includes(normalized) ? normalized : "active";
 }
 
 
@@ -2384,7 +2387,8 @@ function actorView(actor) {
   return {
     id: actor.id,
     name: actor.name,
-    img: profile.heroImage || fallbackImage,
+    img: savedActorDisplayArtwork(actor) || profile.heroImage || fallbackImage,
+    fullArtwork: actorFullArtwork(actor,profile.heroImage) || fallbackImage,
     actorImg: fallbackImage,
     owner: actor.isOwner,
     canOpenSheet: userCanObserveDocument(actor,game.user),
@@ -2664,6 +2668,8 @@ function worldEntryView(entry) {
   const profile = getWorldProfile(entry);
   const meta = WORLD_CATEGORIES[profile.category] || WORLD_CATEGORIES.lore;
   const journalFallback = stripMarkup(journalText(entry));
+  const linkedActor=actorFromWorldUuid(presentationActorUuid(entry));
+  const actorArtwork=canViewInTome(linkedActor)?savedActorDisplayArtwork(linkedActor):'';
   return {
     ...base,
     knownActorUuid: String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, 'knownPersonV1')?.actorUuid || ''),
@@ -2673,7 +2679,7 @@ function worldEntryView(entry) {
     subtitle: profile.subtitle,
     summary: profile.summary || base.summary,
     body: profile.body || journalFallback,
-    img: profile.heroImage || entry.img || null,
+    img: actorArtwork || profile.heroImage || entry.img || null,
     actorId: profile.actorId,
     syncedToJournal: Boolean(getWorldSyncPage(entry, profile)),
     heroImage: profile.heroImage,
@@ -5161,7 +5167,9 @@ function buildNextSessionDashboard(sessions = [], quests = [], world = [], group
   const notebook = buildGmNotebookRows();
   const latest = sessions.length ? sessions[sessions.length - 1] : null;
   const currentLocationName = String(globalThis.ATTestAI.settings.get(MODULE_ID, "currentLocation") || "").trim().toLowerCase();
-  const currentLocation = world.find((item) => item.category === "location" && String(item.name || "").trim().toLowerCase() === currentLocationName) || null;
+  const travelLocation = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.partyTravel?.location();
+  const currentLocation = world.find((item) => item.category === "location" && (travelLocation?.configured
+    ? item.id === travelLocation.id : String(item.name || "").trim().toLowerCase() === currentLocationName)) || null;
   const open = notebook.rows.filter((note) => note.status !== "resolved");
   const due = open.filter((note) => note.due);
   const pinned = open.filter((note) => note.pinned).slice(0, 8);
@@ -5752,6 +5760,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const homeLayout = getHomeLayout();
     const sectionBackgrounds = getSectionBackgrounds();
     const defaultLanding = configuredDefaultLanding();
+    const partyLocation = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.partyTravel?.location();
+    const legacyCurrentLocation = globalThis.ATTestAI.settings.get(MODULE_ID, "currentLocation");
+    const currentLocation = partyLocation?.configured ? partyLocation.description || partyLocation.name || 'Unmarked' : legacyCurrentLocation || 'Unmarked';
     const settings = {
       campaignTitle: globalThis.ATTestAI.settings.get(MODULE_ID, "campaignTitle"),
       campaignSubtitle: globalThis.ATTestAI.settings.get(MODULE_ID, "campaignSubtitle"),
@@ -5763,7 +5774,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       themeId,
       themeClass: theme.className,
       themeOptions: Object.entries(THEME_DEFS).map(([id, meta]) => ({ id, ...meta, selected: id === themeId })),
-      currentLocation: globalThis.ATTestAI.settings.get(MODULE_ID, "currentLocation"),
+      legacyCurrentLocation,
+      currentLocation,
+      partyLocationCanFocus: Boolean(partyLocation?.canFocus),
       sessionLabel: globalThis.ATTestAI.settings.get(MODULE_ID, "sessionLabel"),
       welcomeTitle: globalThis.ATTestAI.settings.get(MODULE_ID, "welcomeTitle"),
       welcomeText: globalThis.ATTestAI.settings.get(MODULE_ID, "welcomeText"),
@@ -5788,7 +5801,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       groupSortManual: String(globalThis.ATTestAI.settings.get(MODULE_ID, "groupSort") || "manual") === "manual",
       groupSortName: String(globalThis.ATTestAI.settings.get(MODULE_ID, "groupSort") || "manual") === "name",
       defaultQuestStatus: String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus") || "active"),
-      questStatusOptions: ["active", "completed", "dormant", "failed"].map((id) => ({ id, label: displayQuestStatus(id), selected: id === String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus") || "active") })),
+      questStatusOptions: QUEST_STATUSES.map((id) => ({ id, label: displayQuestStatus(id), selected: id === String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus") || "active") })),
       defaultWorldCategory: String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultWorldCategory") || "lore"),
       worldCategoryOptions: Object.entries(WORLD_CATEGORIES).map(([id, meta]) => ({ id, label: meta.label, selected: id === String(globalThis.ATTestAI.settings.get(MODULE_ID, "defaultWorldCategory") || "lore") })),
       defaultTomeVisibility: defaultTomeVisibility(),
@@ -6002,6 +6015,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const linkedActorInferred = Boolean(linkedActor && !profile.actorId);
       worldProfileView = {
         ...view,
+        isLocation: view.category === "location",
         intelligence:globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.entityIntelligence?.profile?.(worldEntry.uuid),
         journalId: worldEntry.id,
         linkedActor: linkedActorVisible ? actorView(linkedActor) : null,
@@ -6144,13 +6158,15 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const sourceUuid = `JournalEntry.${selectedSession.id}`;
       const pending = (campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0)
         + (game.user.isGM ? relationshipApi?.review?.(sourceUuid).length || 0 : 0);
-      selectedSession = { ...selectedSession, refKey: `session:${selectedSession.id}`, isFavorite: favoriteSet.has(`session:${selectedSession.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid };
+      const travelLog = globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.travelPlanner?.logRows(selectedSession.id) || [];
+      selectedSession = { ...selectedSession, refKey: `session:${selectedSession.id}`, isFavorite: favoriteSet.has(`session:${selectedSession.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid, travelLog };
     }
     if (questDetail) {
       const sourceUuid = `JournalEntry.${questDetail.id}`;
       const pending = (campaignAnalysisAll?.attention?.filter?.((row) => String(row.sourceUuid || "") === sourceUuid).length || 0)
         + (game.user.isGM ? relationshipApi?.review?.(sourceUuid).length || 0 : 0);
-      questDetail = { ...questDetail, refKey: `quest:${questDetail.id}`, isFavorite: favoriteSet.has(`quest:${questDetail.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid };
+      const statusOptions = QUEST_STATUSES.map(id => ({id, label: displayQuestStatus(id), selected: id === questDetail.status}));
+      questDetail = { ...questDetail, statusOptions, refKey: `quest:${questDetail.id}`, isFavorite: favoriteSet.has(`quest:${questDetail.id}`), gmReviewCount:pending, gmReviewSourceUuid:sourceUuid };
     }
     if (profileView) profileView = { ...profileView, refKey: `actor:${profileView.id}`, isFavorite: favoriteSet.has(`actor:${profileView.id}`) };
     if (worldProfileView) worldProfileView = { ...worldProfileView, refKey: `world:${worldProfileView.id}`, isFavorite: favoriteSet.has(`world:${worldProfileView.id}`) };
@@ -6391,6 +6407,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _onRender(context, options) {
     await super._onRender(context, options);
+    const questStatus = this.element.querySelector('[data-at-quest-status]');
+    if (questStatus && !questStatus.onchange) questStatus.onchange = () => AdventurersTomeApp._onChangeQuestStatus.call(this, questStatus);
 
     // Finish the library layout in this render task, before the browser paints.
     // Deferred enhancers still handle later edits, but must not progressively
@@ -7263,6 +7281,27 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.activeTab = "questDetail";
     await recordRecentRef(`quest:${entry.id}`);
     await this.render({ parts: ["main"] });
+  }
+
+  static async _onChangeQuestStatus(target) {
+    if (!game.user.isGM || this.activeTab !== "questDetail" || this.activeQuestId !== target.dataset.journalId) return;
+    const entry = resolveTomeRefKey(`quest:${target.dataset.journalId}`);
+    if (!entry || target.disabled) return;
+    const status = target.value;
+    const flags = globalThis.ATTestAI.flags(entry);
+    const previous = normalizeQuestStatus(flags.getFlag(MODULE_ID, "status") ?? globalThis.ATTestAI.settings.get(MODULE_ID, "defaultQuestStatus"));
+    if (!QUEST_STATUSES.includes(status) || status === previous) return;
+
+    target.disabled = true;
+    try {
+      await flags.setFlag(MODULE_ID, "status", status);
+      ui.notifications.info(`Quest status set to ${displayQuestStatus(status)}.`);
+    } catch (error) {
+      target.value = previous;
+      ui.notifications.error(`Could not change quest status: ${error.message}`);
+    } finally {
+      target.disabled = false;
+    }
   }
 
   static async _onEditAccess(_event, target) {
@@ -9308,6 +9347,16 @@ Hooks.once("ready", async () => {
     },
     getAccess: (document) => getTomeAccess(document),
     canView: (document, user = game.user) => canViewInTome(document, user),
+    imageSource: tomeImageSource,
+    usesTomeAccess: (document) => {
+      const flags = globalThis.ATTestAI.flags(document);
+      return Boolean((document?.documentName === "JournalEntry" && inferJournalRefKey(document)) ||
+        [FLAGS.ACCESS, "vaultInboxV1", "chronicleV1", "semanticProjection"].some(key => flags?.getFlag?.(MODULE_ID, key)));
+    },
+    resolveEntry: (refKey) => {
+      const document = resolveTomeRefKey(refKey);
+      return canViewInTome(document) ? document : null;
+    },
     setAccess: async (document, access = {}) => {
       if (!game.user.isGM) throw new Error("Only a GM can change Adventurer's Tome access metadata.");
       if (!globalThis.ATTestAI.flags(document)?.setFlag) throw new Error("A Foundry Document is required.");
@@ -9643,6 +9692,7 @@ Hooks.on("adventurersTomeCampaignDiscoveryUpdated", scheduleIndexViewRefresh);
 Hooks.on("adventurersTomeContactProjectionUpdated", scheduleIndexViewRefresh);
 Hooks.on("adventurersTomeRelationshipEvidenceUpdated", scheduleIndexViewRefresh);
 Hooks.on('adventurersTomeIndexViewChanged',scheduleIndexViewRefresh);
+Hooks.on('adventurersTomePartyTravelChanged',()=>scheduleTomeRefresh());
 Hooks.on("adventurersTomeAuthoringEditingChanged", ({ active } = {}) => {
   if (!active) window.setTimeout(flushQueuedTomeRefresh, 0);
 });

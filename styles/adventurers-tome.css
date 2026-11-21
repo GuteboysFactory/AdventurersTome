@@ -419,6 +419,24 @@
   width: 18px;
 }
 
+.at-glance > .at-glance-location { display: block; padding: 0; }
+.at-glance .at-glance-location-link {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 0;
+  padding: 6px 0 2px;
+  color: inherit;
+  font: inherit;
+  line-height: 1.3;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.at-glance .at-glance-location-link strong { margin-inline-start: 18px; overflow-wrap: anywhere; }
+.at-glance button.at-glance-location-link:is(:hover, :focus-visible) { color: #543a21; text-decoration: underline; }
+
 .at-home-cards {
   grid-column: 2;
   display: grid;
@@ -3486,6 +3504,22 @@
 .at-quest-detail-hero h1 { margin: 7px 0 12px; color:#f0d18e; font-size:clamp(34px,4vw,58px); font-weight:normal; line-height:1.02; }
 .at-quest-detail-hero p { margin:0; max-width:860px; color:#c5ad79; font-size:15px; line-height:1.65; }
 .at-quest-detail-meta { display:flex; gap:8px; margin-bottom:12px; align-items:center; }
+.adventurers-tome-app .at-quest-status-control {
+  flex: 0 1 8rem;
+  min-width: 0;
+  margin-inline-start: auto;
+}
+.adventurers-tome-app .at-quest-status-control [data-at-quest-status] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 1.85rem;
+  padding-inline-start: .55rem;
+  border: 1px solid var(--at-line);
+  border-radius: 4px;
+  background-color: var(--at-panel);
+  color: var(--at-gold-bright);
+}
 .at-featured-badge { display:inline-flex; align-items:center; gap:5px; color:#d9b75f; border:1px solid rgba(214,178,108,.28); border-radius:999px; padding:4px 8px; font-size:8px; text-transform:uppercase; letter-spacing:.07em; background:rgba(68,47,20,.32); }
 .at-quest-detail-glance { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; align-content:start; }
 .at-quest-detail-glance > div { min-height:62px; padding:10px; border:1px solid rgba(214,178,108,.16); background:rgba(14,10,7,.52); display:flex; flex-direction:column; gap:5px; }

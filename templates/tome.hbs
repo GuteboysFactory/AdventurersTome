@@ -1,3 +1,11 @@
+{{#*inline "shareEntry"}}
+<button type="button" class="at-secondary" data-atus-share-entry="{{kind}}:{{id}}"><i class="fa-solid fa-comment" aria-hidden="true"></i> Send to Chat</button>
+{{/inline}}
+{{#*inline "sceneLink"}}
+<button type="button" class="at-secondary" data-party-view-scene="{{kind}}:{{id}}" hidden><i class="fa-solid fa-map" aria-hidden="true"></i> Open Scene for Me</button>
+{{#if gm}}<button type="button" class="at-secondary" data-party-edit-scene="{{kind}}:{{id}}"><i class="fa-solid fa-link" aria-hidden="true"></i> Link Scene</button>
+<button type="button" class="at-secondary" data-party-activate-scene="{{kind}}:{{id}}" hidden><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> Activate Scene for Players</button>{{/if}}
+{{/inline}}
 {{#*inline "entityRelationships"}}
 {{#if available}}
 <section class="at-profile-panel at-structured-relationships">
@@ -74,7 +82,7 @@
     </div>
   </header>
 
-  {{#if isMyChronicle}}<main class="at-page"><section class="at-chronicle" data-player-chronicle="personal"></section></main>{{/if}}
+  {{#if isMyChronicle}}<main class="at-page"><button type="button" class="at-secondary" data-travel-history="" data-travel-personal><i class="fa-solid fa-route" aria-hidden="true"></i> Travel history</button><section class="at-chronicle" data-player-chronicle="personal"></section></main>{{/if}}
   {{#if isPlayerSignals}}
   <main class="at-page at-campaign-tools-page at-campaign-workspace at-campaign-signals-page">
     <section class="at-page-heading at-campaign-tools-heading"><div><span class="at-kicker">GM workspace</span><h1>Player signals</h1><p>Thoughts, questions and theories your players chose to share with you.</p></div><span class="at-workspace-private"><i class="fa-solid fa-lock"></i> Shared with the GM</span></section>
@@ -103,7 +111,7 @@
         <p>{{settings.campaignSubtitle}}</p>
         <div class="at-compass"><i class="fa-regular fa-compass"></i></div>
         <div class="at-status-block"><span>{{settings.sessionLabel}}</span><strong>{{stats.sessions}} played</strong></div>
-        <div class="at-status-block"><span>Current Location</span><strong>{{settings.currentLocation}}</strong></div>
+        <div class="at-status-block" data-at-index-region="home-sidebar-location"><span>Current Location</span><strong>{{settings.currentLocation}}</strong></div>
       </section>
       {{/if}}
 
@@ -126,7 +134,7 @@
     <section class="at-hero">
       <div class="at-mobile-campaign">
         <span>{{settings.campaignTitle}}</span>
-        <strong><i class="fa-solid fa-location-dot"></i> {{settings.currentLocation}}</strong>
+        <strong data-at-index-region="home-mobile-location"><i class="fa-solid fa-location-dot"></i> {{settings.currentLocation}}</strong>
       </div>
       <div class="at-hero-copy">
         <span class="at-kicker">Welcome back</span>
@@ -141,6 +149,13 @@
         <div><span><i class="fa-solid fa-users"></i> Group Members</span><strong>{{stats.group}}</strong></div>
         <div><span><i class="fa-solid fa-earth-europe"></i> World Entries</span><strong>{{stats.world}}</strong></div>
         <div><span><i class="fa-solid fa-book-open"></i> Sessions</span><strong>{{stats.sessions}}</strong></div>
+        <div class="at-glance-location" data-at-index-region="home-party-location">
+          {{#if settings.partyLocationCanFocus}}
+          <button type="button" class="at-glance-location-link" data-party-location title="Show the party on the map"><span><i class="fa-solid fa-flag" aria-hidden="true"></i> Party Location</span><strong>{{settings.currentLocation}}</strong></button>
+          {{else}}
+          <div class="at-glance-location-link"><span><i class="fa-solid fa-flag" aria-hidden="true"></i> Party Location</span><strong>{{settings.currentLocation}}</strong></div>
+          {{/if}}
+        </div>
       </div>{{/if}}
     </section>
 
@@ -171,7 +186,7 @@
         <article class="at-card at-home-widget {{sizeClass}} at-group-preview">
           <div class="at-card-header"><span>The Group</span>{{#if ../settings.nav.group}}<button type="button" data-action="navigate" data-tab="group">View group</button>{{/if}}</div>
           <div class="at-portrait-row">
-            {{#each ../homeGroup}}<button type="button" data-action="openProfile" data-actor-id="{{id}}" title="View {{name}} profile"><img data-at-tome-image src="{{atImageSrc img}}" alt="{{name}}"><strong>{{name}}</strong><small>{{displayRole}}</small></button>{{else}}<div class="at-empty">GM can add player characters in Campaign Settings.</div>{{/each}}
+            {{#each ../homeGroup}}<button type="button" data-action="openProfile" data-actor-id="{{id}}" title="View {{name}} profile"><img data-at-tome-image src="{{atImageSrc fullArtwork}}" alt="{{name}}" data-at-tb-home-actor="{{id}}"><strong>{{name}}</strong><small>{{displayRole}}</small></button>{{else}}<div class="at-empty">GM can add player characters in Campaign Settings.</div>{{/each}}
           </div>
         </article>
         {{/if}}
@@ -242,6 +257,7 @@
           <button type="button" class="at-secondary at-session-list-back" data-action="showSessionList"><i class="fa-solid fa-arrow-left"></i> Sessions</button>
           {{#if canGoBack}}<button type="button" class="at-secondary at-session-history-back" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>{{/if}}
         </header>
+        <div class="at-profile-toolbar-actions">{{> shareEntry kind="session" id=selectedSession.id}}{{> sceneLink kind="session" id=selectedSession.id gm=isGM}}{{#if isGM}}<button type="button" class="at-secondary" data-travel-planner="{{selectedSession.id}}"><i class="fa-solid fa-route" aria-hidden="true"></i> Travel Planner</button>{{/if}}</div>
         <p class="at-session-detail-summary">{{selectedSession.summary}}</p>{{#if isGM}}{{#if selectedSession.access.restricted}}<div class="at-access-badges">{{#if selectedSession.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if selectedSession.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{#if selectedSession.access.openNotes.length}}<div class="at-gm-note-stack">{{#each selectedSession.access.openNotes}}<div class="at-gm-note {{#if pinned}}is-pinned{{/if}}"><i class="fa-solid {{typeIcon}}"></i><div><strong>{{typeLabel}} · {{title}}</strong><p>{{body}}</p>{{#if trigger}}<small><i class="fa-solid fa-bell"></i> {{trigger}}</small>{{/if}}{{#if sessionTarget}}<small><i class="fa-solid fa-calendar"></i> Session {{sessionTarget}}</small>{{/if}}</div></div>{{/each}}</div>{{/if}}{{/if}}
 
         <div class="at-session-detail-stats" data-at-index-region="session-counts">
@@ -252,6 +268,16 @@
         </div>
 
         <div class="at-session-story" data-at-session-story></div>
+
+        {{#if selectedSession.travelLog.length}}
+        <section class="at-session-detail-section">
+          <h3><i class="fa-solid fa-route" aria-hidden="true"></i> Travel log</h3>
+          <button type="button" class="at-secondary" data-travel-history="{{selectedSession.id}}">View travelled route</button>
+          <ol class="at-session-highlights">
+            {{#each selectedSession.travelLog}}<li><strong>{{group}}</strong> · {{text}}{{#if detail}}<small> · {{detail}}</small>{{/if}}</li>{{/each}}
+          </ol>
+        </section>
+        {{/if}}
 
         {{#if selectedSession.hasHighlights}}
         <section class="at-session-detail-section">
@@ -347,11 +373,15 @@
         <button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <nav class="at-breadcrumbs" aria-label="Breadcrumb"><button type="button" data-action="navigate" data-tab="home">Home</button><i class="fa-solid fa-chevron-right"></i><button type="button" data-action="navigate" data-tab="quests">Quests</button><i class="fa-solid fa-chevron-right"></i><span>{{questDetail.name}}</span></nav>
       </div>
-      <div class="at-profile-toolbar-actions">{{#if isGM}}<button type="button" class="at-secondary" data-action="queueReveal" data-ref-key="{{questDetail.refKey}}"><i class="fa-solid fa-eye-low-vision"></i> Queue Reveal</button><button type="button" class="at-secondary" data-action="showToPlayers" data-ref-key="{{questDetail.refKey}}"><i class="fa-solid fa-bullhorn"></i> Show to Players</button><button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{questDetail.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{questDetail.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button>{{/if}}<button type="button" class="at-secondary at-favorite-button {{#if questDetail.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{questDetail.refKey}}"><i class="{{#if questDetail.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i> {{#if questDetail.isFavorite}}Favorited{{else}}Favorite{{/if}}</button><button type="button" class="at-secondary" data-action="openJournal" data-journal-id="{{questDetail.id}}" data-ref-key="{{questDetail.refKey}}"><i class="fa-solid fa-book-open"></i> Open Quest Journal</button></div>
+      <div class="at-profile-toolbar-actions">{{#if isGM}}<button type="button" class="at-secondary" data-action="queueReveal" data-ref-key="{{questDetail.refKey}}"><i class="fa-solid fa-eye-low-vision"></i> Queue Reveal</button><button type="button" class="at-secondary" data-action="showToPlayers" data-ref-key="{{questDetail.refKey}}"><i class="fa-solid fa-bullhorn"></i> Show to Players</button><button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{questDetail.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{questDetail.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button>{{/if}}<button type="button" class="at-secondary at-favorite-button {{#if questDetail.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{questDetail.refKey}}"><i class="{{#if questDetail.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i> {{#if questDetail.isFavorite}}Favorited{{else}}Favorite{{/if}}</button>{{> shareEntry kind="quest" id=questDetail.id}}{{> sceneLink kind="quest" id=questDetail.id gm=isGM}}<button type="button" class="at-secondary" data-action="openJournal" data-journal-id="{{questDetail.id}}" data-ref-key="{{questDetail.refKey}}"><i class="fa-solid fa-book-open"></i> Open Quest Journal</button></div>
     </section>
     <section class="at-quest-detail-hero">
       <div>
-        <div class="at-quest-detail-meta"><span class="at-quest-status at-status-{{questDetail.status}}">{{questDetail.statusLabel}}</span>{{#if questDetail.featured}}<span class="at-featured-badge"><i class="fa-solid fa-star"></i> Featured</span>{{/if}}</div>
+        <div class="at-quest-detail-meta">
+          {{#unless isGM}}<span class="at-quest-status at-status-{{questDetail.status}}">{{questDetail.statusLabel}}</span>{{/unless}}
+          {{#if questDetail.featured}}<span class="at-featured-badge"><i class="fa-solid fa-star"></i> Featured</span>{{/if}}
+          {{#if isGM}}<div class="at-quest-status-control"><select data-at-quest-status data-journal-id="{{questDetail.id}}" aria-label="Quest status">{{#each questDetail.statusOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></div>{{/if}}
+        </div>
         <span class="at-kicker">Quest thread</span>
         <h1>{{questDetail.name}}</h1>
         <p>{{questDetail.summary}}</p>{{#unless isGM}}<section class="at-chronicle" data-player-chronicle="entity" data-target-uuid="JournalEntry.{{questDetail.id}}"></section>{{/unless}}{{#if isGM}}{{#if questDetail.access.restricted}}<div class="at-access-badges">{{#if questDetail.access.gmOnly}}<span><i class="fa-solid fa-lock"></i> GM only</span>{{/if}}{{#if questDetail.access.undiscovered}}<span><i class="fa-solid fa-eye-slash"></i> Undiscovered</span>{{/if}}</div>{{/if}}{{/if}}
@@ -394,7 +424,9 @@
     <section class="at-character-grid">
       {{#each group}}
       <article class="at-character-card">
-        <button type="button" class="at-character-image" data-action="openProfile" data-actor-id="{{id}}"><img data-at-tome-image src="{{atImageSrc img}}" alt="{{name}}"></button>
+        <div class="at-group-portrait" data-at-tb-group-actor="{{id}}">
+          <button type="button" class="at-character-image" data-action="openProfile" data-actor-id="{{id}}"><img data-at-tome-image src="{{atImageSrc fullArtwork}}" alt="{{name}}"></button>
+        </div>
         <div class="at-character-body">
           <span>{{displayRole}}</span>
           <h2>{{name}}</h2>
@@ -585,7 +617,7 @@
   <main class="at-page at-world-page">
     <section class="at-page-heading at-world-heading">
       <div><span class="at-kicker">Lore & discovery</span><h1>World</h1><p>People, places, factions, items, and lore discovered during play.</p></div>
-      {{#if isGM}}<div class="at-world-heading-tools"><button type="button" class="at-primary" data-action="openQuickNpc"><i class="fa-solid fa-user-plus"></i> Quick NPC</button><small class="at-world-hint"><i class="fa-solid fa-wand-magic-sparkles"></i> Put Journals in the World folders, then give them a Tome profile here.</small></div>{{/if}}
+      <div class="at-world-heading-tools"><button type="button" class="at-secondary" data-party-travel=""><i class="fa-solid fa-route" aria-hidden="true"></i> Party Travel</button></div>{{#if isGM}}<div class="at-world-heading-tools"><button type="button" class="at-primary" data-action="openQuickNpc"><i class="fa-solid fa-user-plus"></i> Quick NPC</button><small class="at-world-hint"><i class="fa-solid fa-wand-magic-sparkles"></i> Put Journals in the World folders, then give them a Tome profile here.</small></div>{{/if}}
     </section>
     {{#unless useWorldExplorer}}
     {{#each worldGroups}}
@@ -647,7 +679,7 @@
         <button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <nav class="at-breadcrumbs" aria-label="Breadcrumb"><button type="button" data-action="navigate" data-tab="home">Home</button><i class="fa-solid fa-chevron-right"></i><button type="button" data-action="navigate" data-tab="world">World</button><i class="fa-solid fa-chevron-right"></i><span>{{worldProfileView.name}}</span></nav>
       </div>
-      <div class="at-profile-toolbar-actions"><button type="button" class="at-secondary at-favorite-button {{#if worldProfileView.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{worldProfileView.refKey}}"><i class="{{#if worldProfileView.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i> {{#if worldProfileView.isFavorite}}Favorited{{else}}Favorite{{/if}}</button><button type="button" class="at-secondary" data-action="openJournal" data-journal-id="{{worldProfileView.id}}" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-book-open"></i> Open Journal</button>{{#if worldProfileView.hasLinkedActor}}{{#if isGM}}<button type="button" class="at-secondary" data-action="openActor" data-actor-id="{{worldProfileView.linkedActor.id}}" title="Open the linked Foundry Actor sheet"><i class="fa-solid fa-id-card"></i> Open Sheet</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="actor" data-document-id="{{worldProfileView.linkedActor.id}}"><i class="fa-solid fa-user-shield"></i> Actor Access</button>{{/if}}{{/if}}{{#if isGM}}<button type="button" class="at-secondary" data-action="queueReveal" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-eye-low-vision"></i> Queue Reveal</button><button type="button" class="at-secondary" data-action="showToPlayers" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-bullhorn"></i> Show to Players</button><button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button><button type="button" class="at-secondary" data-action="reviewSourceFacts" data-target-uuid="JournalEntry.{{worldProfileView.id}}">Review source facts</button><button type="button" class="at-primary" data-action="editWorldProfile"><i class="fa-solid fa-pen-to-square"></i> Edit Tome Entry</button>{{/if}}</div>
+      <div class="at-profile-toolbar-actions"><button type="button" class="at-secondary at-favorite-button {{#if worldProfileView.isFavorite}}is-favorite{{/if}}" data-action="toggleFavorite" data-ref-key="{{worldProfileView.refKey}}"><i class="{{#if worldProfileView.isFavorite}}fa-solid{{else}}fa-regular{{/if}} fa-star"></i> {{#if worldProfileView.isFavorite}}Favorited{{else}}Favorite{{/if}}</button>{{> shareEntry kind="world" id=worldProfileView.id}}{{> sceneLink kind="world" id=worldProfileView.id gm=isGM}}{{#if isGM}}{{#if worldProfileView.isLocation}}<button type="button" class="at-secondary" data-party-travel="{{worldProfileView.id}}"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Party Position</button>{{/if}}{{/if}}<button type="button" class="at-secondary" data-action="openJournal" data-journal-id="{{worldProfileView.id}}" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-book-open"></i> Open Journal</button>{{#if worldProfileView.hasLinkedActor}}{{#if isGM}}<button type="button" class="at-secondary" data-action="openActor" data-actor-id="{{worldProfileView.linkedActor.id}}" title="Open the linked Foundry Actor sheet"><i class="fa-solid fa-id-card"></i> Open Sheet</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="actor" data-document-id="{{worldProfileView.linkedActor.id}}"><i class="fa-solid fa-user-shield"></i> Actor Access</button>{{/if}}{{/if}}{{#if isGM}}<button type="button" class="at-secondary" data-action="queueReveal" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-eye-low-vision"></i> Queue Reveal</button><button type="button" class="at-secondary" data-action="showToPlayers" data-ref-key="{{worldProfileView.refKey}}"><i class="fa-solid fa-bullhorn"></i> Show to Players</button><button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{worldProfileView.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button><button type="button" class="at-secondary" data-action="reviewSourceFacts" data-target-uuid="JournalEntry.{{worldProfileView.id}}">Review source facts</button><button type="button" class="at-primary" data-action="editWorldProfile"><i class="fa-solid fa-pen-to-square"></i> Edit Tome Entry</button>{{/if}}</div>
     </section>
     <section class="at-world-profile-hero">
       <div class="at-world-profile-art {{#unless worldProfileView.img}}at-no-image{{/unless}}">{{#if worldProfileView.img}}<img data-at-tome-image src="{{atImageSrc worldProfileView.img}}" alt="{{worldProfileView.name}}">{{else}}<i class="fa-solid {{worldProfileView.icon}}"></i>{{/if}}</div>
@@ -788,7 +820,7 @@
 
   {{#if isRuleDetail}}
   <main class="at-page at-rule-detail-page">
-    <section class="at-profile-toolbar at-detail-toolbar"><div class="at-detail-nav"><button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button><nav class="at-breadcrumbs"><button type="button" data-action="navigate" data-tab="home">Home</button><i class="fa-solid fa-chevron-right"></i><button type="button" data-action="navigate" data-tab="rules">Rules</button><i class="fa-solid fa-chevron-right"></i><span>{{ruleDetail.name}}</span></nav></div><div class="at-profile-toolbar-actions">{{#if isGM}}<button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{ruleDetail.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{ruleDetail.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button>{{/if}}<button type="button" class="at-secondary" data-action="sendSelectionToChat" title="Select text in the rule, then click here"><i class="fa-solid fa-comment"></i> Send Selected Text</button><button type="button" class="at-secondary" data-action="whisperSelectionToChat" title="Whisper the selected text to one or more connected users"><i class="fa-solid fa-user-secret"></i> Whisper Selected</button><button type="button" class="at-primary" data-action="openJournal" data-journal-id="{{ruleDetail.id}}"><i class="fa-solid fa-pen-to-square"></i> Open Rule Journal</button></div></section>
+    <section class="at-profile-toolbar at-detail-toolbar"><div class="at-detail-nav"><button type="button" class="at-secondary at-back-button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button><nav class="at-breadcrumbs"><button type="button" data-action="navigate" data-tab="home">Home</button><i class="fa-solid fa-chevron-right"></i><button type="button" data-action="navigate" data-tab="rules">Rules</button><i class="fa-solid fa-chevron-right"></i><span>{{ruleDetail.name}}</span></nav></div><div class="at-profile-toolbar-actions">{{#if isGM}}<button type="button" class="at-secondary" data-action="quickNote" data-document-type="journal" data-document-id="{{ruleDetail.id}}"><i class="fa-solid fa-note-sticky"></i> GM Note</button><button type="button" class="at-secondary" data-action="editAccess" data-document-type="journal" data-document-id="{{ruleDetail.id}}"><i class="fa-solid fa-shield-halved"></i> Permissions</button>{{/if}}{{> shareEntry kind="rule" id=ruleDetail.id}}<button type="button" class="at-secondary" data-action="sendSelectionToChat" title="Select text in the rule, then click here"><i class="fa-solid fa-comment"></i> Send Selected Text</button><button type="button" class="at-secondary" data-action="whisperSelectionToChat" title="Whisper the selected text to one or more connected users"><i class="fa-solid fa-user-secret"></i> Whisper Selected</button><button type="button" class="at-primary" data-action="openJournal" data-journal-id="{{ruleDetail.id}}"><i class="fa-solid fa-pen-to-square"></i> Open Rule Journal</button></div></section>
     <section class="at-rule-reading at-profile-panel at-shareable-text"><span class="at-kicker">Rule Reference</span><h1>{{ruleDetail.name}}</h1>{{#if ruleDetail.body}}<p>{{ruleDetail.body}}</p>{{else}}<p class="at-empty">This Rule Journal has no readable text yet.</p>{{/if}}</section>
   </main>
   {{/if}}
@@ -873,6 +905,7 @@
     <nav class="at-campaign-tools-tabs" aria-label="Campaign Tools sections">
       <button type="button" data-at-quick-search><i class="fa-solid fa-magnifying-glass"></i><span>Quick Search</span></button>
       <button type="button" class="{{#if isCampaignToolsOverview}}active{{/if}}" data-action="navigate" data-tab="campaignToolsOverview"><i class="fa-solid fa-table-columns"></i><span>Overview</span></button>
+      <button type="button" data-travel-history=""><i class="fa-solid fa-route" aria-hidden="true"></i><span>Travel History</span></button>
       <button type="button" class="{{#if isCampaignToolsMemory}}active{{/if}}" data-action="navigate" data-tab="campaignToolsMemory"><i class="fa-solid fa-brain"></i><span>Memory</span></button>
       <button type="button" class="{{#if isCampaignToolsAnalysis}}active{{/if}}" data-action="navigate" data-tab="campaignToolsAnalysis"><i class="fa-solid fa-magnifying-glass-chart"></i><span>Analysis</span></button>
       <button type="button" class="{{#if isCampaignToolsIndex}}active{{/if}}" data-action="navigate" data-tab="campaignToolsIndex"><i class="fa-solid fa-database"></i><span>Index</span></button>
@@ -1817,7 +1850,7 @@ The expedition trail was recovered in Session 2.</pre>
             <div class="at-settings-grid">
               <label>Campaign title<input type="text" name="campaignTitle" value="{{settings.campaignTitle}}"></label>
               <label>Campaign subtitle<input type="text" name="campaignSubtitle" value="{{settings.campaignSubtitle}}"></label>
-              <label>Current location<input type="text" name="currentLocation" value="{{settings.currentLocation}}"></label>
+              <label>Current location before the party is marked on a map<input type="text" name="currentLocation" value="{{settings.legacyCurrentLocation}}"></label>
               <label>Session label<input type="text" name="sessionLabel" value="{{settings.sessionLabel}}"></label>
             </div>
             <label>Welcome heading<input type="text" name="welcomeTitle" value="{{settings.welcomeTitle}}"></label>

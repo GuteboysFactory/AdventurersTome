@@ -19,3 +19,47 @@
 .at-twt-view-label{display:grid;gap:5px;color:#d8bf87;font-size:11px;letter-spacing:.03em}.adventurers-tome-app .at-twt-view-label select{font-size:13px;border-color:#a47c31}.at-twt-view-note{padding:11px 14px;border-left:2px solid #a47c31;background:#d2b06b0a;color:#c8b994;font-size:12px;line-height:1.6;margin:0 0 16px}.adventurers-tome-app .at-twt-view-note button{display:inline;padding:0;border:0;background:none;box-shadow:none;color:#efcf87;text-decoration:underline;font-size:inherit;min-height:0}
 
 .at-twt-paging{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:.75rem 0;color:var(--at-muted,#c6b88f);font-size:.85rem}.at-twt-paging label{display:flex;align-items:center;gap:.5rem;white-space:nowrap}.at-twt-paging select{width:auto;min-width:4rem;height:2rem;border:1px solid #80652f;border-radius:4px;background:#100d08;color:#ead5a1;padding:0 .4rem}
+.adventurers-tome-app .at-twt-entry { position: relative; min-width: 0; }
+.adventurers-tome-app .at-twt-entry > .at-twt-check {
+  position: absolute;
+  inset: .65rem .65rem auto auto;
+  z-index: 1;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--at-gold);
+  cursor: pointer;
+}
+.adventurers-tome-app .at-twt-entry:has([data-twt-check]:checked) .at-world-card { border-color: var(--at-gold); }
+.adventurers-tome-app .at-twt-entry-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+.adventurers-tome-app .at-twt-entry-actions [data-twt-clear] { min-height: 0; padding: .25rem .4rem; font-size: .8em; }
+
+.at-twt-access-panel,
+.application.at-twt-ownership-dialog {
+  font-family: Georgia, "Times New Roman", serif;
+  border: 1px solid var(--at-gold-dim);
+  border-radius: 7px;
+  background: linear-gradient(150deg, #231a10, #100d09);
+  color: var(--at-parchment);
+  box-shadow: 0 10px 26px #0009;
+}
+.at-twt-access-panel { position: fixed; inset: auto; margin: 0; padding: 0; width: min(29rem, calc(100vw - 16px)); max-height: min(25rem, calc(100vh - 16px)); }
+.at-twt-access-panel[role="tooltip"] { pointer-events: none; }
+.at-twt-access-panel:popover-open { display: flex; flex-direction: column; }
+.at-twt-access-panel header,
+.at-twt-access-panel footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem .9rem; }
+.at-twt-access-panel header { border-bottom: 1px solid var(--at-line); }
+.at-twt-access-panel header span { color: var(--at-gold); font-size: .75rem; }
+.at-twt-access-panel h3,
+.at-twt-access-panel h4 { color: var(--at-gold-bright); margin: .2rem 0; overflow-wrap: anywhere; }
+.at-twt-access-list { min-height: 0; overflow: auto; padding: .55rem .9rem; }
+.at-twt-access-list ul { list-style: none; margin: 0; padding: 0; }
+.at-twt-access-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: .55rem; padding: .32rem 0; border-bottom: 1px solid var(--at-line); overflow-wrap: anywhere; }
+.at-twt-access-list li small { color: var(--at-gold); white-space: nowrap; }
+.at-twt-access-list h4:not(:first-child) { margin-top: .75rem; }
+.at-twt-access-panel footer { border-top: 1px solid var(--at-line); justify-content: flex-end; }
+.at-twt-access-panel button,
+.at-twt-ownership-dialog .form-footer button { background: #382817; color: var(--at-gold-bright); border: 1px solid var(--at-gold-dim); border-radius: 4px; }
+.application.at-twt-ownership-dialog .window-header { background: #21180f; color: var(--at-gold-bright); border-color: var(--at-line); }
+.application.at-twt-ownership-dialog .window-content { background: transparent; color: var(--at-parchment); }
+.application.at-twt-ownership-dialog select { color: var(--at-gold-bright); background-color: #1b140d; border-color: var(--at-gold-dim); }

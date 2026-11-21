@@ -1,5 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import path from 'node:path';import * as core from '../scripts/world-tree-core.mjs';
 import * as playerCharacters from '../scripts/player-character-core.mjs';
+import {savedActorDisplayArtwork} from '../scripts/token-art.mjs';
 const root=process.env.TOME_TEST_ROOT||path.resolve(import.meta.dirname,'..');
 export function fixture({realBootstrap=false}={}){
  const hooks=new Map(),values=new Map(),writes=[],api={},opened=[];let serial=0,failSave=false,failUpdate=false;
@@ -13,7 +14,7 @@ export function fixture({realBootstrap=false}={}){
   d.delete=async options=>{if(d.failDelete)throw Error('Delete rejected');writes.push({kind:'delete',uuid:d.uuid});coll.contents.splice(coll.contents.indexOf(d),1);fire('delete'+type,d,options);};
   d.createEmbeddedDocuments=async()=>[];coll.contents.push(d);return d;
  }
- const c={console,structuredClone,...core,...playerCharacters,game,foundry:{utils:{randomID:()=> 'tree'+(++serial),deepClone:structuredClone}},
+ const c={console,structuredClone,...core,...playerCharacters,savedActorDisplayArtwork,game,foundry:{utils:{randomID:()=> 'tree'+(++serial),deepClone:structuredClone}},
   Folder:{create:async(data,options)=>{writes.push({kind:'createFolder',data});const d=add('Folder',data.name,{...data,flags:data.flags?.['adventurers-tome']||{}});fire('createFolder',d,options);return d;}},
   JournalEntry:{create:async(data)=>{writes.push({kind:'createEntry',data});return add('JournalEntry',data.name,{...data,flags:data.flags?.['adventurers-tome']||{}});}},
   Hooks:{once:(key,fn)=>{if(!hooks.has(key))hooks.set(key,[]);hooks.get(key).push(fn);},on:(key,fn)=>{if(!hooks.has(key))hooks.set(key,[]);hooks.get(key).push(fn);},callAll:fire},

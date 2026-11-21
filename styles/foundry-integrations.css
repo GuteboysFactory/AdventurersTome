@@ -1,0 +1,29 @@
+[data-tome-directory-tools] { display:flex; align-items:center; flex-wrap:wrap; gap:.35rem; margin:.35rem .5rem; }
+[data-tome-directory-tools] button { width:auto; min-height:1.65rem; padding:.15rem .4rem; font-size:.76rem; }
+.at-directory-batch { display:flex; flex-wrap:wrap; gap:.25rem; }
+.directory-item [data-tome-directory-check] { flex:0 0 1rem; width:1rem; height:1rem; margin:0 .35rem; }
+.directory-item [data-tome-directory-check][hidden] { display:none; }
+.directory-item [data-tome-directory-who] { flex:0 0 auto; width:auto; min-height:1.4rem; padding:0 .35rem; margin-inline-start:auto; color:var(--at-gold-bright,#d6b26c); }
+[data-tome-scene-nav] { display:flex; align-items:center; gap:.35rem; }
+[data-tome-scene-nav] .ui-control { width:auto; min-width:max-content; padding-inline:.5rem; }
+[data-tome-scene-nav] select { min-width:0; max-width:min(320px,45vw); }
+#scene-navigation[data-tome-scenes="compact"] > :is(.scene-navigation-menu,#scene-navigation-expand) { display:none; }
+.chat-message .message-header [data-tome-chat-portrait] { flex:0 0 auto; object-fit:cover; margin-inline-end:.4rem; border:1px solid var(--at-gold-dim,#8d6e39); }
+.chat-message .message-header [data-tome-chat-portrait="circle"] { border-radius:50%; }
+.chat-message .message-header [data-tome-chat-portrait="rounded"] { border-radius:5px; }
+.at-doc-chat-summary { display:flex; gap:.5rem; align-items:flex-start; }
+.at-doc-chat-summary > img { width:54px; height:54px; object-fit:cover; border:1px solid var(--at-gold-dim,#8d6e39); border-radius:4px; }
+.at-doc-chat-summary p { margin:.2rem 0; }
+.at-travel-planner .dialog-content { max-height: min(55vh, 32rem); overflow-y: auto; }
+.at-travel-planner .form-footer { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+.at-travel-planner .form-footer button { min-width: 0; white-space: normal; }
+.at-travel-planner .form-footer button:is([data-action="arrive"], [data-action="decision"]) { border-color: var(--color-warm-2, #ad8244); font-weight: 700; }
+.at-travel-record { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .5rem; margin-block: .25rem; }
+.at-travel-record label { display: flex; align-items: center; gap: .45rem; }
+.at-travel-record button { min-width: 2rem; padding-inline: .4rem; }
+.at-map-point-dialog .at-map-icon-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(6.5rem,1fr)); gap:.4rem; max-height:13rem; overflow:auto; }
+.at-map-point-dialog .at-map-icon-grid label { display:flex; align-items:center; flex-direction:column; gap:.2rem; cursor:pointer; text-align:center; padding:.4rem; border:1px solid #674f35; border-radius:4px; }
+.at-map-point-dialog .at-map-icon-grid label[hidden] { display:none; }
+.at-map-point-dialog .at-map-icon-grid label:has(input:checked) { border-color:#e5ba69; }
+.at-map-point-dialog .at-map-icon-grid img { width:2rem; height:2rem; object-fit:contain; border:0; }
+.rg-scene-quick-menu button[hidden] { display:none; }

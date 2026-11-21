@@ -1,5 +1,6 @@
 import {emptyTree,validateTree,copy,parentId,folderById,insertFolder,moveFolder,assignEntry,subtree,importStructure,captureOriginalStructure,projectTreeView,TREE_VIEWS} from './world-tree-core.mjs';
 import {isWorldPlayerCharacter} from './player-character-core.mjs';
+import {savedActorDisplayArtwork} from './token-art.mjs';
 const ID='adventurers-tome',KEY='worldTreeV1',OPTIONS={render:false,adventurersTomeWorldTree:true};
 const api=()=>globalThis.ATTestAI.modules.get(ID)?.api;
 const flag=(d,k)=>globalThis.ATTestAI.flags(d)?.getFlag?.(ID,k);
@@ -63,7 +64,8 @@ export function rowsForTree(s=readTree()){
  for(const doc of native){if(!canView(doc)||basicActors.has(doc.uuid))continue;const j=representations.get(doc.uuid),p=j?flag(j,'worldProfile')||{}:flag(doc,'actorProfile')||{};
   const owned=s.folders.some(f=>f.bindings?.[doc.documentName]?.id===parentId(doc));
   if(s.setup!=='imported'&&!j&&!owned&&!Object.hasOwn(s.assignments,doc.uuid))continue;
-  rows.push({uuid:doc.uuid,id:doc.id,name:doc.name,kind:doc.documentName==='Item'?'item':p.category|| (doc.type==='character'?'pc':'npc'),img:p.heroImage||doc.img||'',summary:p.summary||'',subtitle:p.subtitle||p.title||'',journalId:j?.id||''});
+  const actorArtwork=doc.documentName==='Actor'?savedActorDisplayArtwork(doc):'';
+  rows.push({uuid:doc.uuid,id:doc.id,name:doc.name,kind:doc.documentName==='Item'?'item':p.category|| (doc.type==='character'?'pc':'npc'),img:actorArtwork||p.heroImage||doc.img||'',summary:p.summary||'',subtitle:p.subtitle||p.title||'',journalId:j?.id||''});
  }
  for(const row of rows){if(Object.hasOwn(s.assignments,row.uuid)){row.folder=s.assignments[row.uuid];continue;}const doc=rootDoc(row.uuid),presentation=row.journalId?game.journal.get(row.journalId):null;
   const source= s.folders.find(f=>f.bindings?.[doc?.documentName]?.id===parentId(doc));

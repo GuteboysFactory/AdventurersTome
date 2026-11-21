@@ -1,3 +1,115 @@
+## 2.1.7
+
+- Add map markers, scene links, party travel, waypoints, events and travel history. Give GMs route cleanup and give each viewer their own route colors.
+- Add Tome Token Builder and share portrait selection across Foundry Actor sheets, Group and Home. Synchronize token artwork across scenes and keep newly placed tokens upright by default.
+- Add chat sharing and portraits, Foundry sidebar multi-selection and ownership review, compact scene navigation and scene defaults.
+- Add a compact quest status dropdown and direct writing access to private GM notes.
+- See [the 2.1.7 release notes](docs/V2.1.7_STABLE_RELEASE.md) for the complete summary and upgrade instructions.
+
+## 2.1.7-qa.19
+
+- **Character artwork:** Edit portraits in Tome's Token Builder from the Foundry sheet. The sheet, Group, and Home share the same portrait selection, and token images sync to existing copies across scenes.
+- **Token defaults:** Keep portrait artwork upright when new tokens are placed. Preserve explicit rotation choices.
+
+## 2.1.7-qa.18
+
+- **Map markers:** Use Tome-placed notes and markers as waypoints, final destinations, or the party position. A marker has one edit action in Realm Guard's hosted map menu.
+- **Scene links:** Link, preview, activate, change, and remove a marker's Foundry scene from its map menu. A marker event can use the same link or specify a different scene.
+- **Chat:** Show the Chronicler portrait when the GM speaks as themselves.
+
+## 2.1.7-qa.17
+
+- **Travel trail:** Fade previous legs to translucent grey when the party leaves a waypoint. The latest leg stays green.
+- **Manage travel routes:** Select and delete multiple unlinked legs or archived routes as GM. Both GMs and players can give older routes a personal map color.
+
+## 2.1.7-qa.16
+
+- **GM login:** Restore the saved party flag, travelled trail, waypoints and final goal after Tome finishes loading the location data. Flag controls become available as soon as the planner is ready.
+
+## 2.1.7-qa.15
+
+- **Waypoints:** Add intermediate stops directly from the map in free travel. The GM’s dashed guide runs through them to the existing final goal.
+- **Undo:** Right-click the map or flag to undo the latest route change or flag movement. Undoing a movement also rolls back the associated travel log entry.
+
+## 2.1.7-qa.14
+
+- **Party flag:** Restore the saved flag on login after the map loads. The GM can drag it with Travel Planner off, and the assigned player can drag it during a plan. The flag is easier to grab at low zoom.
+
+## 2.1.7-qa.13
+
+- **Party flag:** Move freely with Travel Planner enabled. The GM can assign a player to drive each flag, split the party, and rejoin groups while keeping both travelled paths.
+- **Goals and marker events:** Share a pulsing approximate goal area or the exact destination. The GM sees the guide line to the exact destination. Dropping a flag on an event marker lets the GM preview or activate its linked scene, or continue on the map.
+- **Home and artwork:** Party Location opens the map at the flag. Saving character artwork refreshes visible portraits and updates placed tokens using the previous prototype image where the user has permission.
+
+## 2.1.7-qa.12
+
+- **Travel on the map:** Drag the green, gold-trimmed party flag along the route. Draw the next leg freehand or drag the line onto an intermediate waypoint. A green dash moves along the visible route ahead, and the travelled path turns green as the flag moves.
+- **Travel history:** Record the distance and bends the party actually travelled. Open the route from Sessions, My Chronicle or Campaign Tools → Travel History.
+- **Create item / place on map:** Create a Foundry Item or World place with an icon, size, player visibility and linked journal. Use the marker as a waypoint or edit it from the map menu.
+
+## 2.1.7-qa.11
+
+- **Map symbols:** Display the party as planted flags, place markers as hollow teal rings, and notes as parchment. Draw upcoming legs with grey dashes and travelled legs with green dashes. A green arrow follows the visible route towards the next stop.
+- **Final destination:** Set the finish separately. New waypoints and events fit before the finish, and detours and rerouting keep it in place.
+- **Journey history:** Finish or start a new planned journey to archive travelled legs. The map retains them in muted grey. Open an archived stop on the map or its linked session from Journey history.
+
+## 2.1.7-qa.10
+
+- **Map actions:** Right-click the map to place a note, place a location marker or add a waypoint. Existing location pins can set the party position, set a destination or open private GM notes.
+- **Travel Planner:** Opt in per journey. Prepare private encounters, checks and events, choose outcomes at arrival, and manage detours, route changes and separate travelling groups.
+- **Player map and Sessions:** Show the whole known route or only the travelled route. Link confirmed travel to a session, preview the shared log, and undo an arrival together with its log entry.
+
+## 2.1.7-qa.9
+
+- **Artwork sync:** Saving a token or portrait updates the Foundry Actor image used by Home, search, linked World entries, and the native Actors directory. Animated tokens use their still poster for those images. Group retains the original full artwork and its own display preference.
+
+## 2.1.7-qa.8
+
+- **Foundry directories:** GM selection, ownership overview and review, moving, batch JSON export, and confirmed deletion from the world sidebars.
+- **Maps and scenes:** Optional borderless note pins, folder-grouped compact scene navigation, per-player scene access, and opt-in defaults for newly created scenes.
+- **Chat:** Optional speaker portraits with selectable shape and size. Shared documents show a type-specific card with permitted images and details.
+- **Group:** Keep portrait creation on the profile and show the available image choices on the group card when hovering or focusing. Full artwork is selected by default.
+
+## 2.1.7-qa.7
+
+- **Token Builder:** Choose shape and frame appearance separately. The gray palette includes weathered stone, marble, metal, wood, leather, and fantasy textures with stronger relief. Customize colors, thickness, and decoration. Preview and export glow, fire, frost, sparks, and arcane pulse as looping WebM with a still poster.
+- **Group and portraits:** Group cards show the full source artwork where available. **Create portrait** makes a separate, cropped portrait that can be selected in Tome or on the Actor sheet.
+- **Actor sheets:** Tome supplies the Token Builder shortcut when Realm Guard has removed its own. Portrait controls reveal on hover, keyboard focus, or a tap on a touch screen.
+
+## 2.1.7-qa.6
+
+- **Token Builder:** Create the preview canvas after Foundry renders and sanitizes the dialog. Image selection, local file drop, and PNG export work through the same preview.
+
+## 2.1.7-qa.5
+
+- **Token Builder:** Render a 512 px PNG from a Foundry image or dropped file. Choose Whole image, Fill / Crop, or Fit and adjust. Start from a frame preset or customize shape, colors, thickness, and detail. A borderless token can show the whole image.
+- **Portrait display:** Choose Full artwork or Token image independently in Tome and the Actor sheet. Changes to display preferences leave prototype and placed tokens as they were.
+- **Realm Guard:** Read legacy source and crop data and open Tome's editor from existing Realm Guard shortcuts. Save through standard Foundry prototype fields and optionally update matching tokens on the selected scene.
+
+## 2.1.7-qa.4
+
+- **Quests:** Bound the status dropdown to a compact control aligned at the right above the title, including when the theme makes selects full-width.
+- **World:** Move the GM checkbox to the top-right corner of each card and remove its surrounding frame.
+
+## 2.1.7-qa.3
+
+- **World:** GM checkboxes sit on the cards. **Who can see?** and **Review Selected** are in the toolbar. Hover for a quick access summary, or right-click to keep the Tome-styled preview open.
+- **Quests:** The status dropdown fits above the title in a compact control.
+- **Chat:** Select text, table content, or images on a Foundry document sheet and send the excerpt to public chat or as a whisper with Tome closed. Recipient access is checked on the source document and its selected pages.
+
+## 2.1.7-qa.2
+
+- **Quests:** Change between Active, Dormant, Completed, and Failed directly from the detail view.
+- **Chat:** Send clickable links from Foundry document sheets, directories, and compendia while the Tome window is closed. Public chat and whispers respect document access.
+- **World:** Select several entries, inspect what players can see, and review ownership changes before applying them.
+- **Party Travel:** Set the party position from an existing World location pin and display the same location on Home. Record the travelled route and link Foundry scenes to Sessions, Quests, and World entries.
+
+## 2.1.7-qa.1
+
+- **Quests:** A GM can mark a quest Active directly from its detail view.
+- **Private Vault:** Select one token and use `Ctrl` with the physical `<` key on a Nordic keyboard, or use the token HUD's **GM Notes** button. Both focus the private note editor. The shortcut is configurable in Foundry under **Write Private Vault note**.
+- **Chat:** **Send to Chat** shares a Foundry document link from Session, Quest, World and Rule detail views. Public posting requires access for all users. Whispers offer eligible recipients. Text excerpts can still be shared through the selection tools.
+
 ## 2.1.6
 
 - Give Sessions a compact fixed heading and independent scrolling for the Explorer, list and reader. Use separate list and reader views in narrow windows.

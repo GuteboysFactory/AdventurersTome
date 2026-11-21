@@ -5,11 +5,22 @@ const owner=()=>`${game.world?.id}|${game.user?.id}`,dialogs=new Map();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const types=['prep','secret','reminder','clue','reveal','consequence','question','idea','scene'];
 function row(n={}){const noteCategories=api().privateVaultMedia?.categories()||types.map(id=>({id,label:id}));if(n.type&&!noteCategories.some(c=>c.id===n.type))noteCategories.push({id:n.type,label:n.type});return `<article data-vault-note data-id="${esc(n.id||foundry.utils.randomID(16))}" data-created="${n.createdAt||Date.now()}"><div class="at-vault-note-head"><input data-title aria-label="Note title" value="${esc(n.title||'GM Note')}"><select data-type aria-label="Note type">${noteCategories.map(t=>`<option value="${esc(t.id)}" ${t.id===(n.type||'reminder')?'selected':''}>${esc(t.label)}</option>`).join('')}</select><select data-status aria-label="Note status"><option value="open">Open</option><option value="resolved" ${n.status==='resolved'?'selected':''}>Resolved</option></select><label><input data-pinned type="checkbox" ${n.pinned?'checked':''}> Pin</label><button type="button" data-remove aria-label="Remove note"><i class="fa-solid fa-trash"></i></button></div><div data-rich-editor></div><div data-private-images></div><label class="at-vault-image-add">Add private image<input data-image-file type="file" accept="image/png,image/jpeg,image/webp"></label><div class="at-vault-note-context"><input data-trigger aria-label="Trigger" placeholder="Trigger / when it matters" value="${esc(n.trigger)}"><input data-session type="number" min="1" aria-label="Target session" placeholder="Session" value="${esc(n.sessionTarget||'')}"></div></article>`;}
-async function open(input){
+function focusNoteEditor(dialog){
+ const root=dialog.element;
+ if(!root?.querySelector('[data-vault-note]'))root?.querySelector('[data-vault-add]')?.click();
+ const note=root?.querySelector('[data-vault-note]:has([data-pinned]:checked)')||root?.querySelector('[data-vault-note]');
+ note?.querySelector('[role="textbox"][contenteditable="true"]')?.focus();
+}
+async function open(input,{write=false}={}){
  if(!game.user?.isGM)throw Error('Only a GM can open Private Vault.');
  if(api().securePrivateVault&&!api().securePrivateVault.unlocked()){await unlock();if(!api().securePrivateVault.unlocked())return;}
  const target=store().canonical(input);if(!target)throw Error('This Private Vault source is no longer available.');const stamp=owner(),key=stamp+'|'+target.uuid;
- if(dialogs.has(key)){dialogs.get(key).bringToFront();return dialogs.get(key);}
+ if(dialogs.has(key)){
+  const existing=dialogs.get(key);
+  existing.bringToFront();
+  if(write)focusNoteEditor(existing);
+  return existing;
+ }
  const initial=store().record(target);let revision=initial.revision;const originals=new Map(initial.notes.map(n=>[n.id,n])),editors=new Map(),drafts=new Map();
  const media=api().privateVaultMedia;
  const refreshCategoryChoices=root=>{for(const select of root.querySelectorAll('[data-type]')){const value=select.value,rows=media.categories();if(value&&!rows.some(c=>c.id===value))rows.push({id:value,label:value});select.innerHTML=rows.map(c=>`<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('');select.value=value;}};
@@ -25,7 +36,7 @@ async function open(input){
   }}]});
  dialog.addEventListener('render',()=>{dialog.element.dataset.atVaultEditor=target.uuid;dialog.element.querySelector('[data-vault-manage-categories]').onclick=async()=>{await media.manageCategories();if(dialog.element?.isConnected)refreshCategoryChoices(dialog.element);};for(const article of dialog.element.querySelectorAll('[data-vault-note]'))enhance(article);dialog.element.querySelector('[data-vault-category]').onclick=async()=>{const label=await foundry.applications.api.DialogV2.prompt({window:{title:'New private category'},content:'<label>Category name<input name="label" maxlength="60" autofocus></label>',ok:{label:'Create category',callback:(_e,_b,d)=>d.element.querySelector('input').value},rejectClose:false});if(!label)return;try{await media.saveCategory(label);refreshCategoryChoices(dialog.element);}catch(e){ui.notifications.error(e.message);}};dialog.element.addEventListener('click',e=>{if(e.target.closest('[data-remove]')){const article=e.target.closest('[data-vault-note]');editors.get(article.dataset.id)?.destroy();editors.delete(article.dataset.id);article.remove();}if(e.target.closest('[data-vault-add]')){const list=dialog.element.querySelector('[data-vault-list]');list.insertAdjacentHTML('beforeend',row());enhance(list.lastElementChild);list.lastElementChild.querySelector('[data-title]').focus();}});});
  dialog.addEventListener('close',()=>{for(const editor of editors.values())editor.destroy();dialogs.delete(key);},{once:true});dialogs.set(key,dialog);
- try{await dialog.render({force:true});return dialog;}catch(e){dialogs.delete(key);throw e;}
+ try{await dialog.render({force:true});if(write)focusNoteEditor(dialog);return dialog;}catch(e){dialogs.delete(key);throw e;}
 }
 function currentDocument(app){const ref=app?._currentTomeRef?.();if(ref){const [kind,id]=ref.split(':');return kind==='actor'?game.actors.get(id):game.journal.get(id);}return app?.document||app?.actor||app?.object;}
 function openSafely(d){void open(d).catch(e=>ui.notifications.error(e.message));}

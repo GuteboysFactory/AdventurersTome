@@ -2,7 +2,7 @@
   "id": "adventurers-tome",
   "title": "Adventurer’s Tome",
   "description": "Campaign workspace with local Swedish and English analysis, campaign memory, world knowledge and responsive browsing.",
-  "version": "2.1.6",
+  "version": "2.1.7",
   "authors": [
     {
       "name": "Per"
@@ -134,6 +134,14 @@
     "scripts/testai-language-ui.js",
     "scripts/identity-conflicts.js",
     "scripts/world-source-explorer.js",
+    "scripts/party-travel.js",
+    "scripts/travel-planner.js",
+    "scripts/travel-map-editor.js",
+    "scripts/map-points.js",
+    "scripts/token-builder.js",
+    "scripts/foundry-directory-tools.js",
+    "scripts/foundry-scene-tools.js",
+    "scripts/foundry-chat-portraits.js",
     "scripts/player-character-placement.js",
     "scripts/integrated-interpretation.js",
     "scripts/private-vault-ui.js",
@@ -190,6 +198,8 @@
     "styles/session-upload.css",
     "styles/testai-language.css",
     "styles/world-tree.css",
+    "styles/token-builder.css",
+    "styles/foundry-integrations.css",
     "styles/player-character-placement.css",
     "styles/private-vault-notes.css",
     "styles/people-workspace.css",
@@ -218,5 +228,5 @@
     "vendor/compromise-14.17.0.js"
   ],
   "manifest": "https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json",
-  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.6/adventurers-tome.zip"
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.7/adventurers-tome.zip"
 }

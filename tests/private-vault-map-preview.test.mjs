@@ -4,11 +4,12 @@ import {test} from 'node:test';
 import vm from 'node:vm';
 
 function fixture() {
-  const callbacks = new Map(), timers = new Map(), opened = [], reads = [];
+  const callbacks = new Map(), timers = new Map(), keybindings = new Map(), opened = [], writes = [], reads = [];
   let nextTimer = 0;
   const journal = {documentName: 'JournalEntry', name: 'Old Bridge', uuid: 'JournalEntry.bridge'};
   const accountNotes = new Map([['gm', [{title: 'Reminder', body: 'Bridge patrol at dusk'}]]]);
   const game = {system: {id: 'realm-guard'}, world: {id: 'qa'}, user: {id: 'gm', isGM: true}};
+  game.keybindings = {register: (_module, name, binding) => keybindings.set(name, binding)};
   const security = {unlocked: () => true};
   class Element {
     children = [];
@@ -34,13 +35,16 @@ function fixture() {
   const api = {
     securePrivateVault: security,
     privateVault: {canonical: input => input, notes: () => { reads.push(game.user.id); return accountNotes.get(game.user.id) || []; }},
-    privateVaultUI: {open: async source => { opened.push(source); }}
+    privateVaultUI: {open: async (source, options) => {
+      opened.push(source);
+      if (options?.write) writes.push(source);
+    }}
   };
   const context = vm.createContext({
     game, document, innerWidth: 900, innerHeight: 700, canvas: {ready: true}, performance, HTMLElement: Element,
     setTimeout: callback => { timers.set(++nextTimer, callback); return nextTimer; },
     clearTimeout: id => timers.delete(id),
-    Hooks: {once() {}, on: (name, callback) => callbacks.set(name, callback)},
+    Hooks: {once: (name, callback) => callbacks.set(name, callback), on: (name, callback) => callbacks.set(name, callback)},
     ATTestAI: {modules: new Map([['adventurers-tome', {api}]])}
   });
   const load = file => vm.runInContext(readFileSync(new URL(`../scripts/${file}.js`, import.meta.url), 'utf8')
@@ -54,7 +58,7 @@ function fixture() {
     for (const [id, callback] of [...timers]) { timers.delete(id); callback(); }
     return document.body.children[0];
   };
-  return {load, callbacks, hover, marker, document, game, journal, security, opened, reads, Element};
+  return {load, callbacks, hover, marker, document, game, journal, security, opened, reads, writes, keybindings, canvas: context.canvas, Element};
 }
 
 test('Realm Guard marker previews use the current GM Vault and clear on lock', () => {
@@ -86,6 +90,24 @@ test('Ordinary map pins do not open the Realm Guard Vault preview', () => {
   qa.marker.document.texture.src = 'icons/svg/book.svg';
   assert.equal(qa.hover(), undefined);
   assert.deepEqual(qa.reads, []);
+});
+
+test('The Vault shortcut requests writing mode for exactly one selected token and only for a GM', () => {
+  const qa = fixture();
+  qa.load('private-vault-token-ui');
+  qa.callbacks.get('init')();
+  const binding = qa.keybindings.get('writePrivateTokenNote');
+  assert.equal(binding.restricted, true);
+  assert.equal(binding.onDown(), false);
+  const token = {id: 'qa-token'};
+  qa.canvas.tokens = {controlled: [token, {id: 'other'}]};
+  assert.equal(binding.onDown(), false);
+  qa.canvas.tokens.controlled.pop();
+  assert.equal(binding.onDown(), true);
+  assert.deepEqual(qa.writes, [token]);
+  qa.game.user = {id: 'player', isGM: false};
+  assert.equal(binding.onDown(), false);
+  assert.deepEqual(qa.writes, [token]);
 });
 
 test('Actor sheet header uses an icon-only, labelled Private Vault button', () => {

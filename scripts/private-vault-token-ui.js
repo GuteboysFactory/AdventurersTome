@@ -33,6 +33,25 @@ function hover(placeable,hovered,mapEntry){
  if(!hovered){if(active===placeable){clearTimeout(timer);closing=setTimeout(clear,120);}return;}
  clear();if(dragging())return;active=placeable;metrics.scheduled++;const stamp=owner();timer=setTimeout(()=>display(placeable,stamp,mapEntry),350);
 }
+function openForWriting(token){
+ clear();
+ const editor=api()?.privateVaultUI;
+ if(!editor)return false;
+ void editor.open(token,{write:true}).catch(error=>ui.notifications.error(error.message));
+ return true;
+}
+
+Hooks.once('init',()=>game.keybindings.register(ID,'writePrivateTokenNote',{
+ name:'Write Private Vault note',
+ hint:'Select one token on the canvas to open its private notes in writing mode.',
+ restricted:true,
+ editable:[{key:'IntlBackslash',modifiers:['Control']}],
+ onDown:()=>{
+  const tokens=globalThis.canvas?.tokens?.controlled??[];
+  return allowed()&&tokens.length===1&&openForWriting(tokens[0]);
+ }
+}));
+
 Hooks.on('hoverToken',(token,hovered)=>hover(token,hovered));
 Hooks.on('hoverNote',(note,hovered)=>{
  if(!hovered){hover(note,false);return;}
@@ -42,7 +61,7 @@ Hooks.on('hoverNote',(note,hovered)=>{
 });
 Hooks.on('renderTokenHUD',(hud,element)=>{
  if(!allowed())return;const root=element instanceof HTMLElement?element:element?.[0],token=hud.object;if(!root||!token)return;
- const old=root.querySelector('[data-at-token-private-vault]'),button=document.createElement('button');button.type='button';button.className='control-icon';button.dataset.atTokenPrivateVault='true';button.title='Open Private Vault · GM Notes';button.setAttribute('aria-label',button.title);button.innerHTML='<i class="fa-solid fa-lock"></i><span class="at-vault-hud-label">GM Notes</span>';button.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();clear();void api().privateVaultUI.open(token).catch(e=>ui.notifications.error(e.message));};if(old)old.replaceWith(button);else(root.querySelector('.col.left,.left')||root).append(button);
+ const old=root.querySelector('[data-at-token-private-vault]'),button=document.createElement('button');button.type='button';button.className='control-icon';button.dataset.atTokenPrivateVault='true';button.title='Write Private Vault note';button.setAttribute('aria-label',button.title);button.innerHTML='<i class="fa-solid fa-lock" aria-hidden="true"></i><span class="at-vault-hud-label">GM Notes</span>';button.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();if(allowed())openForWriting(token);};if(old)old.replaceWith(button);else(root.querySelector('.col.left,.left')||root).append(button);
 });
 document.addEventListener('pointermove',e=>{lastPoint={x:e.clientX,y:e.clientY};},{passive:true});
 document.addEventListener('pointerdown',e=>{if(panel?.contains(e.target))return;clear();if(e.target===document.getElementById('board'))pressed=true;},true);
