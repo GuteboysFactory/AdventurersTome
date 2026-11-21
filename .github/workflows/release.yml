@@ -535,6 +535,24 @@ jobs:
               exit 1
             fi
           fi
+          if [[ "$VERSION" == "2.1.7" ]]; then
+            EXPECTED_TAG="$(sed -n 's/^replace-tag: //p' release/READY)"
+            if [[ -n "$EXPECTED_TAG" ]]; then
+              [[ "$EXPECTED_TAG" =~ ^[a-f0-9]{40}$ ]]
+              CURRENT_TAG="$(git rev-parse "refs/tags/$VERSION")"
+              if [[ "$CURRENT_TAG" != "$EXPECTED_TAG" && "$CURRENT_TAG" != "$GITHUB_SHA" ]]; then
+                echo "Stable $VERSION no longer points to the approved replacement target." >&2
+                exit 1
+              fi
+              gh release view "$VERSION" >/dev/null
+              if [[ "$CURRENT_TAG" == "$EXPECTED_TAG" ]]; then
+                git push --force-with-lease="refs/tags/$VERSION:$EXPECTED_TAG" origin "$GITHUB_SHA:refs/tags/$VERSION"
+              fi
+              gh release upload "$VERSION" dist/adventurers-tome.zip --clobber
+              gh release edit "$VERSION" --notes-file "docs/V${VERSION}_STABLE_RELEASE.md"
+              exit 0
+            fi
+          fi
           if [[ "$VERSION" == "2.1.5" || "$VERSION" == "2.1.6" || "$VERSION" == "2.1.7" ]]; then
             NOTES="$(cat "docs/V${VERSION}_STABLE_RELEASE.md")"
             if git show-ref --verify --quiet "refs/tags/$VERSION" || gh release view "$VERSION" >/dev/null 2>&1; then

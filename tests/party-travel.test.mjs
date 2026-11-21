@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import vm from 'node:vm';
 import {compactPath,pathLength,sliceTravelPath} from '../scripts/travel-geometry.mjs';
-import {archiveRouteKey,pinKey,removeTravelRecords,trailMarkKey} from '../scripts/travel-plan.mjs';
+import {archiveRouteKey,changeTravelPlan,newTravelPlan,pinKey,publicTravelPlan,removeTravelRecords,trailMarkKey} from '../scripts/travel-plan.mjs';
 
 const source = readFileSync(new URL('../scripts/party-travel.js', import.meta.url), 'utf8').replace(/^import .*;\r?\n/gm,'');
 
@@ -52,7 +52,7 @@ function fixture() {
   };
   Object.defineProperty(game.scenes,'contents',{get:()=>[...game.scenes.values()]});
   const entries = new Map();
-  let nextMarker;
+  let nextMarker, promptOptions;
   game.journal = {get:id=>entries.get(id), get contents(){return [...entries.values()];}};
   scene.createEmbeddedDocuments = async (type, [data]) => {
     assert.equal(type, 'Note');
@@ -61,7 +61,7 @@ function fixture() {
     return [note];
   };
   const context = vm.createContext({
-    game, compactPath,pathLength,sliceTravelPath,pinKey,archiveRouteKey,removeTravelRecords,trailMarkKey, Hooks:{once:(name,fn)=>{
+    game, compactPath,pathLength,sliceTravelPath,pinKey,archiveRouteKey,changeTravelPlan,newTravelPlan,publicTravelPlan,removeTravelRecords,trailMarkKey, Hooks:{once:(name,fn)=>{
       if(name==='ready')ready.push(fn);
       if(name==='adventurersTomeCoreApiReady')coreReady.push(fn);
     },on:(name,fn)=>hooks.set(name,fn),callAll(){}},
@@ -72,7 +72,8 @@ function fixture() {
       entries.set(entry.id, entry);
       return entry;
     }},
-    foundry:{utils:{randomID:()=>`flag-${saved.basicTrail?.length||0}`,escapeHTML:value=>String(value).replaceAll('<','&lt;')}, applications:{api:{DialogV2:{prompt:async()=>nextMarker}}}},
+    foundry:{utils:{randomID:()=>`flag-${saved.basicTrail?.length||0}`,escapeHTML:value=>String(value).replaceAll('<','&lt;')},
+      applications:{api:{DialogV2:{prompt:async options=>{promptOptions=options;return nextMarker;}}}}},
     canvas:{ready:true, scene, app:{ticker}, dimensions:{rect:{contains:(x,y)=>Number.isFinite(x)&&Number.isFinite(y)}}, interface:{addChild(graphic){ graphic.parent=this;rendered.push(graphic); return graphic; }}}
   });
   vm.runInContext(source, context);
@@ -85,7 +86,7 @@ function fixture() {
     mockRoutes:result=>{context.foundry.applications.api.DialogV2.wait=async()=>result;},
     readyWithPlanner(){const script=readFileSync(new URL('../scripts/travel-planner.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');vm.runInContext(script,context);ready.forEach(start=>start());},
     waypoints:()=>saved.waypoints,
-    mockDialog:result=>{nextMarker=result;}, actions:noteId=>mapActions(point,noteId),
+    mockDialog:result=>{nextMarker=result;}, promptOptions:()=>promptOptions, actions:noteId=>mapActions(point,noteId),
     mockConfirm:confirm=>{context.foundry.applications.api.DialogV2.confirm=confirm;},
     write:(stop, previous=JSON.stringify(context.travelState()))=>context.travelWrite(stop,'gm','qa',previous),
     current:context.travelLocationInfo, focus:context.focusPartyLocation, draw:context.travelDraw, clear:context.travelClearOverlay};
@@ -189,6 +190,36 @@ test('hidden pins break the player route and a hidden current stop has no visibl
   assert.equal(qa.current().name,'');
   await qa.write({undo:true});
   assert.equal(qa.saved().length,3);
+});
+
+test('GM can hand over the basic flag directly without losing its place or route',async()=>{
+  const qa=fixture(),gm=qa.game.user;
+  const origin=qa.addPin('a','Bree',20),finish=qa.addPin('b','Fornost',120);
+  const character={id:'pc',name:'Ranger',testUserPermission:(user,level)=>user===qa.player&&level==='OWNER'};
+  Object.assign(qa.player,{name:'Player',character,can:permission=>permission==='QUERY_USER'});
+  qa.game.actors=new Map([[character.id,character]]);
+  qa.game.users={contents:[gm,qa.player],get:id=>[gm,qa.player].find(user=>user.id===id)};
+  qa.api.getGroup=()=>[{id:character.id}];
+  qa.readyWithPlanner();
+  await qa.write(origin);
+  await qa.write({...finish,setDestination:true});
+  const [handle]=qa.api.travelPlanner.freeHandles();
+  await qa.api.travelPlanner.moveFlag(handle,[{x:60,y:90}]);
+
+  const choose=qa.api.travelPlanner.flagActions('basic-party').find(action=>action.label==='Who can move this flag?');
+  assert.ok(choose);
+  qa.mockDialog('');
+  await choose.run();
+  assert.equal(qa.shared().plannerOwner,undefined);
+  qa.mockDialog(qa.player.id);
+  await choose.run();
+  assert.equal(qa.promptOptions().window.title,'Who can move this flag?');
+  assert.match(qa.promptOptions().content,/Player · Ranger/);
+  assert.equal(qa.privatePlan().enabled,true);
+  assert.equal(qa.privatePlan().groups[0].queue.at(-1).pin.noteId,finish.noteId);
+  assert.equal(qa.shared().routes[0].flag.x,60);
+  assert.equal(qa.shared().routes[0].trail.length,1);
+  assert.equal(qa.shared().routes[0].driverId,qa.player.id);
 });
 
 test('a stale dialog or a deleted pin cannot overwrite the route', async () => {

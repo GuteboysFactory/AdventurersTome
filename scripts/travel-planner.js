@@ -86,11 +86,12 @@ function initialize() {
   return {...plan,mode:'free',events:{}};
 }
 
-async function commit(command, original) {
+async function commit(command, original, expectedShared) {
   const owner = game.user.id, world = game.world.id;
   const persisted = readPlan(), shared = readShared();
   if (!game.user.isGM || saving || (shared.plannerOwner && shared.plannerOwner !== owner)) throw Error('The travel plan is being controlled by another GM.');
   if (JSON.stringify(persisted) !== original) throw Error('The travel plan changed. Open the decision again.');
+  if (expectedShared!==undefined && JSON.stringify(shared)!==expectedShared) throw Error('The party flag changed. Right-click it again.');
   if (command.pin && !api().partyTravel.isWaypoint(api().partyTravel.resolve(command.pin)?.note)) throw Error('That map waypoint is no longer available.');
   if (persisted?.enabled && persisted.mode!=='free' && ['arrive','position'].includes(command.type)) {
     const group=persisted.groups.find(group=>group.id===command.groupId)||persisted.groups[0];
@@ -428,12 +429,25 @@ function driverField(name,label,group,selected) {
   return `<label>${label}<select name="${name}"><option value="">GM only</option>${options}</select></label>`;
 }
 
-async function chooseDriver(group,original) {
-  const driverId=await dialog().prompt({window:{title:`Flag driver · ${group.label}`},rejectClose:false,
-    content:driverField('driverId','Who can move this flag?',group,group.driverId),ok:{label:'Save driver',callback:(_e,b)=>b.form.elements.driverId.value}});
+async function chooseDriver(group,original,{basic=false,expectedShared,sceneId=groupPosition(group)?.sceneId}={}) {
+  const eligible=game.users.contents.some(user=>!user.isGM&&validDriver(user.id,group.memberIds));
+  const detail=eligible?'The chosen player can drag this flag on the map while you are connected.':
+    'No players are available. Assign a player a character in this group, give them Owner access, and allow user queries in Foundry.';
+  const driverId=await dialog().prompt({window:{title:'Who can move this flag?'},rejectClose:false,
+    content:driverField('driverId',group.label,group,basic?null:group.driverId)+`<p>${detail}</p>`,
+    ok:{label:'Save',callback:(_e,b)=>b.form.elements.driverId.value}});
   if (typeof driverId!=='string') return;
+  if (basic&&!driverId) return;
   if (!validDriver(driverId,group.memberIds)) throw Error('Choose a driver whose character is in this group.');
-  await commit({type:'driver',groupId:group.id,driverId},original);
+  if (driverId&&sceneId&&!canShareScene(sceneId)) throw Error('Share this map with the players before assigning the flag.');
+  await commit({type:'driver',groupId:group.id,driverId,enable:basic},original,expectedShared);
+}
+
+function chooseBasicDriver() {
+  const persisted=readPlan(),shared=readShared(),flag=api().partyTravel.basicFlagHandle();
+  if (active()||shared.plannerOwner||!flag) throw Error('The party flag changed. Right-click it again.');
+  const group=(persisted?.id?persisted:initialize()).groups[0];
+  return chooseDriver(group,JSON.stringify(persisted),{basic:true,expectedShared:JSON.stringify(shared),sceneId:flag.flag.sceneId});
 }
 
 function canRejoin(group,other) {
@@ -464,12 +478,13 @@ function routeUndoAction(sceneId,groupId) {
 function flagActions(groupId) {
   if (groupId==='basic-party' && game.user.isGM) {
     const undo=api().partyTravel.basicUndoAction?.(canvas.scene?.id);
-    return [undo,routeRecordsAction(canvas.scene?.id),{label:'Open Travel Planner…',run:()=>openPlanner()}].filter(Boolean);
+    return [{label:'Who can move this flag?',run:chooseBasicDriver},undo,routeRecordsAction(canvas.scene?.id),
+      {label:'Open Travel Planner…',run:()=>openPlanner()}].filter(Boolean);
   }
   const plan=readPlan(),group=plan?.groups?.find(row=>row.id===groupId);
   if (!active()||plan.mode!=='free'||!group) return [];
   const original=JSON.stringify(plan);
-  const actions=[{label:'Assign flag driver…',run:()=>chooseDriver(group,original)},
+  const actions=[{label:'Who can move this flag?',run:()=>chooseDriver(group,original)},
     {label:'Draw approximate goal area…',run:()=>api().travelMapEditor.armGoalArea(groupId,plan.dragVersion||'')},
     {label:'Hide goal from players',run:()=>commit({type:'goalVisibility',groupId,visibility:'hidden'},original)}];
   if (group.queue.at(-1)?.final) actions.push({label:'Share exact goal',run:()=>commit({type:'goalVisibility',groupId,visibility:'exact'},original)});
@@ -528,6 +543,7 @@ async function openPlanner(sessionId = '') {
       const button = (action,label,callback) => ({action,label,callback:(_e,b)=>callback(b.form.elements)});
       const route = (type,f)=>({type,pin:rows.find(row=>pinKey(row.pin)===f.pin.value)?.pin});
       const buttons = [button('configure','Save travel settings',f=>({type:'configure',enabled:f.enabled.checked,visibility:f.visibility?.value||plan.visibility,sessionId:f.sessionId.value}))];
+      if (free && (plan.enabled||api().partyTravel.basicFlagHandle?.())) buttons.push(button('driver','Who can move this flag?',()=>({type:'assignDriver'})));
       if (plan.enabled) {
         if (plan.groups.length>1) buttons.push(button('group','Switch group',f=>({type:'group',id:f.group.value})));
         if (group.pending) buttons.push(button('decision','Resolve event',()=>({type:'decision'})));
@@ -539,7 +555,6 @@ async function openPlanner(sessionId = '') {
         if (final || group.goalArea) buttons.push(button('clear-destination','Clear goal',()=>({type:'clearDestination'})));
         if (!free && group.queue.length) buttons.push(button('event','Edit waypoint event',f=>({type:'event',index:Number(f.queue.value)})),button('remove','Remove waypoint',f=>({type:'remove',index:Number(f.queue.value)})));
         if (free && queue) buttons.push(button('remove','Remove waypoint',f=>({type:'remove',index:Number(f.queue.value)})));
-        if (free) buttons.push(button('driver','Assign flag driver…',()=>({type:'assignDriver'})));
         if (group.memberIds.length>1) buttons.push(button('split','Split party…',()=>({type:'split'})));
         if (rallyGroup) buttons.push(button('rejoin','Rejoin party',()=>({type:'rejoin',otherId:rallyGroup.id,together:free})));
         if (plan.undo) buttons.push(button('undo',undoLabel(plan),()=>({type:'undo'})));
@@ -567,7 +582,10 @@ async function openPlanner(sessionId = '') {
       if (result.type==='group') { groupId = result.id; continue; }
       try {
         if (result.type==='decision') await presentArrival(group.id,{notify:false});
-        else if (result.type==='assignDriver') await chooseDriver(group,original);
+        else if (result.type==='assignDriver') {
+          if (plan.enabled) await chooseDriver(group,original);
+          else await chooseBasicDriver();
+        }
         else if (result.type==='split') await splitGroup(group,original);
         else if (result.type==='event') await editEvent(group,group.queue[result.index].pin,result.index,original);
         else if (result.type==='preview') {

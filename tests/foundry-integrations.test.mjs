@@ -76,13 +76,13 @@ test('default book pins display a ring for World locations and parchment for not
 
 test('a hidden speaker token does not publish its portrait to a player',()=>{
   const tokenActor={id:'possibly-visible-base'};
-  const token={hidden:true,actor:tokenActor};
-  const game={user:{isGM:false},scenes:new Map([['map',{tokens:new Map([['speaker',token]])}]]),actors:new Map([[tokenActor.id,tokenActor]])};
+  const token={hidden:true,actor:tokenActor,texture:{src:'tokens/speaker.webp'}};
+  const game={user:{isGM:false},modules:new Map(),scenes:new Map([['map',{tokens:new Map([['speaker',token]])}]]),actors:new Map([[tokenActor.id,tokenActor]])};
   const {context}=fixture('foundry-chat-portraits',{game});
   const speaker={scene:'map',token:'speaker',actor:tokenActor.id};
-  assert.equal(context.speakerActor(speaker),null);
+  assert.equal(context.speakerPortrait(speaker),undefined);
   game.user.isGM=true;
-  assert.equal(context.speakerActor(speaker),tokenActor);
+  assert.equal(context.speakerPortrait(speaker),token.texture.src);
 });
 
 test('chat uses the Chronicler for the GM as author and preserves actor portraits and message visibility',()=>{
@@ -100,14 +100,53 @@ test('chat uses the Chronicler for the GM as author and preserves actor portrait
     hooks.get('renderChatMessageHTML')(message,{querySelector:()=>header});
     return path;
   };
-  const portrait='modules/adventurers-tome/assets/gm-chronicler.png';
+  const portrait=new URL('modules/adventurers-tome/assets/gm-chronicler.png',document.baseURI).href;
   assert.equal(render({author:gm,speaker:{}}),portrait);
   assert.equal(render({author:gm,style:1,speaker:{actor:'guide'}}),portrait);
-  assert.equal(render({author:gm,style:2,speaker:{actor:'guide'}}),actor.img);
+  assert.equal(render({author:gm,style:2,speaker:{actor:'guide'}}),new URL(actor.img,document.baseURI).href);
   assert.equal(render({author:gm,style:2,speaker:{actor:'guide',scene:'map',token:'hidden'}}),undefined);
   assert.equal(render({author:player,speaker:{}}),undefined);
   assert.equal(render({author:gm,speaker:{},isContentVisible:false}),undefined);
   assert.equal(render({author:gm,speaker:{},blind:true}),undefined);
   settings.chatSpeakerPortraits=false;
   assert.equal(render({author:gm,speaker:{}}),undefined);
+});
+
+test('a player gets the visible token portrait after canvas startup without gaining access to the Actor artwork',()=>{
+  const actor={img:'private/portrait.png',testUserPermission:()=>false};
+  const token={actor,texture:{src:'tokens/visible.webp'},object:{visible:true}};
+  const scene={tokens:new Map([['speaker',token]])};
+  const canvas={scene,ready:false};
+  const message={speaker:{scene:'map',actor:'npc',token:'speaker'}};
+  let rendered, frame;
+  const header={querySelector:()=>rendered,prepend:node=>{rendered=node;}};
+  const row={dataset:{messageId:'message'},querySelector:()=>header};
+  const document={baseURI:'http://foundry.test/game',querySelectorAll:()=>[row],
+    createElement:tag=>({tag,dataset:{},setAttribute(){},addEventListener(){},remove(){rendered=undefined;}})};
+  const game={user:{isGM:false},modules:new Map(),actors:new Map([['npc',actor]]),
+    scenes:new Map([['map',scene]]),messages:new Map([['message',message]]),settings:{get:(_id,key)=>key==='chatSpeakerPortraits'}};
+  const {hooks}=fixture('foundry-chat-portraits',{game,canvas,document,URL,CONST:{CHAT_MESSAGE_STYLES:{OOC:1}},
+    requestAnimationFrame:fn=>{frame=fn;},tokenArtState:()=>assert.fail('Private Actor artwork was read')});
+
+  hooks.get('renderChatMessageHTML')(message,row);
+  assert.equal(rendered,undefined);
+  canvas.ready=true;
+  hooks.get('canvasReady')();
+  frame();
+  assert.equal(rendered.src,'http://foundry.test/tokens/visible.webp');
+  token.ring={enabled:true,subject:{texture:'tokens/ring.webm'}};
+  hooks.get('updateToken')();
+  frame();
+  assert.equal(rendered.src,'http://foundry.test/tokens/ring.webm');
+  assert.equal(rendered.tag,'video');
+  assert.equal(rendered.muted,true);
+  token.object.visible=false;
+  hooks.get('sightRefresh')();
+  frame();
+  assert.equal(rendered,undefined);
+  token.object.visible=true;
+  token.hidden=true;
+  hooks.get('updateToken')();
+  frame();
+  assert.equal(rendered,undefined);
 });

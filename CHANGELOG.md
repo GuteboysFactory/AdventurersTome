@@ -1,3 +1,8 @@
+## 2.1.7 update
+
+- Show the speaker’s visible map token in player chat when the player lacks access to the Actor sheet.
+- Assign a party flag driver directly from the flag’s context menu, including before Travel Planner is enabled.
+
 ## 2.1.7
 
 - Add map markers, scene links, party travel, waypoints, events and travel history. Give GMs route cleanup and give each viewer their own route colors.

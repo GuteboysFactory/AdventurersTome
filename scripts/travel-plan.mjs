@@ -65,6 +65,14 @@ export function changeTravelPlan(plan, command) {
     next.sessionId = command.sessionId;
     return next;
   }
+  if (command.type==='driver') {
+    const driverId=command.driverId||null;
+    if (command.enable && driverId) next.enabled=true;
+    if (!next.enabled) throw Error('There is no active flag to assign.');
+    if (next.enabled!==plan.enabled||(group.driverId||null)!==driverId) next.undo=null;
+    group.driverId=driverId;
+    return next;
+  }
   if (!next.enabled) throw Error('Enable the travel planner before changing the journey.');
   if (command.type==='markerEvent') {
     next.events ??= {};
@@ -90,9 +98,6 @@ export function changeTravelPlan(plan, command) {
     next.undo = {groups:structuredClone(plan.groups),logCount:plan.logs.length,groupId:group.id,kind};
   };
   switch (command.type) {
-    case 'driver':
-      group.driverId=command.driverId||null;
-      break;
     case 'goalArea':
       group.goalArea=command.area;
       group.goalVisibility=command.area?'area':'hidden';
