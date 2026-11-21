@@ -1,6 +1,6 @@
 ## 2.1.7 update
 
-- Show the speaker’s visible map token in player chat when the player lacks access to the Actor sheet.
+- Show visible token artwork in player chat when the message identifies a token, an Actor, or a user with an assigned character. A visible map token can supply the image without Actor sheet access.
 - Assign a party flag driver directly from the flag’s context menu, including before Travel Planner is enabled.
 
 ## 2.1.7

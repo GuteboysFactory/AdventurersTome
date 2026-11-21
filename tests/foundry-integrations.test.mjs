@@ -115,8 +115,9 @@ test('chat uses the Chronicler for the GM as author and preserves actor portrait
 test('a player gets the visible token portrait after canvas startup without gaining access to the Actor artwork',()=>{
   const actor={img:'private/portrait.png',testUserPermission:()=>false};
   const token={actor,texture:{src:'tokens/visible.webp'},object:{visible:true}};
-  const scene={tokens:new Map([['speaker',token]])};
-  const canvas={scene,ready:false};
+  const scene={id:'map',tokens:new Map([['speaker',token]])};
+  const canvas={scene:{id:scene.id},ready:false,tokens:{get:()=>token.object}};
+  token.object.document=token;
   const message={speaker:{scene:'map',actor:'npc',token:'speaker'}};
   let rendered, frame;
   const header={querySelector:()=>rendered,prepend:node=>{rendered=node;}};
@@ -134,10 +135,11 @@ test('a player gets the visible token portrait after canvas startup without gain
   hooks.get('canvasReady')();
   frame();
   assert.equal(rendered.src,'http://foundry.test/tokens/visible.webp');
-  token.ring={enabled:true,subject:{texture:'tokens/ring.webm'}};
+  token.texture.src='tokens/new-token.webm';
+  token.ring={enabled:true,subject:{texture:'tokens/tiny-ring-subject.webp'}};
   hooks.get('updateToken')();
   frame();
-  assert.equal(rendered.src,'http://foundry.test/tokens/ring.webm');
+  assert.equal(rendered.src,'http://foundry.test/tokens/new-token.webm');
   assert.equal(rendered.tag,'video');
   assert.equal(rendered.muted,true);
   token.object.visible=false;
@@ -149,4 +151,26 @@ test('a player gets the visible token portrait after canvas startup without gain
   hooks.get('updateToken')();
   frame();
   assert.equal(rendered,undefined);
+});
+
+test('actor-only and ordinary out-of-character player chat use the assigned character’s visible token',()=>{
+  const actor={id:'pc',img:'private/character.webp',testUserPermission:()=>false};
+  const author={isGM:false,_source:{character:actor.id}};
+  const visible={visible:true,mesh:{visible:true},document:{actorId:actor.id,texture:{src:'tokens/character.webp'}}};
+  const hidden={visible:true,document:{actorId:actor.id,hidden:true,texture:{src:'private/hidden.webp'}}};
+  const canvas={scene:{id:'map'},ready:true,tokens:{placeables:[hidden,visible]}};
+  const game={user:{isGM:false},scenes:new Map(),actors:new Map([[actor.id,actor]]),modules:new Map()};
+  const {context}=fixture('foundry-chat-portraits',{game,canvas,CONST:{CHAT_MESSAGE_STYLES:{OOC:1}},
+    tokenArtState:()=>assert.fail('Private Actor artwork was read')});
+  const plain={style:1,author};
+  const actorSpeaker={style:2,author,speaker:{actor:actor.id,scene:'map'}};
+  assert.equal(context.messagePortrait(plain),'tokens/character.webp');
+  assert.equal(context.messagePortrait(actorSpeaker),'tokens/character.webp');
+  assert.equal(context.messagePortrait({...actorSpeaker,speaker:{actor:actor.id,scene:'other'}}),undefined);
+  const different={visible:true,document:{actorId:actor.id,texture:{src:'tokens/alternate.webp'}}};
+  canvas.tokens.placeables.push(different);
+  assert.equal(context.messagePortrait(plain),undefined);
+  canvas.tokens.placeables.pop();
+  visible.mesh.visible=false;
+  assert.equal(context.messagePortrait(plain),undefined);
 });
