@@ -2,7 +2,7 @@
   "id": "adventurers-tome",
   "title": "Adventurer’s Tome",
   "description": "Campaign workspace with local Swedish and English analysis, campaign memory, world knowledge and responsive browsing.",
-  "version": "2.1.7",
+  "version": "2.1.8",
   "authors": [
     {
       "name": "Per"
@@ -139,6 +139,7 @@
     "scripts/travel-map-editor.js",
     "scripts/map-points.js",
     "scripts/token-builder.js",
+    "scripts/inventory-storage.js",
     "scripts/foundry-directory-tools.js",
     "scripts/foundry-scene-tools.js",
     "scripts/foundry-chat-portraits.js",
@@ -228,5 +229,5 @@
     "vendor/compromise-14.17.0.js"
   ],
   "manifest": "https://raw.githubusercontent.com/GuteboysFactory/AdventurersTome/main/channels/gold/module.json",
-  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.7/adventurers-tome.zip"
+  "download": "https://github.com/GuteboysFactory/AdventurersTome/releases/download/2.1.8/adventurers-tome.zip"
 }
