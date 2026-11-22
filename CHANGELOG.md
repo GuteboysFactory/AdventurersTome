@@ -1,3 +1,12 @@
+## 2.1.8
+
+- Add scene defaults and selective bulk updates from the Scenes panel. Open and import scenes from the map menu or GM Dock.
+- Link multiple scenes to a map marker and give the GM a scene choice on arrival. Keep the party flag in front of map markers and tokens.
+- Show player character names and token portraits in chat. Let users search for eligible speakers with **Speak as**.
+- Move inventory stacks between characters, pack animals and shared storage.
+- Add independent inner and outer frame thickness in Token Builder and separate artwork choices for the Foundry sheet, Groups and Home.
+- See [the 2.1.8 release notes](docs/V2.1.8_STABLE_RELEASE.md).
+
 ## 2.1.7 update
 
 - Show visible token artwork in player chat when the message identifies a token, an Actor, or a user with an assigned character. A visible map token can supply the image without Actor sheet access.

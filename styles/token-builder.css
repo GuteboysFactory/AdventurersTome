@@ -47,7 +47,10 @@
   align-items: center;
   gap: .2rem;
 }
-.rg-portrait-wrap > .at-tb-portrait-controls, .rg-npc-portrait-wrap > .at-tb-portrait-controls { top: .25rem; right: auto; bottom: auto; width: max-content; }
+.at-tb-hover-portrait[data-at-tb-sheet-portrait] > .at-tb-portrait-controls {
+  inset: auto .25rem .25rem .25rem;
+  justify-content: flex-end;
+}
 .at-tb-hover-portrait:not(:is(:hover, :focus-within, .at-tb-portrait-revealed)) > :is(.at-tb-portrait-controls, .rg-art-button, .rg-token-button) {
   opacity: 0;
   pointer-events: none;
@@ -58,6 +61,7 @@
 .at-tb-portrait-controls select { flex: 1; min-width: 0; font-size: .78rem; padding-inline: .25rem; background-color: #1a130d; color: var(--at-gold-bright); }
 .at-tb-portrait-controls button { flex: 0 0 1.75rem; width: 1.75rem; min-width: 1.75rem; min-height: 1.75rem; padding: 0; }
 .at-tb-display-art { object-fit: contain !important; }
+[data-at-tb-directory-token] { object-fit: contain !important; }
 .rg-portrait-stage img.at-tb-display-art { width: 100% !important; height: 100% !important; inset: 0 !important; transform: none !important; }
 .at-token-builder-dialog { container-type: inline-size; }
 @container (max-width: 480px) { .at-token-builder { grid-template-columns: minmax(0, 1fr); } }

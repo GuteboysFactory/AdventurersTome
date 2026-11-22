@@ -1,5 +1,13 @@
 # GitHub release plan for Adventurer's Tome
 
+## Manualen vid varje publicering
+
+Uppdatera [den svenska användarmanualen](MANUAL.md) i samma ändring som versionsinformationen, även när en redan publicerad version får en uppdatering.
+
+1. Gå igenom ändringarna som påverkar GM och spelare mot [funktionsregistret](MANUAL-REFERENS.md#funktionsregister). Fånga även verktyg i Foundrys menyer, på kartan och i karaktärsbladet. Lägg till nya funktioner i registret och uppdatera klickvägar, behörighetskrav och felsökning i berörda kapitel. Prova de ändrade arbetsflödena i Foundry med rätt roll.
+2. Flytta dokumenterade QA-funktioner till sitt kapitel när de ingår i den stabila versionen. Uppdatera versionsraden överst och lägg till en rad i manualens versionshistorik. Om ingen instruktion behöver ändras räcker det att bekräfta versionen där.
+3. Länka till manualen från versionsinformationen. Kontrollera att exempel, illustrationer och eventuella skärmbilder fortfarande stämmer. Använd en demovärld för nya skärmbilder.
+
 ## Goal
 Publish Adventurer's Tome as a self-hosted Foundry VTT module through GitHub Releases. Users install the module by pasting one stable manifest URL into Foundry's Add-on Module installer.
 

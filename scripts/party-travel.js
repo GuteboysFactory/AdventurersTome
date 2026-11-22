@@ -3,10 +3,11 @@ import {compactPath,pathLength,sliceTravelPath} from './travel-geometry.mjs';
 const TRAVEL_MODULE = "adventurers-tome";
 const TRAVEL_SETTING = "partyTravelV1";
 const TRAVEL_SCENE_FLAG = "partyLinkedScene";
+const MARKER_SCENES_FLAG = "partyLinkedScenes";
 const MAP_ART = "modules/adventurers-tome/assets/";
 const travelApi = () => globalThis.ATTestAI.modules.get(TRAVEL_MODULE)?.api;
 const travelEsc = (value) => foundry.utils.escapeHTML(String(value ?? ""));
-let travelOverlay, travelOverlayStamp;
+let travelOverlay, travelFlags, travelOverlayStamp;
 const travelAnimations = [];
 let travelSaving = false;
 
@@ -80,6 +81,9 @@ async function moveBasicFlag(handle,points) {
   travelSaving=true;
   try {await game.settings.set(TRAVEL_MODULE,TRAVEL_SETTING,{...shared,...next,previousArrival});}
   finally {travelSaving=false;}
+  const markerAt=travelApi()?.travelPlanner?.markerAt;
+  const arrival=markerAt?.(scene,path.at(-1),game.user);
+  if(arrival&&arrival.id!==markerAt(scene,current.flag,game.user)?.id)offerMarkerScenes({sceneId,noteId:arrival.id});
 }
 
 function basicUndoLabel(sceneId, original) {
@@ -149,7 +153,9 @@ async function focusPartyLocation() {
 function travelClearOverlay() {
   for (const {ticker,tick} of travelAnimations.splice(0)) ticker.remove(tick);
   if (travelOverlay && !travelOverlay.destroyed) travelOverlay.destroy({children:true});
+  if (travelFlags && !travelFlags.destroyed) travelFlags.destroy();
   travelOverlay = null;
+  travelFlags = null;
   travelOverlayStamp = null;
 }
 
@@ -229,6 +235,18 @@ function drawFlag(graphic, point, color=0x21734b, overlap=0) {
     {x:pole+fly*21,y:top+12},{x:pole+fly*27,y:top+20},{x:pole+fly*18,y:top+18},{x:pole+fly*9,y:top+16},{x:pole,y:top+18}]);
 }
 
+function flagForeground() {
+  // A stage child keeps the flag in map coordinates while drawing above Foundry's rendered canvas groups.
+  return canvas.stage?.sortableChildren ? canvas.stage : canvas.interface;
+}
+
+function createFlagGraphic({preview=false}={}) {
+  const graphic = new PIXI.Graphics();
+  graphic.eventMode = 'none';
+  graphic.zIndex = Number.MAX_SAFE_INTEGER - (preview ? 0 : 1);
+  return flagForeground().addChild(graphic);
+}
+
 function travelDraw() {
   if (!travelApi()?.canView || !globalThis.canvas?.ready || !canvas.scene || !canvas.interface || !globalThis.PIXI?.Graphics) return;
   const basic = travelState();
@@ -247,13 +265,15 @@ function travelDraw() {
   const pinStamp = note => note && [note.id,note.x,note.y,note.iconSize];
   const stamp = JSON.stringify([canvas.scene.id,showPath,paths.map(({points,ahead,final,cursor,leg,trail,completed,moving,breaks,mode,flag,goalArea,markColor})=>
     [points.map(pinStamp),ahead.map(pinStamp),pinStamp(final),cursor,leg,trail.map(row=>[row.id,row.completed,row.markColor]),completed,moving,breaks,mode,flag,goalArea,markColor])]);
-  if (stamp===travelOverlayStamp && travelOverlay?.parent===canvas.interface && !travelOverlay.destroyed) return;
+  if (stamp===travelOverlayStamp && travelOverlay?.parent===canvas.interface && !travelOverlay.destroyed &&
+      (!travelFlags || (travelFlags.parent===flagForeground() && !travelFlags.destroyed))) return;
   travelClearOverlay();
   travelOverlayStamp = stamp;
   if (!paths.some(({points,ahead,trail,flag,goalArea,final})=>points.some(Boolean)||ahead.some(Boolean)||trail.length||flag||goalArea||final)) return;
 
   const graphic = new PIXI.Graphics();
   graphic.eventMode = "none";
+  travelOverlay = canvas.interface.addChild(graphic);
   const colors = [0x21734b,0x565991,0x9f543e,0x34748d];
   const drawOrder = [...paths.keys()].sort((a,b)=>Number(Boolean(paths[b].completed))-Number(Boolean(paths[a].completed)));
   for (const index of drawOrder) {
@@ -306,10 +326,10 @@ function travelDraw() {
         const point=path.flag||path.cursor||path.points.at(-1);
         return !path.completed&&point?.x===current.x&&point?.y===current.y;
       }).length;
-      drawFlag(graphic,current,color,overlap);
+      travelFlags ??= createFlagGraphic();
+      drawFlag(travelFlags,current,color,overlap);
     }
   }
-  travelOverlay = canvas.interface.addChild(graphic);
 }
 
 async function travelWrite(result, owner, worldId, original) {
@@ -370,6 +390,7 @@ async function travelWrite(result, owner, worldId, original) {
   travelSaving = true;
   try { await game.settings.set(TRAVEL_MODULE, TRAVEL_SETTING, {...shared,...next,previousArrival}); }
   finally { travelSaving = false; }
+  if(previousArrival?.kind==='stop')offerMarkerScenes(next.stops.at(-1));
 }
 
 async function travelOpen(entryId) {
@@ -535,7 +556,7 @@ function mapActions(point, noteId) {
   const note = scene.notes.get(noteId);
   if (!note) return [];
   const markerActions = tools?.actions(point,note) || [];
-  if (!travelIsWaypoint(note)) return markerActions;
+  if (!travelIsWaypoint(note)) return [...markerActions,...mapSceneActions(point,note)];
   const pin = {sceneId:scene.id, noteId};
   const state = travelState();
   const owner = game.user.id, worldId = game.world.id, original = JSON.stringify(state);
@@ -559,41 +580,84 @@ function mapActions(point, noteId) {
   return actions;
 }
 
-function mapLinkedScene(pin) {
-  if (!game.user?.isGM) return null;
-  const note=game.scenes.get(pin?.sceneId)?.notes.get(pin?.noteId);
-  return game.scenes.get(note?.getFlag?.(TRAVEL_MODULE,TRAVEL_SCENE_FLAG))||null;
+function markerSceneIds(note) {
+  const saved=note?.getFlag?.(TRAVEL_MODULE,MARKER_SCENES_FLAG);
+  const legacy=note?.getFlag?.(TRAVEL_MODULE,TRAVEL_SCENE_FLAG);
+  return [...new Set((Array.isArray(saved)?saved:[legacy]).filter(id=>typeof id==='string'&&id))];
+}
+
+function mapLinkedScenes(pin) {
+  if(!game.user?.isGM||!pin)return [];
+  const note=game.scenes.get(pin.sceneId)?.notes.get(pin.noteId);
+  return markerSceneIds(note).map(id=>game.scenes.get(id)).filter(Boolean);
+}
+
+async function manageMarkerScenes(pin) {
+  if(!game.user.isGM)return;
+  const note=game.scenes.get(pin.sceneId)?.notes.get(pin.noteId);
+  if(!note)return;
+  const owner=game.user.id,world=game.world.id,original=markerSceneIds(note);
+  const scenes=[...game.scenes.contents].sort((a,b)=>a.name.localeCompare(b.name));
+  const result=await foundry.applications.api.DialogV2.prompt({
+    window:{title:`Link scenes · ${note.label||note.entry?.name||'Map marker'}`,resizable:true},position:{width:510},
+    classes:['at-marker-scene-picker'],rejectClose:false,
+    content:`<label>Find a scene<input type="search" data-marker-scene-search placeholder="Scene name…"></label>
+      <div data-marker-scene-list>${scenes.map(scene=>`<label><input type="checkbox" data-marker-scene value="${travelEsc(scene.id)}"
+      ${original.includes(scene.id)?'checked':''}> <span>${travelEsc(scene.name)}</span></label>`).join('')}</div>`,
+    render:(_event,app)=>{
+      const search=app.element.querySelector('[data-marker-scene-search]');
+      const rows=[...app.element.querySelectorAll('[data-marker-scene-list] label')];
+      search.oninput=()=>{const query=search.value.trim().toLocaleLowerCase();for(const row of rows)row.hidden=!row.textContent.toLocaleLowerCase().includes(query);};
+      search.focus();
+    },
+    ok:{label:'Save scene links',callback:(_event,button)=>[...button.form.querySelectorAll('[data-marker-scene]:checked')].map(input=>input.value)}
+  });
+  if(!Array.isArray(result))return;
+  if(!game.user.isGM||game.user.id!==owner||game.world.id!==world||game.scenes.get(pin.sceneId)?.notes.get(pin.noteId)!==note||
+    JSON.stringify(markerSceneIds(note))!==JSON.stringify(original))throw Error('The marker or its scene links changed. Open it again.');
+  const ids=[...new Set(result)];
+  if(ids.some(id=>!game.scenes.get(id)))throw Error('A selected scene is no longer available.');
+  if(JSON.stringify(ids)!==JSON.stringify(original))await note.setFlag(TRAVEL_MODULE,MARKER_SCENES_FLAG,ids);
+}
+
+const markerSceneDialogs=new Set();
+async function openMarkerScenes(pin){
+  const scenes=mapLinkedScenes(pin);
+  if(!scenes.length)return;
+  const key=pin.sceneId+':'+pin.noteId;
+  if(markerSceneDialogs.has(key))return;
+  const owner=game.user.id,world=game.world.id;
+  const note=game.scenes.get(pin.sceneId)?.notes.get(pin.noteId);
+  const stillLinked=scene=>game.user.isGM&&game.user.id===owner&&game.world.id===world&&
+    game.scenes.get(pin.sceneId)?.notes.get(pin.noteId)===note&&mapLinkedScenes(pin).includes(scene);
+  let selected=scenes[0].id;
+  markerSceneDialogs.add(key);
+  try{
+    while(stillLinked(scenes.find(scene=>scene.id===selected))){
+      const choose=action=>(_event,button)=>({action,id:button.form.elements.scene.value});
+      const result=await foundry.applications.api.DialogV2.wait({window:{title:`Linked scenes · ${note.label||note.entry?.name||'Map marker'}`},
+        rejectClose:false,
+        content:`<label>Scene<select name="scene">${scenes.map(scene=>`<option value="${travelEsc(scene.id)}" ${scene.id===selected?'selected':''}>${travelEsc(scene.name)}</option>`).join('')}</select></label>`,
+        buttons:[{action:'preview',label:'Preview for me',callback:choose('preview')},
+          {action:'activate',label:'Activate for players…',callback:choose('activate')},{action:'close',label:'Close',callback:()=>null}]});
+      if(!result)return;
+      selected=result.id;
+      const target=scenes.find(scene=>scene.id===selected);
+      if(!target||!stillLinked(target))throw Error('The linked scene is no longer available.');
+      if(result.action==='activate')return await confirmTravelSceneActivation(target,()=>stillLinked(target));
+      await target.view();
+    }
+  }finally{markerSceneDialogs.delete(key);}
+}
+
+function offerMarkerScenes(pin){
+  if(mapLinkedScenes(pin).length)void openMarkerScenes(pin).catch(error=>ui.notifications.warn(error.message));
 }
 
 function mapSceneActions(point,note) {
-  const owner=game.user.id, worldId=game.world.id;
-  const original=note.getFlag?.(TRAVEL_MODULE,TRAVEL_SCENE_FLAG)||"";
-  const linked=game.scenes.get(original);
-  const requireMarker=()=>{
-    if (game.world.id!==worldId || markerScene(point,owner).notes.get(note.id)!==note ||
-      (note.getFlag(TRAVEL_MODULE,TRAVEL_SCENE_FLAG)||"")!==original) throw Error("The marker or scene link changed. Open the map menu again.");
-  };
-  const requireLink=()=>{
-    requireMarker();
-    if (game.scenes.get(original)!==linked) throw Error("The linked scene is no longer available.");
-  };
-  const actions=[{label:linked?"Change scene link…":"Link scene…",run:async()=>{
-    requireMarker();
-    const result=await chooseTravelScene(original);
-    if (typeof result!=="string") return;
-    requireMarker();
-    if (result===original) return;
-    if (result) await note.setFlag(TRAVEL_MODULE,TRAVEL_SCENE_FLAG,result);
-    else await note.unsetFlag(TRAVEL_MODULE,TRAVEL_SCENE_FLAG);
-  }}];
-  if (linked) {
-    actions.push({label:"Preview linked scene",run:()=>{requireLink();return linked.view();}});
-    if (!linked.active) actions.push({label:"Activate linked scene for players…",run:()=>{
-      requireLink();
-      return confirmTravelSceneActivation(linked,()=>{requireLink();return true;});
-    }});
-  }
-  if (original) actions.push({label:"Remove scene link",run:()=>{requireMarker();return note.unsetFlag(TRAVEL_MODULE,TRAVEL_SCENE_FLAG);}});
+  const pin={sceneId:point.sceneId,noteId:note.id};
+  const actions=[{label:markerSceneIds(note).length?'Manage scene links…':'Link scenes…',run:()=>manageMarkerScenes(pin)}];
+  if(mapLinkedScenes(pin).length)actions.unshift({label:'Open linked scenes…',run:()=>openMarkerScenes(pin)});
   return actions;
 }
 
@@ -655,8 +719,9 @@ Hooks.once("init", () => game.settings.register(TRAVEL_MODULE, TRAVEL_SETTING, {
 function attachPartyTravel() {
   const api = travelApi();
   if (!api?.canView || api.partyTravel) return;
-  api.partyTravel = Object.freeze({location:travelLocationInfo, mapActions, state:travelState, resolve:travelResolveStop, isLocation:travelIsLocation, isWaypoint:travelIsWaypoint, drawFlag,
-    basicRouteView,basicFlagHandle,moveBasicFlag,basicUndoAction,mapLinkedScene,
+  api.partyTravel = Object.freeze({location:travelLocationInfo, mapActions, state:travelState, resolve:travelResolveStop, isLocation:travelIsLocation, isWaypoint:travelIsWaypoint, drawFlag,createFlagGraphic,
+    basicRouteView,basicFlagHandle,moveBasicFlag,basicUndoAction,mapLinkedScenes,openMarkerScenes,offerMarkerScenes,
+    mapLinkedScene:pin=>mapLinkedScenes(pin)[0]||null,
     refresh:()=>{travelDraw();Hooks.callAll("adventurersTomePartyTravelChanged");}});
   document.addEventListener("click", event => {
     const button = event.target.closest?.("#adventurers-tome-app :is([data-party-location], [data-party-travel], [data-party-edit-scene], [data-party-view-scene], [data-party-activate-scene])");

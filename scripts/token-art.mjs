@@ -4,6 +4,7 @@ const ID = "adventurers-tome";
 export const TOKEN_ART_FLAG = "tokenArtV1";
 export const TOKEN_ART_ROTATION_PATH = `flags.${ID}.${TOKEN_ART_FLAG}.lockRotation`;
 export const TOKEN_SIZE = 512;
+export const MAX_FRAME_OUTER_WIDTH = 48;
 export const TOKEN_SHAPES = Object.freeze({rectangle:'Rectangle',rounded:'Rounded square',circle:'Circle',oval:'Oval',shield:'Shield',diamond:'Diamond',hexagon:'Hexagon',octagon:'Octagon'});
 export const FRAME_EFFECTS = Object.freeze({none:'None',glow:'Glow',fire:'Fire',sparks:'Sparks',frost:'Frost',arcane:'Arcane pulse'});
 const effectColors={glow:'#ffe0a1',fire:'#ff822b',sparks:'#ffce70',frost:'#97e6ff',arcane:'#c88aff'};
@@ -31,7 +32,8 @@ export function normalizeTokenArt(framing = {}, frame = DEFAULT_FRAME) {
       effect: Object.hasOwn(FRAME_EFFECTS,frame?.effect) && material!=='none' ? frame.effect : 'none',
       color: /^#[\da-f]{6}$/i.test(frame?.color) ? frame.color : '#777777',
       accent: /^#[\da-f]{6}$/i.test(frame?.accent) ? frame.accent : '#bdbdbd',
-      weight: clamp(frame?.weight,14,3,48)
+      weight: clamp(frame?.weight,14,3,48),
+      outerWidth: clamp(frame?.outerWidth,0,0,MAX_FRAME_OUTER_WIDTH)
     }
   };
 }
@@ -49,7 +51,7 @@ export function tokenArtState(actor) {
   const source = actorFullArtwork(actor);
   const legacyFrame = legacy.tokenBuilderFraming ? LEGACY_FRAME : DEFAULT_FRAME;
   return {
-    source, token, tokenTexture, ringTexture:prototype?.ring?.subject?.texture || '', displayImage:actor.img || '', portrait: saved?.portrait?.image || '',
+    source, token, tokenTexture, ringTexture:prototype?.ring?.subject?.texture || '', displayImage:actor.img || '', portrait: actorPortraitArtwork(actor),
     portraitSource: saved?.portrait?.source || source,
     portraitFraming: normalizeTokenArt(saved?.portrait?.framing).framing,
     defaultMode: saved?.displayMode==='token'&&token ? 'token' : saved?.portrait?.image ? 'portrait' : legacy.portraitMode === 'token' && token ? 'token' : 'full',
@@ -62,6 +64,14 @@ export function actorFullArtwork(actor,tomeArtwork='') {
   const saved=actor.flags?.[ID]?.[TOKEN_ART_FLAG];
   const legacy=actor.flags?.['realm-guard'];
   return saved?.source || legacy?.portraitSource || legacy?.tokenBuilderSourcePortrait || tomeArtwork || actor.img || actor.prototypeToken?.texture?.src || '';
+}
+
+export function actorHomeArtwork(actor,tomeArtwork='') {
+  return actorPortraitArtwork(actor) || actorFullArtwork(actor,tomeArtwork);
+}
+
+export function actorPortraitArtwork(actor) {
+  return actor.flags?.[ID]?.[TOKEN_ART_FLAG]?.portrait?.image || '';
 }
 
 export function savedActorDisplayArtwork(actor){
@@ -178,20 +188,40 @@ function paintEffect(ctx,frame,size,inset,phase) {
 }
 
 export function paintToken(canvas,image,framing,frame,phase=0) {
-  const ctx = canvas.getContext('2d'), size = canvas.width;
+  const size = TOKEN_SIZE;
+  const outerWidth = frame.style === 'none' ? 0 : frame.outerWidth || 0;
+  const padding = Math.ceil(outerWidth);
+  const outputSize = size + 2 * padding;
+  if (canvas.width!==outputSize) canvas.width=outputSize;
+  if (canvas.height!==outputSize) canvas.height=outputSize;
+  const ctx = canvas.getContext('2d');
   const inset = size*.03 + frame.weight/2;
   const rect = tokenImageRect(image.naturalWidth,image.naturalHeight,size,framing,frame);
-  ctx.clearRect(0,0,size,size);
+  ctx.clearRect(0,0,outputSize,outputSize);
+  ctx.save();
+  if (padding) ctx.translate(padding,padding);
   ctx.save();
   if (frame.style !== 'none') {traceFrame(ctx,frame.shape,size,inset);ctx.clip();}
   ctx.drawImage(image,rect.x,rect.y,rect.w,rect.h);
   ctx.restore();
-  if (frame.style === 'none') return;
+  if (frame.style === 'none') {ctx.restore();return;}
   function stroke(paint,width,shift=0) {
     traceFrame(ctx,frame.shape,size,inset+shift);
     ctx.strokeStyle=paint;ctx.lineWidth=width;ctx.stroke();
   }
   const texture=tokenFramePattern(ctx,frame);
+  if (outerWidth) {
+    ctx.save();
+    // Confine the added stroke to the outside of the original frame path.
+    traceFrame(ctx,frame.shape,size,inset);
+    ctx.rect(-padding,-padding,outputSize,outputSize);
+    ctx.clip('evenodd');
+    ctx.lineJoin='round';
+    const width=frame.weight+2*outerWidth;
+    if(texture) stroke(blendColor(frame.color,'#080808',.73),width+4);
+    stroke(texture||frame.color,width);
+    ctx.restore();
+  }
   if(texture) {
     const light=ctx.createLinearGradient(0,0,size*.76,size);
     const stops=[[0,'#ffffff',.68],[.19,'#ffffff',.3],[.39,'#111111',.29],[.55,'#ffffff',.48],[.82,'#111111',.5],[1,'#ffffff',.23]];
@@ -229,7 +259,8 @@ export function paintToken(canvas,image,framing,frame,phase=0) {
       ctx.restore();
     }
   }
-  paintEffect(ctx,frame,size,inset,phase);
+  paintEffect(ctx,frame,size,inset-outerWidth,phase);
+  ctx.restore();
 }
 
 export async function recordToken(canvas,image,design,{duration=2200}={}) {

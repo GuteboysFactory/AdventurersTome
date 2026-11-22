@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import vm from 'node:vm';
-import {TOKEN_ART_FLAG,TOKEN_ART_ROTATION_PATH,actorArtworkUpdate,actorFullArtwork,defaultTokenLockRotation,normalizeTokenArt,placedTokenArtworkUpdates,savedActorDisplayArtwork,tokenArtState,tokenImageRect,tokenTexturePatch} from '../scripts/token-art.mjs';
+import {MAX_FRAME_OUTER_WIDTH,TOKEN_ART_FLAG,TOKEN_ART_ROTATION_PATH,TOKEN_SIZE,actorArtworkUpdate,actorFullArtwork,actorHomeArtwork,actorPortraitArtwork,defaultTokenLockRotation,normalizeTokenArt,paintToken,placedTokenArtworkUpdates,savedActorDisplayArtwork,tokenArtState,tokenImageRect,tokenTexturePatch} from '../scripts/token-art.mjs';
+import {isPlayerCharacter} from '../scripts/player-character-core.mjs';
 import {FRAME_MATERIALS, applyFrameMaterial} from '../scripts/token-frame-materials.mjs';
 
 const noFrame=applyFrameMaterial({shape:'rectangle'},'none');
@@ -46,8 +47,35 @@ test('every material keeps the selected shape and old solid frames stay solid',(
     assert.match(frame.color,/^#([\da-f]{2})\1\1$/i);
   }
   const old = {shape:'oval',style:'double',color:'#302fde',accent:'#ead1ac',weight:11};
-  assert.deepEqual(normalizeTokenArt({},old).frame,{...old,material:'plain',effect:'none'});
+  assert.deepEqual(normalizeTokenArt({},old).frame,{...old,material:'plain',effect:'none',outerWidth:0});
   assert.equal(normalizeTokenArt({}, {...old,style:'none'}).frame.material,'none');
+});
+
+test('outer thickness adds room and grows the frame without changing the image crop or inner stroke',()=>{
+  const operations=[];
+  const ctx={
+    beginPath(){},closePath(){},save(){},restore(){},clearRect(){},rect(){},ellipse(){},
+    translate:(...args)=>operations.push(['translate',...args]),
+    clip:rule=>operations.push(['clip',rule]),
+    drawImage:(_image,...rect)=>operations.push(['image',...rect]),
+    stroke(){operations.push(['stroke',this.lineWidth]);}
+  };
+  const canvas={width:TOKEN_SIZE,height:TOKEN_SIZE,getContext:()=>ctx};
+  const image={naturalWidth:400,naturalHeight:600};
+  const {framing,frame}=normalizeTokenArt({fit:'whole'},{shape:'circle',material:'plain',weight:20,outerWidth:999});
+  assert.equal(frame.outerWidth,MAX_FRAME_OUTER_WIDTH);
+  paintToken(canvas,image,framing,frame);
+  assert.equal(canvas.width,TOKEN_SIZE+2*frame.outerWidth);
+  assert.equal(canvas.height,canvas.width);
+  assert.deepEqual(operations.slice(0,2),[['translate',frame.outerWidth,frame.outerWidth],['clip',undefined]]);
+  assert.deepEqual(operations.slice(-3),[['clip','evenodd'],['stroke',20+2*frame.outerWidth],['stroke',20]]);
+  const enlargedImage=operations.find(([operation])=>operation==='image');
+  operations.length=0;
+  paintToken(canvas,image,framing,{...frame,outerWidth:0});
+  assert.equal(canvas.width,TOKEN_SIZE);
+  assert.deepEqual(operations.find(([operation])=>operation==='image'),enlargedImage);
+  paintToken(canvas,image,framing,{...noFrame,outerWidth:frame.outerWidth});
+  assert.equal(canvas.width,TOKEN_SIZE);
 });
 
 test('full artwork, generated portrait, animated texture and its still poster are independent',()=>{
@@ -145,9 +173,16 @@ test('saving the prototype syncs matching placed copies and respects custom imag
   assert.deepEqual(placedTokenArtworkUpdates(tokens,'actor','before.png','after.webp',true,{replaceCustom:true}),[update('linked'),update('unlinked'),update('custom')]);
 });
 
-test('saving from Tome refreshes the Group choice on Home, the open Foundry sheet and placed tokens in other scenes',async()=>{
+test('Home uses the portrait or falls back to full artwork independently of the Group choice',()=>{
+  const actor={img:'old.png',flags:{'adventurers-tome':{tokenArtV1:{source:'full.png',displayMode:'token'}}}};
+  assert.equal(actorHomeArtwork(actor),'full.png');
+  actor.flags['adventurers-tome'].tokenArtV1.portrait={image:'portrait.png'};
+  assert.equal(actorHomeArtwork(actor),'portrait.png');
+});
+
+test('artwork updates keep distinct choices for Actors, Group, Home and the sheet while syncing placed tokens',async()=>{
   const src = readFileSync(new URL('../scripts/token-builder.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
-  const actor={id:'marvin',uuid:'Actor.marvin',documentName:'Actor',img:'old-sheet.png',canUserModify:()=>false,
+  const actor={id:'marvin',uuid:'Actor.marvin',documentName:'Actor',type:'character',img:'old-sheet.png',canUserModify:()=>false,
     prototypeToken:{texture:{src:'old-token.png'},ring:{subject:{texture:'old-prototype-ring.png'}}},
     flags:{'adventurers-tome':{tokenArtV1:{source:'full.png',portrait:{image:'old-sheet.png'}}}}};
   const token={id:'a',actorId:actor.id,texture:{src:'old-token.png'}};
@@ -163,9 +198,17 @@ test('saving from Tome refreshes the Group choice on Home, the open Foundry shee
   const game={user:{id:'gm',can:permission=>permission==='FILES_UPLOAD'},world:{id:'qa'},system:{id:'realm-guard'},actors:new Map([[actor.id,actor]]),
     scenes:{contents:[scene(token,other),scene(custom)]}};
   const classes=()=>({add(){},contains:()=>false});
-  const image=src=>({src,classList:classes(),getAttribute(){return this.src;}});
+  const image=src=>({src,classList:classes(),getAttribute(){return this.src;},toggleAttribute(){}});
   const home=image('old-home.png');
   home.dataset={atTbHomeActor:actor.id};
+  const thumbnail=Object.assign(image('old-directory.png'),{tagName:'IMG',toggleAttribute(){}});
+  const npc={id:'npc',name:'NPC',type:'npc',documentName:'Actor',img:'npc-portrait.png',prototypeToken:{texture:{src:'npc-token.png'}}};
+  game.actors.set(npc.id,npc);
+  const npcThumbnail=Object.assign(image(npc.img),{hasAttribute:()=>false});
+  const directory={dataset:{},querySelector(){},querySelectorAll:()=>[
+    {dataset:{entryId:actor.id},querySelector:()=>thumbnail},
+    {dataset:{entryId:npc.id},querySelector:()=>npcThumbnail}
+  ]};
   const sheetImage=image('old-from-system.png'),groupImage=image('full.png');
   const choiceEvents={};
   const chooser={value:'',addEventListener:(name,callback)=>{choiceEvents[name]=callback;}};
@@ -195,8 +238,8 @@ test('saving from Tome refreshes the Group choice on Home, the open Foundry shee
     for (const [path,value] of Object.entries(patch)) setProperty(actor,path,value);
     hooks.get('updateActor')(actor,patch);
   };
-  const context=vm.createContext({TOKEN_ART_FLAG,actorArtworkUpdate,placedTokenArtworkUpdates,tokenArtState,actorFullArtwork,savedActorDisplayArtwork,
-    game,document:{querySelectorAll:()=>[sheet],getElementById:()=>root,addEventListener:(name,callback)=>listeners.set(name,callback)},
+  const context=vm.createContext({TOKEN_ART_FLAG,actorArtworkUpdate,placedTokenArtworkUpdates,tokenArtState,actorFullArtwork,actorHomeArtwork,actorPortraitArtwork,savedActorDisplayArtwork,isPlayerCharacter,
+    game,document:{querySelectorAll:selector=>selector==='[data-at-tb-actor-directory]'?[directory]:[sheet],getElementById:()=>root,addEventListener:(name,callback)=>listeners.set(name,callback)},
     localStorage:{getItem:key=>stored.get(key),setItem:(key,value)=>stored.set(key,value)},
     ui:{notifications:{warn(message){assert.fail(message);}}},Hooks:{once:(key,callback)=>hooks.set(key,callback),on:(key,callback)=>hooks.set(key,callback)},
     foundry:{utils:{hasProperty:(obj,path)=>path.split('.').reduce((value,key)=>value?.[key],obj)!==undefined}}});
@@ -225,7 +268,11 @@ test('saving from Tome refreshes the Group choice on Home, the open Foundry shee
   assert.equal(opened[1].options.portrait,true);
   actor.canUserModify=()=>false;
   hooks.get('adventurersTomeViewPrepared')(app,root);
-  assert.equal(home.src,'full.png');
+  hooks.get('renderActorDirectory')({},directory);
+  assert.equal(thumbnail.src,'old-token.png');
+  assert.equal(npcThumbnail.src,'npc-portrait.png');
+  assert.equal(groupImage.src,'full.png');
+  assert.equal(home.src,'old-sheet.png');
   assert.equal(sheetImage.src,home.src);
   chooser.value='portrait';
   choiceEvents.change();
@@ -234,13 +281,15 @@ test('saving from Tome refreshes the Group choice on Home, the open Foundry shee
   assert.equal(sheetImage.src,home.src);
   sheetChooser.value='full';
   sheetEvents.change();
-  assert.equal(home.src,'full.png');
+  assert.equal(home.src,'old-sheet.png');
   assert.equal(groupImage.src,home.src);
+  assert.equal(sheetImage.src,'full.png');
   const options={owner:'gm',world:'qa',lockRotation:true,replacePlaced:true,fullArtwork:'full.png'};
   await context.saveActorArtwork(actor,tokenArtState(actor),{full:'new-full.png',output:'new-portrait.png'},normalizeTokenArt(),{...options,portrait:true,fullArtwork:'new-full.png'});
   assert.equal(home.src,'new-portrait.png');
   assert.equal(groupImage.src,home.src);
-  assert.equal(sheetImage.src,home.src);
+  assert.equal(sheetImage.src,'new-full.png');
+  assert.equal(thumbnail.src,'old-token.png');
   assert.equal(actorFullArtwork(actor),'new-full.png');
   assert.equal(token.texture.src,'old-token.png');
   await context.saveActorArtwork(actor,tokenArtState(actor),{full:'full.png',output:'new-token.png'},normalizeTokenArt(),options);
@@ -250,10 +299,13 @@ test('saving from Tome refreshes the Group choice on Home, the open Foundry shee
   assert.equal(custom.texture.src,'new-token.png');
   assert.equal(custom.ring.subject.texture,'new-token.png');
   assert.equal(other.texture.src,'old-token.png');
-  assert.equal(sheetImage.src,'new-portrait.png');
+  assert.equal(sheetImage.src,'full.png');
   chooser.value='token';
   choiceEvents.change();
-  assert.equal(home.src,'new-token.png');
-  assert.equal(groupImage.src,home.src);
-  assert.equal(sheetImage.src,home.src);
+  assert.equal(thumbnail.src,'new-token.png');
+  assert.equal(home.src,'new-portrait.png');
+  assert.equal(groupImage.src,'new-token.png');
+  assert.equal(sheetImage.src,'full.png');
+  assert.equal(stored.get('adventurers-tome.portrait.qa.gm.Actor.marvin.group'),'token');
+  assert.equal(stored.get('adventurers-tome.portrait.qa.gm.Actor.marvin.sheet'),'full');
 });

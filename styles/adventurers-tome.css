@@ -595,12 +595,14 @@
 
 .at-portrait-row img {
   width: 100%;
-  aspect-ratio: 0.78;
+  aspect-ratio: 1;
   object-fit: cover;
   object-position: center top;
   border: 1px solid rgba(214, 178, 108, 0.28);
   background: #0b0907;
 }
+
+.at-portrait-row img[data-at-home-full] { object-fit: contain; object-position: center; }
 
 .at-portrait-row strong,
 .at-portrait-row small {

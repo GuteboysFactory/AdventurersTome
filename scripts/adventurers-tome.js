@@ -3,7 +3,7 @@ import {playerPresentationUpdate, presentationAuthorityUuid} from './player-visi
 import {linkedPeople} from './known-people-core.mjs';
 import {isPlayerCharacter,isWorldPlayerCharacter,presentationActorUuid} from './player-character-core.mjs';
 import {readableRelationTarget} from './group-relation-target.mjs';
-import {actorFullArtwork,savedActorDisplayArtwork} from './token-art.mjs';
+import {actorFullArtwork,actorHomeArtwork,actorPortraitArtwork,savedActorDisplayArtwork} from './token-art.mjs';
 globalThis.ATTestAI.assertEnabled();
 const MODULE_ID = "adventurers-tome";
 const DEFAULT_BACKGROUND = `modules/adventurers-tome/assets/default-hero.webp`;
@@ -2389,6 +2389,8 @@ function actorView(actor) {
     name: actor.name,
     img: savedActorDisplayArtwork(actor) || profile.heroImage || fallbackImage,
     fullArtwork: actorFullArtwork(actor,profile.heroImage) || fallbackImage,
+    homeArtwork: actorHomeArtwork(actor,profile.heroImage) || fallbackImage,
+    homeHasPortrait: Boolean(actorPortraitArtwork(actor)),
     actorImg: fallbackImage,
     owner: actor.isOwner,
     canOpenSheet: userCanObserveDocument(actor,game.user),

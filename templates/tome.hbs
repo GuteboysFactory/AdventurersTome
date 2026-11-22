@@ -186,7 +186,7 @@
         <article class="at-card at-home-widget {{sizeClass}} at-group-preview">
           <div class="at-card-header"><span>The Group</span>{{#if ../settings.nav.group}}<button type="button" data-action="navigate" data-tab="group">View group</button>{{/if}}</div>
           <div class="at-portrait-row">
-            {{#each ../homeGroup}}<button type="button" data-action="openProfile" data-actor-id="{{id}}" title="View {{name}} profile"><img data-at-tome-image src="{{atImageSrc fullArtwork}}" alt="{{name}}" data-at-tb-home-actor="{{id}}"><strong>{{name}}</strong><small>{{displayRole}}</small></button>{{else}}<div class="at-empty">GM can add player characters in Campaign Settings.</div>{{/each}}
+            {{#each ../homeGroup}}<button type="button" data-action="openProfile" data-actor-id="{{id}}" title="View {{name}} profile"><img data-at-tome-image src="{{atImageSrc homeArtwork}}" alt="{{name}}" data-at-tb-home-actor="{{id}}" {{#unless homeHasPortrait}}data-at-home-full{{/unless}}><strong>{{name}}</strong><small>{{displayRole}}</small></button>{{else}}<div class="at-empty">GM can add player characters in Campaign Settings.</div>{{/each}}
           </div>
         </article>
         {{/if}}
@@ -419,7 +419,10 @@
   <main class="at-page at-group-page">
     <section class="at-page-heading at-page-heading-actions">
       <div><span class="at-kicker">Party</span><h1>The Group</h1><p>The player characters at the heart of the campaign.</p></div>
-      {{#if isGM}}<button type="button" class="at-secondary" data-action="openSettings"><i class="fa-solid fa-users-gear"></i> Manage Group</button>{{/if}}
+      <div class="at-character-actions">
+        <button type="button" class="at-secondary" data-at-open-storage><i class="fa-solid fa-box-open" aria-hidden="true"></i> Storage</button>
+        {{#if isGM}}<button type="button" class="at-secondary" data-action="openSettings"><i class="fa-solid fa-users-gear"></i> Manage Group</button>{{/if}}
+      </div>
     </section>
     <section class="at-character-grid">
       {{#each group}}

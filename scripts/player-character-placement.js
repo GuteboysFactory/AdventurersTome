@@ -197,6 +197,7 @@ function gmMenu(event,point,noteId,groupId){
    }catch(error){ui.notifications.warn(error.message);}
   };
   if(original){original.replaceWith(button);hostedOriginal=original;}else root.append(button);if(host)hostedButton=button;
+  if(api?.sceneNavigation)root.append(actionButton({label:'Scenes…',run:api.sceneNavigation.open}));
   let addToMap;
   if(actions.length){
    if(host&&actions.some(row=>/^Create item \/ place on map/.test(row.label))){
@@ -229,10 +230,10 @@ function openMenu(event){
  if(event.target!==board()||!globalThis.canvas?.ready||!canvas.scene||rightPress?.dragged||rightPress?.blocked)return;
  const point=canvas.canvasCoordinatesFromClient({x:event.clientX,y:event.clientY});
  if(!Number.isFinite(point.x)||!Number.isFinite(point.y)||!canvas.dimensions?.rect?.contains(point.x,point.y))return;
- if(game.user?.isGM&&!event.shiftKey&&!canvas.tokens?.hover&&!canvas.controls?.ruler?.active){
+ if(game.user?.isGM&&!event.shiftKey&&!canvas.controls?.ruler?.active){
   const flag=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.travelMapEditor?.flagAt(point);
   if(flag){event.preventDefault();event.stopImmediatePropagation();closeMenu();gmMenu(event,point,null,flag.groupId);return;}
-  const note=canvas.notes?.placeables?.find(object=>object.isVisible!==false&&object.visible!==false&&object.bounds?.contains?.(point.x,point.y));
+  const note=!canvas.tokens?.hover&&canvas.notes?.placeables?.find(object=>object.isVisible!==false&&object.visible!==false&&object.bounds?.contains?.(point.x,point.y));
   if(note?.document?.id){event.preventDefault();closeMenu();gmMenu(event,point,note.document.id);return;}
  }
  if(occupied(point,event))return;
@@ -244,6 +245,13 @@ function openMenu(event){
  const icon=document.createElement('i');icon.className='fa-solid fa-user-plus';icon.setAttribute('aria-hidden','true');button.append(icon,document.createTextNode(' Place token here'));
  const caption=document.createElement('small');caption.textContent=reason||actor.name;menu.append(button,caption);document.body.append(menu);
  const routes=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.travelPlanner?.routeRecordsAction?.(sceneId);
+ const scenes=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.sceneNavigation;
+ if(scenes){
+  const browse=document.createElement('button');
+  browse.type='button';browse.setAttribute('role','menuitem');browse.textContent='Scenes…';
+  browse.onclick=()=>{closeMenu();void scenes.open().catch(error=>ui.notifications.warn(error.message));};
+  menu.append(browse);
+ }
  if(routes){
   const manage=document.createElement('button');manage.type='button';manage.setAttribute('role','menuitem');manage.textContent=routes.label;
   manage.addEventListener('click',()=>{closeMenu();void routes.run().catch(error=>ui.notifications.warn(error.message));});

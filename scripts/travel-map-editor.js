@@ -7,7 +7,7 @@ const onBoard=event=>{
   const surface=board();
   return Boolean(surface&&(event.target===surface||event.composedPath?.().includes(surface)));
 };
-let drawHandle=null,goalMode=null,gesture=null,preview=null,flagTooltip=null;
+let drawHandle=null,goalMode=null,gesture=null,preview=null,previewFlag=null,flagTooltip=null;
 
 function clear() {
   const ended=gesture;
@@ -15,6 +15,8 @@ function clear() {
   if (ended?.board.hasPointerCapture?.(ended.id)) ended.board.releasePointerCapture(ended.id);
   if (preview && !preview.destroyed) preview.destroy();
   preview=null;
+  if (previewFlag && !previewFlag.destroyed) previewFlag.destroy();
+  previewFlag=null;
   if (flagTooltip) {flagTooltip.board.title=flagTooltip.previous;flagTooltip=null;}
 }
 
@@ -63,7 +65,12 @@ function show(points, flag) {
     preview.lineStyle(4,0xe9ba61,0.95).moveTo(points[0].x,points[0].y);
     for (const point of points.slice(1)) preview.lineTo(point.x,point.y);
   }
-  if (flag) api().partyTravel.drawFlag(preview,flag);
+  if (flag) {
+    const travel=api().partyTravel;
+    previewFlag ??= travel.createFlagGraphic({preview:true});
+    previewFlag.clear();
+    travel.drawFlag(previewFlag,flag);
+  }
 }
 
 async function armDraw() {

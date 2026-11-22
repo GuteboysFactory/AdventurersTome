@@ -97,7 +97,8 @@ async function commit(command, original, expectedShared) {
     const group=persisted.groups.find(group=>group.id===command.groupId)||persisted.groups[0];
     if (command.type==='arrive'||pinKey(command.pin)===pinKey(group.queue[0]?.pin)) command={...command,leg:mapLeg(group)};
   }
-  const next = changeTravelPlan(persisted?.id ? persisted : initialize(), {...command,id:randomId(),finishedAt:Date.now()});
+  const commandId = randomId();
+  const next = changeTravelPlan(persisted?.id ? persisted : initialize(), {...command,id:commandId,finishedAt:Date.now()});
   if (persisted?.id && !persisted.enabled && next.enabled && shared.basicFlag) {
     const group=next.groups[0], saved=new Map((group.trail||[]).map(row=>[row.id,row]));
     for (const segment of shared.basicTrail||[]) {
@@ -136,6 +137,16 @@ async function commit(command, original, expectedShared) {
   } finally {
     saving = false;
     api().partyTravel.refresh();
+  }
+  if (['arrive','position','travel','freeTravel'].includes(command.type) &&
+      game.user.isGM && game.user.id===owner && game.world.id===world) {
+    const arrival = next.logs.at(-1);
+    const group = next.groups.find(group=>group.id===command.groupId) || next.groups[0];
+    const previousGroup = persisted?.groups?.find(row=>row.id===group.id);
+    const repeat = command.type==='freeTravel' && previousGroup?.lastDroppedMarker===pinKey(arrival?.pin);
+    if (arrival?.kind==='arrival' && arrival.id.startsWith(commandId+':') && !group.pending && !repeat) {
+      api().partyTravel.offerMarkerScenes(arrival.pin);
+    }
   }
 }
 
@@ -199,7 +210,7 @@ async function editEvent(group, pin, index, original, markerEvent=false) {
   await commit({type:markerEvent?'markerEvent':'event',groupId:group?.id,pin,index,event:result.remove?null:result},original);
 }
 
-async function resolveEvent(group) {
+async function resolveEvent(group, draft = {}) {
   const {event} = group.pending;
   const currentPlan=()=>{
     const plan=readPlan();
@@ -207,29 +218,40 @@ async function resolveEvent(group) {
     if (!active()||!current?.pending||JSON.stringify(current.pending)!==JSON.stringify(group.pending)) throw Error('This marker event changed. Open it again.');
     return plan;
   };
-  const linkedScene=()=>event.sceneId?game.scenes.get(event.sceneId):api().partyTravel.mapLinkedScene?.(group.pending.pin);
-  const linked=linkedScene();
+  const linkedScenes = () => {
+    const planned = event.sceneId && game.scenes.get(event.sceneId);
+    const markerScenes = api().partyTravel.mapLinkedScenes(group.pending.pin);
+    return planned ? [planned,...markerScenes.filter(scene=>scene!==planned)] : markerScenes;
+  };
+  const choices = linkedScenes();
+  const sceneSelect = choices.length ? `<label>Scene<select name="eventScene">${choices.map(scene=>
+    `<option value="${esc(scene.id)}" ${scene.id===draft.sceneId?'selected':''}>${esc(scene.name)}</option>`).join('')}</select></label>` : '';
+  const chooseScene = action => (_e,button)=>({[action]:true,sceneId:button.form.elements.eventScene.value,
+    publicText:button.form.elements.publicText.value.trim()});
   const outcome = value => (_e,button)=>({outcome:value,publicText:button.form.elements.publicText.value.trim()});
   const buttons = (event.kind==='Check' || event.success || event.failure ? [
     {action:'success',label:'Success',callback:outcome('success')},{action:'failure',label:'Failure',callback:outcome('failure')}
   ] : [{action:'continue',label:'Continue on map',callback:outcome('continue')}]);
   buttons.push({action:'skip',label:'Skip event',callback:outcome('skip')});
-  if (linked) buttons.push({action:'preview',label:'Preview scene',type:'button',callback:()=>({preview:true})},
-    {action:'activate',label:'Activate for players…',type:'button',callback:(_e,button)=>({activate:true,publicText:button.form.elements.publicText.value.trim()})});
+  if (choices.length) buttons.push({action:'preview',label:'Preview for me',callback:chooseScene('preview')},
+    {action:'activate',label:'Activate for players…',callback:chooseScene('activate')});
   buttons.push({action:'close',label:'Back',callback:()=>false});
   const result = await dialog().wait({window:{title:`${group.label} · ${event.title}`},rejectClose:false,buttons,content:
-    `<p>${esc(event.details).replace(/\r?\n/g,'<br>')}</p>${input('publicText','Player session log · optional','What the group discovered')}`});
+    `<p>${esc(event.details).replace(/\r?\n/g,'<br>')}</p>${sceneSelect}${input('publicText','Player session log · optional','What the group discovered',draft.publicText)}`});
   if (!result) return;
+  const linked = choices.find(scene=>scene.id===result.sceneId);
+  if ((result.preview || result.activate) && (!linked || !linkedScenes().includes(linked))) {
+    throw Error('The linked scene changed. Open the event again.');
+  }
   if (result.preview) {
     currentPlan();
-    if (linkedScene()!==linked) throw Error('The linked scene changed. Open the event again.');
     await linked.view();
     currentPlan();
-    return resolveEvent(group);
+    return resolveEvent(group,result);
   }
   if (result.activate) {
     if (await dialog().confirm({window:{title:'Activate scene for players?'},content:`<p>${esc(linked.name)}</p>`,rejectClose:false}) && game.user.isGM &&
-      linkedScene() === linked) {
+      linkedScenes().includes(linked)) {
       currentPlan();
       await linked.activate();
       await commit({type:'resolve',groupId:group.id,outcome:'continue',publicText:result.publicText},JSON.stringify(currentPlan()));
@@ -282,7 +304,8 @@ function freeHandles() {
 }
 
 function dropMarker(scene, point, user) {
-  return scene.notes.contents.filter(note=>{
+  if (!scene?.notes || !point || !user) return;
+  return (scene.notes.contents || [...scene.notes.values()]).filter(note=>{
     if (!api().partyTravel.isWaypoint(note)) return false;
     const edge=(note.iconSize||40)/2;
     if (Math.abs(note.x-point.x)>edge || Math.abs(note.y-point.y)>edge) return false;
@@ -475,10 +498,19 @@ function routeUndoAction(sceneId,groupId) {
   return {label:undoLabel(plan),run:()=>commit({type:'undo'},original)};
 }
 
+function flagSceneAction(position) {
+  if (!position || position.sceneId!==canvas.scene?.id) return;
+  const note = dropMarker(canvas.scene,position,game.user);
+  const pin = note && {sceneId:position.sceneId,noteId:note.id};
+  const travel = api().partyTravel;
+  if (travel.mapLinkedScenes(pin).length) return {label:'Open linked scenes…',run:()=>travel.openMarkerScenes(pin)};
+}
+
 function flagActions(groupId) {
   if (groupId==='basic-party' && game.user.isGM) {
     const undo=api().partyTravel.basicUndoAction?.(canvas.scene?.id);
-    return [{label:'Who can move this flag?',run:chooseBasicDriver},undo,routeRecordsAction(canvas.scene?.id),
+    return [flagSceneAction(api().partyTravel.basicFlagHandle()?.flag),
+      {label:'Who can move this flag?',run:chooseBasicDriver},undo,routeRecordsAction(canvas.scene?.id),
       {label:'Open Travel Planner…',run:()=>openPlanner()}].filter(Boolean);
   }
   const plan=readPlan(),group=plan?.groups?.find(row=>row.id===groupId);
@@ -493,6 +525,8 @@ function flagActions(groupId) {
     actions.push({label:`Rejoin ${other.label}`,run:()=>commit({type:'rejoin',groupId,otherId:other.id,together:true},original)});
   }
   const undo=routeUndoAction(canvas.scene?.id,groupId);
+  const sceneAction=flagSceneAction(groupPosition(group));
+  if (sceneAction && !group.pending) actions.unshift(sceneAction);
   if (undo) actions.unshift(undo);
   const records=routeRecordsAction(canvas.scene?.id);
   if (records) actions.push(records);
@@ -900,7 +934,7 @@ function attachTravelPlanner() {
   const tome = api();
   if (!tome?.partyTravel || tome.travelPlanner) return;
   tome.travelPlanner = Object.freeze({active,routes,routeHandles,editOnMap,groupStart,history,openHistory,archiveBasic,mapActions,open:openPlanner,logRows,handleBasic,
-    freeHandles,moveFlag,flagActions,routeUndoAction,routeRecordsAction,routeMarkColors,setGoalArea,canShareScene,
+    freeHandles,moveFlag,flagActions,routeUndoAction,routeRecordsAction,routeMarkColors,setGoalArea,canShareScene,markerAt:dropMarker,
     sync:()=>active()?commit({type:'refresh'},JSON.stringify(readPlan())):undefined,
     controlled:()=>Boolean(active()||readShared()?.plannerOwner)});
   document.addEventListener('click',event=>{

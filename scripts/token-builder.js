@@ -1,6 +1,7 @@
 import {filePickerClass,dialogV2Class} from './foundry-platform.js';
-import {FRAME_EFFECTS, TOKEN_SHAPES, TOKEN_ART_FLAG, TOKEN_ART_ROTATION_PATH, TOKEN_SIZE, actorArtworkUpdate, actorFullArtwork, defaultTokenLockRotation, normalizeTokenArt, paintToken, placedTokenArtworkUpdates, recordToken, tokenArtState} from './token-art.mjs';
+import {FRAME_EFFECTS, MAX_FRAME_OUTER_WIDTH, TOKEN_SHAPES, TOKEN_ART_FLAG, TOKEN_ART_ROTATION_PATH, TOKEN_SIZE, actorArtworkUpdate, actorFullArtwork, actorHomeArtwork, actorPortraitArtwork, defaultTokenLockRotation, normalizeTokenArt, paintToken, placedTokenArtworkUpdates, recordToken, tokenArtState} from './token-art.mjs';
 import {FRAME_MATERIALS, applyFrameMaterial} from './token-frame-materials.mjs';
+import {isPlayerCharacter} from './player-character-core.mjs';
 
 const ID = 'adventurers-tome';
 const editors = new Map();
@@ -83,13 +84,7 @@ async function saveActorArtwork(actor,state,{full,output,poster},design,{portrai
   // Older Realm Guard builds restore the old portrait at login when its legacy mode is token.
   if (game.system.id==='realm-guard' && actor.flags?.['realm-guard']?.portraitMode==='token') patch['flags.realm-guard.portraitMode']='original';
   await actor.update(patch);
-  if (portrait) {
-    if (game.user.id===owner && game.world.id===world) {
-      setPortraitPreference(actor,'portrait');
-      refreshActorPortraits(actor);
-    }
-    return;
-  }
+  if (portrait) return;
   try { await syncPlacedTokenArtwork(actor,state,output,lockRotation,owner,world,replacePlaced); }
   catch (error) {ui.notifications.warn(`Prototype saved. Placed tokens were not updated: ${error.message}`);}
 }
@@ -117,7 +112,8 @@ function builderContent(state,portraitMode) {
         <label>Detail<select name="style">${[['single','Single edge'],['double','Double edge'],['studs','Studs'],['runes','Runes'],['stitch','Stitching']].map(([key,label])=>option(key,label,frame.style)).join('')}</select></label>
         <label>Frame color<input name="color" type="color" value="${frame.color}"></label>
         <label>Accent color<input name="accent" type="color" value="${frame.accent}"></label>
-        <label>Thickness<input name="weight" type="range" min="3" max="48" value="${frame.weight}"></label>
+        <label>Inner thickness<input name="weight" type="range" min="3" max="48" value="${frame.weight}"></label>
+        <label>Outer thickness<input name="outerWidth" type="range" min="0" max="${MAX_FRAME_OUTER_WIDTH}" value="${frame.outerWidth}"></label>
       </div></details>
       <label class="at-tb-checkbox"><input name="lockRotation" type="checkbox"${state.lockRotation?' checked':''}> Keep portrait upright</label>
       <label class="at-tb-checkbox"><input name="replacePlaced" type="checkbox" checked> Also replace custom images on this character’s placed tokens</label>`}
@@ -215,7 +211,7 @@ async function openTokenBuilder(input,{portrait=false,file}={}) {
     const controls=Object.fromEntries([...root.querySelectorAll('[name]')].map(field=>[field.name,field]));
     const read=()=>normalizeTokenArt(
       Object.fromEntries(['fit','zoom','offsetX','offsetY'].map(name=>[name,controls[name].value])),
-      portrait?portraitFrame:Object.fromEntries(['shape','material','style','effect','color','accent','weight'].map(name=>[name,controls[name].value]))
+      portrait?portraitFrame:Object.fromEntries(['shape','material','style','effect','color','accent','weight','outerWidth'].map(name=>[name,controls[name].value]))
     );
     const refresh=()=>{
       cancelAnimationFrame(previewFrame);
@@ -279,7 +275,7 @@ async function openTokenBuilder(input,{portrait=false,file}={}) {
     };
     canvas.onpointermove=event=>{
       if(drag?.id!==event.pointerId)return;
-      const size=canvas.getBoundingClientRect().width;
+      const size=canvas.getBoundingClientRect().width*TOKEN_SIZE/canvas.width;
       for (const [axis,value] of [['offsetX',drag.ox+(event.clientX-drag.x)*100/size],['offsetY',drag.oy+(event.clientY-drag.y)*100/size]]) {
         controls[axis].value=Math.max(-150,Math.min(150,value)).toFixed(1);
       }
@@ -305,29 +301,29 @@ function portraitPreference(actor,surface) {
   return `${ID}.portrait.${game.world.id}.${game.user.id}.${actor.uuid}.${surface}`;
 }
 
-function setPortraitPreference(actor,mode) {
-  const key=portraitPreference(actor,'group');
+function setPortraitPreference(actor,surface,mode) {
+  const key=portraitPreference(actor,surface);
   portraitPreferences.set(key,mode);
-  try {localStorage.setItem(key,mode);} catch { /* Keep the shared choice for this session. */ }
+  try {localStorage.setItem(key,mode);} catch { /* Keep the choice for this session. */ }
 }
 
-function portraitChoice(actor) {
+function portraitChoice(actor,surface) {
   const state=tokenArtState(actor);
-  const key=portraitPreference(actor,'group');
+  const key=portraitPreference(actor,surface);
   const full=actorFullArtwork(actor,api()?.getActorProfile?.(actor)?.heroImage);
   const paths={full,portrait:state.portrait,token:state.token};
   const defaultMode=state.portrait?'portrait':full?'full':'token';
   let selected=portraitPreferences.get(key);
-  try {selected=localStorage.getItem(key)||selected||localStorage.getItem(portraitPreference(actor,'sheet'));} catch { /* Use the session choice. */ }
+  try {selected=portraitPreferences.get(key)||localStorage.getItem(key);} catch { /* Use the session choice. */ }
   const hasSelection=Object.hasOwn(paths,selected)&&Boolean(paths[selected]);
   const mode=hasSelection?selected:defaultMode;
   return {paths,mode,image:paths[mode]};
 }
 
-function showPortrait(image,path) {
+function showPortrait(image,path,{contain=true}={}) {
   if (!image||!path) return;
   const source=api()?.imageSource?.(path)||path;
-  image.classList.add('at-tb-display-art');
+  if(contain)image.classList.add('at-tb-display-art');
   if (image.getAttribute('src')!==source) image.src=source;
 }
 
@@ -336,8 +332,54 @@ function refreshHomePortraits(root,changedActor) {
     const id=image.dataset.atTbHomeActor;
     if (changedActor&&changedActor.id!==id) continue;
     const actor=changedActor||game.actors.get(id);
-    if (actor&&api()?.canView(actor)) showPortrait(image,portraitChoice(actor).image);
+    if (actor&&api()?.canView(actor)){
+      image.toggleAttribute('data-at-home-full',!actorPortraitArtwork(actor));
+      showPortrait(image,actorHomeArtwork(actor,api()?.getActorProfile?.(actor)?.heroImage),{contain:false});
+    }
   }
+}
+
+function refreshActorDirectoryArtwork(root,changedActor) {
+  const rows=root.querySelectorAll('.directory-item[data-entry-id]');
+  for(const row of rows){
+    const id=row.dataset.entryId;
+    if(changedActor&&id!==changedActor.id)continue;
+    const actor=changedActor||game.actors.get(id);
+    if(!actor)continue;
+    let thumbnail=row.querySelector('.thumbnail');
+    const isCharacter=isPlayerCharacter(actor,game.users?.contents||[]);
+    const path=isCharacter?tokenArtState(actor).token:'';
+    if(!path&&!thumbnail?.hasAttribute('data-at-tb-directory-token'))continue;
+    const imagePath=path||actor.img;
+    if(!imagePath)continue;
+    const video=/\.(?:webm|mp4|m4v|ogv|mov)(?:[?#]|$)/i.test(imagePath);
+    const tag=video?'VIDEO':'IMG';
+    if(thumbnail?.tagName!==tag){
+      const media=document.createElement(tag.toLowerCase());
+      media.className='thumbnail';
+      if(video){
+        media.muted=true;
+        media.playsInline=true;
+        media.preload='auto';
+        media.setAttribute('aria-label',actor.name);
+      }else{
+        media.alt=actor.name;
+        media.loading='lazy';
+      }
+      if(thumbnail)thumbnail.replaceWith(media);
+      else row.prepend(media);
+      thumbnail=media;
+    }
+    thumbnail.toggleAttribute('data-at-tb-directory-token',Boolean(path));
+    showPortrait(thumbnail,imagePath,{contain:false});
+  }
+}
+
+function renderActorDirectory(_app,html) {
+  const root=html?.querySelector?html:html?.[0];
+  if(!root)return;
+  root.dataset.atTbActorDirectory='';
+  refreshActorDirectoryArtwork(root);
 }
 
 function revealPortraitControls(art) {
@@ -352,7 +394,7 @@ function revealPortraitControls(art) {
 
 function mountPortrait(actor,art,image,surface) {
   if (!art || !image) return;
-  const choice=portraitChoice(actor),{paths}=choice;
+  const choice=portraitChoice(actor,surface),{paths}=choice;
   let bar=art.querySelector('[data-at-tb-portrait]');
   if (!bar) {
     if (getComputedStyle(art).position==='static') art.classList.add('at-tb-art-host');
@@ -375,10 +417,9 @@ function mountPortrait(actor,art,image,surface) {
   if (chooser) {
     chooser.value=choice.mode;
     chooser.addEventListener('change',()=>{
-      setPortraitPreference(actor,chooser.value);
+      setPortraitPreference(actor,surface,chooser.value);
       const path=paths[chooser.value];
       showPortrait(image,path);
-      refreshActorPortraits(actor,art);
     });
   }
   bar.querySelector('[data-at-tb-open]')?.addEventListener('click',event=>{
@@ -449,10 +490,11 @@ function tomeActorProfile(app,root,changedActor,skipArt) {
 function refreshActorArtwork(actor, changes) {
   if (!changes || actor?.documentName!=='Actor' || actor.isToken || actor.pack) return;
   const path=`flags.${ID}.${TOKEN_ART_FLAG}`;
-  const changed=Object.hasOwn(changes,'img') || Object.hasOwn(changes,'prototypeToken.texture.src') ||
-    foundry.utils.hasProperty(changes,'prototypeToken.texture.src') || foundry.utils.hasProperty(changes,path) ||
-    Object.keys(changes).some(key=>key===path||key.startsWith(`${path}.`));
+  const keys=Object.keys(changes);
+  const changed=['img','prototypeToken.texture.src',path,'flags.realm-guard.portraitSource','flags.realm-guard.tokenBuilderSourcePortrait','flags.realm-guard.tokenPortraitPath']
+    .some(field=>foundry.utils.hasProperty(changes,field)||keys.some(key=>key===field||key.startsWith(field+'.')));
   if (!changed) return;
+  for(const root of document.querySelectorAll('[data-at-tb-actor-directory]'))refreshActorDirectoryArtwork(root,actor);
   refreshActorPortraits(actor);
 }
 
@@ -510,6 +552,7 @@ Hooks.once('ready',()=>{
 });
 Hooks.on('renderApplicationV2',nativeActorSheet);
 Hooks.on('renderApplication',nativeActorSheet);
+Hooks.on('renderActorDirectory',renderActorDirectory);
 Hooks.on('adventurersTomeViewPrepared',tomeActorProfile);
 Hooks.on('updateActor',refreshActorArtwork);
 Hooks.on('preCreateToken',(token,data,options)=>{

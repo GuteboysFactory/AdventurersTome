@@ -51,7 +51,8 @@ test('board gestures save only on release, snap the flag to the route and accept
   const changes=[],messages=[];
   const receive=async (_handle,change)=>changes.push(change);
   const note={id:'bridge',entry:{name:'Bridge'}};
-  const api={partyTravel:{drawFlag(){},isWaypoint:()=>true},travelPlanner:{routeHandles:()=>[handle],groupStart:()=>handle.leg.points[0],editOnMap:receive}};
+  const flags=[];
+  const api={partyTravel:{drawFlag(){},createFlagGraphic:()=>{const flag=new Graphics();flags.push(flag);return flag;},isWaypoint:()=>true},travelPlanner:{routeHandles:()=>[handle],groupStart:()=>handle.leg.points[0],editOnMap:receive}};
   const board={setPointerCapture(){},hasPointerCapture:()=>true,releasePointerCapture(){}};
   const event=(x,y)=>({clientX:x,clientY:y,button:0,pointerId:1,target:board,preventDefault(){},stopImmediatePropagation(){}});
   class Graphics { clear(){} lineStyle(){return this;} moveTo(){return this;} lineTo(){return this;} destroy(){this.destroyed=true;} }
@@ -93,7 +94,10 @@ test('board gestures save only on release, snap the flag to the route and accept
   api.travelPlanner.moveFlag=async (_handle,points)=>changes.push({kind:'free',points});
   ctx.pointerDown(event(110,80));
   ctx.pointerMove(event(150,118));
+  const dragFlag=flags.at(-1);
+  assert.ok(dragFlag&&!dragFlag.destroyed);
   ctx.pointerUp(event(220,166));
+  assert.equal(dragFlag.destroyed,true);
   assert.equal(changes[3].kind,'free');
   assert.deepEqual(JSON.parse(JSON.stringify(changes[3].points)),[{x:140,y:138},{x:210,y:186}]);
 

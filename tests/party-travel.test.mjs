@@ -9,7 +9,7 @@ const source = readFileSync(new URL('../scripts/party-travel.js', import.meta.ur
 
 function fixture() {
   const gm = {id:'gm', isGM:true}, player = {id:'player', isGM:false};
-  const privatePins = new Set(), rendered = [];
+  const privatePins = new Set(), rendered = [], flags = [];
   const hooks=new Map(), ready=[], coreReady=[];
   const scene = {id:'map', name:'Campaign map', active:true, notes:new Map()};
   function addPin(id, name, x) {
@@ -43,7 +43,7 @@ function fixture() {
   const api = {canView:()=>true, getWorldProfile:entry=>entry?.flags?.['adventurers-tome']?.worldProfile || {category:'location'},
     privateVaultUI:{open:async (entry,options)=>privateNotes.push([entry,options.write])}};
   const game = {
-    user:gm, world:{id:'qa'}, scenes:new Map([[scene.id,scene]]),
+    user:gm, users:{contents:[gm,player]}, world:{id:'qa'}, scenes:new Map([[scene.id,scene]]),
     settings:{get:(_module,key)=>key==='privateTravelPlanV1'?privatePlan:key==='personalTravelMarksV1'?marks:saved, set:async (_module,key,data)=>{
       if (key==='privateTravelPlanV1') privatePlan=data;
       else if (key==='personalTravelMarksV1') marks=data;
@@ -65,7 +65,7 @@ function fixture() {
       if(name==='ready')ready.push(fn);
       if(name==='adventurersTomeCoreApiReady')coreReady.push(fn);
     },on:(name,fn)=>hooks.set(name,fn),callAll(){}},
-    ATTestAI:{modules:{get:()=>({api})}}, PIXI:{Graphics},document:{addEventListener(){}},
+    ATTestAI:{modules:{get:()=>({api})}}, PIXI:{Graphics},document:{addEventListener(){}},ui:{notifications:{info(){}}},
     CONST:{DOCUMENT_OWNERSHIP_LEVELS:{NONE:0,OBSERVER:2}},
     JournalEntry:{create:async data=>{
       const entry = {...data, id:`place-${entries.size + 1}`, delete:async()=>entries.delete(entry.id)};
@@ -74,16 +74,19 @@ function fixture() {
     }},
     foundry:{utils:{randomID:()=>`flag-${saved.basicTrail?.length||0}`,escapeHTML:value=>String(value).replaceAll('<','&lt;')},
       applications:{api:{DialogV2:{prompt:async options=>{promptOptions=options;return nextMarker;}}}}},
-    canvas:{ready:true, scene, app:{ticker}, dimensions:{rect:{contains:(x,y)=>Number.isFinite(x)&&Number.isFinite(y)}}, interface:{addChild(graphic){ graphic.parent=this;rendered.push(graphic); return graphic; }}}
+    canvas:{ready:true, scene, app:{ticker}, dimensions:{rect:{contains:(x,y)=>Number.isFinite(x)&&Number.isFinite(y)}},
+      stage:{sortableChildren:true,addChild(graphic){graphic.parent=this;flags.push(graphic);return graphic;}},
+      interface:{addChild(graphic){ graphic.parent=this;rendered.push(graphic); return graphic; }}}
   });
+  scene.getDimensions=()=>context.canvas.dimensions;
   vm.runInContext(source, context);
   const point = {sceneId:scene.id,x:124,y:380};
   const mapActions = context.mapActions;
-  return {game, api, canvas:context.canvas, player, scene, addPin, entries, privateNotes, privatePins, rendered, ticks, saved:()=>saved.stops, destination:()=>saved.destination,
+  return {game, api, canvas:context.canvas, player, scene, addPin, entries, privateNotes, privatePins, rendered, flags, ticks, saved:()=>saved.stops, destination:()=>saved.destination,
     loadShared:state=>{saved=state;}, shared:()=>saved, fire:hook=>hooks.get(hook)?.(),
     loadPrivate:state=>{privatePlan=state;}, publishCore:()=>coreReady.splice(0).forEach(start=>start(api)),
     privatePlan:()=>privatePlan, marks:()=>marks,
-    mockRoutes:result=>{context.foundry.applications.api.DialogV2.wait=async()=>result;},
+    mockRoutes:result=>{context.foundry.applications.api.DialogV2.wait=typeof result==='function'?result:async()=>result;},
     readyWithPlanner(){const script=readFileSync(new URL('../scripts/travel-planner.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');vm.runInContext(script,context);ready.forEach(start=>start());},
     waypoints:()=>saved.waypoints,
     mockDialog:result=>{nextMarker=result;}, promptOptions:()=>promptOptions, actions:noteId=>mapActions(point,noteId),
@@ -116,7 +119,7 @@ test('the planner restores a saved flag when Foundry draws the canvas before rea
   qa.fire('canvasReady');
   assert.equal(qa.rendered.length,0);
   qa.readyWithPlanner();
-  const latest=qa.rendered.at(-1);
+  const latest=qa.flags.at(-1);
   assert.ok(latest.operations.some(([op,x,y])=>op==='line'&&x===290&&y===384));
   assert.equal(qa.current().canFocus,true);
   assert.equal(qa.shared().routes[0].flag,flag);
@@ -142,7 +145,7 @@ test('a GM login restores the flag, travelled trail and private route when Tome 
   Object.assign(qa.api,{canView,getWorldProfile});
   qa.publishCore();
   const map=qa.rendered.at(-1);
-  assert.ok(map.operations.some(([op,x,y])=>op==='line'&&x===120&&y===94));
+  assert.ok(qa.flags.at(-1).operations.some(([op,x,y])=>op==='line'&&x===120&&y===94));
   assert.ok(map.operations.some(([op,x,y])=>op==='move'&&x===30&&y===130));
   assert.ok(map.operations.some(([op,x,y])=>op==='circle'&&x===220&&y===80));
   assert.ok(map.operations.some(([op,x,y])=>op==='circle'&&x===380&&y===80));
@@ -164,7 +167,7 @@ test('a GM can grab the basic flag while the planner is off and the moved flag s
   fresh.loadShared(qa.shared());
   fresh.addPin('a','Bree',20);
   fresh.readyWithPlanner();
-  const latest=fresh.rendered.at(-1);
+  const latest=fresh.flags.at(-1);
   assert.ok(latest.operations.some(([op,x,y])=>op==='line'&&x===90&&y===64));
   assert.equal(fresh.api.travelPlanner.freeHandles().length,0);
   assert.equal(fresh.actions().some(action=>action.label.startsWith('Undo')),false);
@@ -277,7 +280,7 @@ test('a green dash moves while the flag stays put and hides private destinations
   qa.draw();
   const graphic = qa.rendered.at(-1), pulse = graphic.children[0];
   assert.deepEqual(graphic.operations.filter(([type])=>type==='circle'),[['circle',120,80]]);
-  assert.ok(graphic.operations.some(([type,x,y])=>type==='line' && x===20 && y===44));
+  assert.ok(qa.flags.at(-1).operations.some(([type,x,y])=>type==='line' && x===20 && y===44));
   assert.ok(graphic.styles.some(([width,color])=>width===3 && color===0xadadad));
   const previousX = pulse.operations[0][1];
   for (const tick of qa.ticks) tick();
@@ -308,8 +311,9 @@ test('split parties sharing a starting pin have separate flags and independently
   const graphic = qa.rendered.at(-1);
   assert.equal(qa.ticks.size,2);
   assert.equal(graphic.children.length,2);
-  assert.ok(graphic.operations.some(([type,x,y])=>type==='line' && x===20 && y===44));
-  assert.ok(graphic.operations.some(([type,x,y])=>type==='line' && x===30 && y===44));
+  const flags=qa.flags.at(-1);
+  assert.ok(flags.operations.some(([type,x,y])=>type==='line' && x===20 && y===44));
+  assert.ok(flags.operations.some(([type,x,y])=>type==='line' && x===30 && y===44));
   assert.ok(graphic.children[0].operations[1][1]>20 && graphic.children[1].operations[1][1]<20);
   qa.clear();
   assert.equal(qa.ticks.size,0);
@@ -342,7 +346,7 @@ test('the map menu can undo a planned waypoint without removing travelled stops 
   assert.equal(qa.destination().noteId,finish.noteId);
 });
 
-test('an existing parchment note can be a travel stop and link a scene independently of its journal',async()=>{
+test('a parchment marker keeps legacy scene links and lets the GM select several scenes independently of its journal',async()=>{
   const qa=fixture();
   const first=qa.addPin('first','Bree',20), pin=qa.addPin('note','Old bridge note',90);
   const note=qa.scene.notes.get(pin.noteId), flags={notePinStyle:'borderless'};
@@ -354,8 +358,10 @@ test('an existing parchment note can be a travel stop and link a scene independe
   note.unsetFlag=async (_namespace,key)=>{delete flags[key];};
   qa.readyWithPlanner();
   const calls=[];
-  const target={id:'encounter',name:'Bridge encounter',view:async()=>calls.push('preview'),activate:async()=>calls.push('activate')};
+  const target={id:'encounter',name:'Bridge encounter',view:async()=>calls.push('preview bridge'),activate:async()=>calls.push('activate bridge')};
+  const inn={id:'inn',name:'The Prancing Pony',view:async()=>calls.push('preview inn'),activate:async()=>calls.push('activate inn')};
   qa.game.scenes.set(target.id,target);
+  qa.game.scenes.set(inn.id,inn);
   const action=label=>qa.actions(pin.noteId).find(row=>row.label===label);
   await qa.write(first);
   assert.ok(action('Add waypoint'));
@@ -365,23 +371,100 @@ test('an existing parchment note can be a travel stop and link a scene independe
   assert.equal(qa.destination().noteId,pin.noteId);
   await action('Set party position').run();
   assert.equal(qa.saved().at(-1).noteId,pin.noteId);
-  qa.mockDialog(target.id);
-  await action('Link scene…').run();
+  assert.ok(action('Link scenes…'));
+  flags.partyLinkedScene=target.id;
   assert.equal(qa.api.partyTravel.mapLinkedScene(pin),target);
+  qa.mockDialog([target.id,inn.id]);
+  await action('Manage scene links…').run();
+  assert.match(qa.promptOptions().content,/data-marker-scene-search/);
+  assert.deepEqual(Array.from(qa.api.partyTravel.mapLinkedScenes(pin)),[target,inn]);
   assert.equal(note.entry.flags['adventurers-tome'].partyLinkedScene,undefined);
-  await action('Preview linked scene').run();
+  let shown=0;
+  qa.mockRoutes(async options=>{
+    assert.match(options.content,/Bridge encounter/);
+    assert.match(options.content,/The Prancing Pony/);
+    if(shown++)return null;
+    return options.buttons.find(row=>row.action==='preview').callback(null,{form:{elements:{scene:{value:inn.id}}}});
+  });
+  await action('Open linked scenes…').run();
   qa.mockConfirm(async()=>false);
-  await action('Activate linked scene for players…').run();
-  assert.deepEqual(calls,['preview']);
+  qa.mockRoutes({action:'activate',id:target.id});
+  await action('Open linked scenes…').run();
+  assert.deepEqual(calls,['preview inn']);
   qa.mockConfirm(async()=>true);
-  await action('Activate linked scene for players…').run();
-  assert.deepEqual(calls,['preview','activate']);
-  const stalePreview=action('Preview linked scene');
-  await action('Remove scene link').run();
-  assert.equal(qa.api.partyTravel.mapLinkedScene(pin),null);
-  await assert.rejects(async()=>stalePreview.run(),/scene link changed/);
+  await action('Open linked scenes…').run();
+  assert.deepEqual(calls,['preview inn','activate bridge']);
+  qa.mockDialog([inn.id]);
+  await action('Manage scene links…').run();
+  assert.deepEqual(Array.from(qa.api.partyTravel.mapLinkedScenes(pin)),[inn]);
   qa.game.user=qa.player;
   assert.equal(qa.actions(pin.noteId).length,0);
+  assert.equal(qa.api.partyTravel.mapLinkedScenes(pin).length,0);
+  qa.game.user={id:'gm',isGM:true};
+  qa.mockDialog([]);
+  await action('Manage scene links…').run();
+  assert.equal(qa.api.partyTravel.mapLinkedScene(pin),null);
+});
+
+test('arrival opens the GM scene chooser with the planner off or on and the flag menu can reopen it',async()=>{
+  for(const enabled of [false,true]){
+    const qa=fixture(), start=qa.addPin('start','Road',20), stop=qa.addPin('bree','Bree',120);
+    qa.scene.notes.get(stop.noteId).getFlag=(_module,key)=>key==='partyLinkedScenes'?['pony','shop']:undefined;
+    qa.game.scenes.set('pony',{id:'pony',name:'The Prancing Pony'});
+    qa.game.scenes.set('shop',{id:'shop',name:'Bree shop'});
+    if(enabled){
+      qa.loadShared({plannerOwner:'gm',stops:[start],routes:[]});
+      qa.loadPrivate({id:'journey',mode:'free',enabled:true,logs:[],groups:[
+        {id:'party',label:'Party',stops:[start],queue:[],memberIds:[]}
+      ]});
+    }
+    qa.readyWithPlanner();
+    if(!enabled)await qa.write(start);
+    let opened=0;
+    qa.mockRoutes(async options=>{
+      assert.match(options.content,/The Prancing Pony/);
+      assert.match(options.content,/Bree shop/);
+      opened++;
+      return null;
+    });
+    await qa.api.travelPlanner.moveFlag(qa.api.travelPlanner.freeHandles()[0],[{x:120,y:80}]);
+    assert.equal(opened,1);
+    const flagMenu=qa.api.travelPlanner.flagActions(enabled?'party':'basic-party');
+    await flagMenu.find(action=>action.label==='Open linked scenes…').run();
+    assert.equal(opened,2);
+  }
+});
+
+test('a marker event offers its planned scene and additional marker scenes in one GM dialog',async()=>{
+  const qa=fixture(), start=qa.addPin('road','Road',20), stop=qa.addPin('bree','Bree',120);
+  qa.scene.notes.get(stop.noteId).getFlag=(_module,key)=>key==='partyLinkedScenes'?['pony']:undefined;
+  const calls=[];
+  qa.game.scenes.set('pony',{id:'pony',name:'The Prancing Pony',view:async()=>calls.push('inn')});
+  qa.game.scenes.set('gate',{id:'gate',name:'Bree gate',view:async()=>calls.push('gate')});
+  qa.loadShared({plannerOwner:'gm',stops:[start],routes:[]});
+  qa.loadPrivate({id:'journey',mode:'free',enabled:true,logs:[],groups:[
+    {id:'party',label:'Party',stops:[start],queue:[],memberIds:[]}
+  ],events:{[pinKey(stop)]:{title:'At the gate',sceneId:'gate'}}});
+  qa.readyWithPlanner();
+  let finish;
+  const shownAgain=new Promise(resolve=>{finish=resolve;});
+  let shown=0;
+  qa.mockRoutes(async options=>{
+    assert.match(options.window.title,/At the gate/);
+    assert.match(options.content,/Bree gate.*The Prancing Pony/s);
+    if(shown++){
+      assert.match(options.content,/value="pony" selected/);
+      assert.match(options.content,/value="Met the watch"/);
+      finish();
+      return null;
+    }
+    const elements={eventScene:{value:'pony'},publicText:{value:'Met the watch'}};
+    return options.buttons.find(button=>button.action==='preview').callback(null,{form:{elements}});
+  });
+  await qa.api.travelPlanner.moveFlag(qa.api.travelPlanner.freeHandles()[0],[{x:120,y:80}]);
+  await shownAgain;
+  assert.deepEqual(calls,['inn']);
+  assert.equal(qa.privatePlan().groups[0].pending.event.sceneId,'gate');
 });
 
 test('the GM can delete several unlinked legs and archived routes but keeps the flag and linked records',async()=>{
@@ -463,7 +546,7 @@ test('the shared flag is drawn through fog and the GM guide runs through the way
   qa.api.travelPlanner={routes:()=>[route]};
   qa.draw();
   const player=qa.rendered.at(-1);
-  assert.ok(player.operations.some(([type,x,y])=>type==='line'&&x===84&&y===100));
+  assert.ok(qa.flags.at(-1).operations.some(([type,x,y])=>type==='line'&&x===84&&y===100));
   assert.ok(player.operations.some(([type,x,y])=>type==='circle'&&x===310&&y===260));
   assert.ok(player.operations.some(([type,x,y])=>type==='circle'&&x===550&&y===80));
   assert.equal(player.operations.some(([type,x,y])=>type==='line'&&x===550&&y===80),false);
@@ -477,4 +560,25 @@ test('the shared flag is drawn through fog and the GM guide runs through the way
   assert.ok(gm.operations.some(([type,x,y])=>type==='line'&&x>500&&y===80));
   assert.equal(qa.ticks.size,2);
   qa.clear();
+});
+
+test('party flags and drag previews sort above the map and clean up separately from the route',()=>{
+  const qa=fixture();
+  qa.readyWithPlanner();
+  const flag={sceneId:qa.scene.id,x:84,y:136};
+  qa.loadShared({plannerOwner:'gm',stops:[],routes:[{id:'party',mode:'free',stops:[],ahead:[],flag}]});
+  qa.game.user=qa.player;
+  qa.draw();
+  const placedFlag=qa.flags.at(-1);
+  const route=qa.rendered.at(-1);
+  const preview=qa.api.partyTravel.createFlagGraphic({preview:true});
+  const laterControl=qa.canvas.stage.addChild({zIndex:4000});
+  assert.equal(placedFlag.parent,qa.canvas.stage);
+  assert.equal(route.parent,qa.canvas.interface);
+  assert.ok(preview.zIndex>placedFlag.zIndex&&placedFlag.zIndex>laterControl.zIndex);
+  assert.equal(placedFlag.eventMode,'none');
+  assert.equal(preview.eventMode,'none');
+  qa.fire('canvasTearDown');
+  assert.equal(placedFlag.destroyed,true);
+  assert.equal(route.destroyed,true);
 });
