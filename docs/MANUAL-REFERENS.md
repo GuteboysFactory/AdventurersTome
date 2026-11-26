@@ -1,6 +1,6 @@
 # Adventurer’s Tome – fördjupning och funktionsregister
 
-**Version 2.1.10.** [Till manualens innehåll](MANUAL.md#innehåll) · [English reference](MANUAL-REFERENCE-EN.md)
+**Version 2.1.11.** [Till manualens innehåll](MANUAL.md#innehåll) · [English reference](MANUAL-REFERENCE-EN.md)
 
 ## Innehåll
 

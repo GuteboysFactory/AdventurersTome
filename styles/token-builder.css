@@ -4,7 +4,7 @@
   color: var(--at-parchment);
   border: 1px solid var(--at-gold-dim);
   max-width: calc(100vw - 24px);
-  max-height: calc(100dvh - 32px);
+  max-height: min(860px, calc(100dvh - 32px));
 }
 .at-token-builder-dialog .window-header { background: #22180f; color: var(--at-gold-bright); }
 .at-token-builder-dialog .window-content,
@@ -18,8 +18,9 @@
 .at-token-builder-dialog .dialog-content {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: scroll;
   overscroll-behavior: contain;
+  scrollbar-color: #a47a42 #1b130c;
   scrollbar-gutter: stable;
 }
 .at-token-builder-dialog .form-footer { flex: 0 0 auto; }

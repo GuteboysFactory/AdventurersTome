@@ -1,8 +1,8 @@
 # Adventurer’s Tome user manual
 
-[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.10_STABLE_RELEASE.md)
+[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.11_STABLE_RELEASE.md)
 
-This manual covers stable Tome 2.1.10 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
+This manual covers stable Tome 2.1.11 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
 
 ## Contents
 
@@ -103,7 +103,7 @@ Choose **Shape → Illustrated frames** for **Laurel wreath**, **Flower wreath**
 
 The **Shape** menu groups 90 additional frames by theme, including **Woodland**, **Forge** and **Northern legends**. **Frame diameter** resizes the entire frame and its opening. Click **100%** to reset it.
 
-For **Circle**, enable **Fit to token edges** to bring the ring to the sides of the square. Turn it off to restore your chosen diameter.
+For **Circle**, enable **Fit to token edges** to bring the ring to the sides of the square. Turn it off to restore your chosen diameter. Animated effects can extend past the square while the token keeps its grid size. The square outline stays hidden on hover and selection.
 
 Under **Frame animation**, choose **Ember ring** for low flames or **Burning ring** for fuller flames. Both rise from the outer edge of the frame. The 22 effects are grouped under **Elements**, **Light and nature**, and **Shadow and magic**. Examples include **Ghostly Light**, **Holy Aura**, **Death Shadow**, **Sickness**, and **Angry**. Adjust **Animation strength** to make the effect more subtle or pronounced. **100%** is the default. **Save token** saves an animated WebM and a still image for views that display a picture.
 
@@ -112,6 +112,8 @@ Use **Token size on the map** to set width and height in grid squares for new pl
 The GM can use **Save as default** to save the current frame design for the world. **Use world default frame** loads that design in the editor for an existing character. Save the token to apply it.
 
 The GM can choose **Enable player uploads…** in Token Builder to grant Foundry’s **Upload Files** permission to the Player and Trusted Player roles. Character owners can then open Token Builder from their sheet, select a local picture with **Choose file**, and save. Files are stored in an open folder per player account under the world’s `adventurers-tome/token-art` folder. **Browse images** requires Foundry’s file browser permission.
+
+Use the scrollbar on the right to reach all settings. **Save token** and **Cancel** stay visible at the bottom. If an older animation stops at the edge of the square, open **Token Builder** and click **Save token** to regenerate its video.
 
 ### Keep token artwork upright
 <!-- tome-manual rotation|guide|all|token defaults lock rotation upright upprätt rotera -->
@@ -351,6 +353,7 @@ Open **Sessions → Language Lab** to inspect language analysis. Test a Swedish 
 
 [Back to contents](#contents)
 
+- **2.1.11** covers token effects beyond the grid square, the hidden selection outline and Token Builder’s scrollbar.
 - **2.1.10** adds guides for the Scenes sidebar drop area, import defaults and duplicate handling, and the movable scene controls.
 - **2.1.9** adds the searchable bilingual manual with updated guides for frames, animations, player uploads and Campaign Memory.
 - **2.1.8** covers the released workflows for scene navigation, scene import, bulk defaults, chat, storage, map links and Token Builder.

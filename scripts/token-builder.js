@@ -101,13 +101,14 @@ function png(canvas) {
   return new Promise((resolve,reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(Error('Could not export this image as PNG.')), 'image/png'));
 }
 
-async function syncPlacedTokenArtwork(actor, state, output, lockRotation, owner, world, replaceCustom, poster, gridSize) {
+async function syncPlacedTokenArtwork(actor, state, output, lockRotation, owner, world, replaceCustom, poster, gridSize, textureScale) {
   const failures=new Set();
   for (const scene of game.scenes.contents) {
     if (game.user.id!==owner || game.world.id!==world || game.actors.get(actor.id)!==actor || actor.prototypeToken?.texture?.src!==output) {
       throw Error('The Actor or token artwork changed before all scenes could be updated.');
     }
-    const updates=placedTokenArtworkUpdates(scene.tokens.contents,actor.id,state.tokenTexture,output,lockRotation,{replaceCustom,poster,gridSize});
+    const updates=placedTokenArtworkUpdates(scene.tokens.contents,actor.id,state.tokenTexture,output,lockRotation,
+      {replaceCustom,poster,gridSize,textureScale,previousTextureScale:state.textureScale});
     if (!updates.length) continue;
     const permitted=scene.canUserModify(game.user,'update') ? updates : updates.filter(update=>scene.tokens.get(update._id)?.canUserModify(game.user,'update'));
     if (permitted.length!==updates.length) failures.add(scene.id);
@@ -118,9 +119,9 @@ async function syncPlacedTokenArtwork(actor, state, output, lockRotation, owner,
   if (failures.size) ui.notifications.warn(`Actor and prototype saved. Some placed tokens could not be updated in ${failures.size} scene(s).`);
 }
 
-async function saveActorArtwork(actor,state,{full,output,poster},design,{portrait,lockRotation,replacePlaced,fullArtwork,owner,world,gridSize,resizePlaced}) {
+async function saveActorArtwork(actor,state,{full,output,poster,textureScale},design,{portrait,lockRotation,replacePlaced,fullArtwork,owner,world,gridSize,resizePlaced}) {
   const sizeChanged=gridSize&&(gridSize.width!==state.gridSize.width||gridSize.height!==state.gridSize.height);
-  const patch=actorArtworkUpdate({mode:portrait?'portrait':'token',source:full,output,poster,design,lockRotation,fullArtwork:fullArtwork||full,gridSize:sizeChanged?gridSize:undefined});
+  const patch=actorArtworkUpdate({mode:portrait?'portrait':'token',source:full,output,poster,design,lockRotation,fullArtwork:fullArtwork||full,gridSize:sizeChanged?gridSize:undefined,textureScale});
   const animated=!portrait&&/\.webm(?:$|[?#])/i.test(output);
   if (!portrait&&state.ringTexture) patch['prototypeToken.ring.subject.texture']=animated?poster:output;
   // Foundry's Dynamic Ring uses a separate image-only subject. The exported
@@ -131,7 +132,7 @@ async function saveActorArtwork(actor,state,{full,output,poster},design,{portrai
   await actor.update(patch);
   if (portrait) return;
   if (actor.prototypeToken?.texture?.src!==output) throw Error('Foundry did not save the token image.');
-  try { await syncPlacedTokenArtwork(actor,state,output,lockRotation,owner,world,replacePlaced,poster,resizePlaced?gridSize:undefined); }
+  try { await syncPlacedTokenArtwork(actor,state,output,lockRotation,owner,world,replacePlaced,poster,resizePlaced?gridSize:undefined,textureScale); }
   catch (error) {ui.notifications.warn(`Prototype saved. Placed tokens were not updated: ${error.message}`);}
 }
 
@@ -248,9 +249,9 @@ async function openTokenBuilder(input,{portrait=false,file}={}) {
             const animated=!portrait && design.frame.effect!=='none';
             const separatePoster=!portrait&&(animated||game.system.id==='realm-guard');
             const posterCanvas=animated?canvas.ownerDocument.createElement('canvas'):canvas;
+            let textureScale=1;
             if(animated){
-              posterCanvas.width=posterCanvas.height=TOKEN_SIZE;
-              paintToken(posterCanvas,image,design.framing,design.frame,0,artwork);
+              textureScale=paintToken(posterCanvas,image,design.framing,design.frame,0,artwork);
             }
             const posterBlob=await png(posterCanvas);
             const outputBlob=animated?await recordToken(posterCanvas,image,design,{artwork}):posterBlob;
@@ -260,7 +261,7 @@ async function openTokenBuilder(input,{portrait=false,file}={}) {
             const extension=animated?'webm':'png';
             const output=await uploadArt(Picker,directory,new File([outputBlob],`${stamp}-${name}.${extension}`,{type:outputBlob.type}));
             const poster=separatePoster?await uploadArt(Picker,directory,new File([posterBlob],`${stamp}-poster.png`,{type:'image/png'})):'';
-            lastUpload={key:uploadKey,full,output,poster};
+            lastUpload={key:uploadKey,full,output,poster,textureScale};
           }
           authorize();
           const savedFullArtwork=portrait&&(localFile||source!==initialSource)?lastUpload.full:fullArtwork;
@@ -771,6 +772,13 @@ Hooks.on('renderApplication',nativeActorSheet);
 Hooks.on('renderActorDirectory',renderActorDirectory);
 Hooks.on('adventurersTomeViewPrepared',tomeActorProfile);
 Hooks.on('updateActor',refreshActorArtwork);
+// Foundry toggles the selection/hover outline via visibility. Suppress its rendering
+// while leaving token targeting, control and interaction geometry intact.
+function hideTokenOutline(token) {
+  if(token.border) token.border.renderable=false;
+}
+Hooks.on('drawToken',hideTokenOutline);
+Hooks.on('refreshToken',hideTokenOutline);
 Hooks.on('preCreateToken',(token,data,options)=>{
   // Foundry copies the native prototype's false value into ordinary actor drops.
   // Preserve existing documents being moved with their IDs, and honor actor overrides.

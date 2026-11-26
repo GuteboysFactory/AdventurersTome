@@ -78,10 +78,12 @@ export function tokenArtState(actor,worldFrame) {
   const prototype = actor.prototypeToken;
   const tokenTexture = prototype?.texture?.src || legacy.tokenPortraitPath || '';
   const token = saved?.tokenPoster?.video===tokenTexture ? saved.tokenPoster.image || tokenTexture : tokenTexture;
+  const textureScale = saved?.tokenPoster?.video===tokenTexture ? saved.tokenPoster.textureScale : 1;
   const source = actorFullArtwork(actor);
   const legacyFrame = legacy.tokenBuilderFraming ? LEGACY_FRAME : DEFAULT_FRAME;
   return {
-    source, token, tokenTexture, ringEnabled:prototype?.ring?.enabled===true, ringTexture:prototype?.ring?.subject?.texture || '', displayImage:actor.img || '', portrait: actorPortraitArtwork(actor),
+    source, token, tokenTexture, textureScale:Number.isFinite(textureScale)&&textureScale>0?textureScale:1,
+    ringEnabled:prototype?.ring?.enabled===true, ringTexture:prototype?.ring?.subject?.texture || '', displayImage:actor.img || '', portrait: actorPortraitArtwork(actor),
     portraitSource: saved?.portrait?.source || source,
     portraitFraming: normalizeTokenArt(saved?.portrait?.framing).framing,
     defaultMode: saved?.displayMode==='token'&&token ? 'token' : saved?.portrait?.image ? 'portrait' : legacy.portraitMode === 'token' && token ? 'token' : 'full',
@@ -110,23 +112,25 @@ export function savedActorDisplayArtwork(actor){
   return ['portrait','token'].includes(mode)?actor.img||'':'';
 }
 
-export function actorArtworkUpdate({mode,source,output,poster='',design,lockRotation=true,fullArtwork,gridSize}){
+export function actorArtworkUpdate({mode,source,output,poster='',design,lockRotation=true,fullArtwork,gridSize,textureScale=1}){
   const flag=`flags.${ID}.${TOKEN_ART_FLAG}`;
   const common={img:poster||output,[flag+'.displayMode']:mode,[flag+'.source']:mode==='portrait'?fullArtwork:source};
   if(mode==='portrait')return {...common,[flag+'.portrait']:{image:output,source,framing:design.framing}};
-  return {...common,...tokenTexturePatch(output,lockRotation,'prototypeToken.'),[TOKEN_ART_ROTATION_PATH]:lockRotation,[flag+'.framing']:design.framing,
-    [flag+'.frame']:design.frame,[flag+'.tokenPoster']:poster?{video:output,image:poster}:null,
+  return {...common,...tokenTexturePatch(output,lockRotation,'prototypeToken.',textureScale),[TOKEN_ART_ROTATION_PATH]:lockRotation,[flag+'.framing']:design.framing,
+    [flag+'.frame']:design.frame,[flag+'.tokenPoster']:poster?{video:output,image:poster,textureScale}:null,
     ...(gridSize?{'prototypeToken.width':gridSize.width,'prototypeToken.height':gridSize.height}:{})};
 }
 
-export function placedTokenArtworkUpdates(tokens, actorId, previousTexture, output, lockRotation, {replaceCustom=false,poster="",gridSize}={}) {
+export function placedTokenArtworkUpdates(tokens, actorId, previousTexture, output, lockRotation, {replaceCustom=false,poster="",gridSize,textureScale=1,previousTextureScale=1}={}) {
   return tokens.filter(token=>token.actorId===actorId && (replaceCustom || token.texture?.src===previousTexture))
     .map(token=>{
       const ring=(token._source??token).ring;
       const ringTexture=ring?.subject?.texture;
       const animated=/\.webm(?:$|[?#])/i.test(output);
       const still=animated&&/\.png(?:$|[?#])/i.test(poster)?poster:animated?"":output;
+      const scaleRatio=textureScale/(token.texture?.src===previousTexture?previousTextureScale:1);
       return {_id:token.id,'texture.src':output,lockRotation,
+        ...(scaleRatio!==1?{'texture.scaleX':(token.texture?.scaleX??1)*scaleRatio,'texture.scaleY':(token.texture?.scaleY??1)*scaleRatio}:{}),
         ...(gridSize?{width:gridSize.width,height:gridSize.height}:{}),
         ...(animated&&ring?.enabled?{'ring.enabled':false}:{}),
         ...(still&&ringTexture&&(replaceCustom||ringTexture===previousTexture)?{'ring.subject.texture':still}:{})};
@@ -395,20 +399,26 @@ export function tokenFrameScale(frame) {
   return 1;
 }
 
+function tokenCanvasSize(hasFrame,fitToEdges,scale,expansion,ornamentPadding,effectPadding) {
+  if(!hasFrame)return TOKEN_SIZE;
+  if(fitToEdges)return TOKEN_SIZE+2*Math.ceil(effectPadding*scale);
+  // Leave room for larger diameters without changing the scale of the artwork in the texture.
+  const maxScale=MAX_FRAME_DIAMETER/100;
+  return TOKEN_SIZE+2*Math.ceil((expansion+Math.max(ornamentPadding,effectPadding))*maxScale+TOKEN_SIZE*(maxScale-1)/2);
+}
+
 export function paintToken(canvas,image,framing,frame,phase=0,artwork={}) {
   const size=TOKEN_SIZE;
   const silhouette=Object.hasOwn(FRAME_SILHOUETTES,frame.shape)?FRAME_SILHOUETTES[frame.shape]:null;
   const hasFrame=Boolean(silhouette)||frame.style!=="none";
   const bandWidth=(silhouette?frame.illustratedBandWidth:frame.bandWidth)??frame.bandWidth??frame.weight;
   const usedOrnaments=Object.entries(frame.ornaments||{}).filter(([,key])=>artwork[key]);
-  const decorationPadding=Math.max(usedOrnaments.length?ORNAMENT_SIZE:0,FRAME_EFFECT_PADDING[frame.effect]??0);
+  const ornamentPadding=usedOrnaments.length?ORNAMENT_SIZE:0;
   const expansion=Math.max(0,bandWidth-frame.weight);
   const scale=tokenFrameScale(frame);
   const fitToEdges=hasFrame&&frame.shape==='circle'&&frame.fitToEdges;
-  // Reserve room for the largest diameter so resizing changes the artwork's share of the texture.
-  const maxScale=MAX_FRAME_DIAMETER/100;
-  const padding=hasFrame&&!fitToEdges?Math.ceil((expansion+decorationPadding)*maxScale+size*(maxScale-1)/2):0;
-  const outputSize=size+2*padding;
+  const outputSize=tokenCanvasSize(hasFrame,fitToEdges,scale,expansion,ornamentPadding,FRAME_EFFECT_PADDING[frame.effect]??0);
+  const padding=(outputSize-size)/2;
   if(canvas.width!==outputSize)canvas.width=outputSize;
   if(canvas.height!==outputSize)canvas.height=outputSize;
   const ctx=canvas.getContext("2d");
@@ -441,7 +451,7 @@ export function paintToken(canvas,image,framing,frame,phase=0,artwork={}) {
   }
   ctx.drawImage(image,rect.x,rect.y,rect.w,rect.h);
   ctx.restore();
-  if(!hasFrame){ctx.restore();return;}
+  if(!hasFrame){ctx.restore();return 1;}
   if(silhouette){
     if(picture){
       const layer=profile?illustratedFrame(ctx,frame,picture,profile,expansion):{artwork:tintedSilhouette(ctx,frame.shape,picture,frame.silhouetteTint),margin:0};
@@ -462,6 +472,8 @@ export function paintToken(canvas,image,framing,frame,phase=0,artwork={}) {
     ctx.drawImage(sprite,x-width/2,y-height/2,width,height);
   }
   ctx.restore();
+  // Compensate for the transparent animation margin through Foundry's texture scale.
+  return outputSize/tokenCanvasSize(hasFrame,fitToEdges,scale,expansion,ornamentPadding,0);
 }
 
 export async function recordToken(canvas,image,design,{duration=FRAME_ANIMATION_DURATION,artwork}={}) {
@@ -494,7 +506,7 @@ export async function recordToken(canvas,image,design,{duration=FRAME_ANIMATION_
   } finally {for(const track of stream.getTracks())track.stop();}
 }
 
-export function tokenTexturePatch(path,lockRotation,prefix='') {
-  return Object.fromEntries(Object.entries({lockRotation,'texture.src':path,'texture.fit':'contain','texture.anchorX':.5,'texture.anchorY':.5,'texture.scaleX':1,'texture.scaleY':1})
+export function tokenTexturePatch(path,lockRotation,prefix='',scale=1) {
+  return Object.fromEntries(Object.entries({lockRotation,'texture.src':path,'texture.fit':'contain','texture.anchorX':.5,'texture.anchorY':.5,'texture.scaleX':scale,'texture.scaleY':scale})
     .map(([key,value])=>[prefix+key,value]));
 }

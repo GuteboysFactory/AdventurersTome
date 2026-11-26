@@ -1,6 +1,6 @@
 # Adventurer’s Tome – användarmanual
 
-**Dokumenterad stabil version** är 2.1.10. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.10](V2.1.10_STABLE_RELEASE.md)
+**Dokumenterad stabil version** är 2.1.11. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.11](V2.1.11_STABLE_RELEASE.md)
 
 [English](MANUAL-EN.md) · [Svensk fördjupning](MANUAL-REFERENS.md)
 
@@ -112,11 +112,13 @@ När GM markerar en spelarkaraktär som **Group member** kan Tome ge gruppens sp
 3. Under **Shape → Illustrated frames** finns lövkrans (**Laurel wreath**), blomkrans (**Flower wreath**), törnkrans (**Thorn wreath**), drakvingar (**Dragon wings**) och runstjärna (**Rune star**). Använd **Frame color** för att färga ramen och **Frame width** för att göra den tjockare utåt. Öppningen runt porträttet behåller sin storlek. **Reset frame color** återställer originalfärgerna. Välj **Frame animation** för effekter bakom ramen.
 4. I samma meny finns också korpkransen (**Raven wreath**), dvärgavalvet (**Dwarven arch**), månfiligran (**Moon filigree**), frostkronan (**Frost crown**) och havets korall (**Coral wreath**).
 5. I **Shape** finns ytterligare 90 ramar under teman som **Woodland**, **Forge** och **Northern legends**. Med **Frame diameter** förstorar eller förminskar du hela ramen och dess öppning. Knappen **100%** återställer diametern. Använd **Frame width** för att bredda själva kanten.
-   För **Circle** fyller **Fit to token edges** tokenytan ända ut till sidorna. Stäng av det för att återgå till den diameter du valt.
+   För **Circle** fyller **Fit to token edges** tokenytan ända ut till sidorna. Stäng av det för att återgå till den diameter du valt. Animerade effekter kan fortsätta utanför rutan med bibehållen rutnätsstorlek. Hovring och markering visar ingen fyrkantig kontur.
    Under **Frame animation** ger **Ember ring** låg eld och glöd. **Burning ring** ger fylligare flammor. I båda varianterna stiger elden från ramens ytterkant. Välj bland 22 effekter i grupperna **Elements**, **Light and nature** och **Shadow and magic**. Där finns bland annat **Ghostly Light**, **Holy Aura**, **Death Shadow**, **Sickness** och **Angry**. Dra i **Animation strength** för att göra effekten svagare eller starkare. **100 %** är standard. **Save token** sparar en animerad WebM och en stillbild för vyer som visar en bild.
 6. Ställ in bredd och höjd i rutor under **Token size on the map**. Valet gäller nya placeringar. Markera **Resize placed tokens when saving** om du också vill ändra storleken på de placerade tokens som uppdateras när du sparar.
 7. Som GM kan du välja **Save as default** för att spara ramens form, färg, diameter och utsmyckning som världens förval. **Use world default frame** laddar in förvalet i redigeraren för en karaktär med egen ram. Spara tokenen för att använda förvalet på den karaktären.
 8. Som GM kan du välja **Enable player uploads…** i Token Builder för att ge rollerna Player och Trusted Player Foundrys behörighet **Upload Files**. Spelare med **Owner** kan sedan öppna Token Builder på sitt karaktärsblad, välja en lokal bild med **Choose file** och spara. Filerna sparas i en öppen mapp per spelarkonto under världens `adventurers-tome/token-art`. **Browse images** kräver Foundrys behörighet att bläddra bland filer.
+
+Använd rullisten till höger för att nå alla inställningar. **Save token** och **Cancel** ligger kvar längst ned. Om en äldre animation kapas längs rutans kant öppnar du **Token Builder** och klickar på **Save token** för att skapa om videon.
 
 ### Håll tokenporträttet upprätt
 <!-- tome-manual rotation|guide|all|token defaults lock rotation upright upprätt rotera -->
@@ -409,6 +411,7 @@ För system- eller modulutvecklare finns det separata kontrakt för [Integration
 
 | Version | Dokumentation |
 | --- | --- |
+| **2.1.11** | Tokeneffekter utanför rutan, dold markeringskontur och synlig rullist i Token Builder. |
 | **2.1.10** | Scenimport via Foundrys Scenes-flik, importval för GM, dubbletter och flyttbara scenknappar. |
 | **2.1.9** | Sökbar manual på svenska och engelska. Uppdaterade guider för ramval, animationer, spelaruppladdning och kampanjminnet. |
 | **2.1.8, manualuppdatering** | En samlad innehållssida med direktlänkar och stegvisa övningar för GM-verktygen. |

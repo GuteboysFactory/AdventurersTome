@@ -225,12 +225,38 @@ test('only the prototype texture and rotation are changed by the token patch',()
   assert.ok(Object.keys(patch).every(key=>/^prototypeToken\.(texture\.|lockRotation$)/.test(key)));
 });
 
+test('animated texture overflow preserves footprint and placed token scale overrides',()=>{
+  const actor={prototypeToken:{texture:{src:'fire.webm'}},flags:{'adventurers-tome':{[TOKEN_ART_FLAG]:{
+    tokenPoster:{video:'fire.webm',image:'poster.png',textureScale:1.75}
+  }}}};
+  assert.equal(tokenArtState(actor).textureScale,1.75);
+  const placed=[{id:'placed',actorId:'actor',texture:{src:'fire.webm',scaleX:-1.75,scaleY:2.625}}];
+  const [animated]=placedTokenArtworkUpdates(placed,'actor','fire.webm','glow.webm',true,{
+    textureScale:1.5,previousTextureScale:1.75
+  });
+  assert.equal(animated['texture.scaleX'],-1.5);
+  assert.equal(animated['texture.scaleY'],2.25);
+  const [still]=placedTokenArtworkUpdates(placed,'actor','fire.webm','frame.png',true,{previousTextureScale:1.75});
+  assert.equal(still['texture.scaleX'],-1);
+  assert.equal(still['texture.scaleY'],1.5);
+  assert.equal(Object.hasOwn(still,'width'),false);
+  assert.equal(Object.hasOwn(still,'height'),false);
+  actor.prototypeToken.texture.src='custom.webm';
+  assert.equal(tokenArtState(actor).textureScale,1);
+});
+
 test('new scene tokens and Token Builder keep artwork upright by default and honor explicit overrides',()=>{
   const src=readFileSync(new URL('../scripts/token-builder.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
   const hooks=new Map();
   const context=vm.createContext({TOKEN_ART_ROTATION_PATH,defaultTokenLockRotation,
     Hooks:{once(){},on:(name,fn)=>hooks.set(name,fn)},foundry:{utils:{setProperty:(data,path,value)=>{data[path]=value;}}}});
   vm.runInContext(src,context);
+  const placeable={border:{visible:true,renderable:true},controlled:true};
+  hooks.get('drawToken')(placeable);
+  assert.deepEqual(placeable,{border:{visible:true,renderable:false},controlled:true});
+  placeable.border={visible:true,renderable:true};
+  hooks.get('refreshToken')(placeable);
+  assert.equal(placeable.border.renderable,false);
   const source={lockRotation:false};
   const actor={prototypeToken:{lockRotation:false}};
   const add=(baseActor,data=source,opts={})=>{

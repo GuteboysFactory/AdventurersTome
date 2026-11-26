@@ -1,3 +1,10 @@
+## 2.1.11
+
+- Let frame effects extend beyond the token’s grid footprint while preserving its map size. Save existing animated tokens again to regenerate their WebM files.
+- Hide the square hover and selection outline on canvas tokens.
+- Show a scrollbar in Token Builder and keep **Save token** and **Cancel** visible while scrolling.
+- See [the 2.1.11 release notes](docs/V2.1.11_STABLE_RELEASE.md).
+
 ## 2.1.10
 
 - Import scene images in batches from the Foundry Scenes sidebar. Choose an upload folder, player access, navigation, activation and how to handle duplicates.
