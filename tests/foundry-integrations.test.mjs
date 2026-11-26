@@ -165,6 +165,38 @@ test('scene navigation registers its own hosted Tools icon and keeps similarly n
   assert.equal(children.get('b').scenes[0].id,'two');
 });
 
+test('Tome scene controls mount for GMs and leave Foundry scene navigation available to players',async()=>{
+  const makeElement=()=>({dataset:{},style:{},setAttribute(){},append(){},addEventListener(){}});
+  const added=[],actions=[];
+  const api={gmDock:{registerAction:id=>actions.push(id)}};
+  const compactSetting={config:false};
+  const game={user:{isGM:false},modules:new Map([['adventurers-tome',{api}]]),
+    settings:{get:(_id,key)=>key==='compactSceneNavigation',
+      settings:new Map([['adventurers-tome.compactSceneNavigation',compactSetting]])}};
+  const document={createElement:makeElement,body:{append:el=>added.push(el)},getElementById:()=>null};
+  const {hooks,context}=fixture('foundry-scene-tools',{game,document,window:{addEventListener(){}},installSceneDropTarget(){}});
+  const nav={id:'scene-navigation',dataset:{},querySelector(){}};
+  hooks.get('ready')();
+  hooks.get('adventurersTomeLauncherReady')();
+  hooks.get('renderSceneNavigation')(null,nav);
+  await context.openScenePanel();
+  assert.equal(api.sceneNavigation,undefined);
+  assert.deepEqual(added,[]);
+  assert.deepEqual(actions,[]);
+  assert.equal(nav.dataset.tomeScenes,undefined);
+  assert.equal(compactSetting.config,false);
+
+  game.user.isGM=true;
+  hooks.get('ready')();
+  hooks.get('adventurersTomeLauncherReady')();
+  hooks.get('renderSceneNavigation')(null,nav);
+  assert.equal(typeof api.sceneNavigation.open,'function');
+  assert.deepEqual(actions,['scene-navigation']);
+  assert.equal(added.length,1);
+  assert.equal(nav.dataset.tomeScenes,'compact');
+  assert.equal(compactSetting.config,true);
+});
+
 test('scene panel settings save only for the GM and keep the compact bar as a client preference',async()=>{
   const saved=[];
   const game={user:{id:'gm',isGM:true},world:{id:'world'},settings:{

@@ -1,8 +1,8 @@
 # Adventurer’s Tome user manual
 
-[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.11_STABLE_RELEASE.md)
+[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.12_STABLE_RELEASE.md)
 
-This manual covers stable Tome 2.1.11 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
+This manual covers stable Tome 2.1.12 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
 
 ## Contents
 
@@ -207,9 +207,9 @@ Open **Rules**, then **Create Rule** to write a house rule or **Link Existing** 
 5. In **Settings…**, choose options for the Scenes panel or Foundry’s Scenes sidebar and click **Save navigation settings**.
 
 ### Switch your own view with Compact scenes
-<!-- tome-manual compact-scenes|guide|all|compact scene navigation previous scene kompakt -->
+<!-- tome-manual compact-scenes|guide|gm|compact scene navigation previous scene kompakt -->
 
-Click **Compact scenes** at the top of the Foundry canvas, beside the Tome launcher when it is there. Drag the grip to move the scene controls or right-click it to restore their position. You can also enable **Compact scene navigation** in Tome’s module settings. Use **Open scene for me…** to browse by folder, including **Unfiled**. **Active** marks the table’s scene. Use **Standard scenes** to return to the normal scene bar.
+Click **Compact scenes** at the top of the Foundry canvas, beside the Tome launcher when it is there. Drag the grip to move the scene controls or right-click it to restore their position. You can also enable **Compact scene navigation** in Tome’s module settings. Use **Open scene for me…** to browse by folder, including **Unfiled**. **Active** marks the table’s scene. Use **Standard scenes** to return to the normal scene bar. Players use Foundry’s standard scene navigation.
 
 ### Create scenes from image files
 <!-- tome-manual scene-image|guide|gm|scene express create scene here drag drop import bild scen fil -->
@@ -353,6 +353,7 @@ Open **Sessions → Language Lab** to inspect language analysis. Test a Swedish 
 
 [Back to contents](#contents)
 
+- **2.1.12** covers the GM scene controls. Players use Foundry’s standard scene navigation.
 - **2.1.11** covers token effects beyond the grid square, the hidden selection outline and Token Builder’s scrollbar.
 - **2.1.10** adds guides for the Scenes sidebar drop area, import defaults and duplicate handling, and the movable scene controls.
 - **2.1.9** adds the searchable bilingual manual with updated guides for frames, animations, player uploads and Campaign Memory.

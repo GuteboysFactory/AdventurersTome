@@ -2,7 +2,7 @@
 
 A campaign workspace for Foundry VTT.
 
-The current stable release is **2.1.11**. See [release notes and upgrade instructions](docs/V2.1.11_STABLE_RELEASE.md).
+The current stable release is **2.1.12**. See [release notes and upgrade instructions](docs/V2.1.12_STABLE_RELEASE.md).
 
 [Svensk manual](docs/MANUAL.md) · [English manual](docs/MANUAL-EN.md)
 

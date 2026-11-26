@@ -375,6 +375,7 @@ function refreshScenePanel(){
 }
 
 async function openScenePanel(){
+  if(!game.user?.isGM)return;
   if(scenePanel){
     refreshScenePanel();
     scenePanel.bringToFront();
@@ -454,6 +455,7 @@ function sceneAccessMode(scene,id){
 let sceneNavControls;
 
 function refreshSceneNavControls(){
+  if(!game.user?.isGM)return;
   sceneNavControls??=mountSceneNavControls();
   const compact=game.settings.get(ID,'compactSceneNavigation');
   sceneNavControls.toggle.textContent=compact?'Standard scenes':'Compact scenes';
@@ -540,6 +542,7 @@ function mountSceneNavControls(){
 }
 
 function renderSceneNav(_app,html){
+  if(!game.user?.isGM)return;
   const root=html?.querySelector?html:html?.[0];
   const nav=root?.id==='scene-navigation'?root:root?.querySelector('#scene-navigation');
   if(!nav)return;
@@ -627,7 +630,7 @@ Hooks.once('init',()=>{
   registerSceneImportSettings();
   const setting=(key,name,scope,type,value,options={})=>game.settings.register(ID,key,{name,scope,config:true,type,default:value,...options});
   setting('mapPinStyle','Map pin appearance','world',String,'standard',{choices:{standard:styles.standard,borderless:styles.borderless},onChange:()=>canvas?.notes?.placeables.forEach(applyPinStyle)});
-  setting('compactSceneNavigation','Compact scene navigation','client',Boolean,false,{onChange:()=>ui.nav?.render()});
+  setting('compactSceneNavigation','Compact scene navigation','client',Boolean,false,{config:false,onChange:()=>ui.nav?.render()});
   game.settings.register(ID,'sceneNavPosition',{scope:'client',config:false,type:Object,default:{}});
   game.settings.register(ID,FAVORITES,{scope:'user',config:false,type:Array,default:[]});
   game.settings.register(ID,NAV_OPTIONS,{scope:'world',config:false,type:Object,default:NAV_DEFAULTS,onChange:()=>{
@@ -659,6 +662,9 @@ Hooks.once('ready',()=>{
   const tome=game.modules.get(ID)?.api;
   if(!tome)return;
   installSceneDropTarget(createScenesFromImages);
+  if(!game.user?.isGM)return;
+  const compactSetting=game.settings?.settings.get(`${ID}.compactSceneNavigation`);
+  if(compactSetting)compactSetting.config=true;
   tome.sceneNavigation=Object.freeze({open:openScenePanel});
   tome.gmDock?.registerAction('scene-navigation',{icon:'fa-map',title:'Scenes',detail:'Browse and activate Foundry scenes.',
     visible:()=>sceneDockHost!==globalThis.GuteboysFactory?.gmDockHost||!sceneDockHost,handler:()=>openScenePanel().catch(fail)});

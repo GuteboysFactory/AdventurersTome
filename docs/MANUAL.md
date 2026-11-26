@@ -1,6 +1,6 @@
 # Adventurer’s Tome – användarmanual
 
-**Dokumenterad stabil version** är 2.1.11. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.11](V2.1.11_STABLE_RELEASE.md)
+**Dokumenterad stabil version** är 2.1.12. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.12](V2.1.12_STABLE_RELEASE.md)
 
 [English](MANUAL-EN.md) · [Svensk fördjupning](MANUAL-REFERENS.md)
 
@@ -219,11 +219,11 @@ För NPC:er, kontakter och föremål kan du även gå till **Campaign Tools → 
 5. Öppna **Settings…** och se avsnitten **Scenes panel** och **Foundry Scenes sidebar · GM**. Där kan du styra till exempel mappar, **Previous scene**, indikatorer för spelaråtkomst och hur tätt scenerna visas. Klicka **Save navigation settings** för att spara.
 
 ### Byt scen för dig själv med Compact scenes
-<!-- tome-manual compact-scenes|guide|all|compact scene navigation previous scene kompakt -->
+<!-- tome-manual compact-scenes|guide|gm|compact scene navigation previous scene kompakt -->
 
 1. Klicka **Compact scenes** högst upp på Foundrys spelkarta, bredvid Tome-knappen om den ligger där. Dra i handtaget för att flytta scenknapparna. Högerklicka på handtaget för att återställa placeringen. Du kan också slå på kompakt läge under **Configure Settings → Adventurer’s Tome → Compact scene navigation**.
 2. Den vanliga scenlisten ersätts av rullistan **Open scene for me…**. Välj en scen under dess Foundry-mapp. Scener utan mapp ligger under **Unfiled**. **Active** markerar scenen som är aktiv för bordet.
-3. När du väljer en scen byter du bara din egen kartvy. Vill du som GM flytta hela bordet använder du Foundrys **Scenes**-sidopanel, högerklickar på scenen och väljer **Activate**. Klicka **Standard scenes** om du vill ha tillbaka den vanliga listen. Varje användare väljer sitt eget läge.
+3. När du väljer en scen byter du bara din egen kartvy. Vill du som GM flytta hela bordet använder du Foundrys **Scenes**-sidopanel, högerklickar på scenen och väljer **Activate**. Klicka **Standard scenes** om du vill ha tillbaka den vanliga listen. Spelare använder Foundrys vanliga scennavigering.
 
 Som GM använder du **Scenes → högerklicka på scenen → Scene access…** för att tillåta eller dölja en scen per spelare. Aktivera även **Show in Navigation** på scenen om spelarna ska kunna öppna den själva. Foundry visar den aktiva scenen för bordet.
 
@@ -411,6 +411,7 @@ För system- eller modulutvecklare finns det separata kontrakt för [Integration
 
 | Version | Dokumentation |
 | --- | --- |
+| **2.1.12** | Tomes scenknappar visas för GM. Spelare använder Foundrys vanliga scennavigering. |
 | **2.1.11** | Tokeneffekter utanför rutan, dold markeringskontur och synlig rullist i Token Builder. |
 | **2.1.10** | Scenimport via Foundrys Scenes-flik, importval för GM, dubbletter och flyttbara scenknappar. |
 | **2.1.9** | Sökbar manual på svenska och engelska. Uppdaterade guider för ramval, animationer, spelaruppladdning och kampanjminnet. |

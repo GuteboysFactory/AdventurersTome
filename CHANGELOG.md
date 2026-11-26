@@ -1,3 +1,8 @@
+## 2.1.12
+
+- Limit Tome’s **Compact scenes** and **Scenes** controls to GMs. Players continue to use Foundry’s standard navigation for scenes they can access.
+- See [the 2.1.12 release notes](docs/V2.1.12_STABLE_RELEASE.md).
+
 ## 2.1.11
 
 - Let frame effects extend beyond the token’s grid footprint while preserving its map size. Save existing animated tokens again to regenerate their WebM files.
