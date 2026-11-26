@@ -6,6 +6,14 @@ const hiddenMapButtons=new Map();
 const board=()=>document.getElementById('board')||globalThis.canvas?.app?.canvas;
 function character(user=game.user){const assigned=user?.character;return typeof assigned==='string'?game.actors?.get(assigned):assigned;}
 function owns(actor,user){return typeof actor?.testUserPermission==='function'?actor.testUserPermission(user,'OWNER')===true:user===game.user&&actor?.isOwner===true;}
+function canOpenCharacterSheet(actor){
+ return Boolean(actor&&!actor.pack&&game.actors?.get(actor.id)===actor&&owns(actor,game.user)&&actor.sheet?.render);
+}
+export async function openAssignedCharacterSheet(expectedId){
+ const actor=character();
+ if(!canOpenCharacterSheet(actor)||actor.id!==expectedId)throw Error('Your assigned character is unavailable. Check your Player Configuration.');
+ await actor.sheet.render(true);
+}
 function unavailable(){
  if(!globalThis.canvas?.ready||!canvas.scene||typeof canvas.tokens?._onDropActorData!=='function')return 'Open a scene before placing your character.';
  const actor=character();if(!actor||actor.pack)return 'Choose your character in Player Configuration first.';
@@ -240,18 +248,15 @@ function openMenu(event){
  event.preventDefault();closeMenu();
  if(game.user?.isGM){gmMenu(event,point);return;}
  const actor=character(),actorId=actor?.id,reason=pending?'Placing your character…':unavailable(),sceneId=canvas.scene.id;
- menu=document.createElement('section');menu.className='at-player-character-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','Character token');
+ menu=document.createElement('section');menu.className='at-player-character-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','Character actions');
  const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.disabled=Boolean(reason);
  const icon=document.createElement('i');icon.className='fa-solid fa-user-plus';icon.setAttribute('aria-hidden','true');button.append(icon,document.createTextNode(' Place token here'));
  const caption=document.createElement('small');caption.textContent=reason||actor.name;menu.append(button,caption);document.body.append(menu);
+ const sheet=document.createElement('button');sheet.type='button';sheet.setAttribute('role','menuitem');sheet.textContent='Open character sheet';
+ sheet.disabled=!canOpenCharacterSheet(actor);
+ sheet.onclick=()=>{closeMenu();void openAssignedCharacterSheet(actorId).catch(error=>ui.notifications.warn(error.message));};
+ menu.append(sheet);
  const routes=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.travelPlanner?.routeRecordsAction?.(sceneId);
- const scenes=globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.sceneNavigation;
- if(scenes){
-  const browse=document.createElement('button');
-  browse.type='button';browse.setAttribute('role','menuitem');browse.textContent='Scenes…';
-  browse.onclick=()=>{closeMenu();void scenes.open().catch(error=>ui.notifications.warn(error.message));};
-  menu.append(browse);
- }
  if(routes){
   const manage=document.createElement('button');manage.type='button';manage.setAttribute('role','menuitem');manage.textContent=routes.label;
   manage.addEventListener('click',()=>{closeMenu();void routes.run().catch(error=>ui.notifications.warn(error.message));});
@@ -262,6 +267,7 @@ function openMenu(event){
   void placeCharacter({...point,sceneId},{shiftKey:event.shiftKey,altKey:event.altKey}).catch(error=>ui.notifications.warn(String(error?.message||error||'Token placement failed.')));
  });
  if(!button.disabled)button.focus({preventScroll:true});
+ else if(!sheet.disabled)sheet.focus({preventScroll:true});
 }
 function install(){
  document.addEventListener('contextmenu',openMenu,true);

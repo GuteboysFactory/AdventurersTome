@@ -1,3 +1,4 @@
+import {loadManual,manualLanguage,manualMatches,saveManualLanguage} from './tome-manual.mjs';
 import {canReadPartyProfile} from './party-access-core.mjs';
 import {playerPresentationUpdate, presentationAuthorityUuid} from './player-visibility.mjs';
 import {linkedPeople} from './known-people-core.mjs';
@@ -157,148 +158,6 @@ const NOTEBOOK_PRESETS = Object.freeze({
     ["scratchpad", true, "full"], ["quickCapture", true, "full"], ["notes", true, "full"], ["customPads", false, "full"], ["sessionTools", false, "full"], ["briefing", false, "full"]
   ]}
 });
-
-const MANUAL_SECTIONS = Object.freeze([
-  { id: "welcome", category: "Start Here", icon: "fa-compass", title: "Welcome to Adventurer's Tome", summary: "What Tome is, how it fits beside Foundry, and what a new user should understand before clicking around.", useWhen: "Read this first if you have never used Adventurer's Tome before.", steps: [
-    ["Open Tome", "Use the Adventurer's Tome launcher in Foundry. Tome opens as its own resizable application inside your world."],
-    ["Pick a section", "Home is your landing page; Sessions and Quests track the story; Group presents player characters; World holds NPCs, places, factions, items, and lore; Rules is your table reference."],
-    ["Know what is personal", "Your window size, launcher position, transparency, current page, Favorites, Recently Viewed, and GM Notebook workspace layout are personal. Campaign content changes made by a GM are shared."],
-    ["Follow Foundry permissions", "Tome never grants access that Foundry denies. If a player cannot observe a Foundry document, Tome will not expose its full content."]
-  ], tip: "You do not need to configure everything before play. Start with Home, Group, a few Sessions/Quests, and let World grow naturally." },
-
-  { id: "five-minute", category: "Start Here", icon: "fa-stopwatch", title: "Five-Minute GM Setup", gmOnly: true, summary: "A practical first-run checklist that gets a new campaign usable without learning every advanced feature.", useWhen: "Use this after enabling the module in a world for the first time.", steps: [
-    ["Create the Tome folders", "Campaign Settings → Developer Tools → Create / Verify Folders prepares Sessions, Quests, World, and Rules journal structure."],
-    ["Choose a Home style", "Campaign Settings → Home Layout lets you keep Dashboard, use a cinematic Minimal page, or build a Custom Home."],
-    ["Choose the Group", "Open Group → Manage Group and mark the Foundry Actors that should appear as player characters."],
-    ["Add or import campaign history", "Create Sessions/Quests manually or use Import for Markdown/text/Tome Package data."],
-    ["Check permissions", "Before inviting players, open Campaign Settings → Permissions and verify which content is visible, discovered, or GM-only."],
-    ["Run Health Check", "Developer Tools → Tome Health Check gives you a quick sanity check before the campaign starts."]
-  ], tip: "If you only do these six steps, Tome is already ready for normal play." },
-
-  { id: "home", category: "Core", icon: "fa-house", title: "Home & Home Builder", summary: "Choose how much campaign information the landing page should show and keep the Session/Quest dashboard when you want it.", useWhen: "Use Home Builder when the default dashboard feels too busy or too empty for your table.", items: [
-    ["Dashboard", "The classic Tome overview keeps Latest Session, Active Quests, Group, and Recent Discoveries visible."],
-    ["Minimal", "An artwork-first landing page with an Enter button. The GM settings gear remains available in the top-right."],
-    ["Custom", "Show, hide, reorder, and resize widgets while keeping your preferred hero composition."],
-    ["Per-campaign presentation", "Theme, logo, backgrounds, navigation, and Home content are campaign settings shared with the table."]
-  ], example: "A lore-heavy campaign might use Dashboard; a cinematic horror game might use Minimal; a sandbox GM might use Custom with Active Quests + Recent Discoveries + Favorites." },
-
-  { id: "sessions", category: "Core", icon: "fa-book-open", title: "Sessions", summary: "Your campaign chronicle: searchable session history, previews, links, and the underlying Foundry Journal.", useWhen: "Use Sessions to remember what happened, find old details quickly, or connect current events to earlier play.", steps: [
-    ["Browse", "Select a Session in the left history list. On wide windows, the detail preview appears on the right."],
-    ["Search locally", "Use Search Sessions when you already know you only want session results."],
-    ["Open the source", "Open Full Session opens the underlying Foundry Journal if you need the original entry."],
-    ["Import after play", "GMs can import structured session logs with preview before Tome writes anything."]
-  ], tip: "Use consistent Session numbers. Health Check warns about duplicates because automatic linking becomes ambiguous." },
-
-  { id: "quests", category: "Core", icon: "fa-diamond", title: "Quests", summary: "Track active, completed, dormant, and failed goals without turning the quest log into another long session transcript.", useWhen: "Use Quests for concise objectives and state changes; keep narrative detail in Sessions.", items: [
-    ["Statuses", "Active, Completed, Dormant, and Failed are grouped separately so players can scan the campaign state quickly."],
-    ["Quest Detail", "Open a Quest inside Tome to see summary, objectives, updates, and campaign links."],
-    ["Local search", "Search Quests filters the current page without mixing in unrelated World or Session results."],
-    ["Cross-links", "Quest pages can link to Sessions, Characters, NPCs, Locations, Factions, Items, and Lore."]
-  ], example: "A Session log can say what happened in detail, while the Quest entry simply changes from 'Find the missing ranger' to 'Completed' with one short outcome note." },
-
-  { id: "group", category: "Core", icon: "fa-users", title: "Group & Character Profiles", summary: "Campaign-facing character profiles that remain system-independent while Foundry Actor sheets stay available where appropriate.", useWhen: "Use Group when you want players to learn who the party is without exposing or duplicating game-system statistics.", items: [
-    ["Tome profile", "Title, subtitle, biography, facts, relations, artwork, motto, first appearance, and campaign links live in Tome presentation data."],
-    ["Actor sheet", "The actual rules/statistics remain in the Foundry Actor and its game-system sheet."],
-    ["Custom buttons", "GMs can add shortcuts such as Inventory, Spellbook, Party Chest, Notes, Stronghold, or any Foundry UUID/https link."],
-    ["Relations", "Relations can be player-visible or private GM information."]
-  ], tip: "Custom buttons are how Tome stays system-independent: configure the shortcuts your current system needs instead of hardcoding one game's data model." },
-
-  { id: "world", category: "Core", icon: "fa-earth-europe", title: "World, Journals & Actors", summary: "NPCs, Locations, Factions, Items, and Lore presented as Tome profiles while Foundry remains the underlying source of truth.", useWhen: "Use World for anything the campaign should remember outside the player party.", steps: [
-    ["Create or import a World entry", "World entries are Foundry Journals categorized as NPC, Location, Faction, Item, or Lore."],
-    ["Edit Known Information", "Known Information is synchronized with the linked Foundry Journal page."],
-    ["Link an Actor when useful", "NPC World entries can point to a real Foundry Actor. GM-only Open Sheet and Actor Access then become available."],
-    ["Control discovery", "Prepare content in advance and keep it Undiscovered or GM-only until the players should see it."]
-  ], warning: "Do not treat Tome visibility as a replacement for Foundry permissions on hard secrets. Keep truly sensitive documents inaccessible in Foundry too." },
-
-  { id: "rules", category: "Core", icon: "fa-scroll", title: "Rules", summary: "Build a searchable table reference from Tome-created rules or existing Foundry Journals.", useWhen: "Use Rules for house rules, travel procedures, conditions, campaign-specific rulings, or links to existing reference Journals.", steps: [
-    ["Create Rule", "Create a new rule directly from Tome when the rule does not already exist."],
-    ["Link Existing", "Point Tome at an existing Foundry Journal instead of duplicating content."],
-    ["Search", "Use local Rule search for fast table lookup."],
-    ["Share", "Highlight readable text and choose Public or Whisper to send only that excerpt to Foundry chat."]
-  ], example: "A GM can create a 'Chase Procedure' rule, search it mid-session, highlight the relevant paragraph, and whisper it to one player without opening a separate reference document." },
-
-  { id: "search", category: "Core", icon: "fa-magnifying-glass", title: "Search, Favorites & Recent", summary: "Find campaign content globally and keep personal shortcuts without changing anyone else's Tome.", items: [
-    ["Global Search", "Search Sessions, Quests, Characters, NPCs, Locations, Factions, Items, Lore, and Rules from one page."],
-    ["Local searches", "Sessions, Quests, and Rules also have focused searches when you do not need global results."],
-    ["Favorites", "Favorites are personal per user."],
-    ["Recently Viewed", "Recently Viewed is also personal and follows your own navigation only."]
-  ], tip: "Press / when you are not typing in another field to jump quickly to global Search." },
-
-  { id: "chat", category: "Core", icon: "fa-comments", title: "Sharing Text to Chat", summary: "Select exactly the words you want the table to see and send them publicly or privately.", useWhen: "Use this for rule excerpts, clues, descriptions, and exact wording you do not want players to misremember.", steps: [
-    ["Highlight readable text", "Drag across the text inside a shareable Tome detail view."],
-    ["Choose Public", "Public posts the selected excerpt to normal Foundry chat."],
-    ["Choose Whisper", "Whisper lets you select one or more connected users, or whisper to the GM(s)."],
-    ["Keep navigating privately", "Opening pages in Tome never broadcasts your navigation automatically."]
-  ], tip: "If you highlight a rule or clue, only the selection is sent—not the whole page." },
-
-  { id: "permissions", category: "GM", icon: "fa-shield-halved", title: "Permissions & Discovery", gmOnly: true, summary: "Understand the two-layer visibility model before preparing secrets for players.", useWhen: "Read this before using Undiscovered, GM-only, or Show to Players.", steps: [
-    ["Foundry ownership first", "The user must have Observer-or-better access for Tome to expose full player-facing content."],
-    ["Tome discovery second", "Discovered controls whether otherwise accessible content has been revealed inside Tome."],
-    ["GM-only last", "GM-only hides a Tome entry from players even if Foundry access would otherwise allow it."],
-    ["Show to Players", "Explicitly presenting an entry grants the required Foundry access and marks it Discovered. Personal Quests keep their chosen player audience."],
-    ["Private fields", "GM Notes plus GM-only Facts and Relations are kept in the GM's private user vault."]
-  ], example: "Prepare an NPC before play, keep it Undiscovered, then reveal it when the party meets them. If the NPC is a true secret, keep Foundry ownership at None as well." },
-
-  { id: "gm-notebook", category: "GM", icon: "fa-note-sticky", title: "GM Notebook & Workspace Builder", gmOnly: true, summary: "A private, rebuildable GM workspace: scratchpads, custom notepads, Quick Capture, session tools, filters, and the campaign-wide note feed.", useWhen: "Use this as your private command desk before, during, and after play. Customize it if the default layout does not match how you GM.", steps: [
-    ["Customize Workspace", "Open Campaign Settings → GM Notebook → Customize Workspace."],
-    ["Choose a preset", "Standard, Session Prep, Writer's Desk, and Minimal give you starting points."],
-    ["Rebuild it", "Enter Customize Workspace, then drag Notebook windows by their grip handle or use the left/right arrow buttons. Each window can be hidden and sized to quarter, half, three-quarter, or full width. Builder changes save immediately; the classic list remains available as a precise fallback and to restore hidden windows."],
-    ["Create custom notepads", "Add named private pages for topics such as NPC Ideas, Rumours, Tonight, Voices, Loot, or any workflow you invent. Individual notepads can also be dragged and resized."],
-    ["Keep structured notes separate", "Use Quick Capture/GM Notes when you want pins, types, triggers, target Sessions, due state, and Next Session surfacing."]
-  ], tip: "Scratchpad/custom pads are for freeform thinking. Structured GM Notes are for information Tome should actively help you remember. Tome transparency is a personal client setting in the window header: 25/50/75/90% reveals the actual Foundry Scene behind Tome while text and controls remain fully opaque. Close Tome with X and reopen it from the movable launcher." },
-
-  { id: "gm-live", category: "GM", icon: "fa-wand-magic-sparkles", title: "Live GM Tools", gmOnly: true, summary: "Use Tome as a live command deck instead of only as a campaign archive.", steps: [
-    ["Next Session Dashboard", "Collect due/pinned notes, clues, reveals, consequences, active Quests, current-location context, Quick Captures, and Reveal Queue state."],
-    ["Quick Capture", "Capture an unexpected NPC, clue, scene idea, consequence, or reminder immediately."],
-    ["Reveal Queue", "Queue material privately. Nothing is shown until you explicitly use Show to Players."],
-    ["Post-Session Assistant", "Review unresolved notes, captures, active quests, consequences, reveals, and export/checkpoint opportunities after play."]
-  ], warning: "Show to Players is explicit. Normal GM navigation is private and never drags player clients along." },
-
-  { id: "import-export", category: "GM", icon: "fa-arrows-rotate", title: "Import, Export & Undo", gmOnly: true, summary: "Bring structured logs in safely, move campaign data out, and understand what each package type is for.", useWhen: "Use Import after a game night or when migrating structured material into Tome. Use Export for portability or backup workflows.", items: [
-    ["Import preview", "Session logs, Quest logs, and Tome Package JSON use dry-run preview with Create, Update, Skip, and cross-link review."],
-    ["Undo Last Import", "Rolls back the most recent Tome import transaction only; it is not a general Foundry backup."],
-    ["Portable Package", "Designed to be re-imported into Tome."],
-    ["Player-safe Package", "Omits private GM data and hidden material."],
-    ["Full GM Archive", "A private backup/audit export containing sensitive GM state. Keep it private."]
-  ]},
-
-  { id: "health", category: "GM", icon: "fa-stethoscope", title: "Health Check", gmOnly: true, summary: "Detect broken references and stale Tome metadata after months or years of campaign changes.", steps: [
-    ["Run Health Check", "Scan broken cross-links, deleted targets, stale Favorites/Recents, malformed flags, duplicate Session numbers, and ambiguous names."],
-    ["Repair Safe Issues", "Tome removes only references it can prove are stale."],
-    ["Review warnings", "Ambiguous issues such as duplicate Session numbers are intentionally left for the GM to resolve."]
-  ], warning: "Health Check cleans broken references. It does not recreate a deleted Actor/Journal because Tome cannot know whether deletion was intentional." },
-
-  { id: "troubleshooting", category: "Help", icon: "fa-screwdriver-wrench", title: "Common Questions & Troubleshooting", summary: "Fast answers to the things new players and GMs most often wonder about.", items: [
-    ["Why can't a player see this entry?", "Check Foundry ownership first, then Tome GM-only/discovery state. The player needs Observer-or-better Foundry access."],
-    ["Why is Open Sheet missing in World?", "World Open Sheet is intentionally GM-only. Link the World NPC to an Actor if the GM needs that shortcut."],
-    ["Does my navigation move other players?", "No. Your current Tome page is local to your client unless the GM explicitly uses Show to Players."],
-    ["Where did my GM Notes go?", "GM Notes are stored privately per GM user. Another GM account has its own workspace unless data is deliberately transferred through a private GM archive workflow."],
-    ["Journal and Tome text differ", "For World Known Information, edit the synced Journal text page or save the Tome World edit and allow the Journal hook to refresh Tome."],
-    ["I changed screens and Tome opens oddly", "Tome clamps saved window size/position to the current viewport. Resize once and the client-specific state is updated."]
-  ], tip: "When something feels wrong, run Health Check before manually deleting Tome metadata." }
-]);
-
-function buildManualView() {
-  const version = String(globalThis.ATTestAI.modules.get(MODULE_ID)?.version || "");
-  const sections = MANUAL_SECTIONS.filter((section) => game.user?.isGM || !section.gmOnly).map((section) => {
-    const items = Array.isArray(section.items) ? section.items.map(([title, text]) => ({ title, text })) : [];
-    const steps = Array.isArray(section.steps) ? section.steps.map(([title, text]) => ({ title, text })) : [];
-    const searchParts = [section.category, section.title, section.summary, section.useWhen, section.tip, section.warning, section.example];
-    for (const item of [...items, ...steps]) searchParts.push(item.title, item.text);
-    return { ...section, items, steps, searchText: searchParts.filter(Boolean).join(" ").toLowerCase() };
-  });
-  return {
-    version,
-    sections,
-    isGM: Boolean(game.user?.isGM),
-    intro: game.user?.isGM
-      ? "Adventurer's Tome is a campaign workspace layered on top of Foundry. Use Foundry Documents for the underlying world data and Tome for presentation, discovery, cross-links, GM workflow, and campaign memory."
-      : "Adventurer's Tome is your campaign companion inside Foundry: a place to revisit Sessions, follow Quests, learn about the Group and World, search Rules, and keep personal Favorites.",
-    quickSteps: game.user?.isGM
-      ? ["Open Campaign Settings", "Create / verify Tome folders", "Choose a Home layout", "Select Group members", "Check Permissions", "Start adding or importing campaign content"]
-      : ["Open Home", "Browse Sessions and Quests", "Explore Group and World", "Use Search when you are unsure where something lives", "Favorite things you want to return to"]
-  };
-}
 
 const HOME_WIDGET_SIZES = Object.freeze({
   compact: "Compact",
@@ -645,17 +504,17 @@ function folderLineageNames(folder) {
   return names;
 }
 
+function journalInSection(entry,section) {
+  const flagged = String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "type") ?? "").toLowerCase();
+  return flagged === section || folderLineageNames(entry.folder).some((name) => name.includes(section));
+}
+
 function sectionEntries(section) {
   const normalized = section.toLowerCase();
-
   return game.journal.contents
     .filter((entry) => canViewInTome(entry))
     .filter((entry) => normalized !== 'world' || !isWorldPlayerCharacter(entry,game.actors.contents,game.users.contents))
-    .filter((entry) => {
-      const flagged = String(globalThis.ATTestAI.flags(entry).getFlag(MODULE_ID, "type") ?? "").toLowerCase();
-      if (flagged === normalized) return true;
-      return folderLineageNames(entry.folder).some((name) => name === normalized || name.includes(normalized));
-    })
+    .filter((entry) => journalInSection(entry,normalized))
     .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang, { numeric: true }));
 }
 
@@ -5337,6 +5196,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       resolveCampaignDecision: this._onResolveCampaignDecision,
       linkExistingCampaignIdentity: this._onLinkExistingCampaignIdentity,
       undoCampaignDecision: this._onUndoCampaignDecision,
+      restoreNeverAsk: this._onRestoreNeverAsk,
       reviewSourceFacts: this._onReviewSourceFacts,
       openSourceAnalysis: this._onOpenSourceAnalysis,
       decideRelationship: this._onDecideRelationship,
@@ -5683,6 +5543,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const previousReads = tomeContextReads;
     try {
     const context = await super._prepareContext(options);
+    const manual = this.activeTab === "manual" ? await loadManual(this._manualLanguage || manualLanguage(), game.user.isGM) : null;
     tomeContextReads = {reads:new Map(),markup:new Map(),markupBytes:0};
     if(this.activeTab==='worldProfile'){
       const entry=game.journal.get(this.activeWorldId);
@@ -5737,7 +5598,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     ].map((group) => ({ ...group, count: group.entries.length })).filter((group) => group.count);
 
     const numberedSessions = sessions.filter((session) => session.sessionNumber != null);
-    const latestSession = numberedSessions.length ? numberedSessions[numberedSessions.length - 1] : (sessions.length ? sessions[sessions.length - 1] : null);
+    const latestSession = numberedSessions.reduce((latest,session) =>
+      !latest || session.sessionNumber >= latest.sessionNumber ? session : latest,null) || sessions.at(-1) || null;
     const selectedSessionBase = sessions.find((session) => session.id === this.activeSessionId) || latestSession || sessions[0] || null;
     if (selectedSessionBase) this.activeSessionId = selectedSessionBase.id;
     const group = measured("view-group",()=>rows("group",()=>getGroupActors()));
@@ -6280,7 +6142,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isCampaignToolsAssistant: game.user.isGM && this.activeTab === "campaignToolsAssistant",
       isCampaignToolsAssistantNavActive: game.user.isGM && ["campaignToolsAssistant", "gmDashboard", "quickCapture", "revealQueue", "postSession"].includes(this.activeTab),
       isManual: this.activeTab === "manual",
-      manual: this.activeTab === "manual" ? buildManualView() : null,
+      manual,
       isImport: this.activeTab === "import" && game.user.isGM,
       isExport: this.activeTab === "export" && game.user.isGM,
       isGmDashboard: this.activeTab === "gmDashboard" && game.user.isGM,
@@ -6309,6 +6171,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       questGroups: questGroups.map((group) => ({ ...group, entries: group.entries.map((entry) => ({ ...entry, localSearchText: `${entry.name} ${entry.summary || ""} ${entry.statusLabel || ""}`.toLowerCase() })) })),
       homeQuests: activeQuests.slice(0, 3),
       latestSession,
+      latestSessionDisplay: latestSession?.sessionNumber ?? latestSession?.displayTitle ?? "—",
       world,
       homeWorld: world.slice(0, 3),
       homeBlocks,
@@ -6321,6 +6184,8 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       actorOptions,
       searchEntries:displayedSearchEntries,
       campaignMemorySearch,
+      ignoredReviewQuestions:this.activeTab === "campaignToolsMemory" && game.user.isGM
+        ? globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignReviewLearning?.neverAskRules?.() : [],
       campaignAnalysis,
       campaignAnalysisAll,
       relationshipReview,
@@ -6711,23 +6576,46 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       applyNoteFilter();
     }
 
-    const manualSearch = this.element?.querySelector("[data-at-manual-search]");
-    if (manualSearch) {
-      const applyManualSearch = () => {
-        const needle = String(manualSearch.value || "").trim().toLowerCase();
-        let visible = 0;
-        for (const card of this.element.querySelectorAll("[data-at-manual-section]")) {
-          const haystack = String(card.dataset.manualSearch || "").toLowerCase();
-          card.hidden = Boolean(needle) && !haystack.includes(needle);
-          if (!card.hidden) visible += 1;
+    const manualPage = this.element?.querySelector(".at-manual-page");
+    if (manualPage) {
+      const search = manualPage.querySelector("[data-at-manual-search]");
+      const kind = manualPage.querySelector("[data-at-manual-kind]");
+      const cards = [...manualPage.querySelectorAll("[data-at-manual-section]")];
+      search.value = this._manualQuery || "";
+      kind.value = this._manualKind || "";
+      const apply = () => {
+        this._manualQuery = search.value;
+        this._manualKind = kind.value;
+        for (const card of cards) card.hidden = Boolean(kind.value && card.dataset.manualKind !== kind.value) ||
+          !manualMatches(card.dataset.manualSearch, search.value);
+        for (const group of manualPage.querySelectorAll("[data-at-manual-group]")) {
+          group.hidden = !group.querySelector("[data-at-manual-section]:not([hidden])");
         }
-        const empty = this.element.querySelector("[data-at-manual-empty]");
-        if (empty) empty.hidden = visible > 0;
-        const count = this.element.querySelector("[data-at-manual-count]");
-        if (count) count.textContent = `${visible} section${visible === 1 ? "" : "s"}`;
+        const count = cards.filter(card => !card.hidden).length;
+        manualPage.querySelector("[data-at-manual-count]").textContent = count;
+        manualPage.querySelector("[data-at-manual-empty]").hidden = count > 0;
       };
-      manualSearch.addEventListener("input", applyManualSearch);
-      applyManualSearch();
+      const reset = () => { search.value = kind.value = ""; apply(); };
+      search.addEventListener("input", apply);
+      kind.addEventListener("change", apply);
+      manualPage.querySelector("[data-at-manual-reset]").addEventListener("click", () => { reset(); search.focus(); });
+      manualPage.querySelector("[data-at-manual-language]").addEventListener("change", async event => {
+        this._manualLanguage = event.currentTarget.value;
+        saveManualLanguage(this._manualLanguage);
+        await this.render({ parts: ["main"] });
+        this.element?.querySelector("[data-at-manual-language]")?.focus();
+      });
+      manualPage.addEventListener("click", event => {
+        const id = event.target.closest("[data-at-manual-link]")?.dataset.atManualLink;
+        const card = id && cards.find(candidate => candidate.id === "manual-" + id);
+        if (!card) return;
+        event.preventDefault();
+        if (card.hidden) reset();
+        card.open = true;
+        card.querySelector("summary")?.focus();
+        card.scrollIntoView({block:"start"});
+      });
+      apply();
     }
 
     const importForm = this.element?.querySelector(".at-import-form");
@@ -8464,11 +8352,28 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         ui.notifications.info(mode === "mention-only"
           ? `Tome: ${text} will remain Mention-only for this source.`
           : `Tome: ${text} will stay unresolved for this source.`);
+      } else if (mode === "never-ask") {
+        if (!learning?.neverAsk) throw Error("Campaign learning is unavailable.");
+        const owner=game.user.id, world=game.world?.id;
+        const source=game.journal.get(/^JournalEntry\.([^.]+)$/.exec(sourceUuid)?.[1]);
+        if (!source) throw Error("The campaign source is no longer available.");
+        const reason=await foundry.applications.api.DialogV2.prompt({
+          window:{title:"Never ask about this again"},rejectClose:false,
+          content:`<p>Stop asking about <strong>${foundry.utils.escapeHTML(text)}</strong> across this campaign. You can restore the question in Memory.</p>
+            <label>Reason<textarea name="reason" maxlength="500" rows="4" required autofocus></textarea></label>`,
+          ok:{label:"Save decision",callback:(_event,button)=>button.form.elements.reason.value.trim()}
+        });
+        if (reason==null || reason===false) return;
+        if (!game.user.isGM || game.user.id!==owner || game.world?.id!==world || game.journal.get(source.id)!==source) {
+          throw Error("The world, account or source changed. Open the decision again.");
+        }
+        await measure("decision-save",()=>learning.neverAsk({text,reason,sourceUuid,sourceName:source.name}));
+        ui.notifications.info("Tome: question ignored for this campaign. You can undo this in Memory.");
       } else {
         return;
       }
 
-      if (learning?.rememberDecision && this._lastCampaignDecision) {
+      if (mode !== "never-ask" && learning?.rememberDecision && this._lastCampaignDecision) {
         try {
           const sourceId = /^JournalEntry\.([^.]+)/.exec(sourceUuid)?.[1];
           this._lastCampaignDecision = await learning.rememberDecision({...this._lastCampaignDecision,
@@ -8479,8 +8384,9 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // Re-resolve known mentions against the saved GM choice; the narrative
         // candidates already exist. Source edits retain their own invalidation.
         if(!campaignQueueDerivedRefresh('gm-decision')) {
-          await measure("memory-refresh",()=>evidence?.sync?.({ reason:"guided-gm-decision", rescan:mode !== "keep" && mode !== "mention-only", reuseDiscovery:true, sourceUuid, silent:true }));
-          await measure("relationship-refresh",()=>globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.({sourceUuid}));
+          const scope=mode === "never-ask" ? {} : {sourceUuid};
+          await measure("memory-refresh",()=>evidence?.sync?.({ reason:"guided-gm-decision", rescan:mode !== "keep" && mode !== "mention-only", reuseDiscovery:mode !== "never-ask", ...scope, silent:true }));
+          await measure("relationship-refresh",()=>globalThis.ATTestAI.modules.get(MODULE_ID)?.api?.campaignRelationshipEvidence?.sync?.(scope));
         }
       } catch(error) {
         console.warn("Adventurer's Tome | Decision saved; derived refresh needs retry",error);
@@ -8571,6 +8477,26 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ui.notifications.info('Tome: source association removed. Undo is available in Recent GM decisions.');
     }catch(error){ui.notifications.error(`Tome: ${error.message}`);}
     finally{review?.finish(profile);this._campaignDecisionPending=false;target.disabled=false;}
+  }
+
+  static async _onRestoreNeverAsk(_event,target) {
+    if (!game.user?.isGM || this._campaignDecisionPending) return;
+    const api=globalThis.ATTestAI.modules.get(MODULE_ID)?.api;
+    if (!api?.campaignReviewLearning?.restoreNeverAsk) return;
+    this._campaignDecisionPending=true;
+    target.disabled=true;
+    try {
+      await api.campaignReviewLearning.restoreNeverAsk({text:target.dataset.decisionText,id:target.dataset.neverAskId});
+      try {
+        if (!campaignQueueDerivedRefresh('gm-decision')) {
+          await api.campaignMentionEvidence?.sync?.({reason:'never-ask-undo',rescan:true,silent:true});
+          await api.campaignRelationshipEvidence?.sync?.({});
+        }
+      } catch { ui.notifications.warn('Decision undone. Derived views need a refresh.'); }
+      await this.render({parts:["main"]});
+      ui.notifications.info("Tome can ask about this again.");
+    } catch(error) { ui.notifications.error(`Tome: ${error.message}`); }
+    finally { target.disabled=false;this._campaignDecisionPending=false; }
   }
 
   static async _onUndoCampaignDecision(event, target) {
@@ -9349,6 +9275,8 @@ Hooks.once("ready", async () => {
     },
     getAccess: (document) => getTomeAccess(document),
     canView: (document, user = game.user) => canViewInTome(document, user),
+    isRuleJournal: document => document?.documentName === "JournalEntry" && journalInSection(document,"rules"),
+    ruleSearchText: page => stripMarkup(page.text?.content || page.text?.markdown || ""),
     imageSource: tomeImageSource,
     usesTomeAccess: (document) => {
       const flags = globalThis.ATTestAI.flags(document);

@@ -1,3 +1,12 @@
+## 2.1.9
+
+- Expand Token Builder with 100 illustrated frames, 22 adjustable animations, a working diameter range, GM defaults and scrollable editor dialogs.
+- Let character owners upload artwork with Foundry permission, open their sheet from the player map menu and read the storage drop label on Realm Guard parchment.
+- Show the latest session number and let the GM update the party location from Home. Apply scene defaults to imported images.
+- Include rule-page text in Quick Search and add reversible campaign-wide ignored questions in Campaign Memory.
+- Add a searchable Swedish and English manual. See [the 2.1.9 release notes](docs/V2.1.9_STABLE_RELEASE.md).
+
+
 ## 2.1.8
 
 - Add scene defaults and selective bulk updates from the Scenes panel. Open and import scenes from the map menu or GM Dock.

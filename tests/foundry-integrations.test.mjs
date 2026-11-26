@@ -267,18 +267,27 @@ test('manual and dropped scene images share the same private batch import and do
 });
 
 test('scene image defaults use image size unless Tome explicitly configures the dimension',async()=>{
-  const choices=new Map([['sceneDefaultsEnabled',true],['sceneDefaultWidth',1600],['sceneDefaultHeight',0]]);
+  const choices=new Map([['sceneDefaultsEnabled',true],['sceneDefaultWidth',1600],['sceneDefaultHeight',0],
+    ['sceneDefaultGridType',0],['sceneDefaultBackgroundColor','#112233']]);
   const game={settings:{get:(_scope,key)=>choices.get(key)}};
-  let dimensions;
-  const {context}=fixture('foundry-scene-tools',{game,importSceneImages:async(_files,applyDimensions)=>{
-    const result=applyDimensions({width:2400,height:1800});
-    dimensions=[result.width,result.height];
+  let data;
+  const expandObject=flat=>{
+    const expanded={};
+    for(const [path,value] of Object.entries(flat)){
+      const parts=path.split('.');
+      const key=parts.pop();
+      parts.reduce((parent,part)=>parent[part]??={},expanded)[key]=value;
+    }
+    return expanded;
+  };
+  const {context}=fixture('foundry-scene-tools',{game,foundry:{utils:{expandObject}},importSceneImages:async(_files,sceneCreationData)=>{
+    data=sceneCreationData({width:2400,height:1800});
   }});
   await context.createScenesFromImages([]);
-  assert.deepEqual(dimensions,[1600,1800]);
+  assert.deepEqual([data.width,data.height,data.grid.type,data.backgroundColor],[1600,1800,0,'#112233']);
   choices.set('sceneDefaultsEnabled',false);
   await context.createScenesFromImages([]);
-  assert.deepEqual(dimensions,[2400,1800]);
+  assert.deepEqual([data.width,data.height,data.grid,data.backgroundColor],[2400,1800,undefined,undefined]);
 });
 
 test('scene drop target lets canvas image drops reach the NPC handler and claims only its own drops',()=>{

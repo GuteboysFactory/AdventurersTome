@@ -150,6 +150,10 @@ function actorSheet(_app,html){
     const drop=document.createElement('span');
     drop.dataset.atActorInventory='';
     drop.textContent='Drop item from storage here';
+    if(game.system.id==='realm-guard'){
+      drop.style.setProperty('color','#2b2115','important');
+      drop.style.setProperty('-webkit-text-fill-color','currentColor','important');
+    }
     tools.append(drop);
   }
   if(inventory)inventory.before(tools);

@@ -393,7 +393,8 @@ async function travelWrite(result, owner, worldId, original) {
   if(previousArrival?.kind==='stop')offerMarkerScenes(next.stops.at(-1));
 }
 
-async function travelOpen(entryId) {
+async function travelOpen(entryId, {positionOnly=false}={}) {
+  if(positionOnly&&!game.user?.isGM)throw Error("Only a GM can change the party position.");
   const owner = game.user.id, worldId = game.world.id;
   const state = travelState();
   const {stops, destination, waypoints} = state, last = stops.at(-1);
@@ -413,8 +414,25 @@ async function travelOpen(entryId) {
     const selected = last?.sceneId === sceneId && last?.noteId === noteId;
     return `<option value="${index}" ${selected ? "selected" : ""}>${travelEsc(label)}</option>`;
   }).join("");
+  const locationPicker=places.length
+    ? `<label>Location pin<select name="partyTravelPin">${options}</select></label>`
+    : canEdit ? "<p>Place a location pin on a scene before changing the party position.</p>" : "";
+  const moveButton={action:"move", label:"Set party position", callback:(_event,_button,dialog)=>{
+    const place=places[Number(dialog.element.querySelector('[name="partyTravelPin"]').value)];
+    return place ? {sceneId:place.sceneId,noteId:place.noteId} : null;
+  }};
+  const closeButton={action:"close",label:"Close",callback:()=>null};
+  if(positionOnly){
+    const result=await foundry.applications.api.DialogV2.wait({
+      window:{title:"Change party location"},position:{width:550},rejectClose:false,
+      buttons:places.length?[closeButton,moveButton]:[closeButton],
+      content:locationPicker
+    });
+    if(result)await travelWrite(result,owner,worldId,JSON.stringify(state));
+    return;
+  }
   const historyList = history.length ? `<ol>${history.map(({scene,entry}) => `<li>${travelEsc(entry.name)} · ${travelEsc(scene.name)}</li>`).join("")}</ol>` : "<p>No visible stops yet.</p>";
-  const buttons = [{action:"close", label:"Close", callback:()=>null}];
+  const buttons = [closeButton];
   if (canEdit && travelApi()?.travelPlanner) buttons.push({action:"planner",label:"Travel Planner…",callback:()=>({planner:true})});
   if (planner?.history().length) buttons.push({action:"history",label:"Journey history…",callback:()=>({history:true})});
   if (current) buttons.push({action:"view", label:"Open map for me", callback:()=>({view:true})});
@@ -423,15 +441,10 @@ async function travelOpen(entryId) {
   if (canEdit && target) buttons.push({action:"arrive", label:"Mark as arrived", callback:()=>({arrive:true})});
   if (canEdit && final) buttons.push({action:"cancel-destination", label:"Clear final destination", callback:()=>({cancelDestination:true})});
   if (canEdit && !planner?.controlled() && !waypoints.length && !destination && (stops.length>1||state.basicTrail.length)) buttons.push({action:"archive",label:"Finish journey",callback:()=>({archive:true})});
-  if (places.length) buttons.push({action:"move", label:"Set party position", callback:(_event,_button,dialog)=>{
-    const place = places[Number(dialog.element.querySelector('[name="partyTravelPin"]').value)];
-    return place ? {sceneId:place.sceneId, noteId:place.noteId} : null;
-  }});
+  if (places.length) buttons.push(moveButton);
   const result = await foundry.applications.api.DialogV2.wait({
     window:{title:"Party Travel", resizable:true}, position:{width:570}, rejectClose:false, buttons,
-    content:`<p>Current Location · <strong>${travelEsc(current?.entry.name || "Unmarked")}</strong></p>${places.length ?
-      `<label>World location pin<select name="partyTravelPin">${options}</select></label>` : canEdit ?
-      "<p>Place a World location journal on a scene as a map pin to set the party position.</p>" : ""}
+    content:`<p>Current Location · <strong>${travelEsc(current?.entry.name || "Unmarked")}</strong></p>${locationPicker}
       ${target ? `<p>Next waypoint · <strong>${travelEsc(target.entry.name)}</strong></p>` : ""}
       ${final ? `<p>Final destination · <strong>${travelEsc(final.entry.name)}</strong></p>` : ""}
       <h3>Travelled route</h3>${historyList}`
@@ -724,11 +737,12 @@ function attachPartyTravel() {
     mapLinkedScene:pin=>mapLinkedScenes(pin)[0]||null,
     refresh:()=>{travelDraw();Hooks.callAll("adventurersTomePartyTravelChanged");}});
   document.addEventListener("click", event => {
-    const button = event.target.closest?.("#adventurers-tome-app :is([data-party-location], [data-party-travel], [data-party-edit-scene], [data-party-view-scene], [data-party-activate-scene])");
+    const button = event.target.closest?.("#adventurers-tome-app :is([data-party-location], [data-party-change-location], [data-party-travel], [data-party-edit-scene], [data-party-view-scene], [data-party-activate-scene])");
     if (!button) return;
     const {partyTravel, partyEditScene, partyActivateScene, partyViewScene} = button.dataset;
     let result;
     if (button.hasAttribute('data-party-location')) result=focusPartyLocation();
+    else if (button.hasAttribute('data-party-change-location')) result=travelOpen(undefined,{positionOnly:true});
     else if (partyTravel !== undefined) result = travelOpen(partyTravel);
     else if (partyEditScene) result = travelEditScene(partyEditScene);
     else if (partyActivateScene) result = travelActivateScene(partyActivateScene);

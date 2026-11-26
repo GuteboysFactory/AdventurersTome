@@ -1,4 +1,4 @@
-import {searchRows,calculate,captureTextTarget,keybindMatches} from './quick-search-core.mjs';
+import {searchRows,calculate,captureTextTarget,keybindMatches,normalizeSearch} from './quick-search-core.mjs';
 const ID='adventurers-tome',api=()=>game.modules.get(ID)?.api,types=['Actor','Item','JournalEntry','Scene','RollTable','Macro'];
 const esc=v=>foundry.utils.escapeHTML(String(v??''));
 let calcHistory=[],dialog=null,opening=null,rows=[],indexEpoch=0,indexed=false,refreshTimer;
@@ -6,7 +6,10 @@ const visible=doc=>Boolean(doc&&(game.user?.isGM||doc.visible!==false&&doc.testU
 function permitted(row){if(row.packId){const pack=game.packs.get(row.packId);return Boolean(pack&&(pack.visible||game.user.isGM));}return visible(fromUuidSync(row.documentUuid||row.uuid.split('#')[0]));}
 function meta(doc,extra={}){return {uuid:doc.uuid,name:doc.name,type:doc.documentName,subtype:doc.type||'',img:doc.img,folderId:doc.folder?.id||'',folder:doc.folder?.name||'',source:'World',...extra};}
 function worldRows(){const result=[];for(const type of types){const collection=CONFIG[type]?.collection?.instance;for(const doc of collection?.contents||[]){if(!visible(doc))continue;result.push(meta(doc));if(type==='JournalEntry')for(const page of doc.pages?.contents||[])if(visible(page)){
- result.push(meta(page,{folder:doc.folder?.name||'',folderId:doc.folder?.id||'',source:doc.name}));
+ const ruleText=page.type==='text'&&api()?.isRuleJournal?.(doc)
+   ? normalizeSearch(api().ruleSearchText(page)).replace(/\s+/g,' ')
+   : undefined;
+ result.push(meta(page,{folder:doc.folder?.name||'',folderId:doc.folder?.id||'',source:doc.name,ruleText}));
  if(game.settings.get(ID,'quickSearchHeadings'))for(const heading of Object.values(page.toc||{}))if(heading.slug&&heading.text)result.push(meta(page,{uuid:page.uuid+'#'+heading.slug,name:heading.text,anchor:heading.slug,documentUuid:page.uuid,source:doc.name+' / '+page.name}));
  }} }
  const byUuid=new Map(result.map(r=>[r.uuid,r])),linked=new Set();for(const row of result){if(row.type!=='JournalEntry')continue;const doc=fromUuidSync(row.uuid),profile=doc?.getFlag(ID,'worldProfile'),projection=doc?.getFlag(ID,'semanticProjection');if(!['contact','npc'].includes(profile?.category)&&projection?.kind!=='contact')continue;const identity=doc?.getFlag(ID,'knownPersonV1')?.actorUuid||projection?.linkedUuid||profile?.sourceUuid||(profile?.actorId?'Actor.'+profile.actorId:''),actor=byUuid.get(identity);if(actor?.type!=='Actor')continue;(actor.related||=[]).push(row);(actor.aliases||=[]).push(row.name);linked.add(row.uuid);actor.source='World · Actor + linked entries';}return result.filter(r=>!linked.has(r.uuid));}
@@ -69,7 +72,9 @@ async function perform(row,action,target){
   if(available.length){const key=await foundry.applications.api.DialogV2.prompt({window:{title:'Choose system action'},content:`<label>Action<select name="action">${available.map(a=>`<option value="${esc(a.key)}">${esc(a.label)}</option>`).join('')}</select></label>`,ok:{label:'Run action',callback:(_e,_b,d)=>d.element.querySelector('select').value},rejectClose:false});if(key){if(!doc.isOwner)throw Error('Ownership changed.');await adapters.invokeAction(key,{source:doc,context:{source:'quick-search'}});}}
   else if(typeof doc.use==='function')await doc.use();else await doc.sheet?.render(true);
  }
- else if(row.anchor)await doc._onClickDocumentLink({currentTarget:{dataset:{hash:row.anchor},getAttribute:()=>row.anchor},target:{closest:()=>({ownerDocument:document})}});else await doc.sheet?.render(true);
+ else if(row.anchor)await doc._onClickDocumentLink({currentTarget:{dataset:{hash:row.anchor},getAttribute:()=>row.anchor},target:{closest:()=>({ownerDocument:document})}});
+ else if(row.ruleText!==undefined&&doc.documentName==='JournalEntryPage')await doc.parent?.sheet?.render(true,{pageId:doc.id});
+ else await doc.sheet?.render(true);
 }
 export function openQuickSearch(options={}){
  if(opening)return opening;opening=createQuickSearch(options);return opening.finally(()=>{opening=null;});
@@ -144,7 +149,7 @@ Hooks.once('init',()=>{
 });
 Hooks.on('createProseMirrorEditor',(_uuid,plugins)=>{if(!globalThis.ProseMirror?.Plugin)return;plugins.tomeQuickSearch=new ProseMirror.Plugin({props:{handleKeyDown(view,event){if(!game.user?.isGM||!keybindMatches(event,game.keybindings.bindings.get(ID+'.quickSearch')))return false;event.preventDefault();void openQuickSearch({target:proseTarget(view)}).catch(e=>ui.notifications.error(e.message));return true;}}});});
 Hooks.once('ready',()=>{api().quickSearch=Object.freeze({open:openQuickSearch,rebuild:()=>{indexed=false;if(dialog?.rendered)return buildIndex(dialog._quickSearchPaint);}});api().gmDock?.registerAction('quick-search',{icon:'fa-magnifying-glass',title:'Quick Search',label:'Quick Search',handler:()=>openQuickSearch()});document.addEventListener('click',e=>{if(e.target.closest('[data-at-quick-search]')){e.preventDefault();void openQuickSearch().catch(error=>ui.notifications.error(error.message));}});});
-for(const type of [...types,'JournalEntryPage'])for(const event of ['create','update','delete'])Hooks.on(event+type,()=>{clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{rows=[...worldRows(),...rows.filter(r=>r.packId)];dialog?._quickSearchPaint?.();},100);});
+for(const type of [...types,'JournalEntryPage','Folder'])for(const event of ['create','update','delete'])Hooks.on(event+type,()=>{clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{rows=[...worldRows(),...rows.filter(r=>r.packId)];dialog?._quickSearchPaint?.();},100);});
 Hooks.on('updateCompendium',()=>{indexed=false;});
 Hooks.on('updateUser',()=>{if(!game.user?.isGM)void dialog?.close();else dialog?._quickSearchPaint?.();});
 Hooks.on('adventurersTomeVaultLockChanged',()=>dialog?._quickSearchPaint?.());

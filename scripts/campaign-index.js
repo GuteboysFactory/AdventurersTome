@@ -4,7 +4,7 @@ import {createIndexDigestPool} from './index-digest-pool.mjs';
 // GM-local derived index. Canonical documents and Review learning remain the
 // authority; this database can be discarded and rebuilt without losing either.
 const ID='adventurers-tome',REVISION='testai-automatic-language-1';
-const ANALYSIS_REVISION='tome-integrated-evidence-2';
+const ANALYSIS_REVISION='tome-integrated-evidence-3';
 let state={revision:REVISION,cache:{},signatures:{},history:{},snapshots:{},paused:false};
 let loaded=null,db=null,worker=null,serial=0,timer=null,running=false,again=false;
 let lastYield=0,workerError='',storageError='',lastError='',current='',completed=0,total=0;

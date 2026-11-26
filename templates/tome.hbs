@@ -110,8 +110,8 @@
         <h2>{{settings.campaignTitle}}</h2>
         <p>{{settings.campaignSubtitle}}</p>
         <div class="at-compass"><i class="fa-regular fa-compass"></i></div>
-        <div class="at-status-block"><span>{{settings.sessionLabel}}</span><strong>{{stats.sessions}} played</strong></div>
-        <div class="at-status-block" data-at-index-region="home-sidebar-location"><span>Current Location</span><strong>{{settings.currentLocation}}</strong></div>
+        <div class="at-status-block"><span>Latest Session</span><strong>{{latestSessionDisplay}}</strong></div>
+        <div class="at-status-block" data-at-index-region="home-sidebar-location"><span>Current Location</span><strong>{{settings.currentLocation}}</strong>{{#if isGM}}<button type="button" class="at-secondary" data-party-change-location>Change party location…</button>{{/if}}</div>
       </section>
       {{/if}}
 
@@ -135,6 +135,7 @@
       <div class="at-mobile-campaign">
         <span>{{settings.campaignTitle}}</span>
         <strong data-at-index-region="home-mobile-location"><i class="fa-solid fa-location-dot"></i> {{settings.currentLocation}}</strong>
+        {{#if isGM}}<button type="button" class="at-secondary" data-party-change-location>Change party location…</button>{{/if}}
       </div>
       <div class="at-hero-copy">
         <span class="at-kicker">Welcome back</span>
@@ -148,7 +149,7 @@
         <div><span><i class="fa-solid fa-diamond"></i> Active Quests</span><strong>{{stats.activeQuests}}</strong></div>
         <div><span><i class="fa-solid fa-users"></i> Group Members</span><strong>{{stats.group}}</strong></div>
         <div><span><i class="fa-solid fa-earth-europe"></i> World Entries</span><strong>{{stats.world}}</strong></div>
-        <div><span><i class="fa-solid fa-book-open"></i> Sessions</span><strong>{{stats.sessions}}</strong></div>
+        <div><span><i class="fa-solid fa-book-open"></i> Latest Session</span><strong>{{latestSessionDisplay}}</strong></div>
         <div class="at-glance-location" data-at-index-region="home-party-location">
           {{#if settings.partyLocationCanFocus}}
           <button type="button" class="at-glance-location-link" data-party-location title="Show the party on the map"><span><i class="fa-solid fa-flag" aria-hidden="true"></i> Party Location</span><strong>{{settings.currentLocation}}</strong></button>
@@ -1045,6 +1046,18 @@
         </div>
       </header>
 
+      <details class="at-memory-ignored" {{#if ignoredReviewQuestions.length}}open{{/if}}>
+        <summary>Ignored review questions ({{ignoredReviewQuestions.length}})</summary>
+        {{#each ignoredReviewQuestions}}
+        <div class="at-memory-ignored-row">
+          <div><strong>{{text}}</strong><p>{{reason}}</p>{{#if sourceName}}<small>{{sourceName}}</small>{{/if}}</div>
+          <button type="button" data-action="restoreNeverAsk" data-decision-text="{{text}}" data-never-ask-id="{{id}}">Ask again</button>
+        </div>
+        {{else}}
+        <p>Questions saved with “Never ask about this again” appear here.</p>
+        {{/each}}
+      </details>
+
       <div class="at-memory-search-controls">
         <label class="at-memory-search-text">
           <span>Search evidence</span>
@@ -1317,6 +1330,7 @@
               {{else}}
               <button type="button" data-save-rumour data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}">Save as rumour…</button>
               <button type="button" data-action="resolveCampaignDecision" data-decision-mode="keep" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-clock"></i> Keep unresolved</button>
+              <button type="button" data-action="resolveCampaignDecision" data-decision-mode="never-ask" data-decision-text="{{decisionText}}" data-source-uuid="{{sourceUuid}}"><i class="fa-solid fa-ban" aria-hidden="true"></i> Never ask about this again…</button>
               {{/if}}
               <small>Choose an existing identity, create one after review, or defer this decision for this source.</small>
             </footer>
@@ -1418,26 +1432,35 @@
 
   {{#if isManual}}
   <main class="at-content at-manual-page">
-    <div class="at-detail-toolbar"><button type="button" data-action="goBack"><i class="fa-solid fa-arrow-left"></i> Back</button><div class="at-breadcrumbs"><button type="button" data-action="navigate" data-tab="home">Home</button><span>›</span><strong>Manual</strong></div></div>
-    <section class="at-page-heading at-manual-heading"><div><span class="at-kicker">Learn the Tome</span><h1><i class="fa-solid fa-circle-question"></i> Adventurer's Tome Manual</h1><p>Version {{manual.version}} · Written for people who have never used the module before, with examples, workflows, safety notes, and quick troubleshooting. {{#if isGM}}GM administration guidance is included.{{else}}GM-only guidance is hidden in player view.{{/if}}</p></div></section>
-    <section class="at-manual-intro">
-      <article class="at-manual-intro-card"><span class="at-kicker">What is Adventurer's Tome?</span><h2>Your campaign memory, not a replacement for Foundry</h2><p>{{manual.intro}}</p><div class="at-manual-callout tip"><strong>Good first principle:</strong> Foundry owns the underlying Documents and permissions. Tome organizes, presents, links, reveals, searches, and remembers them.</div></article>
-      <article class="at-manual-quickstart"><span class="at-kicker">Start here</span><h2>First few clicks</h2><p>You do not need to learn everything at once.</p><ol>{{#each manual.quickSteps}}<li>{{this}}</li>{{/each}}</ol></article>
+    <div class="at-detail-toolbar"><button type="button" data-action="goBack" aria-label="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button></div>
+    <section class="at-page-heading at-manual-heading">
+      <h1>{{manual.labels.title}}</h1>
+      <label>{{manual.labels.language}}<select data-at-manual-language><option value="sv" {{#if manual.swedish}}selected{{/if}}>Svenska</option><option value="en" {{#if manual.english}}selected{{/if}}>English</option></select></label>
     </section>
-    <section class="at-manual-searchbar"><div class="at-search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="search" data-at-manual-search placeholder="Search features, workflows, permissions, import, GM Notes…"></div><span data-at-manual-count>{{manual.sections.length}} sections</span></section>
-    <section class="at-manual-grid">
-      {{#each manual.sections}}
-      <article class="at-manual-card" data-at-manual-section data-manual-search="{{searchText}}">
-        <header><i class="fa-solid {{icon}}"></i><div><span class="at-kicker">{{category}}</span><h2>{{title}}</h2><p>{{summary}}</p></div>{{#if gmOnly}}<span class="at-manual-gm">GM</span>{{/if}}</header>
-        {{#if useWhen}}<div class="at-manual-callout"><strong>Use this when:</strong> {{useWhen}}</div>{{/if}}
-        {{#if steps.length}}<div class="at-manual-steps">{{#each steps}}<div class="at-manual-step"><div><strong>{{title}}</strong><p>{{text}}</p></div></div>{{/each}}</div>{{/if}}
-        {{#if items.length}}<div class="at-manual-items">{{#each items}}<div><strong>{{title}}</strong><p>{{text}}</p></div>{{/each}}</div>{{/if}}
-        {{#if example}}<div class="at-manual-callout"><strong>Example:</strong> {{example}}</div>{{/if}}
-        {{#if tip}}<div class="at-manual-callout tip"><strong>Tip:</strong> {{tip}}</div>{{/if}}
-        {{#if warning}}<div class="at-manual-callout warning"><strong>Important:</strong> {{warning}}</div>{{/if}}
-      </article>
+    <section class="at-manual-searchbar">
+      <div class="at-search-box"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" data-at-manual-search placeholder="{{manual.labels.search}}" aria-label="{{manual.labels.search}}"></div>
+      <select data-at-manual-kind aria-label="{{manual.labels.all}} / {{manual.labels.guide}} / {{manual.labels.tutorial}} / {{manual.labels.reference}}">
+        <option value="">{{manual.labels.all}}</option><option value="guide">{{manual.labels.guide}}</option>
+        <option value="tutorial">{{manual.labels.tutorial}}</option><option value="reference">{{manual.labels.reference}}</option>
+      </select>
+      <button type="button" data-at-manual-reset>{{manual.labels.reset}}</button>
+      <span role="status"><span data-at-manual-count>{{manual.sections.length}}</span> {{manual.labels.results}}</span>
+    </section>
+    {{#if manual.failed}}<p role="alert">{{manual.labels.unavailable}}</p>{{/if}}
+    <p><a href="{{manual.href}}" target="_blank" rel="noopener">{{manual.labels.handbook}}</a></p>
+    <section class="at-manual-topics">
+      {{#each manual.groups}}
+      <section data-at-manual-group>
+        <h2>{{title}}</h2>
+      {{#each topics}}
+      <details class="at-manual-card" id="manual-{{id}}" data-at-manual-section data-manual-search="{{searchText}}" data-manual-kind="{{type}}">
+        <summary><span>{{title}}</span><small>{{typeLabel}}{{#if gmOnly}} · GM{{/if}}</small></summary>
+        <div class="at-manual-body">{{{bodyHtml}}}</div>
+      </details>
       {{/each}}
-      <div class="at-empty at-wide" data-at-manual-empty hidden>No manual sections match that search.</div>
+      </section>
+      {{/each}}
+      {{#unless manual.failed}}<p class="at-empty" data-at-manual-empty hidden>{{manual.labels.empty}}</p>{{else}}<span data-at-manual-empty hidden></span>{{/unless}}
     </section>
   </main>
   {{/if}}
@@ -1870,6 +1893,7 @@ The expedition trail was recovered in Session 2.</pre>
             <div class="at-settings-grid at-artwork-grid">
               <div>
                 <h3>Campaign Logo</h3>
+                <p>Replaces the book icon in Tome’s top navigation bar.</p>
                 <div class="at-logo-preview"><img data-at-logo-preview data-at-tome-image src="{{atImageSrc settings.logoUrl}}" alt="Campaign logo preview" {{#unless settings.hasLogo}}hidden{{/unless}}><i class="fa-solid fa-book-open"></i></div>
                 <label>Logo image path<input type="text" name="campaignLogo" value="{{settings.logo}}" placeholder="Leave blank for Tome book icon"></label>
                 <div class="at-inline-actions"><button type="button" data-action="browseSettingImage" data-input-name="campaignLogo"><i class="fa-solid fa-folder-open"></i> Browse</button></div>
@@ -1884,7 +1908,7 @@ The expedition trail was recovered in Session 2.</pre>
           </div>
 
           <div class="at-settings-card">
-            <div class="at-section-title"><div><h2><i class="fa-solid fa-images"></i> Section Backgrounds</h2><p>Optional. Leave blank to reuse the Home hero. Each path is resolved through Foundry Data.</p></div></div>
+            <div class="at-section-title"><div><h2><i class="fa-solid fa-images"></i> Section Backgrounds</h2><p>Choose a different background for each Tome tab. Leave any field blank to use the Home hero image for that tab.</p></div></div>
             <div class="at-section-bg-grid">
               {{#each settings.sectionBackgroundRows}}
               <label>{{label}}

@@ -5,7 +5,10 @@ export function matchScore(name,query){
  let pos=-1,gaps=0;for(const c of q){const next=text.indexOf(c,pos+1);if(next<0)return 0;gaps+=next-pos-1;pos=next;}return Math.max(1,200-gaps-q.length);
 }
 export function searchRows(rows,query,{type='',folder='',pack='',max=60,allow=()=>true}={}){
- return rows.filter(r=>(!type||r.type===type||r.subtype===type)&&(!folder||r.folderId===folder)&&(!pack||r.packId===pack)&&allow(r)).map(row=>({row,score:Math.max(matchScore(row.name,query),...(row.aliases||[]).map(name=>matchScore(name,query)))})).filter(r=>r.score>0).sort((a,b)=>b.score-a.score||a.row.name.localeCompare(b.row.name)).slice(0,max).map(r=>r.row);
+ const term=normalizeSearch(query).trim().replace(/\s+/g,' ');
+ return rows.filter(r=>(!type||r.type===type||r.subtype===type)&&(!folder||r.folderId===folder)&&(!pack||r.packId===pack)&&allow(r)).map(row=>({
+  row,score:Math.max(matchScore(row.name,query),...(row.aliases||[]).map(name=>matchScore(name,query)),term&&row.ruleText?.includes(term)?350:0)
+ })).filter(r=>r.score>0).sort((a,b)=>b.score-a.score||a.row.name.localeCompare(b.row.name)).slice(0,max).map(r=>r.row);
 }
 export function keybindMatches(event,bindings=[]){return bindings.some(b=>b.key===event.code&&Boolean(event.ctrlKey)===Boolean(b.modifiers?.includes('Control'))&&Boolean(event.metaKey)===Boolean(b.modifiers?.includes('Meta'))&&Boolean(event.shiftKey)===Boolean(b.modifiers?.includes('Shift'))&&Boolean(event.altKey)===Boolean(b.modifiers?.includes('Alt')));}
 // A small arithmetic grammar, never JavaScript evaluation or arbitrary property access.

@@ -5,6 +5,11 @@ export {GRAMMAR_PREFIXES,namePrefixBoundary} from './name-span-policy.js';
 export function annotateSourceRoles(structure){
  const {text,blocks}=structure,spans=[...structure.spans],stack=[];let preamble=true;
  const add=(start,end,kind,reason)=>{if(end>start&&!spans.some(s=>s.start===start&&s.end===end&&s.kind===kind&&s.reason===reason))spans.push({start,end,kind,reason});};
+ // Foundry's inline references can be stored as literal text in a Journal.
+ // Keep their offsets and source markup for link resolution, but exclude them from name detection.
+ for(const link of text.matchAll(/@(?:UUID|Actor|Item|JournalEntry|JournalEntryPage|Scene|Compendium)\[[^\]\r\n]+\](?:\{[^}\r\n]*\})?/giu)){
+  add(link.index,link.index+link[0].length,'metadata','foundry-inline-reference');
+ }
  const administrative=new Set(['quest log','quest journal','uppdragslogg','aktiva uppdrag','active quests','framsteg','progress','oppna tradar','open threads','sessionsslut','session end','kallnotering','kallnoteringar','source notes','transcript notes','transcription notes']);
  const editorial=/^(?:kallnotering(?:ar)?|source notes?|transcript(?:ion)? notes?|editorial notes?)$/u;
  const quest=/^(?:quest log|quest journal|uppdragslogg|aktiva uppdrag|active quests)$/u;

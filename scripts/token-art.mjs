@@ -1,13 +1,27 @@
-import {FRAME_MATERIALS, applyFrameMaterial, blendColor, tokenFramePattern} from './token-frame-materials.mjs';
+import {FRAME_MATERIALS, FRAME_ORNAMENTS, FRAME_ORNAMENT_SLOTS, applyFrameMaterial, blendColor, tintedSilhouette, tokenFramePattern} from './token-frame-materials.mjs';
+import {FRAME_SILHOUETTES} from './token-frame-shapes.mjs';
+import {FRAME_ANIMATION_DURATION,FRAME_EFFECT_PADDING,paintFrameAnimation} from './token-frame-effects.mjs';
 
 const ID = "adventurers-tome";
 export const TOKEN_ART_FLAG = "tokenArtV1";
 export const TOKEN_ART_ROTATION_PATH = `flags.${ID}.${TOKEN_ART_FLAG}.lockRotation`;
 export const TOKEN_SIZE = 512;
-export const MAX_FRAME_OUTER_WIDTH = 48;
-export const TOKEN_SHAPES = Object.freeze({rectangle:'Rectangle',rounded:'Rounded square',circle:'Circle',oval:'Oval',shield:'Shield',diamond:'Diamond',hexagon:'Hexagon',octagon:'Octagon'});
-export const FRAME_EFFECTS = Object.freeze({none:'None',glow:'Glow',fire:'Fire',sparks:'Sparks',frost:'Frost',arcane:'Arcane pulse'});
-const effectColors={glow:'#ffe0a1',fire:'#ff822b',sparks:'#ffce70',frost:'#97e6ff',arcane:'#c88aff'};
+export const MIN_FRAME_BAND_WIDTH = 3;
+export const MAX_FRAME_BAND_WIDTH = 96;
+export const MIN_FRAME_DIAMETER = 60;
+export const MAX_FRAME_DIAMETER = 140;
+export const MIN_EFFECT_STRENGTH = 25;
+export const MAX_EFFECT_STRENGTH = 200;
+const ORNAMENT_SIZE = 72;
+export const TOKEN_PREVIEW_SIZE = TOKEN_SIZE + 2 * (MAX_FRAME_BAND_WIDTH - MIN_FRAME_BAND_WIDTH + ORNAMENT_SIZE);
+export const TOKEN_SHAPES = Object.freeze({rectangle:'Rectangle',rounded:'Rounded square',circle:'Circle',oval:'Oval',shield:'Shield',diamond:'Diamond',hexagon:'Hexagon',octagon:'Octagon',
+  ...Object.fromEntries(Object.entries(FRAME_SILHOUETTES).map(([key,shape])=>[key,shape.label]))});
+export const FRAME_EFFECT_GROUPS = Object.freeze({
+  'Elements':Object.freeze({emberFire:'Ember ring',fire:'Burning ring',sparks:'Sparks',frost:'Frost',stormHalo:'Storm Halo',sandstorm:'Sandstorm',tidalRing:'Tidal Ring'}),
+  'Light and nature':Object.freeze({glow:'Glow',holyAura:'Holy Aura',healing:'Healing',moonlight:'Moonlight',feyWisps:'Fey Wisps',autumnLeaves:'Autumn Leaves',celestialOrbit:'Celestial Orbit'}),
+  'Shadow and magic':Object.freeze({arcane:'Arcane pulse',ghostlyLight:'Ghostly Light',deathShadow:'Death Shadow',sickness:'Sickness',angry:'Angry',bloodMoon:'Blood Moon',voidRift:'Void Rift',runicWard:'Runic Ward'})
+});
+export const FRAME_EFFECTS = Object.freeze({none:'None',...Object.assign({},...Object.values(FRAME_EFFECT_GROUPS))});
 const DEFAULT_FRAME=applyFrameMaterial({shape:'circle'},'gold');
 const LEGACY_FRAME={shape:'circle',material:'plain',style:'single',color:'#d9bd79',accent:'#5b321c',weight:14};
 
@@ -16,8 +30,16 @@ function clamp(value, fallback, min, max) {
   return Number.isFinite(number) ? Math.max(min,Math.min(max,number)) : fallback;
 }
 
+export function tokenGridSize({width,height}={}, fallback={width:1,height:1}) {
+  const valid=(value,initial)=>Number.isFinite(Number(value))&&Number(value)>0?Number(value):initial;
+  return {width:valid(width,fallback.width),height:valid(height,fallback.height)};
+}
+
 export function normalizeTokenArt(framing = {}, frame = DEFAULT_FRAME) {
   const material=Object.hasOwn(FRAME_MATERIALS,frame?.material)?frame.material:frame?.style==='none'?'none':'plain';
+  const weight=clamp(frame?.weight,14,3,48);
+  const shape=Object.hasOwn(TOKEN_SHAPES,frame?.shape)?frame.shape:'circle';
+  const illustrated=Object.hasOwn(FRAME_SILHOUETTES,shape);
   return {
     framing: {
       fit: ['whole','contain','cover'].includes(framing?.fit) ? framing.fit : 'cover',
@@ -26,14 +48,22 @@ export function normalizeTokenArt(framing = {}, frame = DEFAULT_FRAME) {
       offsetY: clamp(framing?.offsetY,0,-150,150)
     },
     frame: {
-      shape: Object.hasOwn(TOKEN_SHAPES,frame?.shape) ? frame.shape : 'circle',
+      shape,
       material,
-      style: material==='none' ? 'none' : ['single','double','studs','runes','stitch'].includes(frame?.style) ? frame.style : 'single',
-      effect: Object.hasOwn(FRAME_EFFECTS,frame?.effect) && material!=='none' ? frame.effect : 'none',
+      style: material==='none'&&!illustrated ? 'none' : ['single','double','studs','runes','stitch'].includes(frame?.style) ? frame.style : 'single',
+      effect: Object.hasOwn(FRAME_EFFECTS,frame?.effect) && (material!=='none'||illustrated) ? frame.effect : 'none',
+      effectStrength:clamp(frame?.effectStrength,100,MIN_EFFECT_STRENGTH,MAX_EFFECT_STRENGTH),
       color: /^#[\da-f]{6}$/i.test(frame?.color) ? frame.color : '#777777',
       accent: /^#[\da-f]{6}$/i.test(frame?.accent) ? frame.accent : '#bdbdbd',
-      weight: clamp(frame?.weight,14,3,48),
-      outerWidth: clamp(frame?.outerWidth,0,0,MAX_FRAME_OUTER_WIDTH)
+      weight,
+      diameter:clamp(frame?.diameter,100,MIN_FRAME_DIAMETER,MAX_FRAME_DIAMETER),
+      ...(shape==='circle'&&frame?.fitToEdges===true?{fitToEdges:true}:{}),
+      bandWidth: clamp(illustrated ? frame?.illustratedBandWidth : frame?.bandWidth, illustrated ? weight : weight+clamp(frame?.outerWidth,0,0,48),MIN_FRAME_BAND_WIDTH,MAX_FRAME_BAND_WIDTH),
+      ...(illustrated?{illustratedBandWidth:clamp(frame?.illustratedBandWidth,weight,MIN_FRAME_BAND_WIDTH,MAX_FRAME_BAND_WIDTH),silhouetteTint:/^#[\da-f]{6}$/i.test(frame?.silhouetteTint)?frame.silhouetteTint:''}:{}),
+      ornaments: Object.fromEntries(Object.keys(FRAME_ORNAMENT_SLOTS).map(slot=>{
+        const choice=frame?.ornaments?.[slot];
+        return [slot,Object.hasOwn(FRAME_ORNAMENTS,choice)?choice:'none'];
+      }))
     }
   };
 }
@@ -42,7 +72,7 @@ export function defaultTokenLockRotation(actor) {
   return actor?.flags?.[ID]?.[TOKEN_ART_FLAG]?.lockRotation !== false;
 }
 
-export function tokenArtState(actor) {
+export function tokenArtState(actor,worldFrame) {
   const saved = actor.flags?.[ID]?.[TOKEN_ART_FLAG];
   const legacy = actor.flags?.['realm-guard'] || {};
   const prototype = actor.prototypeToken;
@@ -51,12 +81,13 @@ export function tokenArtState(actor) {
   const source = actorFullArtwork(actor);
   const legacyFrame = legacy.tokenBuilderFraming ? LEGACY_FRAME : DEFAULT_FRAME;
   return {
-    source, token, tokenTexture, ringTexture:prototype?.ring?.subject?.texture || '', displayImage:actor.img || '', portrait: actorPortraitArtwork(actor),
+    source, token, tokenTexture, ringEnabled:prototype?.ring?.enabled===true, ringTexture:prototype?.ring?.subject?.texture || '', displayImage:actor.img || '', portrait: actorPortraitArtwork(actor),
     portraitSource: saved?.portrait?.source || source,
     portraitFraming: normalizeTokenArt(saved?.portrait?.framing).framing,
     defaultMode: saved?.displayMode==='token'&&token ? 'token' : saved?.portrait?.image ? 'portrait' : legacy.portraitMode === 'token' && token ? 'token' : 'full',
     lockRotation: defaultTokenLockRotation(actor),
-    ...normalizeTokenArt(saved?.framing || legacy.tokenBuilderFraming, saved?.frame || legacyFrame)
+    gridSize:tokenGridSize(prototype),
+    ...normalizeTokenArt(saved?.framing || legacy.tokenBuilderFraming, saved?.frame || (legacy.tokenBuilderFraming?legacyFrame:worldFrame)||legacyFrame)
   };
 }
 
@@ -79,26 +110,36 @@ export function savedActorDisplayArtwork(actor){
   return ['portrait','token'].includes(mode)?actor.img||'':'';
 }
 
-export function actorArtworkUpdate({mode,source,output,poster='',design,lockRotation=true,fullArtwork}){
+export function actorArtworkUpdate({mode,source,output,poster='',design,lockRotation=true,fullArtwork,gridSize}){
   const flag=`flags.${ID}.${TOKEN_ART_FLAG}`;
   const common={img:poster||output,[flag+'.displayMode']:mode,[flag+'.source']:mode==='portrait'?fullArtwork:source};
   if(mode==='portrait')return {...common,[flag+'.portrait']:{image:output,source,framing:design.framing}};
   return {...common,...tokenTexturePatch(output,lockRotation,'prototypeToken.'),[TOKEN_ART_ROTATION_PATH]:lockRotation,[flag+'.framing']:design.framing,
-    [flag+'.frame']:design.frame,[flag+'.tokenPoster']:poster?{video:output,image:poster}:null};
+    [flag+'.frame']:design.frame,[flag+'.tokenPoster']:poster?{video:output,image:poster}:null,
+    ...(gridSize?{'prototypeToken.width':gridSize.width,'prototypeToken.height':gridSize.height}:{})};
 }
 
-export function placedTokenArtworkUpdates(tokens, actorId, previousTexture, output, lockRotation, {replaceCustom=false}={}) {
+export function placedTokenArtworkUpdates(tokens, actorId, previousTexture, output, lockRotation, {replaceCustom=false,poster="",gridSize}={}) {
   return tokens.filter(token=>token.actorId===actorId && (replaceCustom || token.texture?.src===previousTexture))
     .map(token=>{
-      const ringTexture=(token._source??token).ring?.subject?.texture;
+      const ring=(token._source??token).ring;
+      const ringTexture=ring?.subject?.texture;
+      const animated=/\.webm(?:$|[?#])/i.test(output);
+      const still=animated&&/\.png(?:$|[?#])/i.test(poster)?poster:animated?"":output;
       return {_id:token.id,'texture.src':output,lockRotation,
-        ...(ringTexture&&(replaceCustom||ringTexture===previousTexture)?{'ring.subject.texture':output}:{})};
+        ...(gridSize?{width:gridSize.width,height:gridSize.height}:{}),
+        ...(animated&&ring?.enabled?{'ring.enabled':false}:{}),
+        ...(still&&ringTexture&&(replaceCustom||ringTexture===previousTexture)?{'ring.subject.texture':still}:{})};
     });
 }
 
 export function tokenImageRect(width,height,size,framing,frame) {
+  const silhouette=Object.hasOwn(FRAME_SILHOUETTES,frame.shape)?FRAME_SILHOUETTES[frame.shape]:null;
   let bounds = size;
-  if (framing.fit === 'whole' && frame.style !== 'none') {
+  if (framing.fit==='whole'&&silhouette) {
+    // The bounding square stays within the narrowest part of the illustrated aperture.
+    bounds=Math.min(...silhouette.aperture)*Math.SQRT2*size/TOKEN_SIZE;
+  } else if (framing.fit === 'whole' && frame.style !== 'none') {
     const inset = frame.weight + size * .035;
     const ratio = {circle:.68,oval:.57,shield:.57,rounded:.86,rectangle:1,diamond:.45,hexagon:.65,octagon:.73}[frame.shape];
     bounds = (size - inset * 2) * ratio;
@@ -108,7 +149,8 @@ export function tokenImageRect(width,height,size,framing,frame) {
   const w = width * scale, h = height * scale;
   const dx = framing.fit === 'whole' ? 0 : framing.offsetX * size / 100;
   const dy = framing.fit === 'whole' ? 0 : framing.offsetY * size / 100;
-  return {x:(size-w)/2+dx,y:(size-h)/2+dy,w,h};
+  const [cx,cy]=silhouette?silhouette.center.map(value=>value*size/TOKEN_SIZE):[size/2,size/2];
+  return {x:cx-w/2+dx,y:cy-h/2+dy,w,h};
 }
 
 const polygonSides = {diamond:4,hexagon:6,octagon:8};
@@ -120,10 +162,14 @@ function orbit(size,rx,ry,count) {
   });
 }
 
-function traceFrame(ctx,shape,size,inset) {
+function traceFrame(ctx,shape,size,inset,append=false) {
   const mid = size / 2, radius = mid - inset, far = size - inset;
-  ctx.beginPath();
-  if (shape === 'circle' || shape === 'oval') ctx.ellipse(mid,mid,radius*(shape==='oval'?.84:1),radius,0,0,Math.PI*2);
+  if (!append) ctx.beginPath();
+  if (shape === 'circle' || shape === 'oval') {
+    const width=radius*(shape==='oval'?.84:1);
+    ctx.moveTo(mid+width,mid);
+    ctx.ellipse(mid,mid,width,radius,0,0,Math.PI*2);
+  }
   else if (shape === 'rounded') ctx.roundRect(inset,inset,radius*2,radius*2,size*.12);
   else if (shape === 'shield') {
     ctx.moveTo(inset,inset + size*.04);
@@ -138,102 +184,175 @@ function traceFrame(ctx,shape,size,inset) {
 }
 
 function perimeter(shape,size,inset) {
-  const far=size-inset, radius=size/2-inset;
-  if(shape==='circle'||shape==='oval')return orbit(size,radius*(shape==='oval'?.84:1),radius,32);
-  const vertices=Object.hasOwn(polygonSides,shape)?orbit(size,radius,radius,polygonSides[shape])
-    : shape==='shield'?[[inset,inset+size*.04],[far,inset+size*.04],[far,size*.55],[size/2,far],[inset,size*.55]]
-    : [[inset,inset],[far,inset],[far,far],[inset,far]];
-  return vertices.flatMap(([x,y],index)=>{
+  const far=size-inset, mid=size/2, radius=mid-inset;
+  if(shape==='circle'||shape==='oval')return orbit(size,radius*(shape==='oval'?.84:1),radius,64);
+  let vertices;
+  if(shape==='rounded'){
+    const corner=Math.min(radius,size*.12);
+    const centers=[[far-corner,inset+corner],[far-corner,far-corner],[inset+corner,far-corner],[inset+corner,inset+corner]];
+    vertices=centers.flatMap(([x,y],index)=>Array.from({length:9},(_,step)=>{
+      const angle=(index-1+step/8)*Math.PI/2;
+      return [x+Math.cos(angle)*corner,y+Math.sin(angle)*corner];
+    }));
+  }else if(shape==='shield'){
+    const top=inset+size*.04, bottom=far-size*.17;
+    const curves=[[[inset,top],[mid,inset-size*.07],[far,top]],
+      [[far,mid],[far,bottom],[mid,far]],[[mid,far],[inset,bottom],[inset,mid]]];
+    vertices=curves.flatMap(([a,b,c])=>Array.from({length:17},(_,step)=>{
+      const t=step/16,u=1-t;
+      return a.map((value,axis)=>u*u*value+2*u*t*b[axis]+t*t*c[axis]);
+    }));
+  }else{
+    vertices=Object.hasOwn(polygonSides,shape)?orbit(size,radius,radius,polygonSides[shape])
+      : [[inset,inset],[far,inset],[far,far],[inset,far]];
+  }
+  let distance=0;
+  const segments=vertices.map(([x,y],index)=>{
     const [nx,ny]=vertices[(index+1)%vertices.length];
-    return Array.from({length:6},(_,step)=>[x+(nx-x)*step/6,y+(ny-y)*step/6]);
+    const length=Math.hypot(nx-x,ny-y);
+    const start=distance;
+    distance+=length;
+    return {x,y,dx:nx-x,dy:ny-y,length,start};
+  });
+  return Array.from({length:64},(_,index)=>{
+    const along=index*distance/64;
+    const segment=segments.find(({start,length})=>along<start+length);
+    const fraction=(along-segment.start)/segment.length;
+    return [segment.x+segment.dx*fraction,segment.y+segment.dy*fraction];
   });
 }
 
-function paintEffect(ctx,frame,size,inset,phase) {
-  const color=effectColors[frame.effect];
-  if(!color)return;
-  const pulse=(1+Math.sin(phase*Math.PI*2))/2;
-  ctx.save();
-  ctx.globalAlpha=.28+pulse*.4;
-  ctx.shadowColor=color;ctx.shadowBlur=10+pulse*18;ctx.strokeStyle=color;
-  ctx.lineWidth=Math.max(3,frame.weight*.19);
-  traceFrame(ctx,frame.shape,size,inset-frame.weight*.3);
-  ctx.stroke();
-  if(frame.effect!=='glow'){
-    ctx.shadowBlur=9;ctx.fillStyle=color;
-    const points=perimeter(frame.shape,size,inset);
-    for(const [index,[x,y]] of points.entries()){
-      const step=(phase*(frame.effect==='sparks'?3:2)+index*.378)%1;
-      const radius=frame.effect==='fire'?4.8:frame.effect==='frost'?4.2:2.7;
-      const reach=frame.effect==='fire'?19:frame.effect==='sparks'?27:12;
-      const theta=Math.atan2(y-size/2,x-size/2), d=4+reach*step;
-      const dx=Math.cos(theta),dy=Math.sin(theta), width=radius*(1-step*.7);
-      ctx.globalAlpha=Math.sin(step*Math.PI)*(.42+(index%4)/7);
-      ctx.beginPath();
-      if(frame.effect==='fire'){
-        ctx.moveTo(x-dy*width,y+dx*width);
-        ctx.quadraticCurveTo(x+dx*d*.8-dy*width,y+dy*d*.8+dx*width,x+dx*d,y+dy*d);
-        ctx.quadraticCurveTo(x+dx*d*.63+dy*width*1.4,y+dy*d*.63-dx*width*1.4,x+dy*width,y-dx*width);
-        ctx.closePath();
-      } else if(frame.effect==='frost'){
-        const px=x+dx*d,py=y+dy*d;
-        ctx.moveTo(px+dx*width*1.8,py+dy*width*1.8);ctx.lineTo(px-dy*width,py+dx*width);
-        ctx.lineTo(px-dx*width*1.8,py-dy*width*1.8);ctx.lineTo(px+dy*width,py-dx*width);ctx.closePath();
-      } else ctx.arc(x+dx*d,y+dy*d,width,0,Math.PI*2);
-      if(frame.effect==='arcane'){ctx.lineWidth=1.2;ctx.stroke();}
-      else ctx.fill();
-    }
-  }
-  ctx.restore();
+function silhouettePoint(shape,index,offset=0) {
+  const angle=2*Math.PI*index/shape.aperture.length;
+  const radius=shape.aperture[index]+offset;
+  return [shape.center[0]+Math.cos(angle)*radius,shape.center[1]+Math.sin(angle)*radius];
 }
 
-export function paintToken(canvas,image,framing,frame,phase=0) {
-  const size = TOKEN_SIZE;
-  const outerWidth = frame.style === 'none' ? 0 : frame.outerWidth || 0;
-  const padding = Math.ceil(outerWidth);
-  const outputSize = size + 2 * padding;
-  if (canvas.width!==outputSize) canvas.width=outputSize;
-  if (canvas.height!==outputSize) canvas.height=outputSize;
-  const ctx = canvas.getContext('2d');
-  const inset = size*.03 + frame.weight/2;
-  const rect = tokenImageRect(image.naturalWidth,image.naturalHeight,size,framing,frame);
-  ctx.clearRect(0,0,outputSize,outputSize);
-  ctx.save();
-  if (padding) ctx.translate(padding,padding);
-  ctx.save();
-  if (frame.style !== 'none') {traceFrame(ctx,frame.shape,size,inset);ctx.clip();}
-  ctx.drawImage(image,rect.x,rect.y,rect.w,rect.h);
-  ctx.restore();
-  if (frame.style === 'none') {ctx.restore();return;}
+function traceSilhouette(ctx,shape,offset=0) {
+  ctx.beginPath();
+  shape.aperture.forEach((_radius,index)=>{
+    const point=silhouettePoint(shape,index,offset);
+    if(index===0)ctx.moveTo(...point);
+    else ctx.lineTo(...point);
+  });
+  ctx.closePath();
+}
+
+const silhouetteProfiles = new WeakMap();
+const illustratedFrames = new WeakMap();
+
+function artworkProfile(ctx,shape,source) {
+  if (silhouetteProfiles.has(source)) return silhouetteProfiles.get(source);
+  const size=TOKEN_SIZE;
+  const tile=ctx.canvas.ownerDocument.createElement("canvas");
+  tile.width=tile.height=size;
+  const drawing=tile.getContext("2d",{willReadFrequently:true});
+  drawing.drawImage(source,0,0,size,size);
+  const pixels=drawing.getImageData(0,0,size,size).data;
+  const [cx,cy]=shape.center;
+  const outer=shape.aperture.map((opening,index)=>{
+    const angle=index*2*Math.PI/shape.aperture.length;
+    const dx=Math.cos(angle),dy=Math.sin(angle);
+    for(let r=Math.ceil(Math.SQRT2*size);r>=opening;r--){
+      const x=Math.round(cx+dx*r),y=Math.round(cy+dy*r);
+      if(x>=0&&x<size&&y>=0&&y<size&&pixels[(y*size+x)*4+3]>30)return r;
+    }
+    return opening;
+  });
+  const profile={...shape,outer};
+  silhouetteProfiles.set(source,profile);
+  return profile;
+}
+
+function outerPoint(profile,index,inset=0) {
+  const distance=profile.outer[index]+inset-profile.aperture[index];
+  return silhouettePoint(profile,index,distance);
+}
+
+function traceOuter(ctx,profile,inset=0) {
+  ctx.beginPath();
+  profile.outer.forEach((_,index)=>{
+    const point=outerPoint(profile,index,inset);
+    if(index===0)ctx.moveTo(...point);
+    else ctx.lineTo(...point);
+  });
+  ctx.closePath();
+}
+
+function illustratedFrame(ctx,frame,source,profile,expansion) {
+  const artwork=tintedSilhouette(ctx,frame.shape,source,frame.silhouetteTint);
+  if (!expansion&&frame.style==="single") return {artwork,margin:0};
+  const key=JSON.stringify([frame.silhouetteTint,frame.style,frame.accent,expansion]);
+  const previous=illustratedFrames.get(source);
+  if (previous?.key===key) return previous;
+  const size=TOKEN_SIZE;
+  const margin=Math.ceil(expansion);
+  const tile=ctx.canvas.ownerDocument.createElement("canvas");
+  tile.width=tile.height=size+2*margin;
+  const drawing=tile.getContext("2d",{willReadFrequently:true});
+  if (!expansion) drawing.drawImage(artwork,0,0,size,size);
+  else {
+    drawing.drawImage(artwork,0,0,size,size);
+    const input=drawing.getImageData(0,0,size,size).data;
+    const target=drawing.createImageData(tile.width,tile.height);
+    const [cx,cy]=profile.center;
+    const angles=profile.aperture.length;
+    // Stretch the artwork outside its aperture along each ray. The inner contour
+    // and its transparent openings stay fixed while the outer contour moves out.
+    for(let y=0;y<tile.height;y++) for(let x=0;x<tile.width;x++){
+      const dx=x-margin-cx,dy=y-margin-cy;
+      const radius=Math.hypot(dx,dy);
+      const point=(Math.atan2(dy,dx)*angles/(2*Math.PI)+angles)%angles;
+      const a=Math.floor(point),b=(a+1)%angles,blend=point-a;
+      const aperture=profile.aperture[a]*(1-blend)+profile.aperture[b]*blend;
+      const edge=profile.outer[a]*(1-blend)+profile.outer[b]*blend;
+      const span=Math.max(1,edge-aperture);
+      const mapped=radius<=aperture?radius:aperture+(radius-aperture)*span/(span+expansion);
+      const ratio=radius?mapped/radius:1;
+      const sx=Math.round(cx+dx*ratio),sy=Math.round(cy+dy*ratio);
+      if(sx<0||sx>=size||sy<0||sy>=size)continue;
+      const from=(sy*size+sx)*4,to=(y*tile.width+x)*4;
+      for(let channel=0;channel<4;channel++)target.data[to+channel]=input[from+channel];
+    }
+    drawing.putImageData(target,0,0);
+  }
+  drawing.save();
+  drawing.translate(margin,margin);
+  drawing.globalCompositeOperation="source-atop";
+  if(frame.style==="double"){
+    traceOuter(drawing,profile,expansion-4);
+    drawing.strokeStyle=frame.accent;
+    drawing.lineWidth=2;
+    drawing.stroke();
+  }else if(["studs","runes","stitch"].includes(frame.style)){
+    const step=frame.style==="stitch"?3:8;
+    const positions=profile.outer.flatMap((_,index)=>index%step===0?[outerPoint(profile,index,expansion-7)]:[]);
+    paintFrameDetails(drawing,frame,size,Math.min(6,frame.bandWidth*.24),positions);
+  }
+  drawing.restore();
+  const rendered={key,artwork:tile,margin};
+  illustratedFrames.set(source,rendered);
+  return rendered;
+}
+
+function paintFrameBand(ctx,frame,size,padding,opening,bandWidth,artwork) {
+  const edge=opening-bandWidth, inset=opening-bandWidth/2;
+  const outputSize=size+2*padding;
   function stroke(paint,width,shift=0) {
     traceFrame(ctx,frame.shape,size,inset+shift);
     ctx.strokeStyle=paint;ctx.lineWidth=width;ctx.stroke();
   }
-  const texture=tokenFramePattern(ctx,frame);
-  if (outerWidth) {
-    ctx.save();
-    // Confine the added stroke to the outside of the original frame path.
-    traceFrame(ctx,frame.shape,size,inset);
-    ctx.rect(-padding,-padding,outputSize,outputSize);
-    ctx.clip('evenodd');
-    ctx.lineJoin='round';
-    const width=frame.weight+2*outerWidth;
-    if(texture) stroke(blendColor(frame.color,'#080808',.73),width+4);
-    stroke(texture||frame.color,width);
-    ctx.restore();
-  }
-  if(texture) {
-    const light=ctx.createLinearGradient(0,0,size*.76,size);
-    const stops=[[0,'#ffffff',.68],[.19,'#ffffff',.3],[.39,'#111111',.29],[.55,'#ffffff',.48],[.82,'#111111',.5],[1,'#ffffff',.23]];
-    for(const [stop,color,amount] of stops)light.addColorStop(stop,blendColor(frame.color,color,amount));
-    stroke(blendColor(frame.color,'#080808',.73),frame.weight+4);
-    stroke(light,frame.weight);
-    stroke(texture,frame.weight-2);
-    stroke(blendColor(frame.color,'#ffffff',.68),1.6,-frame.weight*.39);
-    stroke(blendColor(frame.color,'#080808',.63),2.4,frame.weight*.42);
-  } else stroke(frame.color,frame.weight);
+  const texture=tokenFramePattern(ctx,frame,artwork);
+  ctx.save();
+  traceFrame(ctx,frame.shape,size,edge);
+  traceFrame(ctx,frame.shape,size,opening,true);
+  ctx.clip('evenodd');
+  ctx.fillStyle=texture||frame.color;
+  ctx.fillRect(-padding,-padding,outputSize,outputSize);
+  stroke(blendColor(frame.color,'#ffffff',.58),2,edge-inset);
+  stroke(blendColor(frame.color,'#080808',.68),3,opening-inset);
   if (frame.style === 'double') {
-    stroke(frame.accent,Math.max(2,frame.weight*.22),texture?frame.weight*.29:frame.weight*.95);
+    stroke(frame.accent,Math.min(2.5,bandWidth*.25),edge+4-inset);
   }
   if (['studs','runes','stitch'].includes(frame.style)) {
     const radius = size/2-inset;
@@ -241,34 +360,116 @@ export function paintToken(canvas,image,framing,frame,phase=0) {
       ? orbit(size,radius*(frame.shape==='oval'?.84:1),radius,frame.style==='stitch'?32:12)
       : Object.hasOwn(polygonSides,frame.shape) ? orbit(size,radius,radius,polygonSides[frame.shape])
       : [[size/2,inset+(frame.shape==='shield'?.01*size:0)],[inset,size/2],[size-inset,size/2],[size/2,size-inset]];
-    for (const [x,y] of positions) {
-      ctx.save();ctx.translate(x,y);
-      const r=Math.max(2,frame.weight*.24);
-      ctx.fillStyle=frame.accent;
-      if(frame.style==='studs'){
-        const gem=ctx.createRadialGradient(-r*.4,-r*.4,0,0,0,r);
-        gem.addColorStop(0,blendColor(frame.accent,'#ffffff',.65));gem.addColorStop(1,blendColor(frame.accent,'#111111',.5));
-        ctx.fillStyle=gem;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
-      } else {
-        ctx.rotate(Math.atan2(y-size/2,x-size/2));
-        ctx.fillRect(-r,-1.2,r*2,2.4);
-        if(frame.style==='runes') {
-          ctx.fillRect(-1.1,-r,2.2,r*2);ctx.rotate(Math.PI/4);ctx.fillRect(-r*.65,-1,r*1.3,2);
-        }
-      }
-      ctx.restore();
-    }
+    paintFrameDetails(ctx,frame,size,Math.min(7,bandWidth*.24),positions);
   }
-  paintEffect(ctx,frame,size,inset-outerWidth,phase);
   ctx.restore();
 }
 
-export async function recordToken(canvas,image,design,{duration=2200}={}) {
+function paintFrameDetails(ctx,frame,size,r,positions) {
+  for (const [x,y] of positions) {
+    ctx.save();ctx.translate(x,y);
+    ctx.fillStyle=frame.accent;
+    if(frame.style==='studs'){
+      const gem=ctx.createRadialGradient(-r*.4,-r*.4,0,0,0,r);
+      gem.addColorStop(0,blendColor(frame.accent,'#ffffff',.65));gem.addColorStop(1,blendColor(frame.accent,'#111111',.5));
+      ctx.fillStyle=gem;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+    } else {
+      ctx.rotate(Math.atan2(y-size/2,x-size/2));
+      ctx.fillRect(-r,-1.2,r*2,2.4);
+      if(frame.style==='runes') {
+        ctx.fillRect(-1.1,-r,2.2,r*2);ctx.rotate(Math.PI/4);ctx.fillRect(-r*.65,-1,r*1.3,2);
+      }
+    }
+    ctx.restore();
+  }
+}
+
+export function tokenFrameScale(frame) {
+  if(Object.hasOwn(FRAME_SILHOUETTES,frame.shape)||frame.style!=='none'){
+    if(frame.shape==='circle'&&frame.fitToEdges){
+      const radius=TOKEN_SIZE*(.5-.03)-frame.weight+(frame.bandWidth??frame.weight);
+      return TOKEN_SIZE/(2*radius);
+    }
+    return (frame.diameter??100)/100;
+  }
+  return 1;
+}
+
+export function paintToken(canvas,image,framing,frame,phase=0,artwork={}) {
+  const size=TOKEN_SIZE;
+  const silhouette=Object.hasOwn(FRAME_SILHOUETTES,frame.shape)?FRAME_SILHOUETTES[frame.shape]:null;
+  const hasFrame=Boolean(silhouette)||frame.style!=="none";
+  const bandWidth=(silhouette?frame.illustratedBandWidth:frame.bandWidth)??frame.bandWidth??frame.weight;
+  const usedOrnaments=Object.entries(frame.ornaments||{}).filter(([,key])=>artwork[key]);
+  const decorationPadding=Math.max(usedOrnaments.length?ORNAMENT_SIZE:0,FRAME_EFFECT_PADDING[frame.effect]??0);
+  const expansion=Math.max(0,bandWidth-frame.weight);
+  const scale=tokenFrameScale(frame);
+  const fitToEdges=hasFrame&&frame.shape==='circle'&&frame.fitToEdges;
+  // Reserve room for the largest diameter so resizing changes the artwork's share of the texture.
+  const maxScale=MAX_FRAME_DIAMETER/100;
+  const padding=hasFrame&&!fitToEdges?Math.ceil((expansion+decorationPadding)*maxScale+size*(maxScale-1)/2):0;
+  const outputSize=size+2*padding;
+  if(canvas.width!==outputSize)canvas.width=outputSize;
+  if(canvas.height!==outputSize)canvas.height=outputSize;
+  const ctx=canvas.getContext("2d");
+  const opening=size*.03+frame.weight;
+  const rect=tokenImageRect(image.naturalWidth,image.naturalHeight,size,framing,frame);
+  ctx.clearRect(0,0,outputSize,outputSize);
+  ctx.save();
+  const origin=padding+(size-size*scale)/2;
+  if(origin)ctx.translate(origin,origin);
+  if(scale!==1)ctx.scale(scale,scale);
+  const picture=silhouette&&artwork[frame.shape];
+  const profile=picture&&(expansion||frame.effect!=="none"||frame.style!=="single")?artworkProfile(ctx,silhouette,picture):null;
+  if(hasFrame&&frame.effect!=="none"){
+    ctx.save();
+    if(silhouette)traceSilhouette(ctx,silhouette);
+    else traceFrame(ctx,frame.shape,size,opening);
+    ctx.rect(-origin/scale,-origin/scale,outputSize/scale,outputSize/scale);
+    ctx.clip("evenodd");
+    const points=profile
+      ? profile.outer.map((_,index)=>outerPoint(profile,index,expansion-1))
+      : perimeter(frame.shape,size,opening-bandWidth);
+    paintFrameAnimation(ctx,frame.effect,size,points,phase,(frame.effectStrength??100)/100);
+    ctx.restore();
+  }
+  ctx.save();
+  if(hasFrame){
+    if(silhouette)traceSilhouette(ctx,silhouette);
+    else traceFrame(ctx,frame.shape,size,opening-.65);
+    ctx.clip();
+  }
+  ctx.drawImage(image,rect.x,rect.y,rect.w,rect.h);
+  ctx.restore();
+  if(!hasFrame){ctx.restore();return;}
+  if(silhouette){
+    if(picture){
+      const layer=profile?illustratedFrame(ctx,frame,picture,profile,expansion):{artwork:tintedSilhouette(ctx,frame.shape,picture,frame.silhouetteTint),margin:0};
+      const extent=size+2*layer.margin;
+      ctx.drawImage(layer.artwork,-layer.margin,-layer.margin,extent,extent);
+    }
+  }else paintFrameBand(ctx,frame,size,fitToEdges?expansion:padding,opening,bandWidth,artwork);
+  const mid=size/2;
+  const anchorInset=opening-Math.max(bandWidth/2,ORNAMENT_SIZE*.55);
+  const span=(mid-anchorInset)*(frame.shape==="oval"?.84:frame.shape==="hexagon"?Math.sqrt(3)/2:1);
+  const anchors={top:[mid,anchorInset-(frame.shape==="shield"?size*.015:0)],right:[mid+span,mid],
+    bottom:[mid,size-anchorInset],left:[mid-span,mid]};
+  const directions={top:72,right:0,bottom:24,left:48};
+  for(const [slot,key] of usedOrnaments){
+    const sprite=artwork[key], [x,y]=silhouette?silhouettePoint(silhouette,directions[slot],28+expansion):anchors[slot];
+    const scale=ORNAMENT_SIZE/Math.max(sprite.naturalWidth,sprite.naturalHeight);
+    const width=sprite.naturalWidth*scale,height=sprite.naturalHeight*scale;
+    ctx.drawImage(sprite,x-width/2,y-height/2,width,height);
+  }
+  ctx.restore();
+}
+
+export async function recordToken(canvas,image,design,{duration=FRAME_ANIMATION_DURATION,artwork}={}) {
   const formats=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
   const mimeType=formats.find(type=>globalThis.MediaRecorder?.isTypeSupported(type));
   if (!mimeType || !canvas.captureStream) throw Error('This browser cannot export animated tokens. Choose a static frame or use Foundry on Chromium.');
   const {framing,frame}=design;
-  paintToken(canvas,image,framing,frame);
+  paintToken(canvas,image,framing,frame,0,artwork);
   const stream=canvas.captureStream(24);
   try {
     const recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:2_000_000});
@@ -287,7 +488,7 @@ export async function recordToken(canvas,image,design,{duration=2200}={}) {
       interval=setInterval(()=>{
         const elapsed=performance.now()-started;
         if(elapsed>=duration){clearInterval(interval);recorder.stop();return;}
-        paintToken(canvas,image,framing,frame,elapsed/duration);
+        paintToken(canvas,image,framing,frame,elapsed/duration,artwork);
       },1000/24);
     });
   } finally {for(const track of stream.getTracks())track.stop();}

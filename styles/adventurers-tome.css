@@ -273,6 +273,11 @@
   text-align: center;
 }
 
+.at-status-block [data-party-change-location] {
+  margin-top: .4rem;
+  font-size: .75rem;
+}
+
 .at-quick-links {
   display: flex;
   flex-direction: column;
@@ -4986,6 +4991,28 @@
 .at-manual-step:before{content:counter(manualstep);display:grid;place-items:center;width:22px;height:22px;border:1px solid rgba(214,178,108,.45);border-radius:50%;color:var(--at-gold-bright);font-weight:800;font-size:.72rem}
 .at-manual-step strong{color:#d8bb79}
 .at-layout-narrow .at-manual-intro{grid-template-columns:1fr}
+.at-manual-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem; }
+.at-manual-heading label { display:flex; align-items:center; gap:.45rem; }
+.at-manual-searchbar { flex-wrap:wrap; }
+.at-manual-searchbar .at-search-box { min-width:min(100%,15rem); }
+.at-manual-topics { display:grid; gap:.5rem; }
+.at-manual-topics [data-at-manual-group] { display:grid; gap:.5rem; }
+.at-manual-topics [data-at-manual-group] h2 { margin:.6rem 0 .15rem; }
+.at-manual-topics [hidden] { display:none; }
+.at-manual-topics [data-at-manual-group][hidden] { display:none; }
+.at-manual-topics details { scroll-margin-block-start:.75rem; }
+.at-manual-topics summary { cursor:pointer; color:var(--at-gold-bright); font-size:1rem; }
+.at-manual-topics summary small { margin-inline-start:.5rem; color:#cbb487; font-size:.75rem; }
+.at-manual-body { margin-block-start:.75rem; color:#e8d8b7; line-height:1.55; overflow-wrap:anywhere; }
+.at-manual-body :is(ol,ul) { padding-inline-start:1.4rem; }
+.at-manual-body li + li { margin-block-start:.35rem; }
+.at-manual-table { overflow-x:auto; }
+.at-manual-body pre { white-space:pre-wrap; }
+.at-memory-ignored { margin-block:.7rem; padding:.65rem .8rem; border:1px solid var(--at-line); }
+.at-memory-ignored summary { cursor:pointer; color:var(--at-gold-bright); }
+.at-memory-ignored-row { display:flex; align-items:center; justify-content:space-between; gap:.8rem; padding-block:.5rem; }
+.at-memory-ignored-row p { margin:.2rem 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.at-memory-ignored-row button { width:auto; flex-shrink:0; }
 
 /* ---------- v0.20.1 True GM Workspace Builder ---------- */
 .at-notebook-layout-row{

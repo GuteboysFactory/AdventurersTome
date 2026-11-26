@@ -43,7 +43,7 @@ async function uploadDirectory(picker,worldId){
   return directory;
 }
 
-export async function importSceneImages(files,applyDimensions){
+export async function importSceneImages(files,sceneCreationData){
   if(!canImportScenes())throw Error('Only the GM can create scenes from files.');
   if(importing)throw Error('Scene images are already being imported.');
   if(!files.length)return;
@@ -75,7 +75,7 @@ export async function importSceneImages(files,applyDimensions){
         let scene;
         try{
           scene=await getDocumentClass('Scene').create({
-            name,...applyDimensions(dimensions),background:{src:uploaded.path},active:false,navigation:false,
+            name,...sceneCreationData(dimensions),background:{src:uploaded.path},active:false,navigation:false,
             ownership:{default:CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE}
           });
         }catch(error){throw Error(`${error.message} · Image saved as ${uploaded.path}.`);}
@@ -122,10 +122,11 @@ export function installSceneDropTarget(create){
   document.addEventListener('dragover',event=>{
     const board=globalThis.canvas?.app?.canvas??globalThis.canvas?.app?.view;
     const overTarget=target?.contains(event.target);
-    if(!canImportScenes()||!globalThis.canvas?.ready||!imageDrag(event.dataTransfer)||(event.target!==board&&!overTarget)){
+    if(!canImportScenes()||!globalThis.canvas?.ready||!imageDrag(event.dataTransfer)){
       hide();
       return;
     }
+    if(event.target!==board&&!overTarget)return;
     if(!target){
       target=document.createElement('div');
       target.className='at-scene-image-drop';

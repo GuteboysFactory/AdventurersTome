@@ -2,9 +2,9 @@
 
 A campaign workspace for Foundry VTT.
 
-Current stable release: **2.1.8**. See [release notes and upgrade instructions](docs/V2.1.8_STABLE_RELEASE.md).
+Current stable release: **2.1.9**. See [release notes and upgrade instructions](docs/V2.1.9_STABLE_RELEASE.md).
 
-[Svensk användarmanual för spelare och GM](docs/MANUAL.md)
+[Svensk manual](docs/MANUAL.md) · [English manual](docs/MANUAL-EN.md)
 
 Sessions now has separate scrolling for the Explorer, session list and reader in
 wide windows. Campaign index updates refresh the relevant parts of the open view.

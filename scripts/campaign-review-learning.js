@@ -124,9 +124,10 @@ function decisionFor(text, { sourceUuid = "" } = {}) {
   if (sourceDecision) return clone({ ...sourceDecision, action:ACTIONS.SOURCE_IGNORED });
   const sourceChoice = sourceKey ? state.sourceChoices?.[sourceKey]?.[key] : null;
   if (sourceChoice && !isSourceTargetRemoved(sourceKey,sourceChoice.targetUuid)) return clone({ ...sourceChoice, targetUuid:matchingAuthority(sourceChoice.targetUuid), sourceChoice:true });
+  const globalDecision = Object.hasOwn(state.decisions,key) ? state.decisions[key] : null;
+  if (globalDecision?.action === ACTIONS.SUPPRESSED && globalDecision.neverAskId) return clone(globalDecision);
   const preferred=Object.hasOwn(state.nameDefaults,key) ? state.nameDefaults[key] : null;
   if(preferred && !isPaused(preferred.targetUuid) && !isSourceTargetRemoved(sourceKey,preferred.targetUuid))return clone({...preferred,targetUuid:matchingAuthority(preferred.targetUuid),action:ACTIONS.LINKED,campaignDefault:true,sourceUuid:sourceKey});
-  const globalDecision = state.decisions?.[key] || null;
   if(globalDecision?.targetUuid && (isSourceTargetRemoved(sourceKey,globalDecision.targetUuid) || isSourceTargetRemoved(globalDecision.sourceUuid,globalDecision.targetUuid)))return null;
   return globalDecision ? clone(globalDecision) : null;
 }
@@ -222,6 +223,37 @@ async function suppress({ text } = {}) {
     text:clean(text)
   });
   return writeState(state, "suppress");
+}
+
+async function neverAsk({text,reason,sourceUuid,sourceName}={}) {
+  if(!game.user?.isGM)throw Error('GM-only campaign decisions.');
+  const key=normalize(text),explanation=clean(reason);
+  if(!key||!sourceUuid||!explanation||explanation.length>500)throw Error('Enter a reason of up to 500 characters.');
+  const state=readState();
+  const previous=Object.hasOwn(state.decisions,key) ? state.decisions[key] : null;
+  if(previous?.neverAskId)throw Error('Tome already remembers this decision.');
+  const row=gmStamp({action:ACTIONS.SUPPRESSED,text:clean(text),reason:explanation,
+    sourceUuid,sourceName:clean(sourceName),neverAskId:foundry.utils.randomID?.() || `${Date.now()}-${Math.random()}`,previous});
+  state.decisions[key]=row;
+  await writeState(state,'never-ask');
+  return clone(row);
+}
+
+function neverAskRules() {
+  return Object.values(readState(true).decisions).filter(row=>row?.action===ACTIONS.SUPPRESSED&&row.neverAskId)
+    .sort((a,b)=>b.updatedAt-a.updatedAt)
+    .map(({text,reason,sourceName,sourceUuid,neverAskId})=>({text,reason,sourceName,sourceUuid,id:neverAskId}));
+}
+
+async function restoreNeverAsk({text,id}={}) {
+  if(!game.user?.isGM)throw Error('GM-only campaign decisions.');
+  const key=normalize(text),state=readState();
+  const row=Object.hasOwn(state.decisions,key) ? state.decisions[key] : null;
+  if(!id||row?.neverAskId!==id)throw Error('This rule changed. Open Memory again.');
+  if(row.previous)state.decisions[key]=row.previous;
+  else delete state.decisions[key];
+  await writeState(state,'never-ask-undo');
+  return clone(row);
 }
 
 async function ignoreOnce({ text, sourceUuid } = {}) {
@@ -671,6 +703,9 @@ const publicApi = Object.freeze({
   historicalChoiceFor,
   confirm,
   suppress,
+  neverAsk,
+  neverAskRules,
+  restoreNeverAsk,
   ignoreOnce,
   linkExisting,
   chooseForSource,

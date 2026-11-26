@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import vm from 'node:vm';
-import {MAX_FRAME_OUTER_WIDTH,TOKEN_ART_FLAG,TOKEN_ART_ROTATION_PATH,TOKEN_SIZE,actorArtworkUpdate,actorFullArtwork,actorHomeArtwork,actorPortraitArtwork,defaultTokenLockRotation,normalizeTokenArt,paintToken,placedTokenArtworkUpdates,savedActorDisplayArtwork,tokenArtState,tokenImageRect,tokenTexturePatch} from '../scripts/token-art.mjs';
+import {MAX_FRAME_BAND_WIDTH,TOKEN_ART_FLAG,TOKEN_ART_ROTATION_PATH,TOKEN_SIZE,actorArtworkUpdate,actorFullArtwork,actorHomeArtwork,actorPortraitArtwork,defaultTokenLockRotation,normalizeTokenArt,paintToken,placedTokenArtworkUpdates,savedActorDisplayArtwork,tokenArtState,tokenFrameScale,tokenGridSize,tokenImageRect,tokenTexturePatch} from '../scripts/token-art.mjs';
 import {isPlayerCharacter} from '../scripts/player-character-core.mjs';
-import {FRAME_MATERIALS, applyFrameMaterial} from '../scripts/token-frame-materials.mjs';
+import {FRAME_MATERIALS, applyFrameMaterial, tokenFramePattern} from '../scripts/token-frame-materials.mjs';
+import {FRAME_SILHOUETTES} from '../scripts/token-frame-shapes.mjs';
 
 const noFrame=applyFrameMaterial({shape:'rectangle'},'none');
 
@@ -47,35 +48,157 @@ test('every material keeps the selected shape and old solid frames stay solid',(
     assert.match(frame.color,/^#([\da-f]{2})\1\1$/i);
   }
   const old = {shape:'oval',style:'double',color:'#302fde',accent:'#ead1ac',weight:11};
-  assert.deepEqual(normalizeTokenArt({},old).frame,{...old,material:'plain',effect:'none',outerWidth:0});
+  assert.deepEqual(normalizeTokenArt({},old).frame,{...old,material:'plain',effect:'none',effectStrength:100,bandWidth:11,diameter:100,
+    ornaments:{top:'none',right:'none',bottom:'none',left:'none'}});
   assert.equal(normalizeTokenArt({}, {...old,style:'none'}).frame.material,'none');
 });
 
-test('outer thickness adds room and grows the frame without changing the image crop or inner stroke',()=>{
+test('animation strength defaults to the original rendering and survives an Actor save',()=>{
+  const base={effect:'fire'};
+  const normalize=effectStrength=>normalizeTokenArt({}, {...base,effectStrength});
+  assert.equal(normalize(undefined).frame.effectStrength,100);
+  assert.equal(normalize('invalid').frame.effectStrength,100);
+  assert.equal(normalize(-10).frame.effectStrength,25);
+  assert.equal(normalize(250).frame.effectStrength,200);
+  const design=normalize('165');
+  const patch=actorArtworkUpdate({mode:'token',source:'full.webp',output:'token.webm',design});
+  const saved=patch[`flags.adventurers-tome.${TOKEN_ART_FLAG}.frame`];
+  assert.equal(normalizeTokenArt({},saved).frame.effectStrength,165);
+});
+
+test('frame width extends a single band and leaves the opening and image crop fixed',()=>{
   const operations=[];
   const ctx={
-    beginPath(){},closePath(){},save(){},restore(){},clearRect(){},rect(){},ellipse(){},
+    beginPath(){},closePath(){},save(){},restore(){},clearRect(){},moveTo(){},stroke(){},fillRect(){},
+    ellipse:(_x,_y,rx,ry)=>operations.push(['shape',rx,ry]),
     translate:(...args)=>operations.push(['translate',...args]),
+    scale:(...args)=>operations.push(['scale',...args]),
     clip:rule=>operations.push(['clip',rule]),
-    drawImage:(_image,...rect)=>operations.push(['image',...rect]),
-    stroke(){operations.push(['stroke',this.lineWidth]);}
+    drawImage:(_image,...rect)=>operations.push(['image',...rect])
   };
   const canvas={width:TOKEN_SIZE,height:TOKEN_SIZE,getContext:()=>ctx};
   const image={naturalWidth:400,naturalHeight:600};
-  const {framing,frame}=normalizeTokenArt({fit:'whole'},{shape:'circle',material:'plain',weight:20,outerWidth:999});
-  assert.equal(frame.outerWidth,MAX_FRAME_OUTER_WIDTH);
+  const {framing,frame}=normalizeTokenArt({fit:'whole'},{shape:'circle',material:'plain',weight:20,bandWidth:999});
+  const extra=MAX_FRAME_BAND_WIDTH-20;
+  assert.equal(frame.bandWidth,MAX_FRAME_BAND_WIDTH);
   paintToken(canvas,image,framing,frame);
-  assert.equal(canvas.width,TOKEN_SIZE+2*frame.outerWidth);
+  const maxScale=140/100;
+  const padding=Math.ceil(extra*maxScale+TOKEN_SIZE*(maxScale-1)/2);
+  assert.equal(canvas.width,TOKEN_SIZE+2*padding);
   assert.equal(canvas.height,canvas.width);
-  assert.deepEqual(operations.slice(0,2),[['translate',frame.outerWidth,frame.outerWidth],['clip',undefined]]);
-  assert.deepEqual(operations.slice(-3),[['clip','evenodd'],['stroke',20+2*frame.outerWidth],['stroke',20]]);
+  assert.deepEqual(operations[0],['translate',padding,padding]);
+  assert.deepEqual(operations.filter(([operation])=>operation==='clip'),[['clip',undefined],['clip','evenodd']]);
+  const [innerAtPaint,wideOutside,innerBand]=operations.filter(([operation])=>operation==='shape').map(op=>op[1]);
   const enlargedImage=operations.find(([operation])=>operation==='image');
   operations.length=0;
-  paintToken(canvas,image,framing,{...frame,outerWidth:0});
-  assert.equal(canvas.width,TOKEN_SIZE);
+  paintToken(canvas,image,framing,{...frame,bandWidth:12});
+  assert.equal(canvas.width,Math.ceil(TOKEN_SIZE*maxScale/2)*2);
+  const [sameImageClip,thinOutside,sameInnerBand]=operations.filter(([operation])=>operation==='shape').map(op=>op[1]);
+  assert.equal(innerAtPaint,sameImageClip);
+  assert.equal(innerBand,sameInnerBand);
+  assert.ok(wideOutside>thinOutside);
   assert.deepEqual(operations.find(([operation])=>operation==='image'),enlargedImage);
-  paintToken(canvas,image,framing,{...noFrame,outerWidth:frame.outerWidth});
+  for(const diameter of [100,129,140]){
+    operations.length=0;
+    paintToken(canvas,image,framing,{...frame,diameter});
+    assert.equal(canvas.width,TOKEN_SIZE+2*padding);
+    assert.deepEqual(operations.find(([operation])=>operation==='scale'),
+      diameter===100?undefined:['scale',diameter/100,diameter/100]);
+  }
+  paintToken(canvas,image,framing,{...noFrame,bandWidth:frame.bandWidth});
   assert.equal(canvas.width,TOKEN_SIZE);
+});
+
+test('fitting a circle to token edges keeps the stored diameter and supports thin or wide borders',()=>{
+  for(const bandWidth of [3,MAX_FRAME_BAND_WIDTH]){
+    const {frame}=normalizeTokenArt({}, {shape:'circle',weight:14,bandWidth,diameter:80,fitToEdges:true});
+    const outerRadius=TOKEN_SIZE/2-(TOKEN_SIZE*.03+frame.weight)+bandWidth;
+    assert.ok(Math.abs(outerRadius*tokenFrameScale(frame)-TOKEN_SIZE/2)<1e-6);
+    assert.equal(frame.diameter,80);
+    assert.equal(tokenFrameScale({...frame,fitToEdges:false}),.8);
+    assert.equal(normalizeTokenArt({}, {...frame,shape:'oval'}).frame.fitToEdges,undefined);
+  }
+});
+
+test('illustrated frame choices keep their own aperture and tint across saves',()=>{
+  const shapes=['laurelWreath','flowerWreath','thornWreath','dragonWings','runeStar',
+    'ravenWreath','dwarvenArch','moonFiligree','frostCrown','coralWreath'];
+  const allShapes=Object.keys(FRAME_SILHOUETTES);
+  assert.deepEqual(allShapes.filter(shape=>!FRAME_SILHOUETTES[shape].group),shapes);
+  assert.equal(allShapes.filter(shape=>FRAME_SILHOUETTES[shape].group).length,90);
+  for(const shape of allShapes){
+    const {file,center,aperture}=FRAME_SILHOUETTES[shape];
+    const png=readFileSync(new URL(`../assets/token-frames/shape-${file}.png`,import.meta.url));
+    assert.equal(png.toString('ascii',12,16),'IHDR');
+    assert.equal(png.readUInt32BE(16),png.readUInt32BE(20));
+    assert.equal(aperture.length,96);
+    const {framing,frame}=normalizeTokenArt({fit:'whole'},{shape,material:'none',silhouetteTint:'#345a64',effect:'glow'});
+    assert.equal(frame.shape,shape);
+    assert.equal(frame.silhouetteTint,'#345a64');
+    assert.equal(frame.effect,'glow');
+    assert.equal(normalizeTokenArt(framing,{...frame,silhouetteTint:'invalid'}).frame.silhouetteTint,'');
+    const rect=tokenImageRect(400,600,TOKEN_SIZE,framing,frame);
+    assert.deepEqual(rect,tokenImageRect(400,600,TOKEN_SIZE,framing,{...frame,bandWidth:MAX_FRAME_BAND_WIDTH}));
+    assert.equal(rect.x+rect.w/2,center[0]);
+    assert.equal(rect.y+rect.h/2,center[1]);
+    assert.ok(Math.hypot(rect.w/2,rect.h/2)<=Math.min(...aperture));
+  }
+});
+
+test('world frame defaults leave saved and legacy designs intact and do not affect token grid size',()=>{
+  const actor={img:'hero.png',prototypeToken:{width:1.5,height:2}};
+  const chosen={shape:'library-frost-knot',material:'plain',diameter:130};
+  assert.equal(tokenArtState(actor,chosen).frame.shape,chosen.shape);
+  assert.equal(tokenArtState(actor,chosen).frame.diameter,130);
+  assert.deepEqual(tokenArtState(actor,chosen).gridSize,{width:1.5,height:2});
+  const saved={...actor,flags:{'adventurers-tome':{[TOKEN_ART_FLAG]:{frame:{shape:'oval'}}}}};
+  assert.equal(tokenArtState(saved,chosen).frame.shape,'oval');
+  const legacy={...actor,flags:{'realm-guard':{tokenBuilderFraming:{fit:'contain'}}}};
+  assert.equal(tokenArtState(legacy,chosen).frame.shape,'circle');
+  assert.deepEqual(tokenGridSize({width:'',height:'3'},actor.prototypeToken),{width:1.5,height:3});
+});
+
+test('token size edits the prototype and applies to placed tokens only when included',()=>{
+  const design=normalizeTokenArt();
+  const gridSize={width:2,height:.5};
+  const patch=actorArtworkUpdate({mode:'token',source:'hero.png',output:'token.png',design,gridSize});
+  assert.equal(patch['prototypeToken.width'],2);
+  assert.equal(patch['prototypeToken.height'],.5);
+  const portrait=actorArtworkUpdate({mode:'portrait',source:'hero.png',output:'portrait.png',design,gridSize});
+  assert.equal(portrait['prototypeToken.width'],undefined);
+  const tokens=[{id:'t',actorId:'hero',texture:{src:'before.png'}}];
+  assert.equal(placedTokenArtworkUpdates(tokens,'hero','before.png','token.png',true)[0].width,undefined);
+  assert.equal(placedTokenArtworkUpdates(tokens,'hero','before.png','token.png',true,{gridSize})[0].width,2);
+});
+
+test('saved frames migrate old outward widths and validate ornaments independently by slot',()=>{
+  const legacy=normalizeTokenArt({}, {weight:24,outerWidth:17,ornaments:{top:'laurel',bottom:'hammer',right:'missing'}}).frame;
+  assert.equal(legacy.weight,24);
+  assert.equal(legacy.bandWidth,41);
+  assert.deepEqual(legacy.ornaments,{top:'laurel',right:'none',bottom:'hammer',left:'none'});
+  assert.equal(normalizeTokenArt({}, {...legacy,bandWidth:27}).frame.bandWidth,27);
+});
+
+test('textured frames keep an opaque base and tint the generated pattern across its light and dark details',()=>{
+  const color='#1375c2';
+  const pixels={data:new Uint8ClampedArray([40,40,40,255,218,218,218,255,0,0,0,0,90,90,90,255])};
+  const fills=[];
+  const paint={
+    fillRect(){fills.push([this.fillStyle,this.globalAlpha]);},
+    drawImage(){},getImageData:()=>pixels,putImageData(){},
+    beginPath(){},ellipse(){},fill(){}
+  };
+  const ctx={canvas:{ownerDocument:{createElement:()=>({getContext:()=>paint})}},createPattern:tile=>tile};
+  tokenFramePattern(ctx,{...applyFrameMaterial({},'bronze'),color});
+  assert.equal(fills[0][0],color);
+  tokenFramePattern(ctx,{...applyFrameMaterial({},'elvenLaurel'),color},{elvenLaurel:{naturalWidth:2}});
+  const [dark,bright,gap,medium]=[0,4,8,12].map(index=>Array.from(pixels.data.slice(index,index+4)));
+  for(const sample of [dark,bright,gap,medium]){
+    assert.equal(sample[3],255);
+    assert.ok(sample[2]>sample[0]);
+  }
+  assert.deepEqual(gap,[19,117,194,255]);
+  assert.ok(bright[2]>medium[2]&&medium[2]>dark[2]);
 });
 
 test('full artwork, generated portrait, animated texture and its still poster are independent',()=>{

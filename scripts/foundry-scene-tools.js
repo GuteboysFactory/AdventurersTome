@@ -179,7 +179,7 @@ async function editSceneDefaults(){
 function createScenesFromImages(files){
   return importSceneImages(files,({width,height})=>{
     const defaults=configuredSceneDefaults({});
-    return {width:defaults.width??width,height:defaults.height??height};
+    return {width,height,...foundry.utils.expandObject(defaults)};
   });
 }
 
