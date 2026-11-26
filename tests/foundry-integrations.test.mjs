@@ -37,17 +37,17 @@ test('directory export includes selected documents and canceled deletion perform
 
 test('scene defaults fill unset fields and pin appearance can override the world default',()=>{
   const choices=new Map([['sceneDefaultsEnabled',true],['sceneDefaultTokenVision',false],['sceneDefaultGlobalLight',true],['sceneDefaultGridType',0],['sceneDefaultGridSize',90],
-    ['sceneDefaultWidth',2400],['sceneDefaultHeight',1600],['sceneDefaultBackgroundColor','#000000'],['mapPinStyle','borderless']]);
+    ['sceneDefaultWidth',2400],['sceneDefaultHeight',1600],['sceneDefaultBackgroundColor','#000000'],['sceneDefaultFogExploration',false],['mapPinStyle','borderless']]);
   const {hooks}=fixture('foundry-scene-tools',{game:{user:{isGM:true},settings:{get:(_id,key)=>choices.get(key)}}});
   const writes=[];
   const document={updateSource:patch=>writes.push({...patch})};
   const create=hooks.get('preCreateScene');
   create(document,{},{});
-  create(document,{tokenVision:true,width:1600,backgroundColor:'#ffffff',grid:{type:2}},{});
+  create(document,{tokenVision:true,width:1600,backgroundColor:'#ffffff',grid:{type:2},fog:{exploration:true}},{});
   create(document,{_id:'imported'},{});
   create(document,{}, {fromCompendium:true});
   assert.deepEqual(writes,[
-    {width:2400,height:1600,backgroundColor:'#000000',tokenVision:false,'environment.globalLight.enabled':true,'grid.type':0,'grid.size':90},
+    {width:2400,height:1600,backgroundColor:'#000000',tokenVision:false,'fog.exploration':false,'environment.globalLight.enabled':true,'grid.type':0,'grid.size':90},
     {height:1600,'environment.globalLight.enabled':true,'grid.size':90}
   ]);
   const note={document:{flags:{}},controlIcon:{bg:{visible:true},border:{visible:true}}};
@@ -226,7 +226,7 @@ test('scene actions save the current camera and require GM authorization before 
 
 test('manual and dropped scene images share the same private batch import and do not overwrite same-name files',async()=>{
   const writes=[],uploads=[],notifications=[],urls=[];
-  const game={user:{id:'gm',isGM:true,can:()=>true},world:{id:'test-world'}};
+  const game={user:{id:'gm',isGM:true,can:()=>true},world:{id:'test-world'},settings:{get:()=>({})}};
   const picker={createDirectory:async()=>{},upload:async(_source,folder,file)=>{
     uploads.push(file.name);
     return {path:folder+'/'+file.name};
@@ -264,6 +264,66 @@ test('manual and dropped scene images share the same private batch import and do
   game.user.isGM=false;
   assert.equal(context.sceneImportControls(),'');
   await assert.rejects(context.importSceneImages(files,dimensions=>dimensions),/Only the GM/);
+});
+
+test('scene import saves access choices, activates the last success and uses the selected folder',async()=>{
+  const uploads=[],writes=[],activated=[];
+  const picker={browse:async()=>({files:[]}),upload:async(_source,folder,file)=>{
+    uploads.push([folder,file.name]);
+    return {path:folder+'/'+file.name};
+  }};
+  const options={directory:'assets/maps',navigation:true,playerAccess:true,activate:true,duplicates:'copy'};
+  const game={user:{id:'gm',isGM:true,can:()=>true},world:{id:'test-world'},settings:{get:()=>options}};
+  const {context}=fixture('scene-image-import',{game,File,filePickerClass:()=>picker,
+    Image:class{naturalWidth=900;naturalHeight=600;async decode(){}},URL:{createObjectURL:()=>'',revokeObjectURL(){}},
+    foundry:{utils:{randomID:()=>String(uploads.length+1)}},CONST:{DOCUMENT_OWNERSHIP_LEVELS:{LIMITED:1,NONE:0}},
+    getDocumentClass:()=>({create:async data=>{writes.push(data);return {name:data.name,activate:async()=>activated.push(data.name)};}}),
+    ui:{notifications:{info(){},warn:assert.fail}}
+  });
+  const files=['Old Road.png','Bree.png'].map(name=>new File(['map'],name,{type:'image/png'}));
+  const result=await context.importSceneImages(files,dimensions=>dimensions);
+  assert.equal(result.created,2);
+  assert.deepEqual(uploads,[['assets/maps','1.png'],['assets/maps','2.png']]);
+  assert.deepEqual(writes.map(scene=>[scene.navigation,scene.ownership.default,scene.active]),[[true,1,false],[true,1,false]]);
+  assert.deepEqual(activated,['Bree']);
+  assert.throws(()=>context.normalizeDirectory('../other'),/relative/);
+  assert.throws(()=>context.normalizeDirectory('assets/%2e%2e/maps'),/relative/);
+});
+
+test('scene import skips or reuses duplicates and asks before replacing an existing image',async()=>{
+  const writes=[],uploads=[],thumbnails=[];
+  let confirm=false;
+  const path='assets/maps/Bree.png';
+  const existing={id:'bree',name:'Bree',background:{src:path},update:async data=>writes.push({...data}),
+    createThumbnail:async({img})=>{thumbnails.push(img);return {thumb:'new thumbnail'};}};
+  const scenes=new Map([[existing.id,existing]]);
+  scenes.contents=[existing];
+  const game={user:{id:'gm',isGM:true,can:()=>true},world:{id:'test-world'},scenes};
+  const picker={browse:async()=>({files:[path]}),upload:async(_source,folder,file)=>{
+    uploads.push(file.name);return {path:folder+'/'+file.name};
+  }};
+  const {context}=fixture('scene-image-import',{game,File,filePickerClass:()=>picker,canvas:{ready:true},
+    dialogV2Class:()=>({confirm:async()=>confirm}),foundry:{utils:{escapeHTML:String,randomID:()=> 'new-image'}},
+    Image:class{
+      get naturalWidth(){return this.src===path?800:200;}
+      naturalHeight=300;
+      async decode(){}
+    },URL:{createObjectURL:()=> 'blob:file',revokeObjectURL(){}},
+    ui:{notifications:{info(){},warn:assert.fail}}
+  });
+  const file=new File(['map'],'Bree.png',{type:'image/png'});
+  const run=mode=>context.importSceneImages([file],dimensions=>dimensions,{directory:'assets/maps',duplicates:mode});
+  assert.equal((await run('skip')).skipped,1);
+  assert.equal((await run('reuse')).updated,1);
+  assert.deepEqual(writes,[{width:800,height:300,'background.src':path}]);
+  assert.equal((await run('replace')).skipped,1);
+  assert.deepEqual(uploads,[]);
+  assert.deepEqual(thumbnails,[]);
+  confirm=true;
+  assert.equal((await run('replace')).updated,1);
+  assert.deepEqual(uploads,['Bree.png']);
+  assert.deepEqual(thumbnails,[path+'?tome=new-image']);
+  assert.deepEqual(writes[1],{width:200,height:300,'background.src':path,thumb:'new thumbnail'});
 });
 
 test('scene image defaults use image size unless Tome explicitly configures the dimension',async()=>{
@@ -313,6 +373,45 @@ test('scene drop target lets canvas image drops reach the NPC handler and claims
   assert.equal(prevented,true);
   assert.equal(stopped,true);
   assert.deepEqual(imports,[file]);
+});
+
+test('the persistent Scenes sidebar target imports dropped images only for a GM with upload access',()=>{
+  const handlers=new Map(),imports=[],mounted=[],classes=new Set();
+  const pick={},input={};
+  const zone={dataset:{},classList:classes,querySelector:selector=>selector==='[data-scene-image-files]'?input:pick,remove:()=>mounted.pop(),
+    addEventListener:(name,fn)=>handlers.set(name,fn)};
+  classes.remove=key=>classes.delete(key);
+  const root={querySelector:selector=>selector==='.directory-footer'?{append:child=>mounted.push(child)}:mounted[0]};
+  const options={};
+  const game={user:{isGM:false,can:()=>true},settings:{get:()=>options}};
+  const {context}=fixture('scene-image-import',{game,document:{createElement:()=>zone}});
+  const create=async files=>imports.push(...files);
+  context.mountSceneDirectoryImport(root,create);
+  assert.equal(mounted.length,0);
+  game.user.isGM=true;
+  context.mountSceneDirectoryImport(root,create);
+  context.mountSceneDirectoryImport(root,create);
+  assert.deepEqual(mounted,[zone]);
+  const file=new File(['map'],'Bree.webp',{type:'image/webp'});
+  let prevented=0,stopped=0;
+  const drag={dataTransfer:{files:[file]},preventDefault:()=>prevented++,stopPropagation:()=>stopped++};
+  handlers.get('dragover')(drag);
+  assert.ok(classes.has('is-over'));
+  handlers.get('drop')(drag);
+  assert.ok(!classes.has('is-over'));
+  assert.deepEqual(imports,[file]);
+  game.user.can=()=>false;
+  handlers.get('drop')(drag);
+  assert.deepEqual(imports,[file]);
+  assert.equal(prevented,2);
+  assert.equal(stopped,2);
+  game.user.can=()=>true;
+  options.sidebarDrop=false;
+  context.mountSceneDirectoryImport(root,create);
+  assert.equal(mounted.length,0);
+  options.sidebarDrop=true;
+  context.mountSceneDirectoryImport(root,create);
+  assert.deepEqual(mounted,[zone]);
 });
 
 test('default book pins display a ring for World locations and parchment for notes without changing the document',async()=>{

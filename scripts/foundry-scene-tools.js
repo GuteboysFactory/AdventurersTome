@@ -1,4 +1,4 @@
-import {bindSceneImportInput,importSceneImages,installSceneDropTarget,sceneImportControls} from './scene-image-import.js';
+import {bindSceneImportInput,editSceneImportSettings,importSceneImages,installSceneDropTarget,mountSceneDirectoryImport,registerSceneImportSettings,sceneImportControls} from './scene-image-import.js';
 
 const ID='adventurers-tome';
 const PIN='notePinStyle';
@@ -53,6 +53,7 @@ function sceneDefaults(data,defaults){
   const color=String(defaults.backgroundColor??'').trim();
   if(data.backgroundColor===undefined&&/^#[\da-f]{6}$/i.test(color))patch.backgroundColor=color;
   if(data.tokenVision===undefined)patch.tokenVision=defaults.tokenVision;
+  if(data.fog?.exploration===undefined&&typeof defaults.fogExploration==='boolean')patch['fog.exploration']=defaults.fogExploration;
   if(data.environment?.globalLight?.enabled===undefined)patch['environment.globalLight.enabled']=defaults.globalLight;
   if(data.grid?.type===undefined)patch['grid.type']=defaults.gridType;
   if(data.grid?.size===undefined)patch['grid.size']=Math.max(50,Math.round(Number(defaults.gridSize)||100));
@@ -67,6 +68,7 @@ const SCENE_DEFAULT_FIELDS=[
   {key:'height',path:'height',label:'Height (px)',min:0},
   {key:'backgroundColor',path:'backgroundColor',label:'Background color',type:'text'},
   {key:'tokenVision',path:'tokenVision',label:'Token vision',type:'checkbox'},
+  {key:'fogExploration',path:'fog.exploration',label:'Fog exploration',type:'checkbox'},
   {key:'globalLight',path:'environment.globalLight.enabled',label:'Global illumination',type:'checkbox'}
 ];
 const sceneDefaultKey=key=>'sceneDefault'+key[0].toUpperCase()+key.slice(1);
@@ -222,6 +224,7 @@ async function editSceneNavigationSettings(){
     classes:['at-scene-navigation-settings'],rejectClose:false,
     content:`<fieldset><legend>Scene defaults</legend>
       <button type="button" data-edit-scene-defaults>Set defaults or update existing scenes…</button>
+      <button type="button" data-edit-scene-import>Image import settings…</button>
       </fieldset><fieldset><legend>Scenes panel</legend>
       <label><input type="checkbox" name="compact" ${game.settings.get(ID,'compactSceneNavigation')?'checked':''}> Use the compact scene bar on this client</label>
       ${select('folders','Show folders',audience)}${select('previous','Show Previous scene',audience)}
@@ -236,12 +239,14 @@ async function editSceneNavigationSettings(){
       ${select('directoryDensity','Scene row size',{normal:'Foundry default',compact:'Compact',icon:'Small thumbnail at the side',text:'Text only'})}
       </fieldset>`,
     render:(_event,app)=>{
-      const button=app.element.querySelector('[data-edit-scene-defaults]');
-      button.onclick=async()=>{
-        button.disabled=true;
-        try{await editSceneDefaults();}catch(error){fail(error);}
-        finally{button.disabled=false;}
-      };
+      for(const [selector,edit] of [['[data-edit-scene-defaults]',editSceneDefaults],['[data-edit-scene-import]',editSceneImportSettings]]){
+        const button=app.element.querySelector(selector);
+        button.onclick=async()=>{
+          button.disabled=true;
+          try{await edit();}catch(error){fail(error);}
+          finally{button.disabled=false;}
+        };
+      }
     },
     ok:{label:'Save navigation settings',callback:(_event,button)=>{
       const fields=button.form.elements;
@@ -446,22 +451,100 @@ function sceneAccessMode(scene,id){
   return Number(level)>=1?'show':'hide';
 }
 
+let sceneNavControls;
+
+function refreshSceneNavControls(){
+  sceneNavControls??=mountSceneNavControls();
+  const compact=game.settings.get(ID,'compactSceneNavigation');
+  sceneNavControls.toggle.textContent=compact?'Standard scenes':'Compact scenes';
+  sceneNavControls.toggle.setAttribute('aria-pressed',String(compact));
+  sceneNavControls.position();
+}
+
+function mountSceneNavControls(){
+  const key='sceneNavPosition';
+  const bar=document.createElement('div');
+  bar.dataset.tomeSceneNav='';
+  bar.setAttribute('role','group');
+  bar.setAttribute('aria-label','Scene navigation');
+  const grip=document.createElement('button');
+  grip.type='button';
+  grip.className='ui-control at-scene-nav-grip';
+  grip.title='Drag to move · Right-click to reset';
+  grip.setAttribute('aria-label','Move scene controls. Use arrow keys to move or Home to reset.');
+  grip.innerHTML='<i class="fa-solid fa-grip-vertical" aria-hidden="true"></i>';
+  const toggle=document.createElement('button');toggle.type='button';toggle.className='ui-control';
+  toggle.onclick=()=>void game.settings.set(ID,'compactSceneNavigation',!game.settings.get(ID,'compactSceneNavigation')).catch(fail);
+  const scenes=document.createElement('button');scenes.type='button';scenes.className='ui-control';scenes.textContent='Scenes';
+  scenes.onclick=()=>void openScenePanel().catch(fail);
+  bar.append(grip,toggle,scenes);
+  document.body.append(bar);
+
+  let saved=game.settings.get(ID,key),current,drag;
+  function position(point=saved){
+    const launcher=document.getElementById('adventurers-tome-launcher')?.getBoundingClientRect();
+    const alongside=launcher?.top>=0&&launcher.top<=72;
+    const width=bar.offsetWidth,height=bar.offsetHeight;
+    const left=Number.isFinite(point?.left)?point.left:alongside?launcher.right+10:Math.min(550,window.innerWidth*.42);
+    const top=Number.isFinite(point?.top)?point.top:alongside?launcher.top+(launcher.height-height)/2:24;
+    current={
+      left:Math.max(4,Math.min(left,window.innerWidth-width-4)),
+      top:Math.max(4,Math.min(top,window.innerHeight-height-4))
+    };
+    bar.style.transform=`translate3d(${current.left}px, ${current.top}px, 0)`;
+  }
+  const save=point=>{
+    saved=point;
+    position();
+    void game.settings.set(ID,key,point).catch(fail);
+  };
+  grip.addEventListener('pointerdown',event=>{
+    if(event.button!==0||drag)return;
+    drag={id:event.pointerId,x:event.clientX,y:event.clientY,...current,moved:false};
+    grip.setPointerCapture(event.pointerId);
+  });
+  grip.addEventListener('pointermove',event=>{
+    if(event.pointerId!==drag?.id)return;
+    const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+    if(!drag.moved&&Math.hypot(dx,dy)<3)return;
+    drag.moved=true;
+    position({left:drag.left+dx,top:drag.top+dy});
+  });
+  grip.addEventListener('pointerup',event=>{
+    if(event.pointerId!==drag?.id)return;
+    const {moved}=drag;
+    drag=null;
+    if(moved)save(current);
+  });
+  grip.addEventListener('lostpointercapture',event=>{
+    if(event.pointerId!==drag?.id)return;
+    drag=null;
+    position();
+  });
+  grip.addEventListener('contextmenu',event=>{
+    event.preventDefault();
+    save({});
+  });
+  const directions={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  grip.addEventListener('keydown',event=>{
+    if(event.key!=='Home'&&!Object.hasOwn(directions,event.key))return;
+    event.preventDefault();
+    event.stopPropagation();
+    if(event.key==='Home'){save({});return;}
+    const [dx,dy]=directions[event.key];
+    position({left:current.left+dx*12,top:current.top+dy*12});
+    save(current);
+  });
+  window.addEventListener('resize',()=>position());
+  return {toggle,position};
+}
+
 function renderSceneNav(_app,html){
   const root=html?.querySelector?html:html?.[0];
   const nav=root?.id==='scene-navigation'?root:root?.querySelector('#scene-navigation');
   if(!nav)return;
-  const compact=game.settings.get(ID,'compactSceneNavigation');
-  nav.dataset.tomeScenes=compact?'compact':'standard';
-  nav.querySelector('[data-tome-scene-nav]')?.remove();
-  const bar=document.createElement('div');bar.dataset.tomeSceneNav='';
-  const toggle=document.createElement('button');toggle.type='button';toggle.className='ui-control';
-  toggle.textContent=compact?'Standard scenes':'Compact scenes';
-  toggle.onclick=()=>void game.settings.set(ID,'compactSceneNavigation',!compact).catch(fail);
-  bar.append(toggle);
-  const scenes=document.createElement('button');scenes.type='button';scenes.className='ui-control';scenes.textContent='Scenes';
-  scenes.onclick=()=>void openScenePanel().catch(fail);
-  bar.append(scenes);
-  nav.append(bar);
+  nav.dataset.tomeScenes=game.settings.get(ID,'compactSceneNavigation')?'compact':'standard';
+  refreshSceneNavControls();
 }
 
 async function editSceneAccess(scene){
@@ -494,6 +577,7 @@ function renderSceneDirectory(app,html){
   if(!game.user.isGM||app.collection!==game.scenes)return;
   const root=html?.querySelector?html:html?.[0];
   if(!root)return;
+  mountSceneDirectoryImport(root,createScenesFromImages);
   const options=sceneOptions();
   root.dataset.tomeSceneDensity=options.directoryDensity;
   root.classList.toggle('at-scene-directory-artwork',options.directoryArtwork);
@@ -540,9 +624,11 @@ function renderSceneDirectory(app,html){
 }
 
 Hooks.once('init',()=>{
+  registerSceneImportSettings();
   const setting=(key,name,scope,type,value,options={})=>game.settings.register(ID,key,{name,scope,config:true,type,default:value,...options});
   setting('mapPinStyle','Map pin appearance','world',String,'standard',{choices:{standard:styles.standard,borderless:styles.borderless},onChange:()=>canvas?.notes?.placeables.forEach(applyPinStyle)});
   setting('compactSceneNavigation','Compact scene navigation','client',Boolean,false,{onChange:()=>ui.nav?.render()});
+  game.settings.register(ID,'sceneNavPosition',{scope:'client',config:false,type:Object,default:{}});
   game.settings.register(ID,FAVORITES,{scope:'user',config:false,type:Array,default:[]});
   game.settings.register(ID,NAV_OPTIONS,{scope:'world',config:false,type:Object,default:NAV_DEFAULTS,onChange:()=>{
     refreshScenePanel();
@@ -550,6 +636,7 @@ Hooks.once('init',()=>{
   }});
   setting('sceneDefaultsEnabled','Apply defaults to new scenes','world',Boolean,false);
   setting('sceneDefaultTokenVision','New scenes: token vision','world',Boolean,true);
+  setting('sceneDefaultFogExploration','New scenes: fog exploration','world',Boolean,true);
   setting('sceneDefaultGlobalLight','New scenes: global illumination','world',Boolean,false);
   setting('sceneDefaultGridType','New scenes: grid type','world',Number,0,{choices:GRID_TYPES});
   setting('sceneDefaultGridSize','New scenes: grid size (pixels)','world',Number,100,{range:{min:50,max:400,step:5}});
@@ -566,6 +653,7 @@ Hooks.on('drawNote',applyPinStyle);
 Hooks.on('refreshNote',applyPinStyle);
 Hooks.on('renderNoteConfig',pinField);
 Hooks.on('renderSceneNavigation',renderSceneNav);
+Hooks.on('adventurersTomeLauncherReady',refreshSceneNavControls);
 Hooks.on('renderSceneDirectory',renderSceneDirectory);
 Hooks.once('ready',()=>{
   const tome=game.modules.get(ID)?.api;

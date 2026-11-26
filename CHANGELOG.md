@@ -1,3 +1,10 @@
+## 2.1.10
+
+- Import scene images in batches from the Foundry Scenes sidebar. Choose an upload folder, player access, navigation, activation and how to handle duplicates.
+- Add fog exploration to scene defaults, refresh thumbnails after replacing backgrounds and let GMs hide the sidebar drop area.
+- Move Compact scenes and Scenes to the top of the map and save their position when dragged.
+- See [the 2.1.10 release notes](docs/V2.1.10_STABLE_RELEASE.md).
+
 ## 2.1.9
 
 - Expand Token Builder with 100 illustrated frames, 22 adjustable animations, a working diameter range, GM defaults and scrollable editor dialogs.

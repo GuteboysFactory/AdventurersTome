@@ -1,6 +1,6 @@
 # Adventurer’s Tome – användarmanual
 
-**Dokumenterad stabil version** är 2.1.9. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.9](V2.1.9_STABLE_RELEASE.md)
+**Dokumenterad stabil version** är 2.1.10. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.10](V2.1.10_STABLE_RELEASE.md)
 
 [English](MANUAL-EN.md) · [Svensk fördjupning](MANUAL-REFERENS.md)
 
@@ -219,7 +219,7 @@ För NPC:er, kontakter och föremål kan du även gå till **Campaign Tools → 
 ### Byt scen för dig själv med Compact scenes
 <!-- tome-manual compact-scenes|guide|all|compact scene navigation previous scene kompakt -->
 
-1. Titta på **Foundrys spelkarta**, där Foundry brukar visa scenernas namn. Klicka **Compact scenes** i den scenlisten. Hittar du inte knappen kan du slå på **Configure Settings → Adventurer’s Tome → Compact scene navigation**.
+1. Klicka **Compact scenes** högst upp på Foundrys spelkarta, bredvid Tome-knappen om den ligger där. Dra i handtaget för att flytta scenknapparna. Högerklicka på handtaget för att återställa placeringen. Du kan också slå på kompakt läge under **Configure Settings → Adventurer’s Tome → Compact scene navigation**.
 2. Den vanliga scenlisten ersätts av rullistan **Open scene for me…**. Välj en scen under dess Foundry-mapp. Scener utan mapp ligger under **Unfiled**. **Active** markerar scenen som är aktiv för bordet.
 3. När du väljer en scen byter du bara din egen kartvy. Vill du som GM flytta hela bordet använder du Foundrys **Scenes**-sidopanel, högerklickar på scenen och väljer **Activate**. Klicka **Standard scenes** om du vill ha tillbaka den vanliga listen. Varje användare väljer sitt eget läge.
 
@@ -229,13 +229,16 @@ Som GM använder du **Scenes → högerklicka på scenen → Scene access…** f
 <!-- tome-manual scene-image|guide|gm|scene express create scene here drag drop import bild scen fil -->
 
 1. Öppna **Scenes…** som GM och klicka **Create scenes from images…**. Välj en eller flera lokala bildfiler. Du behöver Foundrys behörighet att ladda upp filer.
-2. Alternativt dra en kartbild över spelkartan. Släpp den i **Create scene here** när rutan visas. I en Realm Guard-värld med bildsläpp för NPC:er kan du använda kartytan utanför rutan för NPC-flödet.
+2. Dra en eller flera kartbilder till släppytan längst ned i Foundrys **Scenes**-flik. Du kan också klicka på ytan för att välja filer. På spelkartan kan du släppa i **Create scene here** när rutan visas. I Realm Guard kan du använda kartytan utanför rutan för NPC-flödet.
 3. Sök efter den nya scenen på filnamnet i **Scenes**. Båda importvägarna använder dina aktiva scenförval, till exempel rutnät och bakgrundsfärg. Bildens mått används om egna mått saknas. Öppna med **Open for me** och aktivera scenen när du själv väljer det.
+4. Under **Scenes → Settings… → Image import settings…** kan du välja en befintlig uppladdningsmapp i Foundrys användardata och låta nya scener visas i navigeringen eller ge alla spelare åtkomst. **Activate the last imported scene for everyone** byter till den sista scen som importerades i omgången.
+5. Under **Existing image or scene** kan du välja att alltid skapa nytt med unikt bildfilnamn, hoppa över dubbletter, återanvända en befintlig bild eller ersätta den. Vid återanvändning eller ersättning uppdateras en entydig scen med samma namn. Tome frågar innan en befintlig bild skrivs över, eftersom andra scener kan använda den.
+6. Avmarkera **Show the drop area in Foundry’s Scenes tab** i importinställningarna om du vill dölja den fasta släppytan. Du kan fortfarande använda filväljaren och **Create scene here** på kartan. När en befintlig scen får en annan bild uppdateras också miniatyren om spelkartan är tillgänglig.
 
 ### Förval för nya scener
 <!-- tome-manual scene-defaults|tutorial|gm|scene defaults bulk grid gridless rutnät svart bakgrund massändra scene settings -->
 
-1. Öppna **Scenes → Settings… → Set defaults or update existing scenes…** som GM. Välj rutnät, rutstorlek, bredd, höjd, bakgrundsfärg, tokensyn och global belysning.
+1. Öppna **Scenes → Settings… → Set defaults or update existing scenes…** som GM. Välj rutnät, rutstorlek, bredd, höjd, bakgrundsfärg, tokensyn, utforskningsdimma och global belysning.
 2. Prova **Grid type → Gridless** och skriv exempelvis `#000000` under **Background color**. Använd **0** för en automatisk bredd eller höjd. Kryssa i **Apply saved defaults to new scenes**, klicka **Save defaults** och skapa en testscen för att kontrollera värdena.
 3. För att bara ändra rutnätet på två befintliga scener, kryssa **Apply to existing** vid **Grid type**. Välj **Apply to existing scenes…** och kryssa i de två scenerna. Välj **Review changes**, kontrollera fält och scener och bekräfta. Välj **All scenes in this world** när det faktiskt ska gälla hela världen.
 4. För att göra ett undantag på en enskild scen, öppna dess vanliga Foundry-inställningar och spara där.
@@ -406,6 +409,7 @@ För system- eller modulutvecklare finns det separata kontrakt för [Integration
 
 | Version | Dokumentation |
 | --- | --- |
+| **2.1.10** | Scenimport via Foundrys Scenes-flik, importval för GM, dubbletter och flyttbara scenknappar. |
 | **2.1.9** | Sökbar manual på svenska och engelska. Uppdaterade guider för ramval, animationer, spelaruppladdning och kampanjminnet. |
 | **2.1.8, manualuppdatering** | En samlad innehållssida med direktlänkar och stegvisa övningar för GM-verktygen. |
 | **2.1.8** | Uppdaterad guide för scenförval, scenimport, massändring, scenlänkar, chatt, förvaring och Token Builder. |

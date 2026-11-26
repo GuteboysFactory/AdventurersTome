@@ -1,8 +1,8 @@
 # Adventurer’s Tome user manual
 
-[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.9_STABLE_RELEASE.md)
+[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.10_STABLE_RELEASE.md)
 
-This manual covers stable Tome 2.1.9 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
+This manual covers stable Tome 2.1.10 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
 
 ## Contents
 
@@ -207,19 +207,22 @@ Open **Rules**, then **Create Rule** to write a house rule or **Link Existing** 
 ### Switch your own view with Compact scenes
 <!-- tome-manual compact-scenes|guide|all|compact scene navigation previous scene kompakt -->
 
-Click **Compact scenes** in Foundry’s scene bar, or enable **Compact scene navigation** in Tome’s module settings. Use **Open scene for me…** to browse by folder, including **Unfiled**. **Active** marks the table’s scene. Use **Standard scenes** to return to the normal scene bar.
+Click **Compact scenes** at the top of the Foundry canvas, beside the Tome launcher when it is there. Drag the grip to move the scene controls or right-click it to restore their position. You can also enable **Compact scene navigation** in Tome’s module settings. Use **Open scene for me…** to browse by folder, including **Unfiled**. **Active** marks the table’s scene. Use **Standard scenes** to return to the normal scene bar.
 
 ### Create scenes from image files
 <!-- tome-manual scene-image|guide|gm|scene express create scene here drag drop import bild scen fil -->
 
 1. Open **Scenes… → Create scenes from images…** and select one or more local image files. Foundry file upload permission is required.
-2. You can drag a map picture onto **Create scene here** on the canvas. In a Realm Guard world with NPC image drops, that tool uses the rest of the canvas.
+2. Drop one or more map pictures onto the area at the bottom of Foundry’s **Scenes** tab, or click the area to browse for files. On the canvas, drop onto **Create scene here**. Realm Guard’s NPC image drop uses the rest of the canvas.
 3. Find the new scene using the file name. Open it for yourself and check the artwork, dimensions and grid. Image dimensions apply where you did not set an override. Activate the scene when ready.
+4. Use **Scenes → Settings… → Image import settings…** to choose an existing upload folder in Foundry User Data, put new scenes in the navigation bar or grant player access. **Activate the last imported scene for everyone** switches the table to the final successful import.
+5. Under **Existing image or scene**, choose a new scene with a unique upload name, skip duplicates, reuse an existing image or replace it. Reuse and replacement update a single matching scene. Tome asks before overwriting an image that other scenes may also use.
+6. Clear **Show the drop area in Foundry’s Scenes tab** in the import settings to hide the fixed drop area. The file picker and **Create scene here** on the canvas remain available. Changing an existing scene’s image also refreshes its thumbnail when the canvas is available.
 
 ### Set scene defaults or change several scenes
 <!-- tome-manual scene-defaults|tutorial|gm|scene defaults bulk grid gridless rutnät svart bakgrund massändra scene settings -->
 
-1. Use **Scenes → Settings… → Set defaults or update existing scenes…**. Choose grid type and size, dimensions, background, token vision and global illumination.
+1. Use **Scenes → Settings… → Set defaults or update existing scenes…**. Choose grid type and size, dimensions, background, token vision, fog exploration and global illumination.
 2. Try **Grid type → Gridless**, a black background or automatic dimensions using `0`. Check **Apply saved defaults to new scenes**, click **Save defaults**, then make a test scene.
 3. To update existing scenes, check **Apply to existing** only beside fields you want changed. Select **Apply to existing scenes…**, choose scenes and click **Review changes**. Use **All scenes in this world** for a world-wide change.
 4. Configure a single Foundry Scene directly to make an exception.
@@ -348,6 +351,7 @@ Open **Sessions → Language Lab** to inspect language analysis. Test a Swedish 
 
 [Back to contents](#contents)
 
+- **2.1.10** adds guides for the Scenes sidebar drop area, import defaults and duplicate handling, and the movable scene controls.
 - **2.1.9** adds the searchable bilingual manual with updated guides for frames, animations, player uploads and Campaign Memory.
 - **2.1.8** covers the released workflows for scene navigation, scene import, bulk defaults, chat, storage, map links and Token Builder.
 - The current documentation adds bilingual guides, a searchable manual and an index of workflows by earlier module name.
