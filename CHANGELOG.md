@@ -1,3 +1,10 @@
+## 2.1.13
+
+- Animate Foundry rolls on the map and reveal each die in chat when it settles. Players can set their dice appearance, sounds and fade duration.
+- Add the numeric dice pool, the six Genesys narrative dice, and distinct Hope and Fear dice for Daggerheart.
+- Expose a presentation API for Realm Guard’s D6 rolls and other system integrations.
+- See [the 2.1.13 release notes](docs/V2.1.13_STABLE_RELEASE.md).
+
 ## 2.1.12
 
 - Limit Tome’s **Compact scenes** and **Scenes** controls to GMs. Players continue to use Foundry’s standard navigation for scenes they can access.

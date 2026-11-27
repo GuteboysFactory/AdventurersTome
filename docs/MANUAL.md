@@ -1,6 +1,6 @@
 # Adventurer’s Tome – användarmanual
 
-**Dokumenterad stabil version** är 2.1.12. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.12](V2.1.12_STABLE_RELEASE.md)
+**Dokumenterad stabil version** är 2.1.13. **Foundry-baslinjen** är 13.351. Menynamnen följer det engelska gränssnittet. [Versionsinformation för 2.1.13](V2.1.13_STABLE_RELEASE.md)
 
 [English](MANUAL-EN.md) · [Svensk fördjupning](MANUAL-REFERENS.md)
 
@@ -16,6 +16,7 @@ Välj vad du vill göra. Länkarna går direkt till instruktionerna. Du kan öpp
 | **Gruppflagga och resor** | [Sätt gruppens plats och ge en spelare flaggan](#börja-resan-och-ge-en-spelare-flaggan) · [Rita vägen och välj vad spelarna ser](#delmål-fri-väg-och-vad-spelarna-ser) · [Lägg till en händelse, dela gruppen eller läs resehistoriken](#händelser-delat-sällskap-och-historik) |
 | **Karaktärer, bilder och förvaring** | [Hitta gruppen och karaktärsbladet](#gruppen-karaktärsprofiler-och-token-builder) · [Byt porträtt eller helbild](#ändra-bild-på-en-karaktär-du-får-redigera) · [Bygg en karttoken med ram](#skapa-en-karttoken) · [Håll tokenbilden upprätt](#håll-tokenporträttet-upprätt) · [Flytta föremål mellan karaktär och förråd](#packdjur-basförråd-kistor-och-lådor) |
 | **Chatt, åtkomst och dokument** | [Skicka ett utdrag eller en viskning](#skicka-ett-utdrag-en-bild-eller-en-post) · [Välj vem som talar och visa tokenporträtt](#visa-tokenporträtt-och-välj-vem-som-talar) · [Se vem som har åtkomst och ändra den](#kontrollera-åtkomst-som-gm) · [Markera, flytta eller exportera flera dokument](#arbeta-med-flera-foundry-dokument) |
+| **Tärningar** | [Välj tärningarnas utseende och ljud](#välj-tärningarnas-utseende-och-ljud) |
 | **World, regler och analys** | [Skapa eller öppna en World-post](#lägg-till-och-använd-en-världspost) · [Bygg en regelreferens](#bygg-en-regelreferens) · [Välj mellan Search och Quick Search](#välj-rätt-sökning) · [Granska en identitetsmatchning och spara alternativa namn](#hjälp-tome-välja-rätt) · [Undersök språkstödet](#undersök-språkstödet-som-gm) |
 | **Import, felsökning och uppslagsverk** | [Importera en rapport eller ett paket](#importera-en-rapport-eller-ett-tome-paket) · [Flytta en kampanj mellan världar](#flytta-till-en-annan-värld) · [Felsök ett problem](#felsökning) · [Slå upp en tidigare Foundry-modul](MANUAL-REFERENS.md#gm-verktyg-efter-modulnamn) · [Öppna fördjupning och funktionsregister](MANUAL-REFERENS.md) · [Se manualens versionshistorik](#manualens-versionshistorik) |
 
@@ -167,6 +168,32 @@ World kan visas med ursprunglig mappstruktur, innehållsindelning eller egen str
 ## Dela i chatten och styr åtkomst
 
 [Till innehållet](#innehåll)
+
+### Välj tärningarnas utseende och ljud
+<!-- tome-manual dice-appearance|guide|all|tärningar tärningsbord dice table d6 färg färgväljare color colour picker material stål steel ben bone marmor marble sifferfärg ink tokenträff studs ljud collision bounce sound wise fate versus roll daggerheart duality hope fear genesys symboltärningar dice pool boost setback ability difficulty proficiency challenge triumph despair -->
+
+Från Tome 2.1.13 kan varje spelare välja tärningarnas utseende och ljud för sin egen vy.
+
+1. Öppna Tome, klicka på kugghjulet **Settings & Tools** och välj **Dice Settings**.
+2. Välj **D6 model** för att byta mellan fasad, klassisk rundad och skarpkantad. Under **D6 markings** kan du välja prickar eller siffror på alla modeller. **Model default** ger prickar på den klassiska modellen och siffror på de andra. I **Dice material** finns mörkt stål, ben, marmor och tolv fantasyteman. Förhandsvisningen visar hur dina val ser ut tillsammans.
+3. Klicka på färgrutan vid **Dice color** för att byta tärningens färg eller på rutan vid **Dice marking color** för att byta färg på prickarna eller siffrorna. **Use material color** återställer färgen för den raden. Klicka **Save** och slå en tärning för att se ditt val.
+4. Med **Play dice sounds** spelas ett inspelat kast per tärning. Tome varierar mellan tre klipp när flera tärningar rullar. Du hör också plastklacket när en tärning studsar mot en synlig token. Under **Token voices on dice hits** kan du välja **Every hit** (standard), **Occasionally** eller **Off**. Plastklacket hörs även med röstljuden avstängda.
+
+Med **Automatic** använder Tome Realm Guards **Inventory & Gear → Silhouette** för att välja röstgrupp. Karaktärsbladets förval **Male** gäller om spelaren ännu inte valt siluett. GM kan ändra eller stänga av rösten per token under **Appearance → Dice hit reaction**. För en NPC utan sparad siluett kan GM välja röst där. Tome väljer slumpmässigt bland klippen i den aktuella röstgruppen. Två röster ingår och GM kan välja fyra ytterligare ljudfiler under **Dice Settings → World voice clips**.
+
+För en egen reaktion, öppna tokenens **Appearance → Dice hit reaction**, välj **Custom sound** och bläddra till en ljudfil i Foundry. Spara tokenen. Ljudet spelas tillsammans med plastklacket enligt spelarens val av hur ofta reaktioner ska höras.
+
+Förhandsvisningen visar materialet på D2, D4, D6, D8, D10, D12, D20 eller D100. D2 visas som ett mynt. D100 visas som två D10 för tiotal och ental, och chatten visar värdet av hela kastet. Modell- och prickvalet gäller D6.
+
+I numeriska system som D&D öppnar tärningsknappen vid chatten **Dice Pool**. Klicka på en tärning för att lägga till en, eller skriv antalet direkt. Du kan blanda tärningstyper i samma slag. Realm Guard har kvar sin **Custom Roll** för D6, och en uppskjuten Versus-tiebreaker animerar båda poolerna på det befintliga chattkortet när båda har rullat.
+
+I det officiella **Daggerheart**-systemet gör du ett **Duality Roll** från karaktärsbladet som vanligt. Med Tomes tärningsbord aktiverat är **Hope** guldfärgad och **Fear** lila. Chatten visar vilken tärning som landat och dess värde. Daggerheart visar sedan sitt vanliga chattkort och hanterar reglerna för utfallet. **Dice Pool** vid chatten öppnar fria sifferslag, till exempel för skada.
+
+I **Genesys VTT** öppnar du **Tärningspool** via tärningsknappen vid chatten. Klicka på en färgad tärning för att lägga till en, eller skriv antalet direkt. Välj **Slå tärningarna** när poolen är klar. Vid offentliga slag från poolen eller karaktärsbladet visar Tome symbolerna i chatten när tärningarna landar. Genesys räknar ihop utfallet. Om du valt ett privat slag kan mottagarna läsa resultatet direkt. Om **Genesys Dice Forge** är aktivt sköter det animationen i Genesys-världen.
+
+Under **Fade duration** väljer du hur lång tid tärningarna tar på sig att tona ut efter resultatet, från 5 till 15 sekunder. Standard är 10 sekunder. Ett nytt kast tar bort de gamla tärningarna direkt.
+
+Du kan stänga av **Show dice on the map** och ändå följa slaget tärning för tärning i chatten. GM kan välja **Off · immediate result** under **Foundry → Configure Settings → Adventurer’s Tome → Dice table** för att stänga av tärningsbordet för världen och visa hela slaget direkt.
 
 ### Skicka ett utdrag, en bild eller en post
 <!-- tome-manual chat-share|guide|all|quick send to chat chat sharing whisper viska viskning dela utdrag selection -->
@@ -411,6 +438,7 @@ För system- eller modulutvecklare finns det separata kontrakt för [Integration
 
 | Version | Dokumentation |
 | --- | --- |
+| **2.1.13** | Animerat tärningsbord, numeriska pooler, Genesys symboltärningar och Daggerhearts Hope och Fear. |
 | **2.1.12** | Tomes scenknappar visas för GM. Spelare använder Foundrys vanliga scennavigering. |
 | **2.1.11** | Tokeneffekter utanför rutan, dold markeringskontur och synlig rullist i Token Builder. |
 | **2.1.10** | Scenimport via Foundrys Scenes-flik, importval för GM, dubbletter och flyttbara scenknappar. |

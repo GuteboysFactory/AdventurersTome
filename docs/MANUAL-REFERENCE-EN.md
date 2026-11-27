@@ -1,6 +1,6 @@
 # Adventurer’s Tome reference and feature index
 
-**Version 2.1.12.** [Manual contents](MANUAL-EN.md#contents) · [Svenska](MANUAL-REFERENS.md)
+**Version 2.1.13.** [Manual contents](MANUAL-EN.md#contents) · [Svenska](MANUAL-REFERENS.md)
 
 ## Contents
 

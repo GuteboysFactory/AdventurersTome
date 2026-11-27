@@ -42,6 +42,7 @@ test('manual search uses both languages, aliases and instructions with appropria
       ['map-markers','backgroundless pins'],
       ['private-token-note','skrivlage ctrl'],
       ['token-builder','outer thickness utsmyckning'],
+      ['dice-appearance','färgväljare token collision'],
       ['access','who can see observer'],
       ['scene-navigation','previous scene flytta spelarna'],
       ['quick-search','compendium kortkommando']

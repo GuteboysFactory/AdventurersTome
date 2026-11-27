@@ -76,6 +76,7 @@
     <div class="at-gm-top-actions">
       <button type="button" class="at-icon-button {{#if isManual}}active{{/if}}" title="Adventurer's Tome Manual" data-action="openManual"><i class="fa-solid fa-circle-question"></i></button>
       <details class="at-tools-menu"><summary class="at-icon-button at-settings-critical" title="Settings & Tools" aria-label="Settings & Tools"><i class="fa-solid fa-gear"></i></summary><div class="at-tools-menu-items">
+        <button type="button" data-action="openDiceSettings"><i class="fa-solid fa-dice" aria-hidden="true"></i> {{diceSettingsLabel}}</button>
         <button type="button" data-action="openMigration"><i class="fa-solid fa-arrows-rotate"></i> Import &amp; Export</button>
         {{#if isGM}}<button type="button" data-action="openMigration" data-transfer-tab="export" data-transfer-kind="gm-private"><i class="fa-solid fa-vault"></i> Export GM Notes &amp; Vault</button><button type="button" data-action="openSettings"><i class="fa-solid fa-gear"></i> Campaign Settings</button>{{else}}<button type="button" data-action="openMigration" data-transfer-tab="export"><i class="fa-solid fa-book"></i> Export my Chronicle</button>{{/if}}
       </div></details>

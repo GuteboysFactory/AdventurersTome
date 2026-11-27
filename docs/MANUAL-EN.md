@@ -1,8 +1,8 @@
 # Adventurer’s Tome user manual
 
-[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.12_STABLE_RELEASE.md)
+[Svenska](MANUAL.md) · [English reference](MANUAL-REFERENCE-EN.md) · [Release notes](V2.1.13_STABLE_RELEASE.md)
 
-This manual covers stable Tome 2.1.12 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
+This manual covers stable Tome 2.1.13 on Foundry 13.351. Click the question mark in Tome for language selection, full-text search, quick guides and tutorials.
 
 ## Contents
 
@@ -12,6 +12,7 @@ This manual covers stable Tome 2.1.12 on Foundry 13.351. Click the question mark
 | Running a session | [Read a session](#find-and-read-a-session) · [Write or import](#write-or-import-a-session-as-gm) · [Manage a quest](#create-and-update-a-quest-as-gm) · [GM workflow](#gm-notes-and-session-workflow) |
 | Characters | [Profiles and sheets](#characters-and-token-builder) · [Portraits](#change-character-artwork) · [Token Builder](#build-a-map-token) · [Upright tokens](#keep-token-artwork-upright) · [Storage](#pack-animals-base-storage-and-containers) |
 | Sharing and access | [Send an excerpt](#send-an-excerpt-image-or-entry) · [Speak as a character](#show-token-portraits-and-choose-a-speaker) · [Review access](#review-access-as-gm) · [Select documents](#work-with-several-foundry-documents) |
+| Dice | [Choose dice appearance and sounds](#choose-dice-appearance-and-sounds) |
 | Scenes and travel | [Open and activate scenes](#open-scenes-and-move-the-party) · [Compact scenes](#switch-your-own-view-with-compact-scenes) · [Import scene images](#create-scenes-from-image-files) · [Scene defaults](#set-scene-defaults-or-change-several-scenes) · [Map markers](#place-a-pin-or-link-a-scene) |
 | Party flag and routes | [Assign the flag](#start-a-journey-and-assign-the-flag) · [Draw a route and share a goal](#set-waypoints-draw-the-route-and-share-the-goal) · [Events, split parties and history](#marker-events-split-parties-and-travel-history) |
 | Campaign knowledge | [World](#create-and-use-a-world-entry) · [Rules](#build-a-rule-reference) · [Search](#choose-the-right-search) · [Identity review](#help-tome-choose-the-right-identity) · [Language Lab](#inspect-language-support-as-gm) |
@@ -159,6 +160,32 @@ Open **Rules**, then **Create Rule** to write a house rule or **Link Existing** 
 ## Chat and document access
 
 [Back to contents](#contents)
+
+### Choose dice appearance and sounds
+<!-- tome-manual dice-appearance|guide|all|tärningar tärningsbord dice table d6 färg färgväljare color colour picker material stål steel ben bone marmor marble sifferfärg ink tokenträff studs ljud collision bounce sound wise fate versus roll daggerheart duality hope fear genesys symboltärningar dice pool boost setback ability difficulty proficiency challenge triumph despair -->
+
+Starting in Tome 2.1.13, each player can choose dice appearance and sounds for their own view.
+
+1. Open Tome, click the **Settings & Tools** gear, and choose **Dice Settings**.
+2. Choose **D6 model** to switch between beveled, classic rounded and sharp-edged. Use **D6 markings** to choose pips or numbers on any model. **Model default** uses pips on the classic model and numbers on the others. **Dice material** includes dark steel, bone, marble and twelve fantasy themes. The preview shows how your choices look together.
+3. Click the swatch next to **Dice color** to change the dice or **Dice marking color** to change the pips or numbers. **Use material color** restores that row’s default. Click **Save** and roll a die to see your selection.
+4. **Play dice sounds** plays one recorded roll per die. Tome varies among three clips when several dice roll. You also hear a plastic clack when a die bounces off a visible token. Under **Token voices on dice hits**, choose **Every hit** (default), **Occasionally**, or **Off**. The clack still plays with voices turned off.
+
+With **Automatic**, Tome uses Realm Guard’s **Inventory & Gear → Silhouette** to select a voice group. The sheet’s default **Male** applies when the player has yet to choose a silhouette. The GM can override or disable the reaction per token under **Appearance → Dice hit reaction**. For an NPC without a saved silhouette, the GM can assign a voice there. Tome picks a clip at random from the selected voice group. Tome includes two voice clips. The GM can choose four more audio files under **Dice Settings → World voice clips**.
+
+For a custom reaction, open the token’s **Appearance → Dice hit reaction**, select **Custom sound**, and browse to an audio file in Foundry. Save the token. The clip plays alongside the clack according to the player’s reaction frequency setting.
+
+The preview shows your material on a D2, D4, D6, D8, D10, D12, D20 or D100. D2 is a coin. D100 is a pair of D10s for tens and ones, while chat shows the full result. Model and pip choices apply to D6.
+
+In numeric systems such as D&D, use the dice button beside the chat entry to open **Dice Pool**. Click a die to add one, or enter its count directly. You can mix die types in one roll. Realm Guard keeps its D6 **Custom Roll**, and a deferred Versus tiebreaker animates both pools on the existing card once both sides have rolled.
+
+In the official **Daggerheart** system, make a **Duality Roll** from the character sheet as usual. With Tome’s dice table enabled, **Hope** appears in gold and **Fear** in purple. Chat identifies each die and shows its value when it settles. Daggerheart then displays its own chat card and handles the outcome. Use **Dice Pool** beside chat for free numeric rolls such as damage.
+
+In **Genesys VTT**, open **Dice Pool** using the dice button beside chat. Click a colored die to add one, or enter the count directly. Select **Roll Dice** when the pool is ready. For public rolls from the pool or the character sheet, Tome reveals each die’s symbols in chat as it settles. Genesys calculates the result. Recipients can read private results immediately. When **Genesys Dice Forge** is active, it handles the animation in the Genesys world.
+
+Use **Fade duration** to choose how long the dice take to fade after the result, from 5 to 15 seconds. The default is 10 seconds. A new roll clears the previous dice immediately.
+
+Turn off **Show dice on the map** to follow each die in chat with the map animation disabled. The GM can choose **Off · immediate result** under **Foundry → Configure Settings → Adventurer’s Tome → Dice table** to disable the table for the world and show the full roll immediately.
 
 ### Send an excerpt, image or entry
 <!-- tome-manual chat-share|guide|all|quick send to chat chat sharing whisper viska viskning dela utdrag selection -->
@@ -353,6 +380,7 @@ Open **Sessions → Language Lab** to inspect language analysis. Test a Swedish 
 
 [Back to contents](#contents)
 
+- **2.1.13** covers the animated dice table, numeric pools, Genesys narrative dice and Daggerheart’s Hope and Fear.
 - **2.1.12** covers the GM scene controls. Players use Foundry’s standard scene navigation.
 - **2.1.11** covers token effects beyond the grid square, the hidden selection outline and Token Builder’s scrollbar.
 - **2.1.10** adds guides for the Scenes sidebar drop area, import defaults and duplicate handling, and the movable scene controls.

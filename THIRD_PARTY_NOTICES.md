@@ -1,5 +1,14 @@
 # Third-Party Notices
 
+## Dice table sound effects
+
+- `assets/dice/table.wav` and `assets/dice/token.wav` include edited fragments of [Wooden dice on wodden table roll by Wuzzy](https://opengameart.org/content/wooden-dice-on-wodden-table-roll), CC0.
+- `assets/dice/roll-1.wav` is a trimmed and leveled clip from [rolling dice 2 by nettimato](https://freesound.org/people/nettimato/sounds/353974/), CC0.
+- `assets/dice/roll-2.wav` is a trimmed and leveled clip from [Dice_Roll by schoman3](https://freesound.org/people/schoman3/sounds/506914/), CC0.
+- `assets/dice/roll-3.wav` is a trimmed and leveled clip from [dice by JayeWilde](https://freesound.org/people/JayeWilde/sounds/505549/), CC0.
+- `assets/dice/voice-male-1.wav` combines [Grunt by nomiqbomi](https://freesound.org/people/nomiqbomi/sounds/578788/) and [HEY VERY LOW 4 by metrostock99](https://freesound.org/people/metrostock99/sounds/345083/), CC0.
+- `assets/dice/voice-female-1.wav` is an edited version of [Ouch ! by Legnalegna55](https://freesound.org/people/Legnalegna55/sounds/547344/), CC0.
+
 ## Portable Vault cryptography
 
 The HTTP-compatible AES-GCM / PBKDF2-SHA-256 path uses @noble/hashes 1.8.0

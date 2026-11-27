@@ -5266,6 +5266,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       matchingPreferences: this._onMatchingPreferences,
       editIdentityAliases: this._onEditIdentityAliases,
       openSettings: this._onOpenSettings,
+      openDiceSettings: this._onOpenDiceSettings,
       editAccess: this._onEditAccess,
       cancelAccess: this._onCancelAccess,
       saveAccess: this._onSaveAccess,
@@ -6156,6 +6157,7 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isProfileEditing: this.activeTab === "profile" && Boolean(profileView) && this.profileEditing && game.user.isGM,
       isPrivateVaultMode: game.user.isGM && this.activeTab === "profile" && Boolean(profileView) && this.profileEditing && this._privateVaultActorId === profileView.id,
       isGM: game.user.isGM,
+      diceSettingsLabel: game.i18n?.localize?.("AT.DiceTable.Settings") || "Dice Settings",
       settings,
       profileView,
       profileEditor,
@@ -7774,6 +7776,12 @@ class AdventurersTomeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if (requestedSection) this.settingsSection = requestedSection;
     this.activeTab = "settings";
     await this.render({ parts: ["main"] });
+  }
+
+  static async _onOpenDiceSettings(_event, target) {
+    const menu = target?.closest?.("details.at-tools-menu");
+    if (menu) menu.open = false;
+    return game.modules.get(MODULE_ID)?.api?.diceTable?.openSettings?.();
   }
 
   static async _onOpenProfile(_event, target) {
